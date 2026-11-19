@@ -192,22 +192,24 @@ jobs:
           # OCR in English and French, and a test video through each installed encoder
           $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
 
-      - name: Check Androidbox
+      - name: Check Androidbox installs for a user
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          if ! grep -qE '^ +- androidbox\.sh' recipes/recipe.yml; then
-            echo "Androidbox is switched off in recipes/recipe.yml right now; nothing to check."; exit 0
-          fi
-          # Installed from the release the build recorded, with its command, menu entry and icon
-          $SSH 'cat /usr/lib/androidbox/ANDROIDBOX_RELEASE; ls -l /usr/bin/androidbox /usr/share/applications/dev.wolklaw.Androidbox.desktop /usr/share/icons/hicolor/256x256/apps/androidbox.png'
-          $SSH 'command -v desktop-file-validate >/dev/null && desktop-file-validate /usr/share/applications/dev.wolklaw.Androidbox.desktop; QT_QPA_PLATFORM=offscreen androidbox --version' | tee "$WORK/androidbox-version.txt"
+          # Androidbox isn't in the image; SparkOS ships what it needs so a user can install it.
+          # Do exactly what a user would: latest release, its installer with --user, no root.
+          $SSH 'set -e
+                tag=$(curl -fsSI https://github.com/Wolklaw/Androidbox/releases/latest | tr -d "\r" | sed -n "s|^[Ll]ocation: .*/releases/tag/||p" | tail -1)
+                echo "Androidbox latest release: $tag"
+                mkdir -p /tmp/abx && curl -fsSL "https://github.com/Wolklaw/Androidbox/archive/refs/tags/$tag.tar.gz" | tar -xz -C /tmp/abx
+                bash /tmp/abx/*/packaging/linux/install.sh --user' 2>&1 | tee "$WORK/androidbox-install.txt"
+          $SSH 'QT_QPA_PLATFORM=offscreen ~/.local/bin/androidbox --version' | tee "$WORK/androidbox-version.txt"
           grep -q '^Androidbox [0-9]' "$WORK/androidbox-version.txt"
-          # Qt's window plugin and Python's SDL binding find their libraries
-          $SSH 'ldd /usr/lib/androidbox/venv/lib/python3*/site-packages/PySide6/Qt/plugins/platforms/libqxcb.so | grep "not found" || echo "androidbox: no missing libraries"' | tee "$WORK/androidbox-ldd.txt"
+          $SSH 'test -f ~/.local/share/applications/dev.wolklaw.Androidbox.desktop && echo "menu entry present"'
+          # Qt's window plugin finds its libraries
+          $SSH 'ldd ~/.local/share/androidbox-app/venv/lib/python3*/site-packages/PySide6/Qt/plugins/platforms/libqxcb.so | grep "not found" || echo "androidbox: no missing libraries"' | tee "$WORK/androidbox-ldd.txt"
           ! grep -q 'not found' "$WORK/androidbox-ldd.txt"
-          $SSH 'ldconfig -p | grep -q libSDL2-2.0.so.0 && echo "SDL2 present"'
           # It opens and stays open with no Android installed, and writes no crash log
-          $SSH 'export ANDROIDBOX_HOME=$(mktemp -d) QT_QPA_PLATFORM=offscreen; timeout 12 androidbox; code=$?; test -f "$ANDROIDBOX_HOME/data/crash.log" && { cat "$ANDROIDBOX_HOME/data/crash.log"; exit 1; }; test $code -eq 124 && echo "androidbox stayed open"'
+          $SSH 'export ANDROIDBOX_HOME=$(mktemp -d) QT_QPA_PLATFORM=offscreen; timeout 12 ~/.local/bin/androidbox; code=$?; test -f "$ANDROIDBOX_HOME/data/crash.log" && { cat "$ANDROIDBOX_HOME/data/crash.log"; exit 1; }; test $code -eq 124 && echo "androidbox stayed open"'
           # KVM may not exist inside this test VM, so only report it
           $SSH 'ls -l /dev/kvm 2>&1 || true'
 
