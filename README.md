@@ -2,15 +2,17 @@
 
 A Linux desktop for gaming and everyday work, built on [Bazzite](https://bazzite.gg) with [BlueBuild](https://blue-build.org).
 
-Status: early and personal. The image builds, but it hasn't been tested in a VM or on real hardware yet. See [PLAN.md](PLAN.md) for the roadmap.
+Status: early and personal. Every build is booted in a VM by CI ([boot-test](.github/workflows/boot-test.yml)), which checks the system name, the signed image, the preinstalled apps and the default apps. It hasn't run on real hardware yet. See [PLAN.md](PLAN.md) for the roadmap.
 
 ## What it adds to Bazzite
 
 | | |
 |---|---|
 | From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers |
-| Added by SparkOS | Heroic Games Launcher (Epic, GOG, Amazon), ONLYOFFICE (documents, spreadsheets, slides), SparkOS name |
-| Planned | [Soot](https://github.com/Wolklaw/Soot) browser and [FreeSuite](https://github.com/Wolklaw/freesuite-releases) preinstalled (both need Linux builds first), first-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
+| Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) 0.2.0 as the default browser, [FreeSuite](https://github.com/Wolklaw/freesuite-releases) 0.4.0 for mail, documents, sheets, slides, PDF and calendar (default for those files), Heroic Games Launcher (Epic, GOG, Amazon), ONLYOFFICE for .doc/.xls/.ppt and OpenDocument files, SparkOS name |
+| Planned | First-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
+
+Soot and FreeSuite's Linux versions are new. Both pass the automated checks, but neither has been used by hand on a SparkOS desktop yet.
 
 Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 

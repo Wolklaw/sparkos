@@ -6,7 +6,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 
 ## Status (2026-11-19)
 - **Phase 0: done.** Repo `Wolklaw/sparkos` is public, the cosign key is in `SIGNING_SECRET` (a local copy is in the git-ignored `cosign.key`), and the first CI build passed in about 5 minutes. `ghcr.io/wolklaw/sparkos:latest` is public, and its signature verifies against `cosign.pub`.
-- **Phase 1: image built, VM test not done yet.** Follow [docs/vm-test.md](docs/vm-test.md).
+- **Phase 1: done in CI.** The boot-test workflow boots every build in QEMU/KVM on GitHub. Local VirtualBox testing on this PC froze because Windows' Memory Integrity holds the CPU's virtualization. [docs/vm-test.md](docs/vm-test.md) stays as the manual path for a PC without that.
 - Renamed from WolkOS to SparkOS on 2026-11-19: the repo is now `Wolklaw/sparkos` (GitHub redirects the old URL) and the image is `ghcr.io/wolklaw/sparkos`. The old `ghcr.io/wolklaw/wolkos` image is no longer updated. The local folder is still named `WolkOS`.
 - Note: only the visible name changes to SparkOS. `ID=bazzite` and Bazzite's `image-info.json` stay as they are, because Bazzite's own tools read them. Bazzite's rollback helper therefore offers stock Bazzite images, which is a fine way out if SparkOS ever breaks.
 
@@ -24,9 +24,10 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 
 1. **Base image:** `ghcr.io/ublue-os/bazzite:stable` (KDE Plasma, AMD/Intel). It already includes Steam, gamescope, Lutris and current Mesa.
 2. **Your own apps ship preinstalled:** **Soot** as the browser and **FreeSuite** as the office suite (mail, documents, sheets, slides, PDF). Both are Windows-only today, so each needs a Linux build first:
-   - **Soot:** a port brief is waiting in `E:\Personal Projects\WolkNet\SPARKOS-LINUX-PORT.md`. You'll say when Soot is ready for it. It produces `linux/install.sh`, and the SparkOS recipe will pin a Soot ref and run that script at build time.
-   - **FreeSuite:** a brief is waiting in `E:\Personal Projects\agent-test2\freesuite-desktop\SPARKOS-LINUX-PORT.md`, for after the current rewrite. It's Electron with pure-JS dependencies, so a Linux build is realistic.
-   - **Until FreeSuite is ready:** ONLYOFFICE stays in the image so Office files open on day one. It comes out when FreeSuite lands.
+   - **Soot 0.2.0: in the image** (`files/scripts/soot.sh`, pinned to commit `24150cf`). It installs to `/usr/lib/soot` and is the default browser.
+   - **FreeSuite 0.4.0: in the image** (`files/scripts/freesuite.sh`, pinned by SHA-256). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, .docx/.xlsx/.csv/.pptx and PDF.
+   - **ONLYOFFICE stays** for .doc, .xls, .ppt and OpenDocument files, which FreeSuite doesn't open. Remove it whenever you like.
+   - **To update either app:** bump the version and commit (or SHA-256) in its script.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**
    - **Chosen: E:, after its games are uninstalled.** In Phase 5, uninstall the Windows games on E: (Steam, Epic, Battle.net and Xbox app), then shrink E: in Disk Management (run as admin) and install SparkOS into the freed space. Uninstall the Xbox app's games through the Xbox app itself. Their protected `WindowsApps`/`XboxGames` files are what usually block a shrink.
    - **How big:** E: is 954 GB. Keep enough NTFS space for `Personal Projects` plus room to grow, and give the rest (likely 600–800 GB) to SparkOS. Measure the size of `Personal Projects` at that point to decide.

@@ -18,6 +18,9 @@ modules:
   - type: script
     scripts:
       - sparkos-identity.sh # shows "SparkOS" as the system name
+      - soot.sh # Soot browser, pinned release
+      - freesuite.sh # FreeSuite office apps, pinned release
+      - sparkos-defaults.sh # Soot and FreeSuite as default apps
 
   - type: default-flatpaks
     configurations:
@@ -25,7 +28,7 @@ modules:
         scope: system
         install:
           - com.heroicgameslauncher.hgl # Epic, GOG and Amazon games
-          - org.onlyoffice.desktopeditors # documents, spreadsheets, slides
+          - org.onlyoffice.desktopeditors # for .doc/.xls/.ppt and OpenDocument, which FreeSuite doesn't open
       - scope: user # adds the Flathub user remote, no user apps
 
   - type: signing # installs the signing policy so signed updates verify

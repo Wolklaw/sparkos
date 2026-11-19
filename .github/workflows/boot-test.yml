@@ -117,10 +117,28 @@ jobs:
           grep -q '^NAME="SparkOS"$' "$WORK/os-release.txt"
           $SSH 'rpm-ostree status' | tee "$WORK/rpm-ostree-status.txt"
           grep -q 'ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
-          $SSH 'jq ".transports.docker[\"ghcr.io/wolklaw/sparkos\"]" /etc/containers/policy.json' | tee "$WORK/policy.txt"
+          grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
+          $SSH 'jq -c ".transports.docker | to_entries[] | select(.key | test(\"wolklaw\"))" /etc/containers/policy.json; ls -l /etc/pki/containers/' | tee "$WORK/policy.txt"
           grep -q 'sigstoreSigned' "$WORK/policy.txt"
-          $SSH 'test -f /etc/pki/containers/sparkos.pub && echo "signing key present"'
           $SSH 'rpm -q steam lutris gamescope mangohud 2>&1; flatpak --version'
+
+      - name: Check Soot and FreeSuite
+        run: |
+          # Installed, with no missing libraries
+          $SSH 'ls -l /usr/bin/soot /usr/bin/freesuite; readlink -f /usr/bin/soot /usr/bin/freesuite; ls -l /var/opt/freesuite'
+          $SSH 'ldd /usr/lib/soot/engine/libxul.so | grep "not found" || echo "soot: no missing libraries"' | tee "$WORK/soot-ldd.txt"
+          $SSH 'ldd /usr/lib/opt/freesuite/freesuite-bin | grep "not found" || echo "freesuite: no missing libraries"' | tee "$WORK/freesuite-ldd.txt"
+          ! grep -q 'not found' "$WORK/soot-ldd.txt" "$WORK/freesuite-ldd.txt"
+          $SSH 'stat -c "%A %U %n" /usr/lib/opt/freesuite/chrome-sandbox'
+          # Default apps, as the user sees them
+          $SSH 'for m in x-scheme-handler/https text/html x-scheme-handler/mailto application/pdf application/vnd.openxmlformats-officedocument.wordprocessingml.document; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/defaults.txt"
+          grep -q 'x-scheme-handler/https -> dev.wolklaw.Soot.desktop' "$WORK/defaults.txt"
+          grep -q 'application/pdf -> freesuite-pdf.desktop' "$WORK/defaults.txt"
+          # Soot's own headless smoke test, from the same pinned commit
+          SOOT_COMMIT=$(sed -n 's/^SOOT_COMMIT=\([0-9a-f]*\).*/\1/p' files/scripts/soot.sh)
+          curl -fsSL -o "$WORK/smoke-test.py" "https://raw.githubusercontent.com/Wolklaw/Soot/$SOOT_COMMIT/linux/smoke-test.py"
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 "$WORK/smoke-test.py" spark@127.0.0.1:/tmp/smoke-test.py
+          $SSH 'python3 /tmp/smoke-test.py --soot /usr/bin/soot' 2>&1 | tee "$WORK/soot-smoke-test.txt"
 
       - name: Wait for preinstalled Flatpaks
         run: |
