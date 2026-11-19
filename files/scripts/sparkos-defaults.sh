@@ -1,31 +1,60 @@
 #!/usr/bin/env bash
-# Default apps for everyone: Soot for the web, FreeSuite for mail, calendar and the
-# formats it opens. Lines are added to Bazzite's /etc/xdg/mimeapps.list so its own
-# entries stay. ONLYOFFICE stays installed for formats FreeSuite doesn't open
-# (.doc, .xls, .ppt and OpenDocument files). A user's own choices still win.
+# Default apps for everyone: Soot for the web, FreeSuite for mail, calendar, PDF and every
+# office format it opens (Word, Excel, PowerPoint, old and new, OpenDocument, RTF, CSV).
+# Lines are added to Bazzite's /etc/xdg/mimeapps.list so its own entries stay.
+# Plain text and Markdown stay with Kate. ONLYOFFICE stays installed and can still be
+# picked under "Open with". A user's own choices still win.
 set -oue pipefail
 
 LIST=/etc/xdg/mimeapps.list
 touch "$LIST"
 grep -q '^\[Default Applications\]' "$LIST" || printf '[Default Applications]\n' >> "$LIST"
 
-add() { # mime-type desktop-file
-  sed -i "/^$(printf '%s' "$1" | sed 's/[\/&.]/\\&/g')=/d" "$LIST"   # '+' is literal in sed's basic syntax
-  sed -i "/^\[Default Applications\]/a $1=$2" "$LIST"
+add() { # desktop-file mime-type...
+  local app=$1; shift
+  for mime in "$@"; do
+    sed -i "/^$(printf '%s' "$mime" | sed 's/[\/&.]/\\&/g')=/d" "$LIST"   # '+' is literal in sed's basic syntax
+    sed -i "/^\[Default Applications\]/a $mime=$app" "$LIST"
+  done
 }
 
-add x-scheme-handler/http   dev.wolklaw.Soot.desktop
-add x-scheme-handler/https  dev.wolklaw.Soot.desktop
-add text/html               dev.wolklaw.Soot.desktop
-add application/xhtml+xml   dev.wolklaw.Soot.desktop
+add dev.wolklaw.Soot.desktop \
+  x-scheme-handler/http x-scheme-handler/https text/html application/xhtml+xml
 
-add x-scheme-handler/mailto freesuite-mail.desktop
-add text/calendar           freesuite-calendar.desktop
-add application/vnd.openxmlformats-officedocument.wordprocessingml.document   freesuite-writer.desktop
-add application/vnd.openxmlformats-officedocument.spreadsheetml.sheet         freesuite-sheets.desktop
-add text/csv                freesuite-sheets.desktop
-add application/vnd.openxmlformats-officedocument.presentationml.presentation freesuite-slides.desktop
-add application/pdf         freesuite-pdf.desktop
+add freesuite-mail.desktop     x-scheme-handler/mailto
+add freesuite-calendar.desktop text/calendar
+add freesuite-pdf.desktop      application/pdf
+
+add freesuite-writer.desktop \
+  application/vnd.openxmlformats-officedocument.wordprocessingml.document \
+  application/vnd.openxmlformats-officedocument.wordprocessingml.template \
+  application/vnd.ms-word.document.macroEnabled.12 \
+  application/vnd.ms-word.template.macroEnabled.12 \
+  application/msword \
+  application/vnd.oasis.opendocument.text \
+  application/vnd.oasis.opendocument.text-template \
+  application/rtf text/rtf
+
+add freesuite-sheets.desktop \
+  application/vnd.openxmlformats-officedocument.spreadsheetml.sheet \
+  application/vnd.openxmlformats-officedocument.spreadsheetml.template \
+  application/vnd.ms-excel.sheet.macroEnabled.12 \
+  application/vnd.ms-excel.template.macroEnabled.12 \
+  application/vnd.ms-excel \
+  application/vnd.oasis.opendocument.spreadsheet \
+  application/vnd.oasis.opendocument.spreadsheet-template \
+  text/csv text/tab-separated-values
+
+add freesuite-slides.desktop \
+  application/vnd.openxmlformats-officedocument.presentationml.presentation \
+  application/vnd.openxmlformats-officedocument.presentationml.slideshow \
+  application/vnd.openxmlformats-officedocument.presentationml.template \
+  application/vnd.ms-powerpoint.presentation.macroEnabled.12 \
+  application/vnd.ms-powerpoint.slideshow.macroEnabled.12 \
+  application/vnd.ms-powerpoint.template.macroEnabled.12 \
+  application/vnd.ms-powerpoint \
+  application/vnd.oasis.opendocument.presentation \
+  application/vnd.oasis.opendocument.presentation-template
 
 echo "--- $LIST"
 cat "$LIST"

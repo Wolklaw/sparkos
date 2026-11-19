@@ -25,9 +25,9 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 1. **Base image:** `ghcr.io/ublue-os/bazzite:stable` (KDE Plasma, AMD/Intel). It already includes Steam, gamescope, Lutris and current Mesa.
 2. **Your own apps ship preinstalled:** **Soot** as the browser and **FreeSuite** as the office suite (mail, documents, sheets, slides, PDF). Both are Windows-only today, so each needs a Linux build first:
    - **Soot 0.2.0: in the image** (`files/scripts/soot.sh`, pinned to commit `24150cf`). It installs to `/usr/lib/soot` and is the default browser.
-   - **FreeSuite 0.4.0: in the image** (`files/scripts/freesuite.sh`, pinned by SHA-256). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, .docx/.xlsx/.csv/.pptx and PDF.
+   - **FreeSuite 0.4.1: in the image** (`files/scripts/freesuite.sh`, pinned by SHA-256). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, PDF and every Office format it opens, including .doc/.xls/.ppt, OpenDocument and RTF.
    - **Spark Snip 1.0.0: in the image**, built from this repo (`files/spark-snip`, installed by `files/scripts/spark-snip.sh`). It's the screenshot, OCR and screen recording tool and takes Print, Meta+Shift+S/T/R from Spectacle, which stays installed because Spark Snip reads the screen through it. It grew out of QuickOCR, whose Windows app is finished.
-   - **ONLYOFFICE stays** for .doc, .xls, .ppt and OpenDocument files, which FreeSuite doesn't open. Remove it whenever you like.
+   - **ONLYOFFICE stays installed but isn't the default.** FreeSuite reads the old binary formats only partly: no pictures or formatting from .doc, only text from .ppt, and no charts or merged cells from .xls. ONLYOFFICE is under "Open with" for those files. Remove it whenever you like.
    - **To update either app:** bump the version and commit (or SHA-256) in its script.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**
    - **Chosen: E:, after its games are uninstalled.** In Phase 5, uninstall the Windows games on E: (Steam, Epic, Battle.net and Xbox app), then shrink E: in Disk Management (run as admin) and install SparkOS into the freed space. Uninstall the Xbox app's games through the Xbox app itself. Their protected `WindowsApps`/`XboxGames` files are what usually block a shrink.
@@ -50,7 +50,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 ### Phase 1: Minimal image (one evening)
 - `recipes/recipe.yml`: base Bazzite, with the image name and description set to SparkOS.
 - Add the launchers as Flatpaks: Heroic (Epic + GOG + Amazon), and Battle.net through Lutris (already in Bazzite).
-- Add the office suite (ONLYOFFICE for now) and Soot once its Linux build is merged.
+- Add the office suite (FreeSuite) and Soot.
 - In the VM: install the stock Bazzite ISO, then `rpm-ostree rebase` onto `ghcr.io/wolklaw/sparkos:latest`.
 - **Done when:** the VM boots SparkOS, `/etc/os-release` reports it, and the apps open.
 
@@ -100,7 +100,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 ## Risks, plainly
 - **Kernel anti-cheat games** won't run, including League of Legends and Teamfight Tactics (Riot Vanguard) and GTA Online. Windows stays for those, on a small partition or as a VM.
 - **Windows-only device tools:** 8BitDo firmware updates and Focusrite's own app. The devices themselves work, and replacements are listed in the switching guide.
-- **Microsoft Office desktop and Adobe apps** don't run. ONLYOFFICE, LibreOffice and the web versions do.
+- **Microsoft Office desktop and Adobe apps** don't run. FreeSuite, ONLYOFFICE and the web versions do.
 - **GPU-heavy gaming can't be tested in a VM.** Real performance testing happens in Phase 5.
 - **Dependence on Bazzite and Universal Blue.** That dependence is the point: they do the hard parts. If they stopped, the recipe could be moved to plain Fedora Atomic.
 - **Battle.net** occasionally breaks for a few days after a client update.

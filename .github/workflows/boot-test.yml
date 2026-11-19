@@ -131,9 +131,14 @@ jobs:
           ! grep -q 'not found' "$WORK/soot-ldd.txt" "$WORK/freesuite-ldd.txt"
           $SSH 'stat -c "%A %U %n" /usr/lib/opt/freesuite/chrome-sandbox'
           # Default apps, as the user sees them
-          $SSH 'for m in x-scheme-handler/https text/html x-scheme-handler/mailto application/pdf application/vnd.openxmlformats-officedocument.wordprocessingml.document; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/defaults.txt"
+          $SSH 'for m in x-scheme-handler/https text/html x-scheme-handler/mailto application/pdf application/vnd.openxmlformats-officedocument.wordprocessingml.document application/msword application/vnd.ms-excel application/vnd.ms-powerpoint application/vnd.oasis.opendocument.text; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/defaults.txt"
           grep -q 'x-scheme-handler/https -> dev.wolklaw.Soot.desktop' "$WORK/defaults.txt"
           grep -q 'application/pdf -> freesuite-pdf.desktop' "$WORK/defaults.txt"
+          grep -q 'application/vnd.ms-excel -> freesuite-sheets.desktop' "$WORK/defaults.txt"
+          grep -q 'application/msword -> freesuite-writer.desktop' "$WORK/defaults.txt"
+          grep -q 'application/vnd.ms-powerpoint -> freesuite-slides.desktop' "$WORK/defaults.txt"
+          # FreeSuite's own desktop entries claim the old formats too (0.4.1+)
+          $SSH 'grep -l "application/vnd.ms-excel" /usr/share/applications/freesuite-sheets.desktop'
           # Soot's own headless smoke test, from the same pinned commit
           SOOT_COMMIT=$(sed -n 's/^SOOT_COMMIT=\([0-9a-f]*\).*/\1/p' files/scripts/soot.sh)
           curl -fsSL -o "$WORK/smoke-test.py" "https://raw.githubusercontent.com/Wolklaw/Soot/$SOOT_COMMIT/linux/smoke-test.py"

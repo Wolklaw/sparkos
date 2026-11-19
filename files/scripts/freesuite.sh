@@ -9,8 +9,8 @@
 # so the read-only /usr is fine.
 set -oue pipefail
 
-FREESUITE_VERSION=0.4.0
-FREESUITE_SHA256=2ac98dcdad2606df519a422ee49ab4fa0248fe7e76a55a3246fb8a4517aec49a
+FREESUITE_VERSION=0.4.1
+FREESUITE_SHA256=135bf79946b52a8ed3db17267f2cc672a53506ead1895eb154c88a19cf554e79
 FILE="freesuite-${FREESUITE_VERSION}-linux-x64.tar.gz"
 URL="https://github.com/Wolklaw/freesuite-releases/releases/download/v${FREESUITE_VERSION}/${FILE}"
 

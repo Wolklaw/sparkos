@@ -55,7 +55,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 
 | Windows app | On SparkOS | Notes |
 |---|---|---|
-| Microsoft 365: Word, Excel, PowerPoint | **Replaced** | **FreeSuite** (in the image, default for .docx/.xlsx/.pptx/.csv/PDF). **ONLYOFFICE** (in the image) covers .doc/.xls/.ppt and OpenDocument until FreeSuite opens them. Office on the web works in any browser. |
+| Microsoft 365: Word, Excel, PowerPoint | **Replaced** | **FreeSuite** 0.4.1 (in the image) is the default for .docx/.xlsx/.pptx, the old .doc/.xls/.ppt, OpenDocument, RTF, CSV and PDF. It reads old binary files only partly: .doc without formatting or pictures, .ppt as text only, .xls without charts or merged cells. For those, **ONLYOFFICE** (in the image) is under "Open with". Office on the web works in any browser. |
 | Outlook | **Replaced** | **FreeSuite Mail** (in the image, default for email links). |
 | Teams, OneNote, Copilot, Amazon Music | **Replaced** | Their web versions, in Soot or Chrome. |
 | PDFgear | **Replaced** | **FreeSuite PDF** (in the image, default for PDFs). |

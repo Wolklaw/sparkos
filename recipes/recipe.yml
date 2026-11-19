@@ -46,7 +46,7 @@ modules:
           - com.google.Chrome # also for VIA keyboard setup (WebHID) and Google sites
           - com.discordapp.Discord
           - com.spotify.Client
-          - org.onlyoffice.desktopeditors # for .doc/.xls/.ppt and OpenDocument, which FreeSuite doesn't open yet
+          - org.onlyoffice.desktopeditors # "Open with" fallback for old .doc/.ppt/.xls with pictures or charts
           # Create
           - com.obsproject.Studio
           - org.blender.Blender
