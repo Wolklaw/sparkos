@@ -147,6 +147,19 @@ jobs:
           $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
 
+      - name: Check Claude Code setup
+        run: |
+          $SSH 'rpm -q socat bubblewrap kdialog konsole' | tee "$WORK/claude-deps.txt"
+          ! grep -q 'not installed' "$WORK/claude-deps.txt"
+          $SSH 'for f in /usr/bin/sparkos-claude /usr/bin/sparkos-claude-import /usr/bin/sparkos-dev-setup; do test -x $f || { echo "missing $f"; exit 1; }; done
+                test -f /usr/share/applications/sparkos-claude-code.desktop
+                test -f /usr/share/kio/servicemenus/sparkos-claude-code.desktop
+                command -v desktop-file-validate >/dev/null && desktop-file-validate /usr/share/applications/sparkos-claude-code.desktop
+                echo "launchers present"'
+          # Install Claude Code the way a user would, then run it (no sign-in needed for --version)
+          $SSH 'sparkos-dev-setup --claude && ~/.local/bin/claude --version' 2>&1 | tee "$WORK/claude-install.txt"
+          $SSH '~/.local/bin/claude --version' | grep -qiE '[0-9]+\.[0-9]+'
+
       - name: Wait for preinstalled Flatpaks
         run: |
           WANT=$(sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | grep '\.')

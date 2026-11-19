@@ -12,6 +12,7 @@ Status: early and personal. Every build is booted in a VM by CI ([boot-test](.gi
 | Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) 0.2.0 as the default browser, [FreeSuite](https://github.com/Wolklaw/freesuite-releases) 0.4.0 for mail, documents, sheets, slides, PDF and calendar (default for those files), ONLYOFFICE for .doc/.xls/.ppt and OpenDocument files |
 | | Skanpage for scanning, Piper (Logitech mice), OpenRGB, Mission Center, qpwgraph, VIA keyboard access |
 | | Heroic, Prism Launcher, RuneLite, Bolt, Chrome, Discord, Spotify, OBS, Blender, GIMP, Audacity, Kdenlive, Flameshot, VS Code, Unity Hub, Bottles |
+| | Claude Code one click away (app menu, right-click a folder, `sparkos-claude`), with its sandbox tools and `sparkos-claude-import` for your Windows setup ([docs](docs/claude-code.md)) |
 | | `sparkos-dev-setup` for Node, Python, GitHub CLI and JDK 17, and the SparkOS name |
 | Planned | First-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
 

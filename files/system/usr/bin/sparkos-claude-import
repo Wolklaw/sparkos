@@ -1,0 +1,56 @@
+#!/usr/bin/bash
+# Copies your Claude Code setup from the Windows drive to SparkOS: CLAUDE.md, skills, agents,
+# commands and output styles. Nothing already in ~/.claude is overwritten.
+#
+#   sparkos-claude-import [PATH-TO-WINDOWS-.claude]
+#
+# Without a path it looks on mounted Windows drives (open the drive in Dolphin first to mount it).
+# Windows settings.json is copied as settings.windows.json for reference only, because its
+# permissions and shell commands are written for Windows.
+set -euo pipefail
+
+src="${1:-}"
+if [ -z "$src" ]; then
+  mapfile -t found < <(find /run/media/"$USER" /var/mnt /mnt -maxdepth 5 -type d -path '*/Users/*/.claude' 2>/dev/null)
+  if [ "${#found[@]}" -eq 0 ]; then
+    echo "No Windows .claude folder found. Open the Windows drive (C:) in Dolphin so it mounts," >&2
+    echo "then run this again, or give the path: sparkos-claude-import /path/to/Users/<you>/.claude" >&2
+    exit 1
+  fi
+  if [ "${#found[@]}" -gt 1 ]; then
+    echo "Found more than one; run again with the one you want:" >&2
+    printf '  sparkos-claude-import %q\n' "${found[@]}" >&2
+    exit 1
+  fi
+  src=${found[0]}
+fi
+[ -d "$src" ] || { echo "Not a folder: $src" >&2; exit 1; }
+
+dst="$HOME/.claude"
+mkdir -p "$dst"
+echo "Copying from $src to $dst (existing files are kept)"
+
+for item in CLAUDE.md skills agents commands output-styles keybindings.json; do
+  [ -e "$src/$item" ] || continue
+  if [ -d "$src/$item" ]; then
+    had=$([ -d "$dst/$item" ] && echo 1 || echo 0)
+    cp -rn "$src/$item" "$dst/"
+    [ "$had" = 1 ] && echo "  merged:  $item/ (your existing files kept)" || echo "  copied:  $item/"
+  elif [ -e "$dst/$item" ]; then
+    echo "  kept:    $item (SparkOS already has one; Windows copy not used)"
+  else
+    cp "$src/$item" "$dst/$item" && echo "  copied:  $item"
+  fi
+done
+if [ -f "$src/settings.json" ] && [ ! -e "$dst/settings.windows.json" ]; then
+  cp "$src/settings.json" "$dst/settings.windows.json" && echo "  copied:  settings.json as settings.windows.json (reference only)"
+fi
+
+# Point out Windows paths that need changing to where those folders live on SparkOS.
+hits=$(grep -rlE '[A-Za-z]:\\\\|[A-Za-z]:\\[A-Za-z]' "$dst/CLAUDE.md" "$dst/skills" "$dst/agents" "$dst/commands" "$dst/output-styles" 2>/dev/null || true)
+if [ -n "$hits" ]; then
+  echo
+  echo "These files mention Windows paths (like E:\\Personal Projects). Update them to the SparkOS paths:"
+  printf '%s\n' "$hits" | sed 's/^/  /'
+fi
+echo "Done. Claude Code picks these up the next time it starts."

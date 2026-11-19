@@ -1,0 +1,35 @@
+#!/usr/bin/bash
+# Opens Claude Code in a project folder.
+#
+#   sparkos-claude [FOLDER]
+#
+# Installs Claude Code first if it isn't there. Without FOLDER it asks for one (starting at
+# the folder used last time), or uses the current folder when there's no desktop.
+set -euo pipefail
+
+export PATH="$HOME/.local/bin:$PATH"
+state="${XDG_STATE_HOME:-$HOME/.local/state}/sparkos"
+last="$state/claude-last-folder"
+
+if ! command -v claude >/dev/null 2>&1; then
+  echo "Claude Code isn't installed yet. Installing it now (one time)."
+  sparkos-dev-setup --claude
+  echo
+fi
+
+dir="${1:-}"
+if [ -z "$dir" ]; then
+  if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null 2>&1; then
+    start=$(cat "$last" 2>/dev/null || true)
+    [ -d "$start" ] || start=$HOME
+    dir=$(kdialog --title "Open Claude Code in which folder?" --getexistingdirectory "$start") || exit 0
+  else
+    dir=$PWD
+  fi
+fi
+
+[ -d "$dir" ] || { echo "Not a folder: $dir" >&2; exit 1; }
+mkdir -p "$state" && printf '%s\n' "$dir" > "$last"
+cd "$dir"
+echo "Claude Code in $dir"
+exec claude

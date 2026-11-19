@@ -20,6 +20,9 @@ modules:
       packages:
         # Printing (CUPS, driverless, plasma-print-manager) is already in Bazzite.
         - skanpage # scanning app (SANE pixma and airscan backends are already in Bazzite)
+        - bubblewrap # Claude Code's command sandbox (already in Bazzite for Flatpak; listed so it stays)
+        - socat # Claude Code's command sandbox
+        - kdialog # folder picker for sparkos-claude
 
   - type: script
     scripts:

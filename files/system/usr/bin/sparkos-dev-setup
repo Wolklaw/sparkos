@@ -1,22 +1,46 @@
 #!/usr/bin/bash
-# Installs SparkOS's developer tools (Node, Python, GitHub CLI, JDK 17) for the current user
-# with Homebrew, which Bazzite sets up on first login. Safe to run again: it only adds what's missing.
+# Sets up SparkOS's developer tools for the current user. Safe to run again: it only adds what's missing.
+#
+#   sparkos-dev-setup            Claude Code, then Node, Python, GitHub CLI and JDK 17 (Homebrew)
+#   sparkos-dev-setup --claude   Claude Code only
+#   sparkos-dev-setup --brew     Homebrew tools only
 set -euo pipefail
 
 BREWFILE=/usr/share/sparkos/Brewfile
+want_claude=1 want_brew=1
+case "${1:-}" in
+  --claude) want_brew=0 ;;
+  --brew) want_claude=0 ;;
+  "") ;;
+  -h|--help) sed -n '2,7p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  *) echo "Unknown option: $1 (see --help)" >&2; exit 1 ;;
+esac
 
-if ! command -v brew >/dev/null 2>&1; then
-  for b in /home/linuxbrew/.linuxbrew/bin/brew; do
-    [ -x "$b" ] && eval "$("$b" shellenv)"
-  done
+export PATH="$HOME/.local/bin:$PATH"
+
+if [ "$want_claude" = 1 ]; then
+  if command -v claude >/dev/null 2>&1; then
+    echo "Claude Code is already installed: $(claude --version 2>/dev/null || echo unknown version). It updates itself."
+  else
+    echo "Installing Claude Code with Anthropic's official installer (into ~/.local, no admin rights)..."
+    curl -fsSL https://claude.ai/install.sh | bash
+    command -v claude >/dev/null 2>&1 || { echo "Claude Code didn't install. See the messages above." >&2; exit 1; }
+    echo "Claude Code installed: $(claude --version 2>/dev/null)"
+    echo "Start it from the app menu (Claude Code), by right-clicking a folder in Dolphin, or with: sparkos-claude"
+  fi
 fi
 
-if ! command -v brew >/dev/null 2>&1; then
-  echo "Homebrew isn't ready yet. Log out and back in once, then run sparkos-dev-setup again." >&2
-  exit 1
+if [ "$want_brew" = 1 ]; then
+  if ! command -v brew >/dev/null 2>&1 && [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+    eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
+  fi
+  if ! command -v brew >/dev/null 2>&1; then
+    echo "Homebrew isn't ready yet. Log out and back in once, then run: sparkos-dev-setup --brew" >&2
+    exit 1
+  fi
+  echo "Installing from $BREWFILE:"
+  grep -E '^brew ' "$BREWFILE" | sed 's/^/  /'
+  brew bundle --file="$BREWFILE"
 fi
 
-echo "Installing from $BREWFILE:"
-grep -E '^brew ' "$BREWFILE" | sed 's/^/  /'
-brew bundle --file="$BREWFILE"
 echo "Done. Open a new terminal to use the tools."

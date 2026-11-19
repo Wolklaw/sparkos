@@ -89,7 +89,9 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | VS Code | **Works** | In the image, as a Flatpak. For full access to system tools, open a terminal inside VS Code or use a Distrobox container. |
 | Unity 6 and Unity Hub | **Works** (check) | **Unity Hub** (in the image) is the community Flatpak. Unity also publishes an official Linux Hub. |
 | Ollama | **Works** | Use the official Linux install or the **Alpaca** app (Flathub). The RX 6800 XT is supported by ROCm. |
-| Antigravity IDE, Claude desktop app | **Check** | Look for a Linux download. Claude Code runs on Linux. |
+| Claude Code | **Works** | Open **Claude Code** from the app menu, right-click a folder in Dolphin and choose **Open Claude Code here**, or run `sparkos-claude` in a terminal. The first start installs it with Anthropic's official installer (into `~/.local`, updates itself). Run `sparkos-claude-import` once to bring over your Windows `CLAUDE.md`, skills, agents and commands. See [claude-code.md](claude-code.md). |
+| Claude desktop app (Chat, Cowork, Code tab) | **No** | Its Linux version is a beta for Ubuntu and Debian only. On SparkOS, use Claude Code (above), and claude.ai in the browser for chat. |
+| Antigravity IDE | **Check** | Look for a Linux download. |
 | Inno Setup (Windows installers for your apps) | **Partly** | Runs under Wine or Bottles (in the image). For building and testing Windows releases, a Windows VM in virt-manager is the dependable choice. |
 | Your own apps: Nova, BotWatch, Broke'nt, OSRS Toolkit, Upscape, Androidbox, Delta | **Check each** | They're Windows builds. Each needs a Linux build, as Soot and FreeSuite got, or runs in the Windows VM. |
 

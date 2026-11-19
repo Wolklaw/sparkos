@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Claude Code
+GenericName=AI coding assistant
+Comment=Open Claude Code in a project folder (installs it the first time)
+Exec=konsole --hold -e sparkos-claude
+Icon=utilities-terminal
+Terminal=false
+Categories=Development;
+Keywords=claude;ai;code;assistant;
