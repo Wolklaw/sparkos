@@ -30,4 +30,9 @@ jobs:
             echo "== SANE backends with pixma or airscan"; ls /usr/lib64/sane 2>/dev/null | grep -E "pixma|airscan" || echo none
             grep -iE "TR4700|TR47" /usr/share/sane/pixma* /etc/sane.d/pixma.conf 2>/dev/null | head -3 || true
             echo "== system flatpaks baked in"; ls /var/lib/flatpak/app 2>/dev/null || echo none
+            echo "== container signing policy (docker transport)"
+            for f in /etc/containers/policy.json /usr/etc/containers/policy.json; do
+              [ -f "$f" ] && { echo "-- $f"; jq ".transports.docker" "$f"; }
+            done
+            echo "== registries.d"; grep -ril "sparkos" /etc/containers/registries.d /usr/etc/containers/registries.d 2>/dev/null | while read -r f; do echo "-- $f"; cat "$f"; done
           '
