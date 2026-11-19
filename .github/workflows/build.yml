@@ -9,6 +9,8 @@ on:
       - "**.md"
       - ".github/workflows/boot-test.yml"
       - ".github/workflows/inventory.yml"
+      - ".github/workflows/installer-iso.yml"
+      - "installer/**"
 
   pull_request:
   workflow_dispatch: # allow manually triggering builds

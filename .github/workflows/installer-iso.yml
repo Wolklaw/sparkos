@@ -1,0 +1,180 @@
+name: installer-iso
+# Builds the SparkOS installer (live ISO) with every app inside, boots it once in a VM,
+# and publishes it to the "installer" release in parts under 2 GiB (GitHub's limit per
+# release file), with a join script for Windows and Linux.
+# Adapted from Bazzite's build_iso.yml (github.com/ublue-os/bazzite, Apache-2.0).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "30 9 * * 1" # Mondays, after the daily image build
+
+permissions:
+  contents: write # publish the release
+  packages: read
+
+concurrency:
+  group: installer-iso
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/wolklaw/sparkos:latest
+  ISO_NAME: SparkOS-installer.iso
+
+jobs:
+  iso:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 330
+    steps:
+      - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+
+      - name: Container storage on a compressed loopback
+        run: |
+          sudo truncate -s 110G /mnt/podman-storage.img
+          sudo mkfs.btrfs -f -m single -d single /mnt/podman-storage.img
+          sudo podman system reset --force
+          sudo systemctl stop podman.service || true
+          LOOP=$(sudo losetup --find --show --direct-io=on /mnt/podman-storage.img)
+          sudo mkdir -p /mnt/podman-storage
+          sudo mount -o compress-force=zstd:2,discard=async,noatime "$LOOP" /mnt/podman-storage
+          sudo mkdir -p /mnt/podman-storage/storage /mnt/podman-storage/tmp
+          sudo mount --bind /mnt/podman-storage/storage /var/lib/containers/storage
+          sudo systemctl start podman.service || true
+          df -h / /mnt
+
+      - uses: actions/checkout@v4
+
+      - name: Make the app list
+        run: |
+          # Bazzite's own first-boot apps, plus every system Flatpak in the SparkOS recipe.
+          curl -fsSL --retry 5 https://raw.githubusercontent.com/ublue-os/bazzite/main/installer/kde_flatpaks/flatpaks > /tmp/bazzite-flatpaks
+          sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | grep '\.' > /tmp/sparkos-flatpaks
+          python3 - <<'EOF'
+          seen, out = set(), []
+          for line in open('/tmp/bazzite-flatpaks').read().split() + open('/tmp/sparkos-flatpaks').read().split():
+              ident = line.split('/')[1] if '/' in line else line
+              if ident not in seen:
+                  seen.add(ident); out.append(line)
+          open('installer/flatpaks', 'w').write('\n'.join(out) + '\n')
+          print(f"{len(out)} Flatpaks")
+          EOF
+          cat installer/flatpaks
+
+      - name: Build the installer image
+        run: |
+          sudo env TMPDIR=/mnt/podman-storage/tmp podman build \
+            --cap-add sys_admin --security-opt label=disable \
+            --build-arg BASE_IMAGE="$IMAGE" --build-arg INSTALL_IMAGE_PAYLOAD="$IMAGE" \
+            -t localhost/payload:latest installer/
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}}' | tee /tmp/image-digest
+
+      - name: Check every app is in the installer
+        run: |
+          sudo podman run --rm localhost/payload:latest flatpak list --system --app --columns=application,version | tee /tmp/installer-apps.txt
+          missing=0
+          for id in $(cat /tmp/sparkos-flatpaks); do grep -q "^$id" /tmp/installer-apps.txt || { echo "::error::missing $id"; missing=1; }; done
+          [ "$missing" = 0 ]
+
+      - name: Build the ISO
+        id: build
+        uses: ublue-os/titanoboa@5c457c3d0518bd17e754be0fd98a60d29d26abb4
+        with:
+          image-ref: localhost/payload:latest
+          iso-dest: ${{ env.ISO_NAME }}
+
+      - name: Boot the ISO once
+        run: |
+          ISO="${{ steps.build.outputs.iso-dest }}"
+          ls -lh "$ISO"
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -qq && sudo apt-get install -y -qq qemu-system-x86 ovmf socat >/dev/null
+          cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/vars.fd
+          qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -smp 4 -m 8192 \
+            -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+            -drive if=pflash,format=raw,file=/tmp/vars.fd \
+            -cdrom "$ISO" -vga virtio -display none -serial file:/tmp/iso-serial.log \
+            -monitor unix:/tmp/qmon,server,nowait -daemonize -pidfile /tmp/qemu.pid
+          mkdir -p /tmp/iso-shots
+          for t in 120 240; do
+            sleep 120
+            echo "screendump /tmp/iso-shots/after-${t}s.png -f png" | socat - UNIX-CONNECT:/tmp/qmon
+          done
+          kill "$(cat /tmp/qemu.pid)" || true
+          ls -l /tmp/iso-shots
+          grep -aE "livesys|Reached target.*Graphical" /tmp/iso-serial.log | tail -5 || true
+
+      - name: Upload boot screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: installer-boot
+          path: |
+            /tmp/iso-shots/
+            /tmp/iso-serial.log
+          retention-days: 7
+
+      - name: Split, checksum and write join scripts
+        run: |
+          ISO="${{ steps.build.outputs.iso-dest }}"
+          mkdir -p out && mv "$ISO" "out/$ISO_NAME" && cd out
+          sha256sum "$ISO_NAME" > iso.sha256
+          SHA=$(cut -d' ' -f1 iso.sha256)
+          split -b 1900M -d -a 2 "$ISO_NAME" "$ISO_NAME.part"
+          rm "$ISO_NAME"
+          PARTS=$(ls "$ISO_NAME".part* | sort)
+          sha256sum $PARTS iso.sha256 > SHA256SUMS
+          {
+            echo '@echo off'
+            echo 'rem Joins the SparkOS installer parts into SparkOS-installer.iso and checks it.'
+            echo 'cd /d "%~dp0"'
+            echo "echo Joining $(echo $PARTS | wc -w) parts..."
+            echo "copy /b $(echo $PARTS | sed 's/ /+/g') $ISO_NAME >nul || goto failed"
+            echo "certutil -hashfile $ISO_NAME SHA256 | findstr /i $SHA >nul || goto failed"
+            echo "echo OK: $ISO_NAME is complete and its SHA-256 matches."
+            echo 'echo Write it to a USB stick with Fedora Media Writer (Custom image) or Rufus (DD mode).'
+            echo 'pause & exit /b 0'
+            echo ':failed'
+            echo 'echo Something is wrong: a part is missing or damaged. Download the parts again.'
+            echo 'pause & exit /b 1'
+          } | sed 's/$/\r/' > join-iso.cmd
+          {
+            echo '#!/bin/sh'
+            echo 'set -e; cd "$(dirname "$0")"'
+            echo "cat $PARTS > $ISO_NAME"
+            echo "echo '$SHA  $ISO_NAME' | sha256sum -c -"
+          } > join-iso.sh
+          chmod +x join-iso.sh
+          ls -lh
+
+      - name: Publish to the installer release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cd out
+          SIZE=$(awk '{s+=$1} END {printf "%.1f", s/1024/1024/1024}' < <(stat -c %s "$ISO_NAME".part*))
+          {
+            echo "The SparkOS installer, built $(date -u +%Y-%m-%d) from \`$IMAGE\` (\`$(cat /tmp/image-digest)\`)."
+            echo
+            echo "**Download all the files below**, then run \`join-iso.cmd\` (Windows) or \`join-iso.sh\` (Linux)."
+            echo "It joins the parts into \`$ISO_NAME\` ($SIZE GiB) and checks its SHA-256."
+            echo "Write the ISO to a USB stick (16 GB or larger) with Fedora Media Writer (Custom image) or Rufus (DD mode)."
+            echo "The parts exist because GitHub limits each release file to 2 GiB."
+            echo
+            echo "**Apps inside** (copied onto the new system during install, so they're there on first start, even offline):"
+            echo '```'
+            cat /tmp/installer-apps.txt
+            echo '```'
+            echo "Soot, FreeSuite, Spark Snip and Claude Code's launchers are part of the system image itself."
+          } > notes.md
+          gh release view installer >/dev/null 2>&1 || \
+            gh release create installer --target main --title "SparkOS installer" --notes "Building..." --latest=false
+          gh release upload installer "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS --clobber
+          gh release edit installer --notes-file notes.md --title "SparkOS installer ($(date -u +%Y-%m-%d))"
+          # Remove parts left over from an older, larger ISO
+          keep=$(ls "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS)
+          gh release view installer --json assets --jq '.assets[].name' | while read -r a; do
+            grep -qxF "$a" <<<"$keep" || gh release delete-asset installer "$a" --yes
+          done
