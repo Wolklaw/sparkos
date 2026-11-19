@@ -26,6 +26,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 2. **Your own apps ship preinstalled:** **Soot** as the browser and **FreeSuite** as the office suite (mail, documents, sheets, slides, PDF). Both are Windows-only today, so each needs a Linux build first:
    - **Soot 0.2.0: in the image** (`files/scripts/soot.sh`, pinned to commit `24150cf`). It installs to `/usr/lib/soot` and is the default browser.
    - **FreeSuite 0.4.0: in the image** (`files/scripts/freesuite.sh`, pinned by SHA-256). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, .docx/.xlsx/.csv/.pptx and PDF.
+   - **Spark Snip 1.0.0: in the image**, built from this repo (`files/spark-snip`, installed by `files/scripts/spark-snip.sh`). It's the screenshot, OCR and screen recording tool and takes Print, Meta+Shift+S/T/R from Spectacle, which stays installed because Spark Snip reads the screen through it. It grew out of QuickOCR, whose Windows app is finished.
    - **ONLYOFFICE stays** for .doc, .xls, .ppt and OpenDocument files, which FreeSuite doesn't open. Remove it whenever you like.
    - **To update either app:** bump the version and commit (or SHA-256) in its script.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**

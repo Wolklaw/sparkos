@@ -1,0 +1,37 @@
+name: spark-snip
+# Installs Spark Snip in a plain Fedora container and checks it there: the install script,
+# the self-test (OCR in English and French, a test video through each encoder) and the
+# unit and UI tests under Xvfb. Much faster than the full image build, which also runs
+# the self-test inside the real image.
+on:
+  push:
+    paths:
+      - "files/spark-snip/**"
+      - "files/scripts/spark-snip.sh"
+      - ".github/workflows/spark-snip.yml"
+  pull_request:
+    paths:
+      - "files/spark-snip/**"
+      - "files/scripts/spark-snip.sh"
+      - ".github/workflows/spark-snip.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: bash files/spark-snip/install.sh --deps
+
+      - name: Self-test
+        run: spark-snip --self-test
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth
+          cd files/spark-snip
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v

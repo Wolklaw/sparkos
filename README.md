@@ -10,13 +10,14 @@ Status: early and personal. Every build is booted in a VM by CI ([boot-test](.gi
 |---|---|
 | From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers, CUPS driverless printing with KDE Printers settings, SANE scanning, Bluetooth, KDE Connect, Tailscale |
 | Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) 0.2.0 as the default browser, [FreeSuite](https://github.com/Wolklaw/freesuite-releases) 0.4.0 for mail, documents, sheets, slides, PDF and calendar (default for those files), ONLYOFFICE for .doc/.xls/.ppt and OpenDocument files |
+| | Spark Snip, the screenshot tool: Print for a screenshot, Meta+Shift+T to copy text off the screen (OCR), Meta+Shift+R to record ([source](files/spark-snip)) |
 | | Skanpage for scanning, Piper (Logitech mice), OpenRGB, Mission Center, qpwgraph, VIA keyboard access |
 | | Heroic, Prism Launcher, RuneLite, Bolt, Chrome, Discord, Spotify, OBS, Blender, GIMP, Audacity, Kdenlive, Flameshot, VS Code, Unity Hub, Bottles |
 | | Claude Code one click away (app menu, right-click a folder, `sparkos-claude`), with its sandbox tools and `sparkos-claude-import` for your Windows setup ([docs](docs/claude-code.md)) |
 | | `sparkos-dev-setup` for Node, Python, GitHub CLI and JDK 17, and the SparkOS name |
 | Planned | First-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
 
-Soot and FreeSuite's Linux versions are new. The boot test checks them on every build, but neither has been used by hand on a SparkOS desktop yet. For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md).
+Soot, FreeSuite and Spark Snip's Linux versions are new. The boot test checks them on every build, but none has been used by hand on a SparkOS desktop yet. For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md).
 
 Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 
