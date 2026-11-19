@@ -76,15 +76,29 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 ### Phase 5: Real hardware and your games (ongoing)
 - Uninstall the Windows games on E:, back up `Personal Projects`, shrink E:, and install SparkOS into the freed space (see decision 3). At startup, choose SparkOS or Windows from the boot menu.
 - Reinstall the games inside SparkOS, onto its own partition. If Secure Boot is on, enroll the Universal Blue key once, using the steps Bazzite provides.
-- Go through your library with ProtonDB and Are We Anti-Cheat Yet, and keep a list in `docs/games.md`.
-- **Done when:** your daily games and work apps run, and anything blocked is known and handled through Windows.
+- Work through [docs/switching.md](docs/switching.md): every app and device on this PC, with its SparkOS answer. Settle the **Check** items first.
+- Day-one hardware checks:
+  - Print and scan a page on the Canon TR4700.
+  - Set up the G502 in Piper.
+  - Open the Keychron in VIA (Chrome).
+  - Check that the QuadCast, FiiO DAC and C920 work in Discord and OBS.
+  - Try OpenRGB on the motherboard and RAM.
+  - Set up all three monitors, including refresh rates.
+- **Benchmark against Windows 11:**
+  - Run 4–5 games you play, at the same settings and resolution on both systems.
+  - Log average FPS and 1% lows (MangoHud on SparkOS, PresentMon/CapFrameX on Windows).
+  - Time boot to desktop on both.
+  - Put the results in `docs/benchmarks.md`.
+  - Anything slower gets looked into before Windows goes.
+- **Done when:** a normal week of work and games happens on SparkOS without reaching for Windows, except for the games and tools marked **No** in the switching guide.
 
 ### Phase 6: Upkeep (minutes a week)
 - CI rebuilds daily against the latest Bazzite. Updates are atomic, and a bad update rolls back from the boot menu.
 - When Bazzite changes something, it's usually a one-line recipe fix.
 
 ## Risks, plainly
-- **Kernel anti-cheat games** (Valorant, Fortnite, CoD, and others) won't run. Windows stays for those.
+- **Kernel anti-cheat games** won't run, including League of Legends and Teamfight Tactics (Riot Vanguard) and GTA Online. Windows stays for those, on a small partition or as a VM.
+- **Windows-only device tools:** 8BitDo firmware updates and Focusrite's own app. The devices themselves work, and replacements are listed in the switching guide.
 - **Microsoft Office desktop and Adobe apps** don't run. ONLYOFFICE, LibreOffice and the web versions do.
 - **GPU-heavy gaming can't be tested in a VM.** Real performance testing happens in Phase 5.
 - **Dependence on Bazzite and Universal Blue.** That dependence is the point: they do the hard parts. If they stopped, the recipe could be moved to plain Fedora Atomic.

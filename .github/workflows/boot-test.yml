@@ -11,13 +11,13 @@ on:
 
 concurrency:
   group: boot-test
-  cancel-in-progress: true
+  cancel-in-progress: false # a newer build waits for the running test instead of killing it
 
 jobs:
   boot:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 120
     permissions:
       contents: read
       packages: read
@@ -140,16 +140,25 @@ jobs:
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 "$WORK/smoke-test.py" spark@127.0.0.1:/tmp/smoke-test.py
           $SSH 'python3 /tmp/smoke-test.py --soot /usr/bin/soot' 2>&1 | tee "$WORK/soot-smoke-test.txt"
 
+      - name: Check printing, scanning and devices
+        run: |
+          $SSH 'rpm -q print-manager skanpage cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
+          ! grep -q 'not installed' "$WORK/devices.txt"
+          $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
+          $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
+
       - name: Wait for preinstalled Flatpaks
         run: |
-          for i in $(seq 1 60); do
+          WANT=$(sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | grep '\.')
+          echo "Expecting:"; echo "$WANT"
+          for i in $(seq 1 120); do
             APPS=$($SSH 'flatpak list --system --app --columns=application' 2>/dev/null || true)
-            if echo "$APPS" | grep -q com.heroicgameslauncher.hgl && echo "$APPS" | grep -q org.onlyoffice.desktopeditors; then
-              echo "Both Flatpaks installed after ~$((i*20))s"; echo "$APPS"; exit 0
-            fi
+            MISSING=$(for a in $WANT; do echo "$APPS" | grep -qx "$a" || echo "$a"; done)
+            if [ -z "$MISSING" ]; then echo "All Flatpaks installed after ~$((i*20))s"; echo "$APPS" > "$WORK/flatpaks.txt"; exit 0; fi
             sleep 20
           done
-          echo "Flatpaks missing after 20 minutes. Installed:"; echo "$APPS"
+          echo "$APPS" > "$WORK/flatpaks.txt"
+          echo "Still missing after 40 minutes:"; echo "$MISSING"
           $SSH 'systemctl status system-flatpak-setup.service --no-pager; journalctl -u system-flatpak-setup.service --no-pager | tail -40'
           exit 1
 

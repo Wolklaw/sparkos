@@ -1,0 +1,3 @@
+# Let the signed-in user configure QMK/VIA keyboards from a browser (usevia.app, WebHID).
+# 3434 = Keychron.
+KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{idVendor}=="3434", MODE="0660", TAG+="uaccess"

@@ -1,0 +1,22 @@
+#!/usr/bin/bash
+# Installs SparkOS's developer tools (Node, Python, GitHub CLI, JDK 17) for the current user
+# with Homebrew, which Bazzite sets up on first login. Safe to run again: it only adds what's missing.
+set -euo pipefail
+
+BREWFILE=/usr/share/sparkos/Brewfile
+
+if ! command -v brew >/dev/null 2>&1; then
+  for b in /home/linuxbrew/.linuxbrew/bin/brew; do
+    [ -x "$b" ] && eval "$("$b" shellenv)"
+  done
+fi
+
+if ! command -v brew >/dev/null 2>&1; then
+  echo "Homebrew isn't ready yet. Log out and back in once, then run sparkos-dev-setup again." >&2
+  exit 1
+fi
+
+echo "Installing from $BREWFILE:"
+grep -E '^brew ' "$BREWFILE" | sed 's/^/  /'
+brew bundle --file="$BREWFILE"
+echo "Done. Open a new terminal to use the tools."
