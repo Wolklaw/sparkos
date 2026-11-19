@@ -24,8 +24,8 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 
 1. **Base image:** `ghcr.io/ublue-os/bazzite:stable` (KDE Plasma, AMD/Intel). It already includes Steam, gamescope, Lutris and current Mesa.
 2. **Your own apps ship preinstalled:** **Soot** as the browser and **FreeSuite** as the office suite (mail, documents, sheets, slides, PDF). Both are Windows-only today, so each needs a Linux build first:
-   - **Soot:** being ported now (`linux/install.sh` in Wolklaw/Soot). The SparkOS recipe will pin a Soot ref and install it at build time.
-   - **FreeSuite:** waiting until its current big rewrite is finished. It's Electron, so a Linux build is realistic.
+   - **Soot:** a port brief is waiting in `E:\Personal Projects\WolkNet\SPARKOS-LINUX-PORT.md`. You'll say when Soot is ready for it. It produces `linux/install.sh`, and the SparkOS recipe will pin a Soot ref and run that script at build time.
+   - **FreeSuite:** a brief is waiting in `E:\Personal Projects\agent-test2\freesuite-desktop\SPARKOS-LINUX-PORT.md`, for after the current rewrite. It's Electron with pure-JS dependencies, so a Linux build is realistic.
    - **Until FreeSuite is ready:** ONLYOFFICE stays in the image so Office files open on day one. It comes out when FreeSuite lands.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**
    - **Chosen: E:, after its games are uninstalled.** In Phase 5, uninstall the Windows games on E: (Steam, Epic, Battle.net and Xbox app), then shrink E: in Disk Management (run as admin) and install SparkOS into the freed space. Uninstall the Xbox app's games through the Xbox app itself. Their protected `WindowsApps`/`XboxGames` files are what usually block a shrink.
