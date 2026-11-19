@@ -95,6 +95,7 @@ jobs:
           echo "QEMU started"
 
       - name: Wait for SSH
+        id: ssh
         run: |
           SSH="ssh -i $WORK/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR -p 2222 spark@127.0.0.1"
           echo "SSH=$SSH" >> "$GITHUB_ENV"
@@ -112,17 +113,21 @@ jobs:
           echo "screendump $WORK/shots/1-after-boot.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
 
       - name: Check system name, image and signing
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           $SSH 'cat /etc/os-release' | tee "$WORK/os-release.txt"
           grep -q '^NAME="SparkOS"$' "$WORK/os-release.txt"
           $SSH 'rpm-ostree status' | tee "$WORK/rpm-ostree-status.txt"
           grep -q 'ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
           grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
-          $SSH 'jq -c ".transports.docker | to_entries[] | select(.key | test(\"wolklaw\"))" /etc/containers/policy.json; ls -l /etc/pki/containers/' | tee "$WORK/policy.txt"
-          grep -q 'sigstoreSigned' "$WORK/policy.txt"
+          # The policy entry must match the (lowercase) image name exactly, or updates aren't verified
+          $SSH 'jq -c ".transports.docker[\"ghcr.io/wolklaw/sparkos\"]" /etc/containers/policy.json; ls -l /etc/pki/containers/' | tee "$WORK/policy.txt"
+          grep -q '"sigstoreSigned"' "$WORK/policy.txt"
+          grep -q 'sparkos.pub' "$WORK/policy.txt"
           $SSH 'rpm -q steam lutris gamescope mangohud 2>&1; flatpak --version'
 
       - name: Check Soot and FreeSuite
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Installed, with no missing libraries
           $SSH 'ls -l /usr/bin/soot /usr/bin/freesuite; readlink -f /usr/bin/soot /usr/bin/freesuite; ls -l /var/opt/freesuite'
@@ -147,6 +152,7 @@ jobs:
           $SSH 'python3 /tmp/smoke-test.py --soot /usr/bin/soot' 2>&1 | tee "$WORK/soot-smoke-test.txt"
 
       - name: Check printing, scanning and devices
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           $SSH 'rpm -q plasma-print-manager skanpage cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
           ! grep -q 'not installed' "$WORK/devices.txt"
@@ -154,11 +160,13 @@ jobs:
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
 
       - name: Check the startup sound
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           $SSH 'test -s /usr/share/sounds/sparkos/startup.wav && test -x /usr/bin/sparkos-startup-sound && test -f /etc/xdg/autostart/sparkos-startup-sound.desktop && echo "startup sound present"'
           $SSH 'sparkos-startup-sound --off && test -e ~/.config/sparkos/startup-sound-off && sparkos-startup-sound --on && test ! -e ~/.config/sparkos/startup-sound-off && echo "off/on switch works"'
 
       - name: Check Claude Code setup
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           $SSH 'rpm -q socat bubblewrap kdialog konsole' | tee "$WORK/claude-deps.txt"
           ! grep -q 'not installed' "$WORK/claude-deps.txt"
@@ -172,6 +180,7 @@ jobs:
           $SSH '~/.local/bin/claude --version' | grep -qiE '[0-9]+\.[0-9]+'
 
       - name: Check Spark Snip
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Installed, shortcuts registered, Spectacle gave up Print and Meta+Shift+R
           $SSH 'spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
@@ -184,6 +193,7 @@ jobs:
           $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
 
       - name: Check Androidbox
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Installed from the release the build recorded, with its command, menu entry and icon
           $SSH 'cat /usr/lib/androidbox/ANDROIDBOX_RELEASE; ls -l /usr/bin/androidbox /usr/share/applications/dev.wolklaw.Androidbox.desktop /usr/share/icons/hicolor/256x256/apps/androidbox.png'
@@ -199,6 +209,7 @@ jobs:
           $SSH 'ls -l /dev/kvm 2>&1 || true'
 
       - name: Wait for preinstalled Flatpaks
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           WANT=$(sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | grep '\.')
           echo "Expecting:"; echo "$WANT"

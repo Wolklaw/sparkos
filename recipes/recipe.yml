@@ -67,3 +67,7 @@ modules:
       - scope: user # adds the Flathub user remote, no user apps
 
   - type: signing # installs the signing policy so signed updates verify
+
+  - type: script
+    scripts:
+      - sparkos-signing-fix.sh # lowercase the policy entry so it matches the image name (must run after signing)
