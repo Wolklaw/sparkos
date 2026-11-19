@@ -21,8 +21,27 @@ mount -o remount,rw /proc/sys
 
 # Apps: install every Flatpak from the list (latest from Flathub), fail if any is missing
 test -s /src/flatpaks || { echo "installer/flatpaks is missing or empty"; exit 1; }
+
+# Flatpak/ostree stage downloads in temporary directories; the SparkOS image may ship
+# without them (image builds empty /var/tmp), which shows up as open(O_TMPFILE): ENOENT.
+ls -ld /tmp /var/tmp /var/lib/flatpak 2>&1 || true
+mkdir -p /tmp /var/tmp /var/lib/flatpak
+chmod 1777 /tmp /var/tmp
+export TMPDIR=/var/tmp
+
 curl --retry 3 -Lo /etc/flatpak/remotes.d/flathub.flatpakrepo https://dl.flathub.org/repo/flathub.flatpakrepo
-xargs -r flatpak install -y --noninteractive --system flathub </src/flatpaks
+flatpak remotes --system
+
+# One at a time, with retries, so a failure names the app and a network hiccup doesn't end the build
+while read -r ref; do
+    [ -n "$ref" ] || continue
+    for attempt in 1 2 3; do
+        if flatpak install -y --noninteractive --system flathub "$ref"; then break; fi
+        echo "::warning::flatpak install $ref failed (attempt $attempt)"
+        [ "$attempt" = 3 ] && { echo "::error::could not install $ref"; exit 1; }
+        sleep $((attempt * 15))
+    done
+done </src/flatpaks
 installed=$(flatpak list --system --columns=application)
 missing=0
 while read -r ref; do
