@@ -62,6 +62,11 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 - **Done when:** a fresh install gets from login to a playable Steam game and an open document with no terminal use.
 
 ### Phase 3: Branding (a few evenings, in the house style)
+**Your verdict on the stock look (2026-11-19):** it reads as "Windows on a black theme". SparkOS needs its own identity, not Bazzite's skin with a dark palette. The plan:
+- Remove Bazzite's Portal autostart, announcements and wallpaper, in the live installer too.
+- Rethink the taskbar layout rather than keep the Windows-style bar.
+- Mock it up first (desktop, login, boot splash) and agree on it before building, because each image round takes about an hour.
+
 Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surface, mint `#9be8b8` accent, 3px corners. The magenta/cyan slip (`#ff2e88` / `#22d8ff`) is the only decoration.
 - KDE Plasma colour scheme, window decoration and Konsole profile. Fonts: Chakra Petch for headings, Inter for UI, Cascadia Code for mono.
 - A SparkOS mark (to design), used everywhere below.
