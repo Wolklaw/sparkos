@@ -1,43 +1,39 @@
-# BlueBuild Template &nbsp; [![bluebuild build badge](https://github.com/blue-build/template/actions/workflows/build.yml/badge.svg)](https://github.com/blue-build/template/actions/workflows/build.yml)
+# WolkOS &nbsp; [![build](https://github.com/Wolklaw/wolkos/actions/workflows/build.yml/badge.svg)](https://github.com/Wolklaw/wolkos/actions/workflows/build.yml)
 
-See the [BlueBuild docs](https://blue-build.org/how-to/setup/) for quick setup instructions for setting up your own repository based on this template.
+A Linux desktop for gaming and everyday work, built on [Bazzite](https://bazzite.gg) with [BlueBuild](https://blue-build.org).
 
-After setup, it is recommended you update this README to describe your custom image.
+Status: early and personal. It boots in a VM, but it hasn't been tested on real hardware yet. See [PLAN.md](PLAN.md) for the roadmap.
 
-## Installation
+## What it adds to Bazzite
 
-> [!WARNING]  
-> [This is an experimental feature](https://www.fedoraproject.org/wiki/Changes/OstreeNativeContainerStable), try at your own discretion.
+| | |
+|---|---|
+| From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers |
+| Added by WolkOS | Heroic Games Launcher (Epic, GOG, Amazon), ONLYOFFICE (documents, spreadsheets, slides), WolkOS name |
+| Planned | First-boot setup, WolkOS look (Plasma theme, login screen, boot splash), own installer ISO |
 
-To rebase an existing atomic Fedora installation to the latest build:
+Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 
-- First rebase to the unsigned image, to get the proper signing keys and policies installed:
-  ```
-  rpm-ostree rebase ostree-unverified-registry:ghcr.io/blue-build/template:latest
-  ```
-- Reboot to complete the rebase:
-  ```
-  systemctl reboot
-  ```
-- Then rebase to the signed image, like so:
-  ```
-  rpm-ostree rebase ostree-image-signed:docker://ghcr.io/blue-build/template:latest
-  ```
-- Reboot again to complete the installation
-  ```
-  systemctl reboot
-  ```
+## Install (switching from Bazzite)
 
-The `latest` tag will automatically point to the latest build. That build will still always use the Fedora version specified in `recipe.yml`, so you won't get accidentally updated to the next major version.
+1. Install [Bazzite](https://bazzite.gg) (KDE, AMD/Intel).
+2. Switch to the unsigned WolkOS image first. This installs the WolkOS signing key:
+   ```
+   rpm-ostree rebase ostree-unverified-registry:ghcr.io/wolklaw/wolkos:latest
+   systemctl reboot
+   ```
+3. Switch to the signed image:
+   ```
+   rpm-ostree rebase ostree-image-signed:docker://ghcr.io/wolklaw/wolkos:latest
+   systemctl reboot
+   ```
 
-## ISO
+Updates arrive automatically. A new image is built every day from the latest Bazzite. If an update breaks something, choose the previous entry in the boot menu.
 
-If build on Fedora Atomic, you can generate an offline ISO with the instructions available [here](https://blue-build.org/how-to/generate-iso/#_top). These ISOs cannot unfortunately be distributed on GitHub for free due to large sizes, so for public projects something else has to be used for hosting.
+## Verify
 
-## Verification
+Images are signed with [cosign](https://github.com/sigstore/cosign):
 
-These images are signed with [Sigstore](https://www.sigstore.dev/)'s [cosign](https://github.com/sigstore/cosign). You can verify the signature by downloading the `cosign.pub` file from this repo and running the following command:
-
-```bash
-cosign verify --key cosign.pub ghcr.io/blue-build/template
+```
+cosign verify --key cosign.pub ghcr.io/wolklaw/wolkos
 ```

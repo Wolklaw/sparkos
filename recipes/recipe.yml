@@ -1,45 +1,31 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-# image will be published to ghcr.io/<user>/<name>
-name: template
-# description will be included in the image's metadata
-description: This is my personal OS image.
+# Published to ghcr.io/wolklaw/wolkos
+name: wolkos
+description: WolkOS, a desktop for gaming and everyday work, built on Bazzite.
 
-# the base image to build on top of (FROM) and the version tag to use
-base-image: ghcr.io/ublue-os/silverblue-main
-image-version: latest # You can pin to a specific version of Fedora as well
+# Bazzite (KDE Plasma, AMD/Intel GPUs). It already ships Steam, Lutris,
+# gamescope, MangoHud, Firefox and current Mesa drivers.
+base-image: ghcr.io/ublue-os/bazzite
+image-version: stable
 
-# module configuration, executed in order
-# you can include multiple instances of the same module
 modules:
   - type: files
     files:
       - source: system
-        destination: / # copies files/system/* (* means everything inside it) into your image's root folder /
+        destination: / # copies files/system/* into the image root
 
-  - type: dnf
-    repos:
-      copr:
-        - atim/starship
-    install:
-      packages:
-        - micro
-        - starship
-    remove:
-      packages:
-        # example: removing firefox (in favor of the flatpak)
-        # "firefox" is the main package, "firefox-langpacks" is a dependency
-        - firefox
-        - firefox-langpacks # also remove firefox dependency (not required for all packages, this is a special case)
+  - type: script
+    scripts:
+      - wolkos-identity.sh # shows "WolkOS" as the system name
 
   - type: default-flatpaks
     configurations:
-      - notify: true # Send notification after install/uninstall is finished (true/false)
+      - notify: true
         scope: system
-        # If no repo information is specified, Flathub will be used by default
-        install: # system flatpaks we want all users to have and not remove
-          - org.mozilla.firefox
-          - org.gnome.Loupe
-      - scope: user # Also add Flathub user repo, but no user packages
+        install:
+          - com.heroicgameslauncher.hgl # Epic, GOG and Amazon games
+          - org.onlyoffice.desktopeditors # documents, spreadsheets, slides
+      - scope: user # adds the Flathub user remote, no user apps
 
-  - type: signing # this sets up the proper policy & signing files for signed images to work fully
+  - type: signing # installs the signing policy so signed updates verify
