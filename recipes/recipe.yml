@@ -30,10 +30,7 @@ modules:
       - soot.sh # Soot browser, latest release
       - freesuite.sh # FreeSuite office apps, latest release
       - spark-snip.sh # Spark Snip: screenshots, text (OCR) and screen recording
-      # androidbox.sh is off for now: Androidbox v1.12.0 pins PySide6-Essentials==6.11.2, which has no
-      # build for Python 3.15 (Fedora 45), so pip fails and the whole image build stops. Turn it back on
-      # (uncomment the line below) once an Androidbox release accepts PySide6 6.12 or later.
-      # - androidbox.sh # Androidbox: Android emulator, newest release
+      - androidbox.sh # Androidbox: Android emulator, newest release (uses python3.13: Qt has no packages for Fedora 45's Python)
       - sparkos-defaults.sh # Soot and FreeSuite as default apps
 
   - type: default-flatpaks
