@@ -1,0 +1,33 @@
+#!/usr/bin/bash
+# Plays the SparkOS startup sound (hammer on steel in a cave) when you sign in.
+#
+#   sparkos-startup-sound          play it (what the sign-in autostart runs)
+#   sparkos-startup-sound --off    don't play it at sign-in any more
+#   sparkos-startup-sound --on     play it at sign-in again
+#
+# You can also untick "SparkOS startup sound" in System Settings > Autostart.
+set -euo pipefail
+
+SOUND=/usr/share/sounds/sparkos/startup.wav
+flag="${XDG_CONFIG_HOME:-$HOME/.config}/sparkos/startup-sound-off"
+
+case "${1:-}" in
+  --off) mkdir -p "$(dirname "$flag")"; touch "$flag"; echo "The startup sound is off."; exit 0 ;;
+  --on) rm -f "$flag"; echo "The startup sound is on."; exit 0 ;;
+  "") ;;
+  *) sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac
+
+[ -e "$flag" ] && exit 0
+[ -f "$SOUND" ] || exit 0
+
+# Give the sound system a moment at sign-in, then play at a polite volume
+for _ in $(seq 1 20); do
+  pactl info >/dev/null 2>&1 && break
+  sleep 0.25
+done
+if command -v pw-play >/dev/null 2>&1; then
+  exec pw-play --volume 0.7 "$SOUND"
+elif command -v paplay >/dev/null 2>&1; then
+  exec paplay "$SOUND"
+fi
