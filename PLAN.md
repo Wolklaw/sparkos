@@ -27,6 +27,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
    - **Soot: in the image, always the latest release** (`files/scripts/soot.sh`). It installs to `/usr/lib/soot` and is the default browser. The installed release is recorded in `/usr/lib/soot/SOOT_RELEASE`.
    - **FreeSuite: in the image** (`files/scripts/freesuite.sh`, always the latest release, checked against that release's SHA256SUMS). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, PDF and every Office format it opens, including .doc/.xls/.ppt, OpenDocument and RTF.
    - **Spark Snip 1.0.0: in the image**, built from this repo (`files/spark-snip`, installed by `files/scripts/spark-snip.sh`). It's the screenshot, OCR and screen recording tool and takes Print, Meta+Shift+S/T/R from Spectacle, which stays installed because Spark Snip reads the screen through it. It grew out of QuickOCR, whose Windows app is finished.
+   - **Androidbox: in the image** (`files/scripts/androidbox.sh`, newest release of `Wolklaw/Androidbox`, which must include its Linux build, v1.12.0 or later). It installs to `/usr/lib/androidbox` with its Python packages in a virtual environment, adds `/usr/bin/androidbox` and a menu entry, and downloads Google's emulator and Android into `~/.local/share/Androidbox` on first run. Needs KVM. Not yet run on real hardware: no Android has been booted on Linux. Known gaps: no global shortcuts (Wayland), no Android 4.1 image.
    - **ONLYOFFICE stays installed but isn't the default.** FreeSuite reads the old binary formats only partly: no pictures or formatting from .doc, only text from .ppt, and no charts or merged cells from .xls. ONLYOFFICE is under "Open with" for those files. Remove it whenever you like.
    - **Updates:** publish a new release of Soot or FreeSuite, and the next image build (daily, or any push) includes it. The boot test then checks it.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**
@@ -90,6 +91,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
   - Check that the QuadCast, FiiO DAC and C920 work in Discord and OBS.
   - Try OpenRGB on the motherboard and RAM.
   - Set up all three monitors, including refresh rates.
+  - Chessbot (`E:\Personal Projects\CheatChessClaude`, not in the image): run `linux/install.sh --deps`, launch `chessbot`, and check its window and clipboard paste. Its Linux port was never run, because there was no Fedora system to test it on before real hardware. If it works, it can be added to the image like Soot.
 - **Benchmark against Windows 11:**
   - Run 4–5 games you play, at the same settings and resolution on both systems.
   - Log average FPS and 1% lows (MangoHud on SparkOS, PresentMon/CapFrameX on Windows).

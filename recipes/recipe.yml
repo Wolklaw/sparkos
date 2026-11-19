@@ -30,6 +30,7 @@ modules:
       - soot.sh # Soot browser, pinned release
       - freesuite.sh # FreeSuite office apps, pinned release
       - spark-snip.sh # Spark Snip: screenshots, text (OCR) and screen recording
+      - androidbox.sh # Androidbox: Android emulator, newest release
       - sparkos-defaults.sh # Soot and FreeSuite as default apps
 
   - type: default-flatpaks

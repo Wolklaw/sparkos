@@ -10,6 +10,7 @@ Status: early and personal. Every build is booted in a VM by CI ([boot-test](.gi
 |---|---|
 | From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers, CUPS driverless printing with KDE Printers settings, SANE scanning, Bluetooth, KDE Connect, Tailscale |
 | Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) as the default browser and [FreeSuite](https://github.com/Wolklaw/freesuite-releases) (both always their latest release) for mail, calendar, PDF and every Word, Excel and PowerPoint format, old and new, plus OpenDocument (default for all of them), ONLYOFFICE kept under "Open with" for old files with pictures or charts |
+| | [Androidbox](https://github.com/Wolklaw/Androidbox), the ad-free Android emulator (Google Play, game controls, macros), using KVM. It downloads Android the first time you open it |
 | | Spark Snip, the screenshot tool: Print for a screenshot, Meta+Shift+T to copy text off the screen (OCR), Meta+Shift+R to record ([source](files/spark-snip)) |
 | | Skanpage for scanning, Piper (Logitech mice), OpenRGB, Mission Center, qpwgraph, VIA keyboard access |
 | | Heroic, Prism Launcher, RuneLite, Bolt, Chrome, Discord, Spotify, OBS, Blender, GIMP, Audacity, Kdenlive, Flameshot, VS Code, Unity Hub, Bottles |
@@ -17,7 +18,7 @@ Status: early and personal. Every build is booted in a VM by CI ([boot-test](.gi
 | | `sparkos-dev-setup` for Node, Python, GitHub CLI and JDK 17, and the SparkOS name |
 | Planned | First-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
 
-Soot, FreeSuite and Spark Snip's Linux versions are new. The boot test checks them on every build, but none has been used by hand on a SparkOS desktop yet. For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md).
+Soot, FreeSuite, Spark Snip and Androidbox's Linux versions are new. The boot test checks them on every build, but none has been used by hand on a SparkOS desktop yet, and no Android has been booted in Androidbox on Linux. For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md).
 
 Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 

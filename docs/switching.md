@@ -94,7 +94,8 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Claude desktop app (Chat, Cowork, Code tab) | **No** | Its Linux version is a beta for Ubuntu and Debian only. On SparkOS, use Claude Code (above), and claude.ai in the browser for chat. |
 | Antigravity IDE | **Check** | Look for a Linux download. |
 | Inno Setup (Windows installers for your apps) | **Partly** | Runs under Wine or Bottles (in the image). For building and testing Windows releases, a Windows VM in virt-manager is the dependable choice. |
-| Your own apps: Nova, BotWatch, Broke'nt, OSRS Toolkit, Upscape, Androidbox, Delta | **Check each** | They're Windows builds. Each needs a Linux build, as Soot and FreeSuite got, or runs in the Windows VM. |
+| Androidbox | **Works** (check) | In the image. Open **Androidbox** from the app menu and choose Download and install once. It needs virtualization (KVM) on in the BIOS, which Bazzite then handles. Not yet tried by hand on SparkOS. The boss key and other shortcuts that work while another program is in front don't work on Linux, and the Android 4.1 (OUYA, GameStick) image isn't offered yet. |
+| Your own apps: Nova, BotWatch, Broke'nt, OSRS Toolkit, Upscape, Delta | **Check each** | They're Windows builds. Each needs a Linux build, as Soot and FreeSuite got, or runs in the Windows VM. |
 
 ## Faster than Windows 11?
 
