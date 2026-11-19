@@ -1,8 +1,8 @@
 ---
 # yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
-# Published to ghcr.io/wolklaw/wolkos
-name: wolkos
-description: WolkOS, a desktop for gaming and everyday work, built on Bazzite.
+# Published to ghcr.io/wolklaw/sparkos
+name: sparkos
+description: SparkOS, a desktop for gaming and everyday work, built on Bazzite.
 
 # Bazzite (KDE Plasma, AMD/Intel GPUs). It already ships Steam, Lutris,
 # gamescope, MangoHud, Firefox and current Mesa drivers.
@@ -17,7 +17,7 @@ modules:
 
   - type: script
     scripts:
-      - wolkos-identity.sh # shows "WolkOS" as the system name
+      - sparkos-identity.sh # shows "SparkOS" as the system name
 
   - type: default-flatpaks
     configurations:

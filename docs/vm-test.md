@@ -1,6 +1,6 @@
-# Testing WolkOS in a VM (Phase 1)
+# Testing SparkOS in a VM (Phase 1)
 
-A VM shows that WolkOS boots, has the right name and installs its apps. It can't show gaming performance, because VM graphics are far slower than your RX 6800 XT. Performance testing happens in Phase 5 on real hardware.
+A VM shows that SparkOS boots, has the right name and installs its apps. It can't show gaming performance, because VM graphics are far slower than your RX 6800 XT. Performance testing happens in Phase 5 on real hardware.
 
 ## 1. Install a VM app (once)
 
@@ -12,7 +12,7 @@ Virtualization (SVM) is already on in your BIOS (checked 2026-11-19).
 
 ## 2. Get the Bazzite ISO
 
-From bazzite.gg, choose: **Desktop**, GPU **AMD/Intel**, desktop **KDE Plasma**. That's the image WolkOS is built on.
+From bazzite.gg, choose: **Desktop**, GPU **AMD/Intel**, desktop **KDE Plasma**. That's the image SparkOS is built on.
 
 ## 3. Create the VM
 
@@ -27,27 +27,27 @@ From bazzite.gg, choose: **Desktop**, GPU **AMD/Intel**, desktop **KDE Plasma**.
 
 Boot the ISO and install with the defaults, then create your user.
 
-## 4. Switch the VM to WolkOS
+## 4. Switch the VM to SparkOS
 
 Open Konsole in the VM:
 
 ```
-rpm-ostree rebase ostree-unverified-registry:ghcr.io/wolklaw/wolkos:latest
+rpm-ostree rebase ostree-unverified-registry:ghcr.io/wolklaw/sparkos:latest
 systemctl reboot
 ```
 
 After the reboot, switch to the signed image:
 
 ```
-rpm-ostree rebase ostree-image-signed:docker://ghcr.io/wolklaw/wolkos:latest
+rpm-ostree rebase ostree-image-signed:docker://ghcr.io/wolklaw/sparkos:latest
 systemctl reboot
 ```
 
 ## 5. Check that it worked
 
 ```
-grep -E '^(NAME|PRETTY_NAME)=' /etc/os-release   # should say WolkOS
-rpm-ostree status | head -5                        # should show ghcr.io/wolklaw/wolkos, signed
+grep -E '^(NAME|PRETTY_NAME)=' /etc/os-release   # should say SparkOS
+rpm-ostree status | head -5                        # should show ghcr.io/wolklaw/sparkos, signed
 flatpak list --app | grep -Ei 'heroic|onlyoffice'  # both listed
 ```
 
@@ -57,6 +57,6 @@ Heroic and ONLYOFFICE install in the background a few minutes after the first lo
 systemctl status system-flatpak-setup.service
 ```
 
-Also open **System Settings > About this System** and confirm it says WolkOS.
+Also open **System Settings > About this System** and confirm it says SparkOS.
 
 **Phase 1 is done when** all of the above checks out. Send me what you see, including anything that looks wrong.
