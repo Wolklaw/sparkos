@@ -125,11 +125,16 @@ qrencode -o "$SECUREBOOT_DOC_URL_QR" "$SECUREBOOT_DOC_URL"
         ublue-flatpak-manager.service flatpak-add-fedora-repos.service system-flatpak-setup.timer \
         user-flatpak-setup.timer greenboot-set-rollback-trigger.service greenboot-healthcheck.service \
         input-remapper.service switcheroo-control.service check-sb-key.service; do
-        systemctl list-unit-files "$s" >/dev/null 2>&1 && systemctl disable "$s"
+        if systemctl list-unit-files "$s" >/dev/null 2>&1; then
+            systemctl disable "$s"
+        fi
     done
     for s in podman-auto-update.timer bazzite-user-setup.service ublue-user-setup.service; do
-        systemctl --global list-unit-files "$s" >/dev/null 2>&1 && systemctl --global disable "$s"
+        if systemctl --global list-unit-files "$s" >/dev/null 2>&1; then
+            systemctl --global disable "$s"
+        fi
     done
+    true # a service missing from this image is fine; never fail the build here
 )
 
 rm -vf /etc/skel/.config/autostart/steam*.desktop
