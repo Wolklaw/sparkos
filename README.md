@@ -17,7 +17,7 @@ Status: early and personal. Every build is booted in a VM by CI ([boot-test](.gi
 | | `sparkos-dev-setup` for Node, Python, GitHub CLI and JDK 17, and the SparkOS name |
 | Planned | First-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
 
-Soot, FreeSuite and Spark Snip's Linux versions are new. The boot test checks them on every build, but none has been used by hand on a SparkOS desktop yet. For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md).
+Soot, FreeSuite and Spark Snip's Linux versions are new. The boot test checks them on every build, but none has been used by hand on a SparkOS desktop yet. For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
 
 Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 

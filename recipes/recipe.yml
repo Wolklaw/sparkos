@@ -82,7 +82,10 @@ modules:
           - org.openrgb.OpenRGB # motherboard, RAM and SSD lighting (replaces SignalRGB, Aura, Patriot and Corsair tools)
           - io.missioncenter.MissionCenter # CPU, GPU, memory and temperatures (replaces Task Manager and HWiNFO)
           - org.rncbc.qpwgraph # route audio between apps (replaces VB-CABLE)
-          - com.usebottles.bottles # run small Windows-only programs
+          - com.usebottles.bottles # run Windows .exe/.msi programs (double-click opens them here)
+          # Installing apps the Windows way (the Store, Bazaar, comes with Bazzite)
+          - it.mijorus.gearlever # double-click an .AppImage to add it to the app menu
+          - io.github.flattool.Warehouse # see and remove installed apps (like Apps & features)
       - scope: user # adds the Flathub user remote, no user apps
 
   - type: signing # installs the signing policy so signed updates verify

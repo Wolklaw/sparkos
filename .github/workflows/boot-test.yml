@@ -213,6 +213,20 @@ jobs:
           # KVM may not exist inside this test VM, so only report it
           $SSH 'ls -l /dev/kvm 2>&1 || true'
 
+      - name: Check installing apps the Windows way
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Double-clicked downloads open in the right app
+          $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
+          grep -q 'application/x-ms-dos-executable -> com.usebottles.bottles.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/vnd.appimage -> it.mijorus.gearlever.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/vnd.flatpak.ref -> io.github.kolunmi.Bazaar.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
+          # The Store and the guided package installer are there, and what the installer uses exists
+          $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
+          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio >/dev/null && echo "package installer ready"'
+
       - name: Wait for preinstalled Flatpaks
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |

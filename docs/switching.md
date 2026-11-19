@@ -8,6 +8,8 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 
 "In the image" means SparkOS ships it already. "Check" means I couldn't confirm it, and you should test it before you rely on it.
 
+**Installing apps:** a store with an Install button, or double-click what you downloaded (`.exe`, `.AppImage`, `.rpm`). See [installing-apps.md](installing-apps.md).
+
 ## Devices
 
 | Device | On SparkOS | Notes |

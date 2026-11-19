@@ -25,6 +25,18 @@ add freesuite-mail.desktop     x-scheme-handler/mailto
 add freesuite-calendar.desktop text/calendar
 add freesuite-pdf.desktop      application/pdf
 
+# Installing apps by double-click, the way Windows users expect:
+add com.usebottles.bottles.desktop \
+  application/x-ms-dos-executable application/x-msi application/x-msdownload \
+  application/vnd.microsoft.portable-executable application/x-ms-shortcut   # Windows .exe/.msi run in Bottles
+add it.mijorus.gearlever.desktop \
+  application/vnd.appimage application/x-iso9660-appimage                    # AppImages go into the app menu
+add io.github.kolunmi.Bazaar.desktop \
+  application/vnd.flatpak.ref application/vnd.flatpak.repo                   # Flatpak links open in the Store
+add sparkos-open-package.desktop \
+  application/x-rpm application/x-redhat-package-manager \
+  application/vnd.debian.binary-package application/x-deb                    # guided .rpm install / .deb advice
+
 add freesuite-writer.desktop \
   application/vnd.openxmlformats-officedocument.wordprocessingml.document \
   application/vnd.openxmlformats-officedocument.wordprocessingml.template \

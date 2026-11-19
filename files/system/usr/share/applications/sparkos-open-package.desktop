@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=SparkOS package installer
+Comment=Install a downloaded .rpm, or find a .deb's app in the Store
+Exec=sparkos-open-package %f
+Icon=system-software-install
+Terminal=false
+NoDisplay=true
+MimeType=application/x-rpm;application/x-redhat-package-manager;application/vnd.debian.binary-package;application/x-deb;
