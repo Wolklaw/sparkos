@@ -195,6 +195,9 @@ jobs:
       - name: Check Androidbox
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
+          if ! grep -qE '^ +- androidbox\.sh' recipes/recipe.yml; then
+            echo "Androidbox is switched off in recipes/recipe.yml right now; nothing to check."; exit 0
+          fi
           # Installed from the release the build recorded, with its command, menu entry and icon
           $SSH 'cat /usr/lib/androidbox/ANDROIDBOX_RELEASE; ls -l /usr/bin/androidbox /usr/share/applications/dev.wolklaw.Androidbox.desktop /usr/share/icons/hicolor/256x256/apps/androidbox.png'
           $SSH 'command -v desktop-file-validate >/dev/null && desktop-file-validate /usr/share/applications/dev.wolklaw.Androidbox.desktop; QT_QPA_PLATFORM=offscreen androidbox --version' | tee "$WORK/androidbox-version.txt"
