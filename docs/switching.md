@@ -45,7 +45,8 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | RSI Launcher (Star Citizen) | **Partly** | Runs through the community LUG Helper. Not supported by CIG. |
 | Crusader Kings III, Valheim, Undertale | **Works** | Native Linux versions on Steam. |
 | Hogwarts Legacy, Palworld, Teardown, TCG Card Shop Simulator, Dawn of War Soulstorm | **Works** (check) | Generally fine under Proton. Check each on ProtonDB. |
-| Forza Horizon 6, Dragon Ball Sparking! Zero, Harry Potter Quidditch Champions, Pokémon TCG Live | **Check** | I couldn't confirm these. Look them up on ProtonDB and areweanticheatyet.com before you uninstall them on Windows. |
+| Dragon Ball Sparking! Zero | **Works** | ProtonDB Gold, trending Platinum (97 reports, strong confidence). Steam Deck: Playable. Checked 2026-11-19. |
+| Forza Horizon 6, Harry Potter Quidditch Champions, Pokémon TCG Live | **Check** | I couldn't confirm these. Look them up on ProtonDB and areweanticheatyet.com before you uninstall them on Windows. |
 | Blitz (League companion) | **No** | Not needed without League. |
 
 ## Work, creative and everyday apps
