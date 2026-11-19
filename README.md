@@ -9,7 +9,7 @@ Status: early and personal. Every build is booted in a VM by CI ([boot-test](.gi
 | | |
 |---|---|
 | From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers, CUPS driverless printing with KDE Printers settings, SANE scanning, Bluetooth, KDE Connect, Tailscale |
-| Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) 0.2.0 as the default browser, [FreeSuite](https://github.com/Wolklaw/freesuite-releases) 0.4.1 for mail, calendar, PDF and every Word, Excel and PowerPoint format, old and new, plus OpenDocument (default for all of them), ONLYOFFICE kept under "Open with" for old files with pictures or charts |
+| Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) as the default browser and [FreeSuite](https://github.com/Wolklaw/freesuite-releases) (both always their latest release) for mail, calendar, PDF and every Word, Excel and PowerPoint format, old and new, plus OpenDocument (default for all of them), ONLYOFFICE kept under "Open with" for old files with pictures or charts |
 | | Spark Snip, the screenshot tool: Print for a screenshot, Meta+Shift+T to copy text off the screen (OCR), Meta+Shift+R to record ([source](files/spark-snip)) |
 | | Skanpage for scanning, Piper (Logitech mice), OpenRGB, Mission Center, qpwgraph, VIA keyboard access |
 | | Heroic, Prism Launcher, RuneLite, Bolt, Chrome, Discord, Spotify, OBS, Blender, GIMP, Audacity, Kdenlive, Flameshot, VS Code, Unity Hub, Bottles |

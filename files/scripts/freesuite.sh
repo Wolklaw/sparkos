@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Install FreeSuite (mail, documents, sheets, slides, PDF, calendar, files) from its
-# pinned Linux release on github.com/Wolklaw/freesuite-releases.
+# latest Linux release on github.com/Wolklaw/freesuite-releases. Every image build (daily)
+# picks up the newest release; the download is checked against the SHA256SUMS file
+# published with that release.
 #
 # The release tarball installs under /opt/freesuite. On Fedora Atomic /opt is a link
 # into /var, which is not part of the OS image, so the program goes to
@@ -9,16 +11,25 @@
 # so the read-only /usr is fine.
 set -oue pipefail
 
-FREESUITE_VERSION=0.4.1
-FREESUITE_SHA256=135bf79946b52a8ed3db17267f2cc672a53506ead1895eb154c88a19cf554e79
+REPO=Wolklaw/freesuite-releases
+
+# The latest release, found from GitHub's redirect (no API call, so no API rate limit)
+tag=$(curl -fsSI --retry 5 "https://github.com/$REPO/releases/latest" | tr -d '\r' \
+      | sed -n 's|^[Ll]ocation: .*/releases/tag/||p' | tail -1)
+[[ $tag =~ ^v[0-9]+(\.[0-9]+)*$ ]] || { echo "Could not work out FreeSuite's latest release (got '$tag')"; exit 1; }
+FREESUITE_VERSION=${tag#v}
 FILE="freesuite-${FREESUITE_VERSION}-linux-x64.tar.gz"
-URL="https://github.com/Wolklaw/freesuite-releases/releases/download/v${FREESUITE_VERSION}/${FILE}"
+BASE="https://github.com/$REPO/releases/download/$tag"
+echo "FreeSuite latest release: $tag"
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-curl -fsSL --retry 5 --retry-delay 5 -o "$tmp/$FILE" "$URL"
-echo "${FREESUITE_SHA256}  $tmp/$FILE" | sha256sum -c -
+curl -fsSL --retry 5 --retry-delay 5 -o "$tmp/$FILE" "$BASE/$FILE"
+curl -fsSL --retry 5 --retry-delay 5 -o "$tmp/SHA256SUMS" "$BASE/SHA256SUMS"
+want=$(awk -v f="$FILE" '$2 == f {print $1}' "$tmp/SHA256SUMS")
+[[ $want =~ ^[0-9a-f]{64}$ ]] || { echo "SHA256SUMS of $tag has no entry for $FILE"; exit 1; }
+echo "$want  $tmp/$FILE" | sha256sum -c -
 tar -xzf "$tmp/$FILE" -C "$tmp"
 
 root=$(find "$tmp" -mindepth 2 -maxdepth 2 -type d -name opt -printf '%h\n' | head -1)

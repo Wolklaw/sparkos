@@ -140,8 +140,9 @@ jobs:
           # FreeSuite's own desktop entries claim the old formats too (0.4.1+)
           $SSH 'grep -l "application/vnd.ms-excel" /usr/share/applications/freesuite-sheets.desktop'
           # Soot's own headless smoke test, from the same pinned commit
-          SOOT_COMMIT=$(sed -n 's/^SOOT_COMMIT=\([0-9a-f]*\).*/\1/p' files/scripts/soot.sh)
-          curl -fsSL -o "$WORK/smoke-test.py" "https://raw.githubusercontent.com/Wolklaw/Soot/$SOOT_COMMIT/linux/smoke-test.py"
+          SOOT_RELEASE=$($SSH 'cat /usr/lib/soot/SOOT_RELEASE')
+          echo "Soot in the image: $SOOT_RELEASE"
+          curl -fsSL -o "$WORK/smoke-test.py" "https://raw.githubusercontent.com/Wolklaw/Soot/$SOOT_RELEASE/linux/smoke-test.py"
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 "$WORK/smoke-test.py" spark@127.0.0.1:/tmp/smoke-test.py
           $SSH 'python3 /tmp/smoke-test.py --soot /usr/bin/soot' 2>&1 | tee "$WORK/soot-smoke-test.txt"
 
