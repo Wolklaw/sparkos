@@ -18,7 +18,7 @@ modules:
   - type: dnf
     install:
       packages:
-        - print-manager # KDE System Settings > Printers (CUPS and driverless printing are already in Bazzite)
+        # Printing (CUPS, driverless, plasma-print-manager) is already in Bazzite.
         - skanpage # scanning app (SANE pixma and airscan backends are already in Bazzite)
 
   - type: script

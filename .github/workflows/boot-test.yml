@@ -142,7 +142,7 @@ jobs:
 
       - name: Check printing, scanning and devices
         run: |
-          $SSH 'rpm -q print-manager skanpage cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
+          $SSH 'rpm -q plasma-print-manager skanpage cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
           ! grep -q 'not installed' "$WORK/devices.txt"
           $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'

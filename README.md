@@ -8,9 +8,9 @@ Status: early and personal. Every build is booted in a VM by CI ([boot-test](.gi
 
 | | |
 |---|---|
-| From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers, CUPS driverless printing, SANE scanning, Bluetooth, KDE Connect, Tailscale |
+| From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers, CUPS driverless printing with KDE Printers settings, SANE scanning, Bluetooth, KDE Connect, Tailscale |
 | Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) 0.2.0 as the default browser, [FreeSuite](https://github.com/Wolklaw/freesuite-releases) 0.4.0 for mail, documents, sheets, slides, PDF and calendar (default for those files), ONLYOFFICE for .doc/.xls/.ppt and OpenDocument files |
-| | KDE Printers settings and Skanpage for scanning, Piper (Logitech mice), OpenRGB, Mission Center, qpwgraph, VIA keyboard access |
+| | Skanpage for scanning, Piper (Logitech mice), OpenRGB, Mission Center, qpwgraph, VIA keyboard access |
 | | Heroic, Prism Launcher, RuneLite, Bolt, Chrome, Discord, Spotify, OBS, Blender, GIMP, Audacity, Kdenlive, Flameshot, VS Code, Unity Hub, Bottles |
 | | `sparkos-dev-setup` for Node, Python, GitHub CLI and JDK 17, and the SparkOS name |
 | Planned | First-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
