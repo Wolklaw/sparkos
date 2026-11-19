@@ -1,0 +1,33 @@
+name: inventory
+# Lists which packages and services are in the published SparkOS image, without booting it.
+on:
+  workflow_dispatch:
+    inputs:
+      packages:
+        description: Space-separated RPM names to look up
+        default: >-
+          cups cups-browsed cups-filters ipp-usb avahi nss-mdns sane-backends sane-airscan
+          sane-backends-drivers-scanners print-manager system-config-printer-libs skanpage
+          kdeconnectd kde-connect bluez pipewire wireplumber v4l-utils libratbag-ratbagd piper
+          openrgb-udev-rules input-remapper tailscale distrobox podman virt-manager libvirt
+          ntfs-3g ntfsprogs exfatprogs flatpak fwupd kio-gdrive kaccounts-providers
+          steam lutris gamescope mangohud gamemode
+
+jobs:
+  inventory:
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: read
+    steps:
+      - name: Look inside the image
+        run: |
+          echo "${{ github.token }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do podman pull -q ghcr.io/wolklaw/sparkos:latest && break; sleep $((i*30)); done
+          podman run --rm ghcr.io/wolklaw/sparkos:latest bash -c '
+            echo "== packages"; rpm -q ${{ inputs.packages }} | sort
+            echo "== enabled services"; systemctl list-unit-files --state=enabled --no-legend | grep -E "cups|avahi|bluetooth|ratbag|ipp-usb|saned|tailscale|libvirt|fwupd" || true
+            echo "== CUPS backends"; ls /usr/lib/cups/backend 2>/dev/null | tr "\n" " "; echo
+            echo "== SANE backends with pixma or airscan"; ls /usr/lib64/sane 2>/dev/null | grep -E "pixma|airscan" || echo none
+            grep -iE "TR4700|TR47" /usr/share/sane/pixma* /etc/sane.d/pixma.conf 2>/dev/null | head -3 || true
+            echo "== system flatpaks baked in"; ls /var/lib/flatpak/app 2>/dev/null || echo none
+          '
