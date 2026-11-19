@@ -46,7 +46,9 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Crusader Kings III, Valheim, Undertale | **Works** | Native Linux versions on Steam. |
 | Hogwarts Legacy, Palworld, Teardown, TCG Card Shop Simulator, Dawn of War Soulstorm | **Works** (check) | Generally fine under Proton. Check each on ProtonDB. |
 | Dragon Ball Sparking! Zero | **Works** | ProtonDB Gold, trending Platinum (97 reports, strong confidence). Steam Deck: Playable. Checked 2026-11-19. |
-| Forza Horizon 6, Harry Potter Quidditch Champions, Pokémon TCG Live | **Check** | I couldn't confirm these. Look them up on ProtonDB and areweanticheatyet.com before you uninstall them on Windows. |
+| Forza Horizon 6 | **Works** | ProtonDB Gold (best report Platinum), 1,099 reports, strong confidence. Steam Deck: Verified. Checked 2026-11-19. |
+| Harry Potter: Quidditch Champions | **Works** | ProtonDB Gold (best report Platinum), only 10 reports. Steam Deck: Verified. Needs an internet connection even for single player. Checked 2026-11-19. |
+| Pokémon TCG Live | **Check** | Not on Steam or ProtonDB. Lutris has one community install script whose author calls it temporary: click past install errors, and you may need to pick the language several times (last updated 2024-11). Fallback: the Android version in Waydroid (`ujust setup-waydroid`), not confirmed. If neither works, use Windows or a phone. |
 | Blitz (League companion) | **No** | Not needed without League. |
 
 ## Work, creative and everyday apps
