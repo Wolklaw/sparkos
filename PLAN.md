@@ -4,6 +4,11 @@ WolkOS is a custom Linux image for gaming and everyday work. It is built on **Ba
 
 We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. WolkOS adds the apps, defaults and branding.
 
+## Status (2026-11-19)
+- **Phase 0: done.** Repo `Wolklaw/wolkos` is public, the cosign key is in `SIGNING_SECRET` (a local copy is in the git-ignored `cosign.key`), and the first CI build passed in about 5 minutes. `ghcr.io/wolklaw/wolkos:latest` is public, and its signature verifies against `cosign.pub`.
+- **Phase 1: image built, VM test not done yet.** Follow [docs/vm-test.md](docs/vm-test.md).
+- Note: only the visible name changes to WolkOS. `ID=bazzite` and Bazzite's `image-info.json` stay as they are, because Bazzite's own tools read them. Bazzite's rollback helper therefore offers stock Bazzite images, which is a fine way out if WolkOS ever breaks.
+
 ## Starting point (checked on this PC, 2026-11-19)
 
 | | Found | What it means |
