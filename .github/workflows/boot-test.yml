@@ -58,6 +58,11 @@ jobs:
           name = "spark"
           key = "$(cat "$WORK/id.pub")"
           groups = ["wheel"]
+
+          # Bazzite ships with sshd off (SparkOS keeps that). Start it on this
+          # test disk only, through a kernel argument.
+          [customizations.kernel]
+          append = "systemd.wants=sshd.service"
           EOF
           mkdir -p "$WORK/output"
           sudo podman run --rm --privileged --pull=newer \
