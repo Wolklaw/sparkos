@@ -21,6 +21,17 @@ Soot, FreeSuite and Spark Snip's Linux versions are new. The boot test checks th
 
 Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 
+## Install from the SparkOS installer
+
+The [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer) holds a live USB image with every app inside. The apps are copied onto the new system during install, so they're there on the first start, even offline. It's rebuilt every Monday with the latest image and the latest apps from Flathub.
+
+1. Download **all** the files in the release. The ISO comes in parts because GitHub limits each release file to 2 GiB.
+2. Run `join-iso.cmd` (Windows) or `join-iso.sh` (Linux). It joins the parts into `SparkOS-installer.iso` and checks its SHA-256.
+3. Write the ISO to a USB stick of 16 GB or more with [Fedora Media Writer](https://fedoraproject.org/workstation/download) (choose *Custom image*) or Rufus (DD mode).
+4. Boot from the stick (UEFI mode) and choose **Install SparkOS**. If Secure Boot is on, the next start shows a blue key-enrollment screen: choose *Enroll MOK*, then *Continue*, and type `universalblue`.
+
+Status: the installer is new. CI builds it and boots it once in a VM, but no one has installed from it yet.
+
 ## Install (switching from Bazzite)
 
 1. Install [Bazzite](https://bazzite.gg) (KDE, AMD/Intel).

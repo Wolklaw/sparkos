@@ -70,9 +70,14 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 - fastfetch logo and the name in About This System.
 - **Done when:** every screen from power-on to desktop reads as SparkOS, checked against real screenshots from the VM.
 
-### Phase 4: Own installer ISO (one or two evenings)
-- A GitHub Actions job builds a SparkOS ISO from the image (BlueBuild ISO / bootc-image-builder), so installs no longer start from the Bazzite ISO.
-- **Done when:** a clean VM installs straight from the SparkOS ISO.
+### Phase 4: Own installer ISO (in progress)
+- `installer/` and `.github/workflows/installer-iso.yml` build a SparkOS live installer, adapted from Bazzite's (Apache-2.0). It runs on demand and every Monday.
+- **Every app is inside:** at ISO build time, Bazzite's first-boot apps and every system Flatpak in the recipe are installed from Flathub at their latest versions. They're copied onto the new system during install, so first start needs no download.
+- After install, the system follows signed SparkOS updates (`bootc switch --enforce-container-sigpolicy`).
+- **Published** to the `installer` release in parts under 2 GiB (GitHub's limit per file), with `join-iso.cmd` and `join-iso.sh`, which join the parts and check the SHA-256.
+- **CI checks:** every app is in the installer image, and the ISO boots in QEMU (screenshots kept for 7 days).
+- **Not yet tested:** a full install from the ISO, in a VM or on hardware.
+- **Done when:** a clean VM installs from the SparkOS ISO and first boots with all apps present.
 
 ### Phase 5: Real hardware and your games (ongoing)
 - Uninstall the Windows games on E:, back up `Personal Projects`, shrink E:, and install SparkOS into the freed space (see decision 3). At startup, choose SparkOS or Windows from the boot menu.
