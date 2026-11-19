@@ -65,7 +65,8 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | OBS Studio | **Works** | In the image, with Bazzite's game-capture plugin. |
 | Blender, GIMP, Audacity | **Works** | In the image. Blender renders on the RX 6800 XT through HIP. |
 | Clipchamp | **Replaced** | **Kdenlive** (in the image). |
-| ShareX | **Replaced** | **Spectacle** (built in) or **Flameshot** (in the image). |
+| Snipping Tool, QuickOCR | **Replaced** | **Spark Snip** (in the image): Print or Meta+Shift+S for a screenshot, Meta+Shift+T to copy text off the screen (OCR, English and French), Meta+Shift+R to start and stop a recording. The keys match Snipping Tool and PowerToys Text Extractor, with Meta for the Windows key. |
+| ShareX | **Replaced** | **Spark Snip** for quick snips, text and recordings, or **Flameshot** (in the image) to annotate and upload. |
 | Notepad++ | **Replaced** | **Kate** (built in). |
 | 7-Zip | **Replaced** | **Ark** (built in). |
 | WinDirStat | **Replaced** | **Filelight** (in Bazzite). |

@@ -160,6 +160,18 @@ jobs:
           $SSH 'sparkos-dev-setup --claude && ~/.local/bin/claude --version' 2>&1 | tee "$WORK/claude-install.txt"
           $SSH '~/.local/bin/claude --version' | grep -qiE '[0-9]+\.[0-9]+'
 
+      - name: Check Spark Snip
+        run: |
+          # Installed, shortcuts registered, Spectacle gave up Print and Meta+Shift+R
+          $SSH 'spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
+          $SSH 'grep "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop /usr/share/applications/org.kde.spectacle.desktop' | tee "$WORK/shortcuts.txt"
+          grep -q 'SparkSnip.desktop:X-KDE-Shortcuts=Print,Meta+Shift+S' "$WORK/shortcuts.txt"
+          if grep -E 'spectacle.desktop:X-KDE-Shortcuts=(.*,)?(Print|Meta\+Shift\+R)(,|$)' "$WORK/shortcuts.txt"; then
+            echo "Spectacle still claims Print or Meta+Shift+R"; exit 1
+          fi
+          # OCR in English and French, and a test video through each installed encoder
+          $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
+
       - name: Wait for preinstalled Flatpaks
         run: |
           WANT=$(sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | grep '\.')
