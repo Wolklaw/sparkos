@@ -1,7 +1,7 @@
 """Every sentence Spark Run shows, in one place: English, and French for Quebec.
 t('key', name=...) fills in the blanks; a key missing in French falls back to English."""
 
-from .core import languages
+from .lang import ui_language
 
 EN = {
     # window
@@ -10,6 +10,9 @@ EN = {
     'status.ready': "WINE {version} READY",
     'status.custom': "CUSTOM WINE",
     'status.missing': "WINE NOT DOWNLOADED YET",
+    'status.installing': "INSTALLING",
+    'status.error': "ERROR",
+    'status.crashed': "SOMETHING WENT WRONG; SEE THE LOG",
     'apps.heading': "Installed Windows apps",
     'apps.empty': "No Windows apps installed yet.\n\nDouble-click an .exe or .msi file in "
                   "Dolphin, or choose one with Run a program.",
@@ -155,6 +158,9 @@ FR = {
     'status.ready': "WINE {version} PRÊT",
     'status.custom': "WINE PERSONNALISÉ",
     'status.missing': "WINE PAS ENCORE TÉLÉCHARGÉ",
+    'status.installing': "INSTALLATION",
+    'status.error': "ERREUR",
+    'status.crashed': "UN PROBLÈME EST SURVENU; VOYEZ LE JOURNAL",
     'apps.heading': "Applications Windows installées",
     'apps.empty': "Aucune application Windows installée pour l'instant.\n\nDouble-cliquez "
                   "sur un fichier .exe ou .msi dans Dolphin, ou choisissez-en un avec "
@@ -223,12 +229,16 @@ FR = {
     'opt.windows': "VERSION DE WINDOWS",
     'opt.windows_hint': "Certains programmes vérifient la version et refusent de démarrer "
                         "sur une version inattendue.",
-    'opt.dxvk_hint': "Exécute Direct3D 9, 10 et 11 sur Vulkan. Aide certains programmes 3D ; "
+    'opt.dxvk': "DXVK",
+    'opt.dxvk_hint': "Exécute Direct3D 9, 10 et 11 sur Vulkan. Aide certains programmes 3D; "
                      "la plupart n'en ont pas besoin. Télécharge {size} une seule fois.",
     'opt.dxvk_on': "Activé",
     'opt.dxvk_off': "Désactivé",
     'opt.saved': "Enregistré.",
-    'rm.heading': "Supprimer {name} ?",
+    'win.win11': "11", 'win.win10': "10", 'win.win81': "8.1", 'win.win8': "8",
+    'win.win7': "7", 'win.winxp': "XP",
+    'win.label': "Windows {v}",
+    'rm.heading': "Supprimer {name}?",
     'rm.body': "Cela supprime son dossier Windows ({size}), avec tout ce que le programme y "
                "a enregistré, et son entrée de menu. Les fichiers enregistrés dans vos "
                "propres dossiers Documents, Téléchargements, Musique, Images ou Vidéos "
@@ -289,17 +299,8 @@ FR = {
 }
 
 TABLES = {'en': EN, 'fr': FR}
-
-
-def _table():
-    for lang in languages():
-        short = lang.split('_')[0].lower()
-        if short in TABLES:
-            return TABLES[short]
-    return EN
-
-
-_T = _table()
+LANG = ui_language()
+_T = TABLES[LANG]
 
 
 def t(key: str, **kw) -> str:

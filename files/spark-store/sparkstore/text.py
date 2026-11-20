@@ -1,7 +1,7 @@
 """Every sentence the interface shows, in one place: English, and French for Quebec.
 t('key', name=...) fills in the blanks. A missing French line falls back to English."""
 
-from .core import languages
+from .lang import ui_language
 
 EN = {
     # tabs, header, search
@@ -654,20 +654,18 @@ FR = {
     'done.spark_install': "{name} est installée",
     'done.spark_remove': "{name} est désinstallée",
     'done.catalog': "Le {name} est à jour",
+    # the same in both languages
+    'crumb.flathub': "FLATHUB",
+    'fact.version': "Version",
+    'from.flathub': "Flathub",
+    'from.sparkos': "SparkOS",
+    'perm.f.sub': "{folder} : {sub}",
+    'perm.d.bluetooth': "Bluetooth",
 }
 
 TABLES = {'en': EN, 'fr': FR}
-
-
-def _table():
-    for lang in languages():
-        short = lang.split('_')[0].lower()
-        if short in TABLES:
-            return TABLES[short]
-    return EN
-
-
-_T = _table()
+LANG = ui_language()
+_T = TABLES[LANG]
 
 
 def use(lang: str) -> None:

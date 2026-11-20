@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, List, Optional
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
 
 log = logging.getLogger(APP_SLUG)
 
@@ -119,7 +120,7 @@ def languages() -> List[str]:
 
 # ─── Numbers for people ───────────────────────────────────────
 
-def size(n: Optional[float], digits: int = 1) -> str:
+def _size(n: Optional[float], digits: int = 1) -> str:
     """Bytes, in the units Windows uses (1 KB = 1024 bytes)."""
     if n is None:
         return "—"
@@ -130,6 +131,11 @@ def size(n: Optional[float], digits: int = 1) -> str:
             return f"{n:.{digits}f} {unit}"
         n /= 1024
     return f"{n:.1f} TB"
+
+
+def size(n: Optional[float], digits: int = 1) -> str:
+    """Bytes, in the units Windows uses (1 KB = 1024 bytes)."""
+    return local_units(_size(n, digits))
 
 
 _UNITS = {'b': 1, 'bytes': 1, 'kb': 1000, 'kib': 1024, 'mb': 1000 ** 2, 'mib': 1024 ** 2,

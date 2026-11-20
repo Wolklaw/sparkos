@@ -259,7 +259,7 @@ class Window:
 
     def _on_tk_error(self, exc_type, exc_value, exc_tb):
         log.error("unhandled callback error", exc_info=(exc_type, exc_value, exc_tb))
-        self.set_status("SOMETHING WENT WRONG; SEE THE LOG", T["pink"])
+        self.set_status(t('status.crashed'), T["pink"])
         self.glitch.now(self.title, strong=True)
 
     def _build(self):
@@ -466,7 +466,7 @@ class Window:
             return
         self._progress_view()
         name = info.product or os.path.basename(file)
-        self.set_status("INSTALLING", T["gold"])
+        self.set_status(t('status.installing'), T["gold"])
 
         def choose(found):
             return self.worker.ask(lambda answer: PickDialog(self, found, answer))
@@ -568,7 +568,7 @@ class Window:
     def show_error(self, name: str, problem: Problem, log_path: str = '',
                    install: bool = False) -> None:
         self.status_idle()
-        self.set_status("ERROR", T["pink"])
+        self.set_status(t('status.error'), T["pink"])
         v = self.clear()
         px = self.px
         panel = GlitchPanel(v, T["panel"])

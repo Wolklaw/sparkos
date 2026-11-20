@@ -578,8 +578,8 @@ class AppPage:
                 line.grid(row=r, column=1, sticky="ew", pady=(px(6) if n == 0 else 0, 0))
                 r += 1
         tk.Label(frame, text=t('perm.footer'), font=store.font(8, False), bg=T["bg"],
-                 fg=T["dim"], anchor="w", justify="left").pack(fill="x", padx=px(16),
-                                                              pady=(px(8), 0))
+                 fg=T["dim"], anchor="w", justify="left", wraplength=px(720)).pack(
+            fill="x", padx=px(16), pady=(px(8), 0))
 
     # — screenshots —
     def build_shots(self):

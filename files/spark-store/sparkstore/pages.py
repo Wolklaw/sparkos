@@ -94,10 +94,35 @@ def app_card(store: 'Store', parent: tk.Misc, app: App, compact: bool = False,
         summary.pack(fill="x", pady=(px(3), 0))
         labels.append(summary)
     chips = tk.Frame(col, bg=bg)
-    for text, colour, filled in store.chips_for(app):
-        chip(chips, text, store.font(7), colour, filled, px).pack(side="left", padx=(0, px(4)))
-    if chips.winfo_children():
+    made = [chip(chips, text, store.font(7), colour, filled, px)
+            for text, colour, filled in store.chips_for(app)]
+    rows = [tk.Frame(chips, bg=bg) for _ in made]       # made now, so card.wire() reaches them
+    shape: List[int] = []
+
+    def flow(width: int) -> None:
+        """Chips side by side, onto a new line when the card is too narrow for them."""
+        lines: List[List[tk.Misc]] = []
+        used = 0
+        for c in made:
+            need = c.winfo_reqwidth() + px(4)
+            if not lines or (used and used + need > width):
+                lines.append([])
+                used = 0
+            lines[-1].append(c)
+            used += need
+        if [len(line) for line in lines] == shape:
+            return
+        shape[:] = [len(line) for line in lines]
+        for row in rows:
+            row.pack_forget()
+        for i, line in enumerate(lines):
+            rows[i].pack(fill="x", pady=(0 if i == 0 else px(3), 0))
+            for c in line:
+                c.pack(in_=rows[i], side="left", padx=(0, px(4)))
+    if made:
+        flow(wrap or 10 ** 6)
         chips.pack(fill="x", pady=(px(5), 0))
+        col.bind("<Configure>", lambda e: flow(max(px(80), e.width - px(4))), add="+")
     wrap_on_resize(col, labels, px(4), slack=px(40))
     card.wire()
     return card
