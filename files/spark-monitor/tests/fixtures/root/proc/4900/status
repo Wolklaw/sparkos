@@ -1,0 +1,9 @@
+Name:	konsole
+Umask:	0022
+State:	S
+Tgid:	4900
+Pid:	4900
+PPid:	1310
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	6

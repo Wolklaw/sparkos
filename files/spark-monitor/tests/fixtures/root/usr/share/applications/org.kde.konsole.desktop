@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Konsole
+Icon=utilities-terminal
+Exec=konsole
+X-KDE-Shortcuts=Ctrl+Alt+T

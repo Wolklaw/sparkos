@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Steam
+Icon=com.valvesoftware.Steam
+Exec=/usr/bin/flatpak run com.valvesoftware.Steam

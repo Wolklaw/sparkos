@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Dolphin
+Name[fr]=Dolphin
+GenericName=File Manager
+Icon=system-file-manager
+Exec=dolphin %u

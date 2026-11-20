@@ -1,0 +1,9 @@
+Name:	Cyberpunk2077.e
+Umask:	0022
+State:	R
+Tgid:	3060
+Pid:	3060
+PPid:	3050
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	120

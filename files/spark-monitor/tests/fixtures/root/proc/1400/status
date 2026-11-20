@@ -1,0 +1,9 @@
+Name:	pipewire
+Umask:	0022
+State:	S
+Tgid:	1400
+Pid:	1400
+PPid:	1200
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	3

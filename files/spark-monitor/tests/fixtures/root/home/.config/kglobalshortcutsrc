@@ -1,0 +1,6 @@
+[kwin]
+Kill Window=Meta+Ctrl+Esc,Meta+Ctrl+Esc,Kill a window
+Walk Through Windows=Alt+Tab,Alt+Tab,Walk Through Windows
+
+[services][org.kde.konsole.desktop]
+_launch=Ctrl+Alt+T

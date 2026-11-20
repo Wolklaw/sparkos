@@ -1,0 +1,9 @@
+Name:	steam
+Umask:	0022
+State:	S
+Tgid:	3000
+Pid:	3000
+PPid:	1310
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	60

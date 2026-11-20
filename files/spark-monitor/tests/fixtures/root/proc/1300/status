@@ -1,0 +1,9 @@
+Name:	kwin_wayland
+Umask:	0022
+State:	S
+Tgid:	1300
+Pid:	1300
+PPid:	1200
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	20

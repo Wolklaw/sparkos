@@ -1,0 +1,9 @@
+Name:	kdeconnectd
+Umask:	0022
+State:	S
+Tgid:	1600
+Pid:	1600
+PPid:	1200
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	6
