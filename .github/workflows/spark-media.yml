@@ -107,7 +107,8 @@ jobs:
             cp -r /src /tmp/sm && cd /tmp/sm
             export XDG_CACHE_HOME=/tmp/c XDG_CONFIG_HOME=/tmp/c XDG_STATE_HOME=/tmp/c
             python3 spark_media.py --self-test --require h264,h265,aac,mp3 2>&1 | tee /out/self-test.txt
-            # the image's own session bus tools, for the MPRIS tests
+            # a session bus from the image itself, for the MPRIS tests (no apostrophes in
+            # here: this script is one single-quoted string)
             run=""; command -v dbus-run-session >/dev/null && run="dbus-run-session --"
             $run python3 -m unittest discover -s tests -v 2>&1 | tee /out/tests.txt; exit ${PIPESTATUS[0]}
           '

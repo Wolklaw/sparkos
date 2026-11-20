@@ -383,7 +383,9 @@ class WindowTests(unittest.TestCase):
         self.assertEqual(code, 0, output)
         self.pump(0.5)
         self.assertEqual(self.app.music.current, songs[2])            # plays now
-        self.assertEqual(self.app.music.queue.items, [songs[0], songs[2]])
+        q = self.app.music.queue                  # the folder, with the new song right after
+        self.assertEqual([q.items[i] for i in q.order],
+                         [songs[0], songs[2], songs[1], songs[2]])
         self.assertTrue(self.app.music.playing)
         code, output = self.second_start(photo)
         self.assertEqual(code, 0, output)
@@ -425,7 +427,9 @@ class WindowTests(unittest.TestCase):
         self.assertIn("'xesam:title': <'Tone 1'>", meta)
         self.assertIn("'xesam:artist': <['Signal']>", meta)
         self.assertIn("'mpris:artUrl': <'file://", meta)
-        self.assertIn("'mpris:length': <int64 4", meta)               # about 4 s
+        import re
+        length = int(re.search(r"'mpris:length': <int64 (\d+)>", meta).group(1))
+        self.assertAlmostEqual(length / 1_000_000, 4.0, delta=0.3)   # a 4 s song
         call('PlayPause')
         self.assertFalse(self.app.music.playing)
         self.assertIn("'Paused'", get('PlaybackStatus'))
