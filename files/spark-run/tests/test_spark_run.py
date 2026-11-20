@@ -154,6 +154,10 @@ class LnkTests(Temp):
         self.assertEqual(s.target, self.TARGET)
         self.assertEqual(s.arguments, '--x "a b"')
 
+    def test_wine_counts_the_terminator(self):
+        s = lnk.parse(forge.lnk(self.TARGET, 'Fake App' + chr(0), '--a' + chr(0)))
+        self.assertEqual(s.arguments, '--a')
+
     def test_id_list_only(self):
         s = lnk.parse(forge.lnk(self.TARGET, idlist_only=True))
         self.assertEqual(s.target, self.TARGET)

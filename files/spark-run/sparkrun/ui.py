@@ -159,7 +159,7 @@ class Worker:
                 self.q.put(('error', exc.problem))
             except Exception as exc:     # noqa: BLE001 - never a stack trace in the window
                 log.error("unexpected error: %s\n%s", exc, traceback.format_exc())
-                self.q.put(('error', Problem('error.prefix', {'detail': str(exc)})))
+                self.q.put(('error', Problem('error.unexpected', {'detail': str(exc)})))
 
         threading.Thread(target=target, daemon=True).start()
         self._poll(on_done, on_error, on_report)

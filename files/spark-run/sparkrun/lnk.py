@@ -61,7 +61,8 @@ def parse(data: bytes) -> Optional[Shortcut]:
             width = 2 if unicode else 1
             raw = data[pos:pos + count * width]
             pos += count * width
-            strings[key] = raw.decode('utf-16-le' if unicode else 'cp1252', 'replace')
+            text = raw.decode('utf-16-le' if unicode else 'cp1252', 'replace')
+            strings[key] = text.split(chr(0), 1)[0]       # Wine counts the terminator
     out.arguments = strings.get('arguments', '')
     out.workdir = strings.get('workdir', '')
     out.relative = strings.get('relative', '')

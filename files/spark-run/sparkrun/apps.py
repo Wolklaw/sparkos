@@ -544,7 +544,7 @@ def open_app(app: App, files: Optional[List[str]] = None,
     exe = app.unix_program()
     if not exe or not os.path.isfile(exe):
         raise RunError(Problem('error.program_gone', {'name': app.name}))
-    args = win_split(app.arguments) if app.arguments else []
+    args = win_split(app.arguments.replace(chr(0), '')) if app.arguments else []
     args += [lnk.unix_to_windows(app.prefix, f) if os.path.exists(f) else f
              for f in files or []]
     overrides = _dxvk_overrides(app)

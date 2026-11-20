@@ -143,6 +143,8 @@ EN = {
     'error.program_gone': "The program's file isn't in its Windows folder any more. Choose "
                           "another in Options, or uninstall and install it again.",
     'error.no_display': "Spark Run needs a desktop session to show its window.",
+    'error.unexpected': "Something went wrong inside Spark Run itself. The details are in "
+                        "its log; please report it to the SparkOS project.",
     'error.footer': "The details are in the log. For what runs on SparkOS and what doesn't, "
                     "see the switching guide.",
 }
@@ -280,6 +282,8 @@ FR = {
                           "Choisissez-en un autre dans Options, ou désinstallez-le et "
                           "réinstallez-le.",
     'error.no_display': "Spark Run a besoin d'une session de bureau pour afficher sa fenêtre.",
+    'error.unexpected': "Un problème est survenu dans Spark Run lui-même. Les détails sont "
+                        "dans son journal; signalez-le au projet SparkOS.",
     'error.footer': "Les détails sont dans le journal. Pour savoir ce qui fonctionne sur "
                     "SparkOS, consultez le guide de transition.",
 }

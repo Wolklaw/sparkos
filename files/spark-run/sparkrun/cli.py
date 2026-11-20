@@ -10,7 +10,7 @@ from typing import List, Optional
 
 from . import APP_NAME, APP_SLUG, GUIDE_URL, VERSION, apps, sources
 from . import wine as winemod
-from .core import data_dir, log, setup_logging, size
+from .core import data_dir, log, setup_logging, size, state_dir
 from .errors import Problem
 from .text import EN, t
 
@@ -255,6 +255,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         return 1
     except KeyboardInterrupt:
         return 130
+    except Exception:         # noqa: BLE001 - a bug in Spark Run: logged, said plainly
+        log.exception("unexpected error")
+        name = (app.name if app else os.path.basename(args.file or '')) or APP_NAME
+        say_problem(Problem('error.unexpected'), name, os.path.join(state_dir(),
+                                                                    f'{APP_SLUG}.log'), window)
+        return 1
 
     # windows
     if not has_display():
