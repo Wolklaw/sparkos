@@ -108,8 +108,8 @@ jobs:
           echo "QEMU started"
           # Try to catch the boot splash (firmware and boot menu take the first seconds)
           mkdir -p "$WORK/shots"
-          for t in 8 12 16; do
-            sleep 4
+          for t in $(seq 2 2 30); do
+            sleep 2
             echo "screendump $WORK/shots/0-boot-${t}s.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
           done
 
@@ -305,7 +305,10 @@ jobs:
             echo "== fonts"; fc-list : family | grep -E "^(Chakra Petch|Inter)$" | sort -u
             echo "== wallpaper"; ls -l /usr/share/wallpapers/SparkOS/contents/images/
             echo "== boot splash"; grep "^Theme=" /etc/plymouth/plymouthd.conf
-            echo "== about"; grep -E "^(Name|LogoPath)=" /etc/xdg/kcm-about-distrorc; grep "^LOGO=" /etc/os-release' | tee "$WORK/look.txt"
+            echo "== about"; grep -E "^(Name|LogoPath)=" /etc/xdg/kcm-about-distrorc; grep "^LOGO=" /etc/os-release
+            echo "== kernel options"; cat /proc/cmdline
+            echo "== boots"; journalctl --list-boots --no-pager | tail -3
+            echo "== plymouth this boot"; journalctl -b -o short-monotonic --no-pager 2>/dev/null | grep -i plymouth | head -25' | tee "$WORK/look.txt"
           grep -q "LookAndFeelPackage=dev.wolklaw.sparkos.desktop" "$WORK/look.txt"
           grep -qx "Chakra Petch" "$WORK/look.txt"
           grep -qx "Inter" "$WORK/look.txt"

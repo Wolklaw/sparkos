@@ -46,6 +46,8 @@ EN: Dict[str, str] = {
     'welcome.freesuite': "documents, spreadsheets and presentations",
     'welcome.snip': "screenshots, text from the screen, screen recording",
     'welcome.media': "photos, videos and music",
+    'welcome.games': "all your games from every launcher, in one library",
+    'welcome.monitor': "task manager: what's running, End task, live graphs (Ctrl+Shift+Esc)",
     'welcome.how': "How this works",
     'welcome.skip': "Each page can be skipped. Nothing is installed or copied until you click "
                     "a button, and you can close this window at any time. Spark Welcome stays "
