@@ -70,7 +70,8 @@ def group(text: str, size: int, sep: str = ' ') -> str:
     return ('-' if neg else '') + sep.join(reversed(parts))
 
 
-def tokenize(text: str, base: int, bits: int) -> List[Token]:
+def tokenize(text: str, base: int, bits: int, comma: bool = False) -> List[Token]:
+    points = '.,' if comma else '.'          # French writes 1,5: still not a whole number
     tokens: List[Token] = []
     i, n = 0, len(text)
     while i < n:
@@ -86,12 +87,12 @@ def tokenize(text: str, base: int, bits: int) -> List[Token]:
                 tokens.append(('op', KEYWORDS[low], m.start()))
             elif low == 'ans':
                 tokens.append(('ans', None, m.start()))
-            elif i < n and text[i] == '.' and i + 1 < n and text[i + 1].isdigit():
+            elif i < n and text[i] in points and i + 1 < n and text[i + 1].isdigit():
                 raise CalcError('whole', m.start())
             else:
                 tokens.append(('num', read_number(word, base, bits, m.start()), m.start()))
             continue
-        if c == '.':
+        if c == '.' or (c in points and i + 1 < n and text[i + 1].isdigit()):
             raise CalcError('whole', i)
         for sym in SYMBOLS:
             if text.startswith(sym, i):
@@ -133,7 +134,8 @@ def read_number(word: str, base: int, bits: int, pos: int) -> Tuple[int, bool, i
 
 
 class Parser:
-    def __init__(self, text: str, base: int = 10, bits: int = 64, ans: int = 0):
+    def __init__(self, text: str, base: int = 10, bits: int = 64, ans: int = 0,
+                 comma: bool = False):
         if bits not in BITS:
             raise ValueError(f"bits must be one of {BITS}")
         if base not in BASES:
@@ -142,7 +144,7 @@ class Parser:
             raise CalcError('too_long', None, limit=MAX_LEN)
         self.text, self.base, self.bits = text, base, bits
         self.ans = wrap(ans, bits)
-        self.tokens = tokenize(text, base, bits)
+        self.tokens = tokenize(text, base, bits, comma)
         self.i = 0
         self.depth = 0
         self.wrapped = False
@@ -275,9 +277,10 @@ class Parser:
         raise self.unexpected()
 
 
-def evaluate(text: str, base: int = 10, bits: int = 64, ans: int = 0) -> Result:
+def evaluate(text: str, base: int = 10, bits: int = 64, ans: int = 0,
+             comma: bool = False) -> Result:
     """Work out an expression in programmer mode. Result.text is in `base`."""
-    parser = Parser(text, base, bits, ans)
+    parser = Parser(text, base, bits, ans, comma)
     try:
         value = parser.parse()
     except RecursionError:

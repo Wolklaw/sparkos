@@ -21,6 +21,12 @@ from sparkcalc import core  # noqa: E402
 
 core.log.addHandler(logging.NullHandler())        # the deliberate error below stays quiet
 from sparkcalc.widgets import T  # noqa: E402
+from sparkcalc.text import DECIMAL, t  # noqa: E402
+
+
+def num(s):
+    """'0.5' as the window shows it: '0,5' in French."""
+    return s.replace('.', DECIMAL)
 
 try:
     _probe = tk.Tk()
@@ -84,12 +90,12 @@ class Window(unittest.TestCase):
         self.assertEqual(self.shown, '40')
         self.assertTrue(self.app.fresh)
         self.assertEqual(self.app.line.cget('text'), '12×3+4 =')
-        self.assertEqual(self.app.status.cget('text'), 'EXACT')
+        self.assertEqual(self.app.status.cget('text'), t('status.exact'))
 
     def test_point_one_plus_point_two(self):
         self.type('0.1+0.2')
         self.keys('eq')
-        self.assertEqual(self.shown, '0.3')
+        self.assertEqual(self.shown, num('0.3'))
 
     def test_live_preview(self):
         self.type('2+3')
@@ -109,8 +115,8 @@ class Window(unittest.TestCase):
     def test_rounded_answers_keep_their_exact_value(self):
         self.type('1÷3')
         self.keys('eq')
-        self.assertEqual(self.shown, '0.33333333333333333333')
-        self.assertIn('Rounded', self.app.note.cget('text'))
+        self.assertEqual(self.shown, num('0.33333333333333333333'))
+        self.assertEqual(self.app.note.cget('text'), t('display.rounded', digits=20))
         self.keys('ins:×', 'ins:3', 'eq')
         self.assertEqual(self.shown, '1')
 
@@ -121,9 +127,9 @@ class Window(unittest.TestCase):
         self.keys('post:²', 'eq')
         self.assertEqual(self.shown, '9')
         self.keys('wrap:(1/|)', 'eq')
-        self.assertEqual(self.shown, '0.11111111111111111111')
+        self.assertEqual(self.shown, num('0.11111111111111111111'))
         self.keys('neg', 'eq')
-        self.assertEqual(self.shown, '-0.11111111111111111111')
+        self.assertEqual(self.shown, num('-0.11111111111111111111'))
 
     def test_percent_key(self):
         self.type('200+10')
@@ -142,9 +148,9 @@ class Window(unittest.TestCase):
     def test_error_glitches_and_says_why(self):
         self.type('1÷0')
         self.keys('eq')
-        self.assertEqual(self.app.note.cget('text'), "Can't divide by zero.")
+        self.assertEqual(self.app.note.cget('text'), t('err.div_zero'))
         self.assertEqual(self.app.note.cget('fg'), T["pink"])
-        self.assertEqual(self.app.status.cget('text'), 'NO ANSWER')
+        self.assertEqual(self.app.status.cget('text'), t('status.error'))
         self.assertEqual(self.shown, '1÷0')                 # left to fix
         self.assertEqual(self.app.entry.index('insert'), 1)
         self.assertEqual(self.app.history, [])
@@ -176,7 +182,7 @@ class Window(unittest.TestCase):
         self.assertEqual(self.shown, '4×10')
         self.app.clear_history()
         self.assertEqual(self.app.history, [])
-        self.assertIn('Nothing worked out yet', self.app.htext.get('1.0', 'end'))
+        self.assertIn(t('history.empty'), self.app.htext.get('1.0', 'end'))
 
     def test_history_clicks_find_the_item_under_the_pointer(self):
         from types import SimpleNamespace
@@ -241,9 +247,9 @@ class Window(unittest.TestCase):
         self.assertEqual(self.app.root.clipboard_get(), '42')       # before = too
         self.keys('eq')
         self.app.root.clipboard_clear()
-        self.app.root.clipboard_append('1,234.5')
+        self.app.root.clipboard_append('1 234,5' if DECIMAL == ',' else '1,234.5')
         self.app.paste()                                             # replaces the answer
-        self.assertEqual(self.shown, '1234.5')
+        self.assertEqual(self.shown, num('1234.5'))
         self.app.root.clipboard_clear()
         self.app.root.clipboard_append('+0.5\n')
         self.app.paste()
@@ -254,7 +260,7 @@ class Window(unittest.TestCase):
         self.app.set_mode('scientific')
         self.type('30')
         self.keys('pre:sin(', 'eq')
-        self.assertEqual(self.shown, '0.5')
+        self.assertEqual(self.shown, num('0.5'))
         self.app.set_angle('rad')
         self.keys('clear', 'ins:π')
         self.keys('pre:cos(', 'eq')
@@ -271,7 +277,7 @@ class Window(unittest.TestCase):
         app.set_base(16)
         self.keys('ins:7', 'ins:F', 'ins:+', 'ins:1', 'eq')
         self.assertEqual(self.shown, '80')
-        self.assertIn('wrapped', app.note.cget('text'))
+        self.assertEqual(app.note.cget('text'), t('display.wrapped', bits=8))
         self.assertEqual(app.row_parts[10][2].cget('text'), '-128')
         self.assertEqual(app.row_parts[2][2].cget('text'), '1000 0000')
         app.set_base(2)
@@ -337,7 +343,7 @@ class Window(unittest.TestCase):
 
     def test_callback_errors_are_logged_not_shown(self):
         self.app._on_tk_error(ValueError, ValueError("boom"), None)
-        self.assertEqual(self.app.status.cget('text'), 'SOMETHING WENT WRONG')
+        self.assertEqual(self.app.status.cget('text'), t('status.crashed'))
 
 
 if __name__ == '__main__':

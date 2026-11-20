@@ -4,18 +4,24 @@ without a display.
 Keys like √x, x², 1/x, sin and ± act on the number just before the cursor ("the operand"):
 typing 9 then √x gives √9, typing 2+3 then x² gives 2+3², after = they act on the answer.
 With nothing before the cursor, function keys start a call instead: sin → "sin(".
+
+In French (COMMA), 1,5 is a number and a function's numbers are separated with "; ".
 """
 
 import re
 from typing import Optional, Tuple
 
+from .text import DECIMAL
+
 Edit = Tuple[str, int]                  # new text, new cursor position
 
 POSTFIX = '!%²³'
-OPERATORS = '+-−*×/÷^,(|&~<>'
+OPERATORS = '+-−*×/÷^,;(|&~<>'
 NUMBER_CHARS = '0123456789.'
 WORD_OPS = ('mod', 'and', 'or', 'xor', 'not', 'nand', 'nor', 'rol', 'ror', 'shl', 'shr')
 GROUPED = re.compile(r'^[-−]?\d{1,3}(,\d{3})+(\.\d+)?$')
+GROUPED_FR = re.compile(r'^[-−]?\d{1,3}( \d{3})+(,\d+)?$')     # 1 234,5
+COMMA = DECIMAL == ','           # the PC's language; the tests set it
 
 
 def _is_word(ch: str, programmer: bool) -> bool:
@@ -56,6 +62,9 @@ def operand_start(text: str, end: int, programmer: bool = False) -> Optional[int
             c = text[p - 1]
             if c in NUMBER_CHARS or _is_word(c, programmer):
                 p -= 1
+            elif COMMA and not programmer and c == ',' and p >= 2 and p < len(text) and \
+                    text[p - 2].isdigit() and text[p].isdigit():
+                p -= 1                                     # 1,5
             elif not programmer and c in '+-' and p >= 3 and text[p - 2] in 'eE' and \
                     text[p - 3] in NUMBER_CHARS:
                 p -= 2                                     # 1.5e+25
@@ -86,7 +95,7 @@ def _simple(operand: str, programmer: bool) -> bool:
     """A number, a name or a call: needs no brackets to have something put around it."""
     if not operand:
         return False
-    if re.fullmatch(r'[0-9.]+([eE][+-]?[0-9]+)?', operand):
+    if re.fullmatch(r'[0-9.,]+([eE][+-]?[0-9]+)?', operand):
         return True
     if re.fullmatch(r'[A-Za-z_π]+', operand) or (programmer and
                                                     re.fullmatch(r'[0-9A-Za-z_]+', operand)):
@@ -187,22 +196,27 @@ def backspace(text: str, cursor: int, sel: Optional[Tuple[int, int]] = None) -> 
 
 def starts_fresh(ch: str) -> bool:
     """After =, typing this starts a new sum instead of carrying on from the answer."""
-    return ch.isalnum() or ch in '.(π√'
+    return ch.isalnum() or ch in '.(π√' or (COMMA and ch == ',')
 
 
 def clean_paste(text: str) -> str:
-    """Pasted text: one line, no thousands separators in a plain number (1,234.5)."""
+    """Pasted text: one line, no thousands separators in a plain number (1,234.5, or 1 234,5
+    in French)."""
     text = ' '.join(text.split())
-    if GROUPED.match(text):
+    if COMMA:
+        if GROUPED_FR.match(text):
+            text = text.replace(' ', '')
+    elif GROUPED.match(text):
         text = text.replace(',', '')
     return text
 
 
 def open_call(text: str, cursor: int, name: str, programmer: bool = False) -> Edit:
-    """ʸ√x: 27 → "root(27, " (type the 3 next); nothing typed → "root("."""
+    """ʸ√x: 27 → "root(27, " (type the 3 next; "root(27; " in French); nothing typed →
+    "root("."""
     start = operand_start(text, cursor, programmer)
     if start is None:
         return insert(text, cursor, name)
     start = _signed_start(text, start)
-    new = name + text[start:cursor].rstrip() + ', '
+    new = name + text[start:cursor].rstrip() + ('; ' if COMMA else ', ')
     return text[:start] + new + text[cursor:], start + len(new)

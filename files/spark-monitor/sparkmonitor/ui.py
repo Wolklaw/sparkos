@@ -6,6 +6,7 @@ import zlib
 from typing import Callable, Dict, List, Optional, Sequence, Tuple
 
 import tkinter as tk
+import tkinter.font as tkfont
 from tkinter import ttk
 
 from .widgets import T, mix
@@ -169,6 +170,16 @@ def style_tables(root: tk.Misc, font, heading_font, row_height: int) -> None:
                     bordercolor=T["bg"], arrowcolor=T["muted"], lightcolor=T["panel2"],
                     darkcolor=T["panel2"], gripcount=0)
     style.map("Spark.Vertical.TScrollbar", background=[("active", T["line2"])])
+
+
+def heading_width(tree: ttk.Treeview, title: str) -> int:
+    """Pixels a column needs to show `title` (and a sort arrow) in full, in any language."""
+    try:
+        name = ttk.Style(tree).lookup("Spark.Treeview.Heading", "font")
+        font = tkfont.Font(root=tree, font=name) if name else tkfont.nametofont("TkHeadingFont")
+    except tk.TclError:
+        font = tkfont.nametofont("TkHeadingFont")
+    return font.measure(title + " ▼") + 14          # the heading's padding, and a little air
 
 
 def make_table(parent: tk.Misc, columns: Sequence[str], show: str = "tree headings"):

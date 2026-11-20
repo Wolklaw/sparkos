@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from .source import Source, listdir, read_bytes, read_int, read_line, read_text
+from .text import t
 
 VENDORS = {0x1002: "AMD", 0x8086: "Intel", 0x10de: "NVIDIA"}
 SECTOR = 512
@@ -192,7 +193,8 @@ def find_gpus(src: Source) -> List[Gpu]:
         if vendor is None:
             continue
         gpu = Gpu(card=card, folder=folder, vendor=vendor, device=device or 0,
-                  name=f"{VENDORS.get(vendor, 'Unknown')} GPU ({vendor:04x}:{device or 0:04x})")
+                  name=(f"{VENDORS[vendor]} GPU" if vendor in VENDORS else t('perf.unknown_gpu')) +
+                  f" ({vendor:04x}:{device or 0:04x})")
         for entry in sorted(listdir(os.path.join(folder, 'hwmon')), key=natural):
             gpu.hwmon = os.path.join(folder, 'hwmon', entry)
             break
@@ -200,10 +202,9 @@ def find_gpus(src: Source) -> List[Gpu]:
         if product:
             gpu.name = product
         if vendor == 0x10de and not os.path.exists(os.path.join(folder, 'gpu_busy_percent')):
-            gpu.note = ("NVIDIA's driver doesn't publish usage, memory or temperature in /sys. "
-                        "nvidia-smi can show them; Spark Monitor doesn't run it every second.")
+            gpu.note = t('perf.nvidia_note')
         elif vendor == 0x8086:
-            gpu.note = "Intel's driver doesn't publish GPU usage in /sys; clock is shown."
+            gpu.note = t('perf.intel_note')
         gpus.append(gpu)
     # the dedicated card first: the one with the most video memory
     gpus.sort(key=lambda g: -(read_int(os.path.join(g.folder, 'mem_info_vram_total')) or 0))

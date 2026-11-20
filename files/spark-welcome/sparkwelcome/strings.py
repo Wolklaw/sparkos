@@ -1,11 +1,11 @@
-"""Every sentence Spark Welcome shows, in one place.
+"""Every sentence Spark Welcome shows, in English and in French.
 
-To translate: add the same keys to FR (any key left out falls back to English). The language
-comes from LANGUAGE / LC_ALL / LC_MESSAGES / LANG, so a French desktop picks FR by itself.
-The app list's names and lines are in apps.json (name_fr, blurb_fr)."""
+The PC's language picks the table (lang.py: LC_ALL, LC_MESSAGES or LANG starting with "fr",
+or SPARK_LANG=fr). The app list's French is in apps.json (name_fr, by_fr, blurb_fr)."""
 
-import os
 from typing import Dict
+
+from .lang import ui_language
 
 EN: Dict[str, str] = {
     # frame
@@ -133,6 +133,7 @@ EN: Dict[str, str] = {
     'win.done.renamed': "{n} had the same name as a different file here and were saved as "
                         "\"name (from Windows)\".",
     'win.done.failed': "{n} couldn't be copied:",
+    'win.renamed': "from Windows",
     'win.done.more': "…and {n} more. The full list is in the log.",
     'win.err.hibernated': "Windows didn't shut down fully (Fast Startup or hibernation), so "
                           "the drive is locked. Start Windows, turn off Fast Startup in Power "
@@ -233,19 +234,252 @@ EN: Dict[str, str] = {
 }
 
 FR: Dict[str, str] = {
-    # Add French here, key by key. Missing keys show in English.
+    # frame
+    'status.ready': "PRÊT",
+    'status.error': "UN PROBLÈME EST SURVENU",
+    'status.opened': "OUVERT",
+    'status.cant_open': "IMPOSSIBLE DE L'OUVRIR. EST-IL INSTALLÉ?",
+    'status.installed': "{name} INSTALLÉ",
+    'status.failed': "{name} NE S'EST PAS INSTALLÉ",
+    'error.unexpected': "Erreur inattendue :\n{error}",
+    'nav.steps': "ÉTAPES",
+    'nav.welcome': "BIENVENUE",
+    'nav.games': "JEUX",
+    'nav.apps': "APPLICATIONS",
+    'nav.windows': "FICHIERS DE WINDOWS",
+    'nav.checks': "VÉRIFIER CE PC",
+    'nav.done': "TERMINÉ",
+    'nav.next': "Suivant",
+    'nav.back': "Retour",
+    'nav.close': "Fermer",
+    'nav.note': "Chaque étape est facultative. Rien ne s'installe avant que vous cliquiez sur "
+                "Installer.",
+    'work.installing': "INSTALLATION DE {name}{pct}  ·  {n} SUR {total}",
+    'work.starting': "DÉBUT DE L'INSTALLATION…",
+    'work.done': "INSTALLATIONS TERMINÉES ({total})",
+    'work.done_failed': "{failed} INSTALLATIONS SUR {total} ONT ÉCHOUÉ. VOYEZ JEUX ET "
+                        "APPLICATIONS.",
+    'close.installing': "Des applications s'installent encore. Fermer quand même et les "
+                        "arrêter?",
+
+    # 1. welcome
+    'welcome.title': "Bienvenue dans SparkOS",
+    'welcome.intro': "SparkOS est un système Linux pour les jeux et l'usage de tous les jours, "
+                     "construit sur Fedora et Bazzite. Il se met à jour en arrière-plan et "
+                     "garde les fichiers du système en lecture seule, alors une mise à jour ou "
+                     "une application ne peut pas le briser.",
+    'welcome.rest': "Il vient seulement avec ses propres applications. Tout le reste, de Steam "
+                    "à Discord, est à un clic : les pages suivantes proposent les plus "
+                    "courantes, et le magasin a le reste.",
+    'welcome.onboard': "Déjà sur ce PC",
+    'welcome.soot': "navigateur Web",
+    'welcome.freesuite': "documents, feuilles de calcul et présentations",
+    'welcome.snip': "captures d'écran, texte à l'écran, enregistrement de l'écran",
+    'welcome.media': "photos, vidéos et musique",
+    'welcome.games': "tous vos jeux de tous les lanceurs, dans une seule bibliothèque",
+    'welcome.monitor': "gestionnaire des tâches : ce qui tourne, Fin de tâche, graphiques en "
+                       "direct (Ctrl+Maj+Échap)",
+    'welcome.edit': "éditeur de texte et de code",
+    'welcome.calc': "calculatrice : standard, scientifique et programmeur",
+    'welcome.archive': "zip, 7z, tar, rar et iso; Extraire et Compresser dans le gestionnaire "
+                       "de fichiers",
+    'welcome.scan': "numérisation en PDF, avec texte cherchable",
+    'welcome.run': "programmes Windows (.exe et .msi)",
+    'welcome.link': "votre téléphone et ce PC, avec l'application mobile de Soot",
+    'welcome.store': "applications de Flathub, à côté de Bazaar",
+    'welcome.update': "mises à jour et retour à la version précédente",
+    'welcome.how': "Comment ça marche",
+    'welcome.skip': "Chaque page peut être sautée. Rien n'est installé ni copié avant que vous "
+                    "cliquiez sur un bouton, et vous pouvez fermer cette fenêtre en tout temps. "
+                    "Spark Welcome reste dans le menu des applications si vous en avez besoin "
+                    "plus tard.",
+
+    # 2. games
+    'games.title': "Jeux",
+    'games.intro': "Cochez les lanceurs que vous utilisez. Ils s'installent depuis Flathub pour "
+                   "votre compte seulement, sans mot de passe d'administrateur, un à la fois en "
+                   "arrière-plan. Vous pouvez continuer à parcourir les pages pendant ce temps.",
+    'games.launchers': "Lanceurs",
+    'games.spark_games': "Spark Games est installé : il montre les jeux de tous ces lanceurs "
+                         "au même endroit.",
+    'games.anticheat.label': "Ce qui ne fonctionne pas",
+    'games.anticheat': "Les jeux avec un anti-triche au niveau du noyau ne tournent pas sous "
+                       "Linux, peu importe le lanceur : Valorant, Fortnite, et certains jeux "
+                       "Call of Duty et EA, entre autres. C'est le choix de l'éditeur du jeu, "
+                       "pas quelque chose que SparkOS peut régler. Vérifiez un jeu avant de "
+                       "l'acheter.",
+    'games.anticheat.button': "Ouvrir areweanticheatyet.com",
+    'games.later': "Vous pourrez installer d'autres lanceurs plus tard à partir du magasin.",
+
+    # 3. apps
+    'apps.title': "Applications",
+    'apps.intro': "Des applications que les gens veulent souvent. Rien n'est coché : "
+                  "choisissez ce que vous utilisez. Chacune indique à qui elle appartient.",
+    'apps.by': "par {who}",
+    'apps.install': "Installer la sélection ({n})",
+    'apps.install_none': "Installer la sélection",
+    'apps.retry': "Réessayer",
+    'apps.store': "En trouver d'autres dans le magasin",
+    'apps.flathub': "Elles viennent de Flathub, la même source que le magasin. Elles se "
+                    "mettent à jour avec le reste de vos applications.",
+    'apps.state.installed': "INSTALLÉE",
+    'apps.state.queued': "EN ATTENTE",
+    'apps.state.installing': "INSTALLATION",
+    'apps.state.failed': "ÉCHEC",
+    'apps.state.stopped': "ARRÊTÉE",
+    'flatpak.no_reason': "flatpak s'est arrêté sans dire pourquoi.",
+    'flatpak.remote_failed': "Impossible d'ajouter Flathub : {error}",
+    'flatpak.cant_run': "Impossible de lancer flatpak : {error}",
+    'flatpak.stopped': "Arrêté à la fermeture de la fenêtre.",
+
+    # 4. files from Windows
+    'win.title': "Récupérer vos fichiers de Windows",
+    'win.intro': "Si Windows est aussi sur ce PC, Spark Welcome peut copier votre Bureau, vos "
+                 "Documents, Images, Vidéos, Musique et Téléchargements dans les mêmes "
+                 "dossiers ici.",
+    'win.safe': "Il copie et ne déplace jamais rien. Le disque Windows est ouvert en lecture "
+                "seule, alors rien n'y change. Les fichiers déjà ici avec la même taille sont "
+                "sautés. Ouvrir le disque peut demander votre mot de passe.",
+    'win.scan': "Chercher de nouveau",
+    'win.scanning': "Recherche des disques Windows…",
+    'win.lsblk_failed': "Impossible de lister les disques : {error}",
+    'win.none': "Aucun disque Windows trouvé. Si Windows est sur ce PC, son disque est "
+                "peut-être chiffré avec BitLocker, ou sur un disque qui n'est pas branché.",
+    'win.drives': "Disques Windows",
+    'win.locked': "VERROUILLÉ (BITLOCKER)",
+    'win.open': "Ouvrir en lecture seule",
+    'win.mounting': "Ouverture de {name} en lecture seule. Si une fenêtre de mot de passe "
+                    "apparaît, c'est le système qui demande votre mot de passe…",
+    'win.no_users': "Aucun dossier d'utilisateur Windows avec des fichiers sur ce disque "
+                    "({where}).",
+    'win.account': "Compte Windows",
+    'win.measuring': "calcul de la taille…",
+    'win.size': "{size} · {files} fichiers",
+    'win.size.one': "{size} · 1 fichier",
+    'win.copy': "Copier la sélection",
+    'win.cancel': "Arrêter",
+    'win.tick_one': "COCHEZ D'ABORD UN DOSSIER",
+    'win.planning': "PRÉPARATION DE LA COPIE…",
+    'win.copying': "COPIE DE {name}  ·  {done} SUR {total}",
+    'win.copy_failed': "La copie s'est arrêtée : {error}",
+    'win.done': "Copie terminée",
+    'win.done.cancelled': "Copie arrêtée",
+    'win.done.copied': "{n} fichiers copiés ({size}).",
+    'win.done.skipped': "{n} sautés, déjà ici avec la même taille.",
+    'win.done.renamed': "{n} avaient le même nom qu'un autre fichier ici et ont été enregistrés "
+                        "comme « nom (de Windows) ».",
+    'win.done.failed': "{n} n'ont pas pu être copiés :",
+    'win.renamed': "de Windows",
+    'win.done.more': "…et {n} autres. La liste complète est dans le journal.",
+    'win.err.hibernated': "Windows ne s'est pas complètement éteint (démarrage rapide ou "
+                          "veille prolongée), alors le disque est verrouillé. Démarrez Windows, "
+                          "désactivez le démarrage rapide dans les Options d'alimentation, "
+                          "éteignez, puis réessayez.",
+    'win.err.password': "Ouvrir le disque demande votre mot de passe, et il n'a pas été donné.",
+    'win.err.bitlocker': "Ce disque est chiffré avec BitLocker. SparkOS ne peut pas le lire.",
+    'win.err.generic': "Le disque n'a pas pu être ouvert.",
+
+    # 5. checks
+    'checks.title': "Vérifier ce PC",
+    'checks.intro': "Un coup d'œil rapide aux parties qui inquiètent souvent. Il ne fait que "
+                    "lire; rien n'est modifié.",
+    'checks.again': "Vérifier de nouveau",
+    'checks.checking': "vérification…",
+    'checks.ok': "OK",
+    'checks.look': "À VÉRIFIER",
+    'check.crashed': "Cette vérification s'est arrêtée sur une erreur.",
+    'check.graphics': "Graphiques",
+    'check.graphics.ok': "{gpu}. Pilote : {driver}. Vulkan fonctionne.",
+    'check.graphics.ok.detail': "Les jeux utilisent Vulkan, directement ou par Proton. Le "
+                                "pilote fait partie de SparkOS et se met à jour avec lui.",
+    'check.graphics.novk': "Carte graphique trouvée : {cards}. Vulkan n'a pas été testé "
+                           "(vulkaninfo n'est pas installé).",
+    'check.graphics.novk.detail': "La carte a un pilote. Sans vulkaninfo, cette vérification "
+                                  "ne peut pas dire si Vulkan fonctionne.",
+    'check.graphics.vkfail': "Carte graphique trouvée : {cards}, mais aucun périphérique "
+                             "Vulkan.",
+    'check.graphics.vkfail.detail': "Vulkan a seulement trouvé un rendu logiciel, alors les "
+                                    "jeux tourneraient sur le processeur. Ça peut arriver dans "
+                                    "une machine virtuelle, ou quand le pilote de la carte "
+                                    "ne s'est pas chargé.",
+    'check.graphics.vkerror.detail': "vulkaninfo a échoué, alors Vulkan ne fonctionne "
+                                     "peut-être pas. Les jeux en ont besoin. Redémarrer après "
+                                     "une mise à jour règle souvent le problème.",
+    'check.graphics.none': "Aucun pilote graphique trouvé.",
+    'check.graphics.none.detail': "Le système ne voit aucune carte graphique avec un pilote "
+                                  "chargé. Dans une machine virtuelle, c'est normal.",
+    'check.sound': "Son",
+    'check.sound.ok': "Le son sort par {device}.",
+    'check.sound.ok.detail': "{count} périphérique(s) de sortie. Faites jouer le son de test "
+                             "pour l'entendre.",
+    'check.sound.none': "Aucune sortie de son trouvée.",
+    'check.sound.none.detail': "Branchez des haut-parleurs ou des écouteurs, ou allumez "
+                               "l'écran s'il transmet le son, puis vérifiez de nouveau.",
+    'check.sound.nowpctl': "Vérification impossible : wpctl n'est pas installé.",
+    'check.sound.error': "Impossible d'interroger le système de son.",
+    'check.printers': "Imprimantes et numériseurs",
+    'check.printers.ok': "Imprimante prête : {names}.",
+    'check.printers.none': "Aucune imprimante configurée pour l'instant.",
+    'check.printers.none.detail': "La plupart des imprimantes réseau récentes, Canon "
+                                  "comprises, fonctionnent sans pilote : allumez "
+                                  "l'imprimante, branchez-la au même réseau, puis Ajouter une "
+                                  "imprimante.",
+    'check.scanners.found': "Numériseur trouvé : {names}.",
+    'check.scanners.none': "Aucun numériseur trouvé.",
+    'check.scanners.missing': "Les numériseurs n'ont pas été vérifiés (scanimage n'est pas "
+                              "installé).",
+    'check.network': "Réseau et Bluetooth",
+    'check.network.ok': "Connecté par {how} : {name}.",
+    'check.network.wifi': "Wi-Fi",
+    'check.network.wired': "câble",
+    'check.network.none': "Pas connecté à un réseau.",
+    'check.network.none.detail': "Installer des applications demande Internet.",
+    'check.network.nonmcli': "Impossible de vérifier le réseau : nmcli n'est pas installé.",
+    'check.bt.on': "Le Bluetooth est activé.",
+    'check.bt.off': "Le Bluetooth est désactivé.",
+    'check.bt.none': "Pas de Bluetooth sur ce PC.",
+    'check.updates': "Mises à jour",
+    'check.updates.ok': "Ce système a été compilé le {date} ({image}).",
+    'check.updates.auto': "SparkOS se met à jour en arrière-plan et passe à la nouvelle "
+                          "version quand vous redémarrez. Vos applications du magasin se "
+                          "mettent à jour de la même façon.",
+    'check.updates.staged': "Une mise à jour est téléchargée et prête : redémarrez pour "
+                            "l'utiliser.",
+    'check.updates.noostree': "Ce n'est pas une installation de SparkOS à partir d'une image.",
+    'check.updates.noostree.detail': "rpm-ostree n'est pas là, alors cette vérification ne "
+                                     "peut pas dire comment les mises à jour fonctionnent "
+                                     "sur ce système.",
+    'check.updates.error': "Impossible de lire l'état des mises à jour.",
+    'fix.test_sound': "Son de test",
+    'fix.sound_settings': "Réglages du son",
+    'fix.add_printer': "Ajouter une imprimante",
+    'fix.network_settings': "Réglages du réseau",
+    'fix.bluetooth_settings': "Réglages Bluetooth",
+
+    # 6. done
+    'done.title': "C'est prêt",
+    'done.intro': "Trois choses à savoir.",
+    'done.store.title': "Installer des applications",
+    'done.store': "Le magasin a des milliers d'applications qui s'installent en un clic et se "
+                  "mettent à jour toutes seules. Vous pouvez aussi double-cliquer sur un "
+                  "fichier .exe, .AppImage ou .rpm téléchargé : SparkOS vous dit ce qu'il peut "
+                  "en faire.",
+    'done.store.button': "Ouvrir le magasin",
+    'done.snip.title': "Captures d'écran",
+    'done.snip': "Appuyez sur Impr. écran, ou ouvrez Spark Snip dans le menu. Il copie aussi "
+                 "le texte à l'écran et enregistre des vidéos.",
+    'done.snip.button': "Ouvrir Spark Snip",
+    'done.settings.title': "Réglages",
+    'done.settings': "L'affichage, le son, la souris, le clavier, les comptes et le reste sont "
+                     "dans Configuration du système, dans le menu des applications.",
+    'done.settings.button': "Ouvrir les réglages",
+    'done.show_again': "Afficher Spark Welcome à la connexion",
+    'done.menu': "{name} reste dans le menu des applications.",
+    'done.still_installing': "Des applications s'installent encore. Laissez cette fenêtre "
+                             "ouverte jusqu'à la fin; la fermer les arrête.",
 }
 
-
-def language() -> str:
-    for var in ('LANGUAGE', 'LC_ALL', 'LC_MESSAGES', 'LANG'):
-        value = os.environ.get(var, '')
-        if value:
-            return 'fr' if value.lower().startswith('fr') else 'en'
-    return 'en'
-
-
-LANG = language()
+LANG = ui_language()
 _TABLE = {**EN, **FR} if LANG == 'fr' else EN
 
 

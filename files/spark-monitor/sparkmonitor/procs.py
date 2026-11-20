@@ -16,6 +16,7 @@ from typing import Dict, Iterable, List, Optional, Tuple
 
 from .desktop import DesktopIndex
 from .source import Source, listdir, read_bytes, read_text
+from .text import t
 
 PF_KTHREAD = 0x00200000
 try:
@@ -156,14 +157,14 @@ def classify(cgroup: str, desktop: DesktopIndex) -> Tuple[str, str, str, Optiona
         return key, SYSTEM, pretty_unit(segs[1]), None, segs[1]
     for i, seg in enumerate(segs):
         if re.fullmatch(r'session-\w+\.scope', seg):
-            return '/' + '/'.join(segs[:i + 1]), SYSTEM, "Login session", None, seg
+            return '/' + '/'.join(segs[:i + 1]), SYSTEM, t('apps.login_session'), None, seg
         if not (seg.startswith('user@') and seg.endswith('.service')):
             continue
         rest = segs[i + 1:]
         if not rest:
             break
         if rest[0] == 'init.scope':
-            return '/' + '/'.join(segs[:i + 2]), SYSTEM, "systemd (your session)", None, rest[0]
+            return '/' + '/'.join(segs[:i + 2]), SYSTEM, t('apps.session'), None, rest[0]
         if len(rest) < 2 or not rest[0].endswith('.slice'):
             # a unit straight under user@ (older systemd): treat it like app.slice
             rest = ['app.slice'] + rest

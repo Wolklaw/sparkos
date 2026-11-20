@@ -11,6 +11,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import APP_NAME, APP_SLUG, SYSTEM_LOG, VERSION
+from .text import t
 
 log = logging.getLogger(APP_SLUG)
 
@@ -183,30 +184,33 @@ def reduced_motion() -> bool:
 
 # ─── Dates for people (local time: the PC's own clock) ─────────
 
-MONTHS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
 
 
 def day(ts: Optional[float]) -> str:
-    """'Nov 17, 2026'"""
+    """'Nov 17, 2026' ('17 nov. 2026' in French)"""
     if not ts:
         return "—"
-    t = time.localtime(ts)
-    return f"{MONTHS[t.tm_mon - 1]} {t.tm_mday}, {t.tm_year}"
+    lt = time.localtime(ts)
+    return t('day.date', month=_month(lt), day=lt.tm_mday, year=lt.tm_year)
+
+
+def _month(lt: time.struct_time) -> str:
+    return t('months').split()[lt.tm_mon - 1]
 
 
 def when(ts: Optional[float], now: Optional[float] = None) -> str:
-    """'today 04:12', 'yesterday 22:05', 'Nov 17 04:12'"""
+    """'today 04:12', 'yesterday 22:05', 'Nov 17 04:12' (in the PC's language)"""
     if not ts:
-        return "never"
+        return t('when.never')
     now = time.time() if now is None else now
-    t, n = time.localtime(ts), time.localtime(now)
-    clock = f"{t.tm_hour:02d}:{t.tm_min:02d}"
-    if (t.tm_year, t.tm_yday) == (n.tm_year, n.tm_yday):
-        return f"today {clock}"
+    lt, n = time.localtime(ts), time.localtime(now)
+    clock = f"{lt.tm_hour:02d}:{lt.tm_min:02d}"
+    if (lt.tm_year, lt.tm_yday) == (n.tm_year, n.tm_yday):
+        return t('when.today', clock=clock)
     y = time.localtime(now - 86400)
-    if (t.tm_year, t.tm_yday) == (y.tm_year, y.tm_yday):
-        return f"yesterday {clock}"
-    return f"{MONTHS[t.tm_mon - 1]} {t.tm_mday} {clock}"
+    if (lt.tm_year, lt.tm_yday) == (y.tm_year, y.tm_yday):
+        return t('when.yesterday', clock=clock)
+    return t('when.date', month=_month(lt), day=lt.tm_mday, clock=clock)
 
 
 def parse_time(value: Any) -> Optional[float]:

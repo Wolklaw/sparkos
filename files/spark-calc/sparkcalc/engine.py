@@ -17,6 +17,11 @@ Grammar, loosest first:
     postfix  = primary ("!" | "%" | "²" | "³")*
     primary  = number | constant | function "(" args ")" | function unary | "(" sum ")"
 A missing ")" at the end is added, the way most calculators do.
+
+With comma=True (French), 1,5 is one and a half and a function's numbers are separated with
+";" (round(2,5; 1)). The point still works (1.5), and a comma that isn't part of a number still
+separates, so round(2.5, 1) typed or saved in English reads the same. Answers are then shown
+with a comma. Never eval either way.
 """
 
 import math
@@ -74,6 +79,8 @@ class Result:
 # ─── Tokens ───────────────────────────────────────────────────
 
 NUMBER = re.compile(r'(?:[0-9]+\.?[0-9]*|\.[0-9]+)(?:[eE][+-]?[0-9]+)?')
+# French: a comma between digits is the decimal mark (1,5); a comma anywhere else separates
+NUMBER_COMMA = re.compile(r'(?:[0-9]+(?:,[0-9]+|\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?')
 NAME = re.compile(r'[A-Za-z_]+')
 SPACES = ' \t\r\n   '
 SYMBOLS = {
@@ -86,7 +93,8 @@ SYMBOL_NAMES = {'π': 'pi', '√': 'sqrt', '∛': 'cbrt', 'ℯ': 'e'}
 Token = Tuple[str, str, int]      # kind ('num', 'name', 'op', 'end'), text, position
 
 
-def tokenize(text: str) -> List[Token]:
+def tokenize(text: str, comma: bool = False) -> List[Token]:
+    number = NUMBER_COMMA if comma else NUMBER
     tokens: List[Token] = []
     i, n = 0, len(text)
     while i < n:
@@ -95,7 +103,7 @@ def tokenize(text: str) -> List[Token]:
             i += 1
             continue
         if '0' <= c <= '9' or (c == '.' and i + 1 < n and '0' <= text[i + 1] <= '9'):
-            m = NUMBER.match(text, i)
+            m = number.match(text, i)
             if not m:
                 raise CalcError('char', i, char=c)
             tokens.append(('num', m.group(), i))
@@ -185,10 +193,15 @@ def check(x: Num, pos: Optional[int] = None) -> Num:
     return tidy(x)
 
 
-def format_number(x: Num, digits: int = DISPLAY) -> Tuple[str, bool]:
+def format_number(x: Num, digits: int = DISPLAY, comma: bool = False) -> Tuple[str, bool]:
     """(text, exact): x rounded to `digits` significant digits; plain up to 10^digits and
     down to 10^-9, scientific (1.5e+25) outside that. exact says whether no rounding was
-    needed."""
+    needed. comma=True writes 1,5 instead of 1.5."""
+    text, exact = _format_number(x, digits)
+    return (text.replace('.', ',') if comma else text), exact
+
+
+def _format_number(x: Num, digits: int) -> Tuple[str, bool]:
     if not x:
         return '0', True
     with localcontext() as ctx:
@@ -601,11 +614,11 @@ KEYWORD_OPS = ('mod',)
 
 class Parser:
     def __init__(self, text: str, angle: str = 'deg', ans: Optional[Num] = None,
-                 known: Optional[Mapping[str, Num]] = None):
+                 known: Optional[Mapping[str, Num]] = None, comma: bool = False):
         if len(text) > MAX_LEN:
             raise CalcError('too_long', None, limit=MAX_LEN)
         self.text = text
-        self.tokens = tokenize(text)
+        self.tokens = tokenize(text, comma)
         self.i = 0
         self.depth = 0
         self.fn = Functions(angle)
@@ -780,9 +793,10 @@ class Parser:
             raise CalcError('precision', pos) from None
 
     def number(self, text: str, pos: int) -> Num:
-        if text in self.known:                      # a rounded result: use its exact value
-            return self.known[text]
-        d = Decimal(text)
+        for form in (text, text.replace(',', '.'), text.replace('.', ',')):
+            if form in self.known:                  # a rounded result: use its exact value
+                return self.known[form]
+        d = Decimal(text.replace(',', '.'))
         if d and d.adjusted() >= MAX_EXP:
             raise CalcError('too_big', pos)
         if d and d.adjusted() < -MAX_EXP:
@@ -791,11 +805,12 @@ class Parser:
 
 
 def evaluate(text: str, angle: str = 'deg', ans: Optional[Num] = None,
-             known: Optional[Mapping[str, Num]] = None) -> Result:
-    """Work out an expression. Raises CalcError with a position when there's no answer."""
+             known: Optional[Mapping[str, Num]] = None, comma: bool = False) -> Result:
+    """Work out an expression. Raises CalcError with a position when there's no answer.
+    comma=True reads and writes the French way (1,5; see the top of this file)."""
     try:
-        value = Parser(text, angle, ans, known).parse()
+        value = Parser(text, angle, ans, known, comma).parse()
     except RecursionError:
         raise CalcError('nested', None, limit=MAX_DEPTH) from None
-    shown, exact = format_number(value)
+    shown, exact = format_number(value, comma=comma)
     return Result(value, shown, exact)

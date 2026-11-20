@@ -11,6 +11,15 @@ from sparkcalc import editing as E  # noqa: E402
 from sparkcalc.engine import evaluate  # noqa: E402
 
 
+def setUpModule():
+    global _COMMA
+    _COMMA, E.COMMA = E.COMMA, False      # these are the English keys; test_language has the French
+
+
+def tearDownModule():
+    E.COMMA = _COMMA
+
+
 def at_end(fn, text, *args, **kw):
     return fn(text, len(text), *args, **kw)
 

@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from . import IMAGE, RELEASE_PATH
+from .text import EN, t
 
 SCHEMA = 1
 
@@ -206,7 +207,10 @@ def diff(old: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]]) -> List[C
         after = {c['id']: c for c in (new or {}).get(key) or [] if isinstance(c, dict)}
         for cid in list(after) + [c for c in before if c not in after]:
             a, b = before.get(cid), after.get(cid)
-            changes.append(Change(name=(b or a).get('name', cid),
+            name = (b or a).get('name', cid)
+            if group == 'platform' and f'platform.{cid}' in EN:
+                name = t(f'platform.{cid}')          # release.json has the English name
+            changes.append(Change(name=name,
                                   old=str((a or {}).get('version', '')),
                                   new=str((b or {}).get('version', '')), group=group))
     return changes

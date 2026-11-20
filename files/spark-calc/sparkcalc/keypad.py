@@ -5,11 +5,13 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 import tkinter as tk
 
+from .text import DECIMAL
 from .widgets import T
 
 # (label, action, kind). Actions: "ins:x" types x; "pre:sin(" wraps the operand in a call
 # (or starts one); "wrap:before|after"; "post:²" goes after the operand; "neg", "ce",
-# "clear", "back", "eq". Kinds set the look: digit, op, fn, eq, clear.
+# "clear", "back", "eq". Kinds set the look: digit, op, fn, eq, clear. The decimal key types
+# the PC's decimal mark: "," in French.
 Layout = List[List[Tuple[str, str, str]]]
 
 STANDARD: Layout = [
@@ -22,7 +24,7 @@ STANDARD: Layout = [
      ('−', 'ins:−', 'op')],
     [('1', 'ins:1', 'digit'), ('2', 'ins:2', 'digit'), ('3', 'ins:3', 'digit'),
      ('+', 'ins:+', 'op')],
-    [('±', 'neg', 'fn'), ('0', 'ins:0', 'digit'), ('.', 'ins:.', 'digit'),
+    [('±', 'neg', 'fn'), ('0', 'ins:0', 'digit'), (DECIMAL, 'ins:' + DECIMAL, 'digit'),
      ('=', 'eq', 'eq')],
 ]
 
@@ -40,7 +42,7 @@ SCIENTIFIC: Layout = [
     [('cosh', 'pre:cosh(', 'fn'), ('log', 'pre:log(', 'fn'), ('1', 'ins:1', 'digit'),
      ('2', 'ins:2', 'digit'), ('3', 'ins:3', 'digit'), ('+', 'ins:+', 'op')],
     [('tanh', 'pre:tanh(', 'fn'), ('eˣ', 'pre:exp(', 'fn'), ('±', 'neg', 'fn'),
-     ('0', 'ins:0', 'digit'), ('.', 'ins:.', 'digit'), ('=', 'eq', 'eq')],
+     ('0', 'ins:0', 'digit'), (DECIMAL, 'ins:' + DECIMAL, 'digit'), ('=', 'eq', 'eq')],
 ]
 
 PROGRAMMER: Layout = [

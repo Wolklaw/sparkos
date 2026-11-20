@@ -134,18 +134,6 @@ def reduced_motion() -> bool:
         return False
 
 
-def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']"""
-    lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
-    if not lang:
-        try:
-            lang = locale.getlocale()[0] or ''
-        except ValueError:
-            lang = ''
-    lang = lang.split('.')[0].split('@')[0]
-    return [lang, lang.split('_')[0]] if '_' in lang else ([lang] if lang else [])
-
-
 def home_short(path: str) -> str:
     """/home/me/notes/a.txt -> ~/notes/a.txt"""
     home = os.path.expanduser('~')

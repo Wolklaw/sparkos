@@ -31,7 +31,7 @@ SKIP_USERS = {'public', 'default', 'default user', 'all users', 'defaultapppool'
               'wdagutilityaccount'}
 # Windows' own clutter, never worth copying.
 IGNORED = {'desktop.ini', 'thumbs.db', 'ehthumbs.db', '$recycle.bin'}
-RENAMED = ' (from Windows)'
+RENAMED = f" ({t('win.renamed')})"      # ' (from Windows)', ' (de Windows)'
 CHUNK = 1024 * 1024
 
 
@@ -268,7 +268,7 @@ def _alt_name(path: str, n: int) -> str:
     stem, ext = os.path.splitext(name)
     if stem.startswith('.') and not ext:          # .bashrc-style names have no extension
         stem, ext = name, ''
-    tag = RENAMED if n == 1 else f' (from Windows {n})'
+    tag = RENAMED if n == 1 else f" ({t('win.renamed')} {n})"
     return os.path.join(folder, f"{stem}{tag}{ext}")
 
 

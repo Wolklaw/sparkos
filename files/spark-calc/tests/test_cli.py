@@ -13,6 +13,7 @@ APP_DIR = os.path.dirname(HERE)
 sys.path.insert(0, APP_DIR)
 
 from sparkcalc import APP_ID, VERSION  # noqa: E402
+from sparkcalc.text import t  # noqa: E402
 
 LINUX = sys.platform.startswith('linux')
 ROOT = hasattr(os, 'geteuid') and os.geteuid() == 0
@@ -43,7 +44,7 @@ class CommandLine(unittest.TestCase):
                              '--base', 'hex').stdout.strip(), '80')
         r = cli('--eval', '1/0')
         self.assertEqual(r.returncode, 1)
-        self.assertIn("Can't divide by zero.", r.stderr)
+        self.assertIn(t('err.div_zero'), r.stderr)
 
     def test_no_tk_needed_without_a_window(self):
         code = ("import sys; sys.modules['tkinter'] = None; sys.path.insert(0, %r); "

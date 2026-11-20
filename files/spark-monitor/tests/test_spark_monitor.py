@@ -37,6 +37,7 @@ from sparkmonitor.procs import (APP, BACKGROUND, SYSTEM, ProcSampler, SteamLibra
                                 classify, desktop_id_from_unit, parse_stat)
 from sparkmonitor.desktop import DesktopIndex, find_icon, parse_desktop  # noqa: E402
 from sparkmonitor.source import Source, read_int  # noqa: E402
+from sparkmonitor.text import t  # noqa: E402
 
 LINUX = sys.platform.startswith('linux')
 PAGE = 4096
@@ -282,8 +283,8 @@ class ProcessTests(FixtureCase):
             (u + '/app.slice/app-unknown.thing@1.scope', BACKGROUND, 'unknown.thing'),
             (u + '/session.slice/plasma-plasmashell.service', SYSTEM, 'plasma-plasmashell'),
             (u + '/app.slice/xdg-desktop-portal-kde.service', SYSTEM, 'xdg-desktop-portal-kde'),
-            (u + '/init.scope', SYSTEM, 'systemd (your session)'),
-            ('/user.slice/user-1000.slice/session-2.scope', SYSTEM, 'Login session'),
+            (u + '/init.scope', SYSTEM, t('apps.session')),
+            ('/user.slice/user-1000.slice/session-2.scope', SYSTEM, t('apps.login_session')),
             ('/system.slice/NetworkManager.service', SYSTEM, 'NetworkManager'),
             ('/init.scope', SYSTEM, 'systemd'),
         ]
@@ -316,7 +317,7 @@ class ProcessTests(FixtureCase):
                                          'Konsole', 'Steam'})
         self.assertEqual(sections[BACKGROUND], {'KDE Connect', 'kde-baloo', 'python3'})
         self.assertEqual(sections[SYSTEM], {
-            'systemd', 'NetworkManager', 'sddm', 'Login session', 'systemd (your session)',
+            'systemd', 'NetworkManager', 'sddm', t('apps.login_session'), t('apps.session'),
             'plasma-kwin_wayland', 'plasma-plasmashell', 'pipewire',
             'xdg-desktop-portal-kde'})
         by = self.groups_by_name(p)
@@ -596,6 +597,12 @@ class MiscTests(FixtureCase):
 
 # ─── The window ───────────────────────────────────────────────
 
+def said(key: str, shown: str) -> bool:
+    """Does the status line show the sentence `key`, whatever the {name} in it?"""
+    return all(part.strip() in shown.upper()
+               for part in t(key, name='@@').upper().split('@@') if part.strip())
+
+
 def have_display() -> bool:
     if os.name == 'nt':
         return True
@@ -651,7 +658,7 @@ class UITests(unittest.TestCase):
         self.assertEqual(len(perf.panes['cpu'].thread_graphs), 16)
         self.assertEqual(len(app.views['startup'].items), 6)
         self.assertEqual(len(app.views['details'].tree.get_children('')), 24)
-        self.assertIn('TEST DATA', app.status.cget('text'))
+        self.assertIn(t('status.test_data'), app.status.cget('text'))
 
     def test_sorting(self):
         app = self.open(Source(self.root))
@@ -686,7 +693,7 @@ class UITests(unittest.TestCase):
         apps.tree.selection_set(apps.row_for(kwin))
         self.pump(app, 0.2)
         self.assertFalse(apps.end_button.enabled)
-        self.assertIn("won't", apps.note.cget('text'))
+        self.assertEqual(apps.note.cget('text'), t('apps.system_note'))
 
     def test_end_task_on_test_data_sends_nothing(self):
         app = self.open(Source(self.root))
@@ -696,7 +703,7 @@ class UITests(unittest.TestCase):
         self.pump(app, 0.2)
         apps.end_task()
         self.assertIsNone(app.ending)
-        self.assertIn('NOT SENT', app.status.cget('text').upper())
+        self.assertIn(t('end.test_data').upper(), app.status.cget('text').upper())
 
     def test_graph_moves_items_instead_of_making_new_ones(self):
         from sparkmonitor.ui import Graph
@@ -719,7 +726,7 @@ class UITests(unittest.TestCase):
         self.pump(app, 0.2)
         view.toggle()
         self.pump(app, 0.2)
-        self.assertEqual(view.tree.item(iid, 'values')[0], 'Off')
+        self.assertEqual(view.tree.item(iid, 'values')[0], t('startup.off'))
         self.assertTrue(os.path.exists(os.path.join(
             self.root, 'home/.config/autostart/org.kde.kdeconnect.daemon.desktop')))
 
@@ -764,7 +771,7 @@ class UITests(unittest.TestCase):
         view.end(tree=False)
         self.assertTrue(self.wait_for(app, lambda: not view.tree.exists(str(child.pid))
                                       and app.ending is None))
-        self.assertIn('ENDED', app.status.cget('text'))
+        self.assertTrue(said('end.ended', app.status.cget('text')), app.status.cget('text'))
 
     @unittest.skipUnless(LINUX, "needs Linux")
     def test_apps_end_task_removes_its_row(self):
@@ -786,7 +793,7 @@ class UITests(unittest.TestCase):
         apps.end_task()
         self.assertTrue(self.wait_for(app, lambda: not apps.tree.exists(row)
                                       and app.ending is None))
-        self.assertIn('ENDED', app.status.cget('text'))
+        self.assertTrue(said('end.ended', app.status.cget('text')), app.status.cget('text'))
         self.assertIsNotNone(child.poll())
 
 

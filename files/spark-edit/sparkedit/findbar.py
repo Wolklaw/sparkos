@@ -35,8 +35,10 @@ class FindBar(tk.Frame):
 
         # find row
         self.find_row = tk.Frame(self, bg=T["panel"], padx=px(8), pady=px(5))
+        # both labels as wide as the longer one (mono font), so the two boxes line up
+        chars = max(9, len(t('find.find')) + 1, len(t('find.replace')) + 1)
         self.find_label = tk.Label(self.find_row, text=t('find.find').upper(), font=label_font,
-                                   bg=T["panel"], fg=T["muted"], width=9, anchor='w')
+                                   bg=T["panel"], fg=T["muted"], width=chars, anchor='w')
         self.find_label.pack(side='left')
         self.find_entry = entry(self.find_row, font, 32)
         self.find_entry.pack(side='left', ipady=px(3), padx=(0, px(8)))
@@ -59,7 +61,7 @@ class FindBar(tk.Frame):
         # replace row
         self.replace_row = tk.Frame(self, bg=T["panel"], padx=px(8), pady=px(0))
         tk.Label(self.replace_row, text=t('find.replace').upper(), font=label_font,
-                 bg=T["panel"], fg=T["muted"], width=9, anchor='w').pack(side='left')
+                 bg=T["panel"], fg=T["muted"], width=chars, anchor='w').pack(side='left')
         self.replace_entry = entry(self.replace_row, font, 32)
         self.replace_entry.pack(side='left', ipady=px(3), padx=(0, px(8)))
         WolkButton(self.replace_row, t('find.replace_one'), self.replace_one,

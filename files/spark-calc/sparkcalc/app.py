@@ -17,7 +17,7 @@ from . import programmer as prog
 from .core import log, reduced_motion
 from .engine import DISPLAY, CalcError, Num, Result, format_number
 from .keypad import LAYOUTS, Key, Keypad
-from .text import t
+from .text import DECIMAL, t
 from .widgets import (MONO_FAMILIES, T, Glitch, GlitchPanel, GlitchText, IconButton, Mark,
                       Segmented, Strip, WolkButton)
 
@@ -88,9 +88,10 @@ def load_icon(root: tk.Misc) -> Optional[tk.PhotoImage]:
 
 
 def group_value(text: str, base: int) -> str:
-    """How the programmer rows show a value: 0000 1111 in BIN and HEX, 1,234 in DEC."""
+    """How the programmer rows show a value: 0000 1111 in BIN and HEX, 1,234 in DEC (1 234 in
+    French)."""
     if base == 10:
-        return prog.group(text, 3, ',')
+        return prog.group(text, 3, ' ' if DECIMAL == ',' else ',')
     return prog.group(text, 4 if base in (2, 16) else 3)
 
 
@@ -122,6 +123,7 @@ class App:
         self.history_on = s.get('history', True) is not False
         self.history: List[Dict[str, Any]] = core.load_history()
         self.known: Dict[str, Num] = {}          # rounded answers shown -> their exact value
+        self.comma = DECIMAL == ','              # French: 1,5
         self.ans: Num = Fraction(0)
         self.ans_prog = 0
         self.memory: Optional[Num] = None
@@ -160,7 +162,7 @@ class App:
 
     def _on_tk_error(self, exc_type, exc_value, exc_tb):
         log.error("unhandled callback error", exc_info=(exc_type, exc_value, exc_tb))
-        self.set_status("SOMETHING WENT WRONG", T["pink"])
+        self.set_status(t('status.crashed'), T["pink"])
         self.glitch.now(self.title, strong=True)
 
     # ─── Building ─────────────────────────────────────────────
@@ -376,7 +378,7 @@ class App:
                 if changed:
                     self.set_status(t('status.wrapped', bits=self.bits), T["gold"])
             else:
-                text, _ = format_number(Fraction(value))
+                text, _ = format_number(Fraction(value), comma=self.comma)
                 self._set_entry(text, fresh=True)
                 self.last = Result(Fraction(value), text, True)
         self.mode = mode
@@ -416,7 +418,7 @@ class App:
         if not text:
             return None
         try:
-            return prog.evaluate(text, self.base, self.bits, self.ans_prog).value
+            return prog.evaluate(text, self.base, self.bits, self.ans_prog, self.comma).value
         except CalcError:
             return None
 
@@ -518,8 +520,12 @@ class App:
         if ch == '=':
             self.equals()
             return 'break'
-        if event.keysym == 'KP_Decimal' and ch != '.':   # some layouts give "," there
-            self.press('ins:.')
+        # the keypad's decimal key types the PC's mark, whichever one the layout gives; in
+        # French the point key types a comma too
+        point = '.' if self.programmer else DECIMAL
+        if (event.keysym == 'KP_Decimal' or ch == '.') and ch != point:
+            self._flash(point)
+            self.press('ins:' + point)
             return 'break'
         if not ch or not ch.isprintable():
             return None
@@ -592,8 +598,8 @@ class App:
 
     def calculate(self, text: str) -> Result:
         if self.programmer:
-            return prog.evaluate(text, self.base, self.bits, self.ans_prog)
-        return engine.evaluate(text, self.angle, self.ans, self.known)
+            return prog.evaluate(text, self.base, self.bits, self.ans_prog, self.comma)
+        return engine.evaluate(text, self.angle, self.ans, self.known, self.comma)
 
     def _preview(self):
         text = self.entry.get()
@@ -689,7 +695,7 @@ class App:
                 v, _ = prog.from_decimal(self.memory, self.bits)
                 text = prog.to_base(v, self.base, self.bits)
             else:
-                text, exact = format_number(self.memory)
+                text, exact = format_number(self.memory, comma=self.comma)
                 if not exact:
                     self.known[text] = self.memory
             self.insert_value(text)
@@ -719,7 +725,7 @@ class App:
         if self.memory is None:
             self.mem_label.configure(text="")
             return
-        text, _ = format_number(self.memory)
+        text, _ = format_number(self.memory, comma=self.comma)
         self.mem_label.configure(text=t('display.memory', value=text))
 
     def insert_value(self, text: str):

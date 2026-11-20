@@ -32,6 +32,8 @@ os.environ['SPARK_WELCOME_REDUCED_MOTION'] = '0'
 import sparkwelcome  # noqa: E402
 from sparkwelcome import catalog, checks, core, flatpak, strings, windows  # noqa: E402
 
+FROM = strings.t('win.renamed')       # copies that would clash: 'x (from Windows).txt'
+
 logging.getLogger(sparkwelcome.APP_SLUG).addHandler(logging.NullHandler())
 
 FAKE_FLATPAK = r'''
@@ -211,7 +213,7 @@ class WindowsTests(unittest.TestCase):
         self.assertEqual(windows.parse_lsblk('not json'), [])
         self.assertEqual(windows.parse_mount_output('Mounted /dev/sda3 at /run/media/u/Win.\n'),
                          '/run/media/u/Win')
-        self.assertIn('Fast Startup', windows.explain_mount_error(
+        self.assertEqual(strings.t('win.err.hibernated'), windows.explain_mount_error(
             'Error mounting: wrong fs type... The disk contains an unclean file system (0, 0).'))
         locked = windows.Partition('x', '/dev/x', 'BitLocker', '', '', 1)
         point, problem = windows.mount_read_only(locked)
@@ -264,16 +266,16 @@ class WindowsTests(unittest.TestCase):
         touch(os.path.join(src, '.hidden'), b'h')
         touch(os.path.join(dst, 'same.txt'), b'abcde')                     # same size: skip
         touch(os.path.join(dst, 'clash.txt'), b'linux')                    # different: keep
-        touch(os.path.join(dst, 'clash (from Windows).txt'), b'older')     # taken too
+        touch(os.path.join(dst, f'clash ({FROM}).txt'), b'older')            # taken too
         touch(os.path.join(dst, 'sub'), b'a file where the folder goes')
         plan = windows.plan_copy(src, dst)
         actions = {os.path.relpath(i.dst, dst): i.action for i in plan.items}
         self.assertEqual(actions, {
             'same.txt': windows.SKIP,
-            'clash (from Windows 2).txt': windows.COPY,
+            f'clash ({FROM} 2).txt': windows.COPY,
             'new.txt': windows.COPY,
             '.hidden': windows.COPY,
-            os.path.join('sub (from Windows)', 'deep.txt'): windows.COPY,
+            os.path.join(f'sub ({FROM})', 'deep.txt'): windows.COPY,
         })
         self.assertEqual(plan.bytes, len(b'windows version') + 3 + 4 + 1)
         before = {p: read(p) for p in glob.glob(os.path.join(src, '**'),
@@ -285,7 +287,7 @@ class WindowsTests(unittest.TestCase):
         self.assertEqual(summary.failed, [])
         self.assertFalse(summary.cancelled)
         self.assertEqual(seen[-1], (plan.bytes, plan.bytes))
-        with open(os.path.join(dst, 'clash (from Windows 2).txt'), 'rb') as f:
+        with open(os.path.join(dst, f'clash ({FROM} 2).txt'), 'rb') as f:
             self.assertEqual(f.read(), b'windows version')
         with open(os.path.join(dst, 'clash.txt'), 'rb') as f:
             self.assertEqual(f.read(), b'linux')                          # never overwritten
@@ -329,7 +331,7 @@ class WindowsTests(unittest.TestCase):
         plan = windows.plan_copy(a, dst, claimed)
         plan.extend(windows.plan_copy(b, dst, claimed))
         self.assertEqual(sorted(os.path.basename(i.dst) for i in plan.to_copy),
-                         ['x (from Windows).txt', 'x.txt'])
+                         [f'x ({FROM}).txt', 'x.txt'])
 
 
 # ─── Checks ───────────────────────────────────────────────────
@@ -505,13 +507,25 @@ class PackagingTests(unittest.TestCase):
                 self.assertIn(f'done.{key}{part}', strings.EN)
 
     def test_language(self):
-        with mock.patch.dict(os.environ, {'LANGUAGE': '', 'LC_ALL': '', 'LC_MESSAGES': '',
-                                          'LANG': 'fr_CA.UTF-8'}):
-            self.assertEqual(strings.language(), 'fr')
-        with mock.patch.dict(os.environ, {'LANGUAGE': 'en_CA', 'LANG': 'fr_CA.UTF-8'}):
-            self.assertEqual(strings.language(), 'en')
-        self.assertEqual(strings.t('status.installed', name='STEAM'), 'STEAM INSTALLED')
+        from sparkwelcome.lang import ui_language
+        self.assertEqual(ui_language({'LC_ALL': '', 'LC_MESSAGES': '', 'LANG': 'fr_CA.UTF-8'}),
+                         'fr')
+        self.assertEqual(ui_language({'LC_MESSAGES': 'en_CA', 'LANG': 'fr_CA.UTF-8'}), 'en')
+        self.assertEqual(strings.t('status.installed', name='STEAM'),
+                         {'en': 'STEAM INSTALLED', 'fr': 'STEAM INSTALLÉ'}[strings.LANG])
         self.assertEqual(strings.t('no.such.key'), 'no.such.key')
+
+    def test_catalog_speaks_the_language(self):
+        cat = catalog.load()
+        steam = cat.find('com.valvesoftware.Steam')
+        self.assertTrue(steam.text('fr') and steam.text('fr') != steam.text('en'))
+        signal = cat.find('org.signal.Signal')
+        self.assertEqual(signal.who('fr'), 'la Signal Foundation')
+        self.assertEqual(signal.who('en'), 'the Signal Foundation')
+        for entry in cat.all():
+            self.assertTrue(entry.blurb_fr, entry.id)
+        for cat_ in cat.categories:
+            self.assertTrue(cat_.name_fr, cat_.name)
 
     def test_spark_app_json(self):
         with open(os.path.join(APP_DIR, 'spark-app.json'), encoding='utf-8') as f:
