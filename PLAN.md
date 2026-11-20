@@ -126,10 +126,35 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 - CI rebuilds daily against the latest Bazzite. Updates are atomic, and a bad update rolls back from the boot menu.
 - When Bazzite changes something, it's usually a one-line recipe fix.
 
+## Independence roadmap (owner's goal, 2026-11-20)
+Rely on other people's products as little as possible by Release 2 or 3. Replace what a Spark app or a small change can own; keep what no one person can maintain. Work items have briefs in [briefs/](briefs/README.md).
+
+**Release 2: easy wins**
+| Today | SparkOS's own | Status |
+|---|---|---|
+| Chakra Petch downloaded from Google's GitHub at every build | The font kept in this repo (OFL allows it) | Brief: [release2-cleanup](briefs/release2-cleanup.md) |
+| Plasma System Monitor | Spark Monitor, already shipping; KDE's removed | Brief: release2-cleanup |
+| Gear Lever, fetched to open `.AppImage` files | A small Spark handler in `sparkos-open-package` | Brief: release2-cleanup |
+| Tailscale, preinstalled by Bazzite | Removed (installable by anyone who wants it) | Brief: release2-cleanup |
+| Fedora's usage counting and connectivity check, KDE's "Get New Stuff" | Off, or pointed at SparkOS's own address | Brief: release2-cleanup |
+| Spectacle, which Spark Snip uses to capture | Spark Snip captures through KWin directly | Brief: [spark-snip-capture](briefs/spark-snip-capture.md) |
+| Bazzite/ublue update tools (`ujust`, their update service and rollback helper) | **Spark Update**: "SparkOS updated, restart?", what changed, one-click rollback | Brief: [spark-update](briefs/spark-update.md) |
+
+**Release 3: bigger moves**
+| Today | SparkOS's own | Status |
+|---|---|---|
+| Bazaar, the store | **Spark Store**: SparkOS's own store over Flathub, with the Spark apps in it (the Spark Portal idea) | Brief: [spark-store](briefs/spark-store.md) |
+| Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Later: after Release 2, one change at a time |
+| BlueBuild | A plain Containerfile and SparkOS's scripts | Later, with the base move |
+| Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | Later |
+| Ark, KDE Connect | Spark Archive, Spark Link | Later |
+
+**Kept on purpose:** the Linux kernel, Mesa, KDE Plasma, Wine/Proton, Soot's Firefox engine and FreeSuite's Chromium/Electron, Flathub as the source of other people's apps, Dolphin and Konsole, Sigstore signing and LVFS firmware updates. GitHub and GHCR stay for code, builds and downloads; a mirror on SparkOS's own server is the cheap insurance later.
+
 ## Risks, plainly
 - **Kernel anti-cheat games** won't run, including League of Legends and Teamfight Tactics (Riot Vanguard) and GTA Online. Windows stays for those, on a small partition or as a VM.
 - **Windows-only device tools:** 8BitDo firmware updates and Focusrite's own app. The devices themselves work, and replacements are listed in the switching guide.
 - **Microsoft Office desktop and Adobe apps** don't run. FreeSuite and the web versions do.
 - **GPU-heavy gaming can't be tested in a VM.** Real performance testing happens in Phase 5.
-- **Dependence on Bazzite and Universal Blue.** That dependence is the point: they do the hard parts. If they stopped, the recipe could be moved to plain Fedora Atomic.
+- **Dependence on Bazzite and Universal Blue.** They do the hard parts today. The independence roadmap moves SparkOS to plain Fedora Atomic in Release 3, which also covers the case where they stop.
 - **Battle.net** occasionally breaks for a few days after a client update.
