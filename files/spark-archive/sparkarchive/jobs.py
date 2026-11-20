@@ -18,7 +18,7 @@ from .core import keep_both_name, log, stem, unique_path
 from .readers import (ArchiveProblem, BadArchive, Entry, NeedPassword, Unsupported,
                       WrongPassword, candidates, open_reader)
 from .safety import (DIR, FILE, HARDLINK, LINK, OTHER, Blocked, Cancelled, SafeWriter,
-                     clean_parts, link_target_ok)
+                     clean_parts, is_root, link_target_ok)
 
 Asker = Callable[[str, Dict[str, Any]], Any]
 
@@ -271,6 +271,8 @@ class ExtractJob(Job):
         except OSError as exc:
             return Result(error='read_failed', detail=exc.strerror or str(exc))
 
+        listing.entries = [e for e in listing.entries
+                           if not (e.kind == DIR and is_root(e.name))]
         chosen = [e for e in listing.entries if e.parts and self.wanted(e.parts)]
         self.total_files = sum(1 for e in chosen if e.kind in (FILE, LINK, HARDLINK))
         self.total_bytes = sum(e.size for e in chosen if e.kind == FILE and e.size > 0)
@@ -403,6 +405,8 @@ class ExtractJob(Job):
     def _place(self, writer: SafeWriter, e: Entry, parts, data) -> None:
         res = self.result_obj
         name = e.path or e.name
+        if parts is None and e.kind == DIR and is_root(e.name):
+            return                                      # the folder itself
         if parts is None:
             res.problems.append((e.name, OUTSIDE))
             self._count_skip(e)

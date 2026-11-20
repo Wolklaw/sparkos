@@ -17,7 +17,7 @@ from . import core
 from .core import log, pick_archive, pick_files, pick_folder, show_in_file_manager
 from .formats import describe
 from .jobs import TAR_ZST, ZIP, CompressJob, ExtractJob, Job, Listing, ListJob
-from .safety import DIR, FILE, HARDLINK, LINK
+from .safety import DIR, FILE, HARDLINK, LINK, is_root
 from .text import t
 from .ui import Look, Progress, home_short, middle, result_lines, version_chip
 from .widgets import T, GlitchPanel, Segmented, Strip
@@ -42,6 +42,8 @@ def build_tree(listing: Listing) -> Node:
     odd = 0
     for e in listing.entries:
         parts = e.parts
+        if parts is None and e.kind == DIR and is_root(e.name):
+            continue                            # the folder itself (iso images list it)
         if parts is None:                       # shown, marked, never extracted
             odd += 1
             node = Node(e.name or '?', f'\0unsafe{odd}', e.kind)

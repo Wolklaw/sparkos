@@ -333,7 +333,10 @@ class LibarchiveReader(Reader):
                         from .core import stem
                         name = stem(self.path)
                     target = h.hardlink if kind == HARDLINK else (h.symlink or '')
-                    e = Entry(name, kind, h.size if kind == FILE else 0, h.mtime, h.perm,
+                    perm = h.perm
+                    if self.kind == formats.ISO and not perm & 0o077:
+                        perm = 0          # plain ISO 9660 has no modes: libarchive says 0400
+                    e = Entry(name, kind, h.size if kind == FILE else 0, h.mtime, perm,
                               target, h.encrypted)
                     if listing or kind != FILE:
                         yield e, None
@@ -432,6 +435,23 @@ def _7z_problem(rc: int, out: str, err: str, password: Optional[str]) -> Archive
     return BadArchive(lines[-1] if lines else f"7z stopped with code {rc}")
 
 
+def _refused_links(err: str, staging: str) -> Optional[List[str]]:
+    """The links 7z said it couldn't make, if those are its only errors; else None."""
+    errors = [ln.strip() for ln in err.splitlines() if ln.strip().startswith('ERROR')]
+    if not errors:
+        return None
+    names = []
+    for line in errors:
+        if not re.search(r'Cannot create (hard |symbolic )?link', line, re.I):
+            return None
+        for piece in line.split(' : '):
+            piece = piece.strip()
+            if piece.startswith(staging.rstrip('/') + '/'):
+                names.append(os.path.relpath(piece, staging))
+                break
+    return names
+
+
 class SevenZipReader(Reader):
     backend = '7z'
 
@@ -495,8 +515,12 @@ class SevenZipReader(Reader):
 
             rc, out, err = _run_7z(['x', '-y', '-bsp1', '-bb0', '-sccUTF-8', '-o' + staging,
                                     '--', self.path], self.password, cancelled, line)
-            if rc not in (0, 1):
+            refused = _refused_links(err, staging)
+            if rc not in (0, 1) and not (rc == 2 and refused):
                 raise _7z_problem(rc, out, err, self.password)
+            for name in refused or ():
+                # 7z wouldn't make these links (they lead out); report them like any other
+                yield Entry(name, HARDLINK, 0, None, 0, '/'), None
             if on_progress:
                 on_progress(1.0)
             for top, dirs, files in os.walk(staging, topdown=True, followlinks=False):

@@ -31,7 +31,8 @@ from sparkarchive.jobs import (CANCEL, KEEP_BOTH, REPLACE, SKIP, CompressJob,  #
                                ExtractJob, Listing, ListJob, default_output, single_top)
 from sparkarchive.readers import (LibarchiveReader, SevenZipReader, candidates,  # noqa: E402
                                   sevenzip)
-from sparkarchive.safety import SafeWriter, clean_parts, link_target_ok  # noqa: E402
+from sparkarchive.safety import (SafeWriter, clean_parts, is_root,  # noqa: E402
+                                 link_target_ok, read_umask)
 import makers  # noqa: E402
 
 FIXTURES = os.path.join(HERE, 'fixtures')
@@ -99,6 +100,9 @@ class Base(unittest.TestCase):
     def path(self, name):
         return os.path.join(self.src, name)
 
+    def arc(self, name):
+        return os.path.join(self.arcs, name)
+
     def extract(self, archive, asker=None, **kw):
         kw.setdefault('dest', self.dest)
         res = ExtractJob(archive, kw.pop('dest'), asker=asker or Answers(), **kw).run_here()
@@ -107,7 +111,8 @@ class Base(unittest.TestCase):
     def assert_contained(self):
         """Nothing next to inner/, nothing in the temp folder's top but dest and src."""
         self.assertEqual(sorted(os.listdir(self.outer)), ['inner'], "something escaped")
-        self.assertEqual(sorted(os.listdir(self.tmp)), ['dest', 'src'], "something escaped")
+        self.assertEqual(sorted(os.listdir(self.tmp)), ['arcs', 'dest', 'src'],
+                         "something escaped")
 
     def reasons(self, res):
         return sorted((name, why.split(':')[0]) for name, why in res.problems)
@@ -135,6 +140,8 @@ class TestRules(unittest.TestCase):
         self.assertFalse(link_target_ok(('l',), 'x/../y'))      # x could be a link itself
         self.assertFalse(link_target_ok(('l',), ''))
         self.assertFalse(link_target_ok(('l',), 'C:\\x'))
+        self.assertTrue(is_root('.') and is_root('./') and is_root('/'))
+        self.assertFalse(is_root('a') or is_root('') or is_root('..'))
 
     def test_detect_by_content_not_name(self):
         tmp = tempfile.mkdtemp()
@@ -179,7 +186,7 @@ class TestFormats(Base):
 
     def test_zip(self):
         payload = self.make_tree()
-        arc = os.path.join(self.tmp, 'photos.zip')
+        arc = self.arc('photos.zip')
         with zipfile.ZipFile(arc, 'w', zipfile.ZIP_DEFLATED) as zf:
             zf.write(self.path('photos'), 'photos')
             zf.write(self.path('photos/trip'), 'photos/trip')
@@ -202,7 +209,7 @@ class TestFormats(Base):
             modes.append(('tar.zst', 'w:zst'))
         for ext, mode in modes:
             with self.subTest(ext):
-                arc = os.path.join(self.tmp, 'photos.' + ext)
+                arc = self.arc('photos.' + ext)
                 with tarfile.open(arc, mode) as tf:
                     tf.add(self.path('photos'), 'photos')
                     tf.add(self.path('photos/trip/a.bin'), 'photos/hard', recursive=False)
@@ -216,7 +223,7 @@ class TestFormats(Base):
         self.assert_contained()
 
     def test_tar_hardlink(self):
-        arc = os.path.join(self.tmp, 'h.tar')
+        arc = self.arc('h.tar')
         with tarfile.open(arc, 'w') as tf:
             data = b'linked'
             ti = tarfile.TarInfo('dir/orig.txt')
@@ -234,7 +241,7 @@ class TestFormats(Base):
     def test_tar_zst_through_libarchive(self):
         """tar.zst also reads without Python's zstd, through libarchive."""
         payload = self.make_tree()
-        arc = os.path.join(self.tmp, 'p.tar.zst')
+        arc = self.arc('p.tar.zst')
         res = CompressJob([self.path('photos')], 'tar.zst', output=arc).run_here()
         self.assertTrue(res.ok, res)
         entries = LibarchiveReader(arc, 'tar.zst').list()
@@ -302,7 +309,7 @@ class TestFormats(Base):
 
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
     def test_rar5(self):
-        arc = os.path.join(self.tmp, 'r5.rar')
+        arc = self.arc('r5.rar')
         makers.rar5(arc, [('dir', 'docs'), ('file', 'docs/inner.txt', b'inner rar5\n'),
                           ('file', 'hello.txt', b'hello rar5\n'),
                           ('symlink', 'docs/link', 'inner.txt')])
@@ -315,7 +322,7 @@ class TestFormats(Base):
 
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
     def test_rar4(self):
-        arc = os.path.join(self.tmp, 'r4.rar')
+        arc = self.arc('r4.rar')
         makers.rar4(arc, [('dir', 'docs'), ('file', 'docs/inner.txt', b'inner rar4\n'),
                           ('file', 'hello.txt', b'hello rar4\n')])
         self.assertEqual(formats.detect(arc), 'rar')
@@ -326,18 +333,21 @@ class TestFormats(Base):
 
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
     def test_iso(self):
-        arc = os.path.join(self.tmp, 'disc.iso')
+        arc = self.arc('disc.iso')
         big = os.urandom(5000)
         makers.iso9660(arc, {'HELLO.TXT': b'hello iso\n', 'BIG.BIN': big}, 'DOCS',
                        {'INNER.TXT': b'inner iso\n'})
         self.assertEqual(formats.detect(arc), 'iso')
         res = self.extract(arc)
         self.assertTrue(res.ok, res)
+        self.assertEqual(res.problems, [])                     # not even for the root "."
         found = {p.lower(): p for p in tree(self.dest)}
         self.assertIn('hello.txt', found, tree(self.dest))
         self.assertEqual(read(os.path.join(self.dest, found['hello.txt'])), b'hello iso\n')
         self.assertEqual(read(os.path.join(self.dest, found['big.bin'])), big)
         self.assertEqual(read(os.path.join(self.dest, found['docs/inner.txt'])), b'inner iso\n')
+        mode = os.stat(os.path.join(self.dest, found['hello.txt'])).st_mode & 0o777
+        self.assertEqual(mode & 0o044, 0o044 & ~read_umask(), oct(mode))   # not owner-only
 
     def test_single_compressed_files(self):
         data = b'just one file\n' * 100
@@ -347,7 +357,7 @@ class TestFormats(Base):
             kinds.append(('zst', zstd.compress))
         for ext, pack in kinds:
             with self.subTest(ext):
-                arc = os.path.join(self.tmp, f'notes.txt.{ext}')
+                arc = self.arc(f'notes.txt.{ext}')
                 with open(arc, 'wb') as f:
                     f.write(pack(data))
                 self.assertEqual(formats.detect(arc), ext)
@@ -364,7 +374,7 @@ class TestFormats(Base):
         os.makedirs(self.path('c'))
         with open(self.path('c/x.txt'), 'w') as f:
             f.write('cpio')
-        arc = os.path.join(self.tmp, 'a.cpio')
+        arc = self.arc('a.cpio')
         with open(arc, 'wb') as out:
             subprocess.run(['cpio', '-o', '-H', 'newc', '--quiet'], input=b'c\nc/x.txt\n',
                            stdout=out, cwd=self.src, check=True)
@@ -374,7 +384,7 @@ class TestFormats(Base):
         self.assertEqual(read(os.path.join(self.dest, 'c', 'x.txt')), b'cpio')
 
     def test_damaged(self):
-        arc = os.path.join(self.tmp, 'cut.tar.gz')
+        arc = self.arc('cut.tar.gz')
         with tarfile.open(arc, 'w:gz') as tf:
             ti = tarfile.TarInfo('big.bin')
             blob = os.urandom(300_000)
@@ -389,7 +399,7 @@ class TestFormats(Base):
         self.assertEqual([n for n in os.listdir(self.dest) if 'spark-part' in n], [])
 
     def test_not_an_archive(self):
-        p = os.path.join(self.tmp, 'notes.zip')
+        p = self.arc('notes.zip')
         with open(p, 'w') as f:
             f.write('hello')
         res = self.extract(p)
@@ -400,7 +410,7 @@ class TestFormats(Base):
 
 class TestEscapes(Base):
     def test_zip_names(self):
-        arc = os.path.join(self.tmp, 'evil.zip')
+        arc = self.arc('evil.zip')
         with zipfile.ZipFile(arc, 'w') as zf:
             zf.writestr('../escaped.txt', 'x')
             zf.writestr('ok/../../escaped2.txt', 'x')
@@ -415,7 +425,7 @@ class TestEscapes(Base):
         self.assertEqual([w for _n, w in self.reasons(res)], ['outside'] * 3)
 
     def test_zip_symlink_out(self):
-        arc = os.path.join(self.tmp, 'evil.zip')
+        arc = self.arc('evil.zip')
         with zipfile.ZipFile(arc, 'w') as zf:
             for name, target in (('up', '..'), ('etc', '/etc'), ('deep', 'a/../../..')):
                 info = zipfile.ZipInfo(name)
@@ -433,7 +443,7 @@ class TestEscapes(Base):
     def tar(self, name, members):
         """members: (name, type, extra) with type 'file' (extra=bytes), 'sym'/'hard'
         (extra=target), 'dir', 'chr', 'fifo'."""
-        arc = os.path.join(self.tmp, name)
+        arc = self.arc(name)
         with tarfile.open(arc, 'w') as tf:
             for mname, kind, extra in members:
                 ti = tarfile.TarInfo(mname)
@@ -535,7 +545,7 @@ class TestEscapes(Base):
         outside = os.path.join(self.outer, 'outside')
         os.mkdir(outside)
         os.symlink(outside, os.path.join(self.dest, 'shared'))
-        arc = os.path.join(self.tmp, 'a.zip')
+        arc = self.arc('a.zip')
         with zipfile.ZipFile(arc, 'w') as zf:
             zf.writestr('shared/evil.txt', 'x')
             zf.writestr('fine.txt', 'x')
@@ -549,7 +559,7 @@ class TestEscapes(Base):
         with open(victim, 'w') as f:
             f.write('keep me')
         os.symlink(victim, os.path.join(self.dest, 'note.txt'))
-        arc = os.path.join(self.tmp, 'a.zip')
+        arc = self.arc('a.zip')
         with zipfile.ZipFile(arc, 'w') as zf:
             zf.writestr('note.txt', 'new')
         res = self.extract(arc, Answers(overwrite=[(REPLACE, False)]))
@@ -568,7 +578,7 @@ class TestEscapes(Base):
 
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
     def test_rar5_names_and_links(self):
-        arc = os.path.join(self.tmp, 'evil.rar')
+        arc = self.arc('evil.rar')
         makers.rar5(arc, [('file', '../escaped.txt', b'x'), ('symlink', 'etc', '/etc'),
                           ('symlink', 'up', '../..'), ('file', 'ok.txt', b'ok')])
         res = self.extract(arc)
@@ -580,7 +590,7 @@ class TestEscapes(Base):
 
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
     def test_rar4_names_and_links(self):
-        arc = os.path.join(self.tmp, 'evil4.rar')
+        arc = self.arc('evil4.rar')
         makers.rar4(arc, [('file', '../escaped.txt', b'x'), ('symlink', 'up', '..'),
                           ('file', 'ok.txt', b'ok')])
         res = self.extract(arc)
@@ -589,7 +599,7 @@ class TestEscapes(Base):
         self.assertEqual(tree(self.dest), ['ok.txt'])
 
     def test_modes(self):
-        arc = os.path.join(self.tmp, 'm.tar')
+        arc = self.arc('m.tar')
         with tarfile.open(arc, 'w') as tf:
             for name, mode in (('suid', 0o4755), ('noread', 0o000), ('script', 0o755)):
                 ti = tarfile.TarInfo(name)
@@ -606,7 +616,7 @@ class TestEscapes(Base):
 
 class TestBehaviour(Base):
     def zip(self, name, files):
-        arc = os.path.join(self.tmp, name)
+        arc = self.arc(name)
         with zipfile.ZipFile(arc, 'w') as zf:
             for n, data in files.items():
                 zf.writestr(n, data)
@@ -649,7 +659,7 @@ class TestBehaviour(Base):
         self.assertEqual(read(os.path.join(self.dest, 'z.txt')), b'old')
 
     def test_cancel_midway_big_file(self):
-        arc = os.path.join(self.tmp, 'big.tar')
+        arc = self.arc('big.tar')
         with tarfile.open(arc, 'w') as tf:
             ti = tarfile.TarInfo('big.bin')
             ti.size = 64 << 20
@@ -691,7 +701,7 @@ class TestBehaviour(Base):
                                            'docs/c/d.txt'])
 
     def test_no_space_is_checked_first(self):
-        arc = os.path.join(self.tmp, 'huge.zip')
+        arc = self.arc('huge.zip')
         with zipfile.ZipFile(arc, 'w') as zf:
             info = zipfile.ZipInfo('huge.bin')
             zf.writestr(info, b'')
@@ -852,9 +862,9 @@ def pump(root, until, timeout=15.0):
 class TestWindows(Base):
     def setUp(self):
         super().setUp()
-        os.environ['XDG_CACHE_HOME'] = os.path.join(self.tmp, 'cache')
-        os.environ['XDG_CONFIG_HOME'] = os.path.join(self.tmp, 'config')
-        os.environ['XDG_STATE_HOME'] = os.path.join(self.tmp, 'state')
+        os.environ['XDG_CACHE_HOME'] = self.arc('cache')
+        os.environ['XDG_CONFIG_HOME'] = self.arc('config')
+        os.environ['XDG_STATE_HOME'] = self.arc('state')
 
     def test_app_browse_and_extract(self):
         from sparkarchive.app import App

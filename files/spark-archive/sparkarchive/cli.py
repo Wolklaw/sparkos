@@ -36,7 +36,10 @@ def _print_listing(path: str, password: Optional[str]) -> int:
     print(f"{os.path.basename(path)}: {formats.describe(listing.kind)}, read with "
           f"{listing.backend}, {listing.file_count} files, {core.size(listing.total_size)}"
           + (", password-protected" if listing.encrypted else ""))
+    from .safety import is_root
     for e in listing.entries:
+        if e.kind == 'dir' and is_root(e.name):
+            continue
         mark = '*' if e.encrypted else ' '
         shown = e.name + ('/' if e.kind == 'dir' and not e.name.endswith('/') else '')
         if e.kind in ('link', 'hardlink'):

@@ -127,10 +127,9 @@ def _record(name: bytes, lba: int, size: int, is_dir: bool) -> bytes:
     stamp = bytes([124, 3, 5, 10, 20, 0, 0])                    # 2024-03-05 10:20:00 UTC
     body = (bytes([0]) + _both32(lba) + _both32(size) + stamp + bytes([2 if is_dir else 0, 0, 0])
             + _both16(1) + bytes([len(name)]) + name)
-    rec = bytes([len(body) + 1]) + body
-    if len(rec) % 2:
-        rec += b'\0'
-    return rec
+    if (len(body) + 1) % 2:                     # records are even-sized; the length counts the pad
+        body += b'\0'
+    return bytes([len(body) + 1]) + body
 
 
 def _pad(text: str, n: int) -> bytes:

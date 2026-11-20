@@ -61,6 +61,13 @@ def clean_parts(name: str) -> Optional[Parts]:
     return tuple(parts)
 
 
+def is_root(name: str) -> bool:
+    """'.', './' or '/': the folder itself (iso images list it). Not an entry to extract or to
+    report."""
+    return bool(name) and not [p for p in name.replace('\\', '/').split('/')
+                               if p not in ('', '.')]
+
+
 def link_target_ok(parts: Parts, target: str) -> bool:
     """A symlink at `parts` pointing at `target` stays inside the folder (read as written; the
     final check in SafeWriter.finish() resolves it for real)."""
