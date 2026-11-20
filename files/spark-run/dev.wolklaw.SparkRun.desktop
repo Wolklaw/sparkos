@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Run
+GenericName=Windows programs
+GenericName[fr]=Programmes Windows
+Comment=Run Windows programs, or install them as apps with their own menu entry
+Comment[fr]=Lancer des programmes Windows, ou les installer comme applications avec leur entrée de menu
+Exec=spark-run %f
+Icon=dev.wolklaw.SparkRun
+Terminal=false
+Categories=System;Emulator;
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/vnd.microsoft.portable-executable;application/x-msi;application/x-ms-installer;
+Keywords=windows;wine;exe;msi;installer;setup;program;bottles;programme;installateur;
+Keywords[fr]=windows;wine;exe;msi;installateur;programme;
+StartupWMClass=SparkRun
