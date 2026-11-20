@@ -30,8 +30,8 @@ these steps:
 | 4 | Nushell RUN | copies **Nushell** to `/usr/libexec/bluebuild/nu/` (BlueBuild's modules and its Flatpak services are written in it) | not done |
 | 5 | `pre_build.sh` | makes `/opt` a link to `/usr/lib/opt` during the build, so things installed in `/opt` land in the image | [pre-build.sh](../build_files/pre-build.sh) |
 | 6 | `files` module | `cp -rf files/system/* /` | [copy-files.sh](../build_files/copy-files.sh) `system /` |
-| 7 | `dnf` module | `dnf makecache`, `dnf remove` the 13 apps, `dnf install` the 21 packages (weak dependencies on) | the same three `dnf` commands, written out in the Containerfile |
-| 8 | `script` module | runs the 11 scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files` | [run-scripts.sh](../build_files/run-scripts.sh) with the same list |
+| 7 | `dnf` module | `dnf makecache`, `dnf remove` 16 packages, `dnf install` 23 (weak dependencies on) | the same three `dnf` commands, written out in the Containerfile |
+| 8 | `script` module | runs the 20 scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files` | [run-scripts.sh](../build_files/run-scripts.sh) with the same list |
 | 9 | `default-flatpaks` module | installs two services (`system-flatpak-setup`, `user-flatpak-setup`, written in Nushell) that add Flathub at boot and at login, plus `bluebuild-flatpak-manager` and a config file; installs no apps | [flathub.sh](../build_files/flathub.sh): the same two service names, running [flathub-setup](../build_files/flathub-setup), a 40-line shell script |
 | 10 | `signing` module | adds the `sigstoreSigned` entry to `/etc/containers/policy.json` and `registries.d/Wolklaw-sparkos.yaml` | [signing.sh](../build_files/signing.sh), Python instead of jq, already lowercase |
 | 11 | `script` module | `sparkos-signing-fix.sh` (lowercases the policy entry BlueBuild writes as `ghcr.io/Wolklaw/sparkos`) | same script, same place; it finds the entry already right and checks it |
@@ -89,19 +89,24 @@ The `compare` job pulls the BlueBuild image built from the same commit (BlueBuil
 `<commit>-45`) and the test tag, writes down what's in each without booting them
 ([dump-image.sh](../build_files/dump-image.sh)), and lists every difference
 ([compare-images.py](../build_files/compare-images.py)). The report is in each run's summary and in
-its `image-comparison` artifact. Results of [run 44697821712](https://github.com/Wolklaw/sparkos/actions/runs/44697821712) (commit 225b2a6, 2026-11-20), both images
-built from the same commit and the same Bazzite base (`sha256:492f83c7…`):
+its `image-comparison` artifact. A manual run can name the BlueBuild tag to compare with.
+
+Latest results, from [run 44756683699](https://github.com/Wolklaw/sparkos/actions/runs/44756683699) (2026-11-20, after main gained the eight new Spark apps,
+`sparkos-cleanup.sh` and the removal of Spectacle, Plasma System Monitor and Tailscale). It's
+compared with `latest` (`53f54a8-45`, the BlueBuild build of main's last image change; the branch is
+main plus the files on this page, which don't go into the image). Both use the same Bazzite base
+(`sha256:492f83c7…`):
 
 | | BlueBuild | Containerfile |
 |---|---|---|
-| Packages (`rpm -qa`, name, epoch, version, release, arch) | 2637 | 2637, **all the same** |
-| Paths in `/etc` and `/usr` | 276,960 | 276,941 |
+| Packages (`rpm -qa`, name, epoch, version, release, arch) | 2634 | 2634, **all the same** |
+| Paths in `/etc` and `/usr` | 276,973 | 276,954 |
 | Paths only in one image | 22 | 3 |
-| Files with different contents | 91, none of them in `/etc` (see below) | |
+| Files with different contents | 205, none of them in `/etc` (see below) | |
 | `os-release`, kernel arguments, enabled units, `registries.d`, the signing key | same | same |
 | `policy.json` (the signing policy) | same | same, byte for byte |
-| Download (compressed) | 5.42 GB in 267 layers | 5.18 GB in 265 layers |
-| Size on disk | 13.17 GB | 12.44 GB |
+| Download (compressed) | 5.43 GB in 267 layers | 5.18 GB in 265 layers |
+| Size on disk | 13.18 GB | 12.44 GB |
 | Build time on GitHub | about 7 minutes | about 7 minutes |
 
 What differs, and why:
@@ -122,34 +127,40 @@ What differs, and why:
   inside).
 - **The four Flatpak unit files** have the same names, timers and conditions; their descriptions
   and `ExecStart` point to SparkOS's script.
-- **Files rebuilt at build time** (the rest of the 91): Python bytecode of the Spark apps (65 files;
-  it records when each source file was checked out), font caches, the initramfs, the PNGs
-  `sparkos-theme.sh` renders (ImageMagick writes the time into them), the dnf history and the rpm
-  database (install times). These change between any two builds, BlueBuild's included.
+- **Files rebuilt at build time** (the rest of the 205): Python bytecode of the 13 Spark apps
+  (178 files; it records when each source file was checked out), font caches, the initramfs, the
+  PNGs `sparkos-theme.sh` renders (ImageMagick writes the time into them), Spark Update's
+  `/usr/share/sparkos/release.json` (it records when the image was built), the dnf history and the
+  rpm database (install times). These change between any two builds, BlueBuild's included.
 - **Labels.** The Containerfile image has no `org.blue-build.build-id`, points its README label at
   SparkOS's README, and sets `revision` to the SparkOS commit (in the BlueBuild image it's Bazzite's
   commit, inherited from the base).
 - **bootc's own check** (`bootc container lint`, which BlueBuild doesn't run): the same result for
   both, 13 checks passed and one warning, files left in `/run` (`/run/dnf`, `/run/selinux-policy`).
   `/run` is empty on a running machine, so it's harmless; the Containerfile could clear it later.
-- In the first run ([run 44693412793](https://github.com/Wolklaw/sparkos/actions/runs/44693412793)),
-  `policy.json` had the same entries in another order; the Containerfile now writes SparkOS's entry
-  last, where BlueBuild's image ends up with it.
+- Earlier runs, before main's new apps: [run 44693412793](https://github.com/Wolklaw/sparkos/actions/runs/44693412793) and [run 44697821712](https://github.com/Wolklaw/sparkos/actions/runs/44697821712) (2637 packages then, 91 differing
+  files, same conclusions). In the first, `policy.json` had the same entries in another order; the
+  Containerfile now writes SparkOS's entry last, where BlueBuild's image ends up with it.
 
 ## Boot test
 
 The `boot` job runs a copy of every step of [boot-test.yml](../.github/workflows/boot-test.yml)
 (the full set, as on Sundays) against the test tag: it installs it on a disk with image-builder,
-boots it in QEMU and checks over SSH. All of it passed in both runs
+boots it in QEMU and checks over SSH. All of it passed in all three runs
 ([run 44693412793](https://github.com/Wolklaw/sparkos/actions/runs/44693412793),
-[run 44697821712](https://github.com/Wolklaw/sparkos/actions/runs/44697821712)): the system installs as `ostree-image-signed:docker://ghcr.io/wolklaw/sparkos:containerfile` with the
-`sigstoreSigned` policy, Soot's smoke test, FreeSuite, printing and scanning, the startup sound,
-Claude Code, Spark Snip, Media, Welcome, Games and Monitor self-tests, no third-party apps, the
-Store and the Windows-style installer, the SparkOS look and the desktop layout.
+[run 44697821712](https://github.com/Wolklaw/sparkos/actions/runs/44697821712),
+[run 44756683699](https://github.com/Wolklaw/sparkos/actions/runs/44756683699), the last one with
+boot-test.yml's newer steps): the system installs as
+`ostree-image-signed:docker://ghcr.io/wolklaw/sparkos:containerfile` with the `sigstoreSigned`
+policy; Soot's smoke test, FreeSuite, printing and scanning, the startup sound, Claude Code; the
+self-tests of all 13 Spark apps; Spark Snip with Spectacle gone; Spark Update (uupd still the one
+updater, image `ghcr.io/wolklaw/sparkos`); the Release 2 cleanup (no Plasma System Monitor, no
+Tailscale, no usage counting); SparkOS's own AppImage handling; no third-party apps; the Store and
+the Windows-style installer; the SparkOS look and the desktop layout.
 
-Boot and idle in the test VM, which is noisy (a nested VM on a shared runner): 22.1 s and 13.7 s
-to start in the two runs, 1216 and 1243 MB of memory in use after boot, against 20.1 s and 1240 MB
-for the BlueBuild image in the last real boot test. No measurable difference.
+Boot and idle in the test VM, which is noisy (a nested VM on a shared runner): 22.1 s, 13.7 s and
+18.4 s to start in the three runs, 1216 to 1243 MB of memory in use after boot, against 20.1 s and
+1240 MB for the BlueBuild image in a real boot test the same day. No measurable difference.
 
 One check is added that isn't in boot-test.yml, because it's the only service in this image that
 is SparkOS's code instead of BlueBuild's: both Flathub services ran after boot and login, finished
@@ -164,7 +175,8 @@ Switching is the owner's decision. What it takes:
    `pr-<n>-45` on branches and pull requests (without `latest`); the daily 06:00 UTC schedule. Then
    delete `build.yml`.
 2. **The boot test** starts on `workflow_run: workflows: [bluebuild]`; point it at the new
-   workflow's name. Its steps don't change. The copy in `build-containerfile.yml` can then go.
+   workflow's name. Its steps don't change. The copy in `build-containerfile.yml` can then go
+   (boot-test.yml can already test the test tag by hand: Run workflow, image tag `containerfile`).
 3. **The recipe.** Move its comments (why each package is there) into the Containerfile, delete
    `recipes/recipe.yml` and `check-recipe-sync.py`, and remove the `/Containerfile` line from
    `.gitignore` (left over from BlueBuild's template; the Containerfile is committed with `git add -f`
