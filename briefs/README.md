@@ -21,7 +21,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [release2-cleanup.md](release2-cleanup.md) | Image cleanup: font in the repo, Plasma System Monitor and Tailscale out, own AppImage handling, no calling home | In progress (Release 2) |
 | [spark-edit.md](spark-edit.md) | Spark Edit: light text and code editor (no editor ships today) | In progress |
 | [spark-calc.md](spark-calc.md) | Spark Calc: standard, scientific and programmer calculator | In progress |
-| [spark-archive.md](spark-archive.md) | Spark Archive: zip, 7z, tar and more, Extract/Compress in Dolphin (replaces Ark) | In progress |
+| [spark-archive.md](spark-archive.md) | Spark Archive: zip, 7z, tar and more, Extract/Compress in Dolphin (replaces Ark) | PR open ([#14](https://github.com/Wolklaw/sparkos/pull/14)), in [files/spark-archive](../files/spark-archive); CI green in Fedora and in the SparkOS image. Not yet tried in Dolphin on hardware |
 | [spark-scan.md](spark-scan.md) | Spark Scan: scanning with preview, crop, multi-page PDF and OCR | In progress |
 | [spark-run.md](spark-run.md) | Spark Run: Windows programs on Wine (replaces Bottles) | In progress |
 | [sparkos-on-fedora.md](sparkos-on-fedora.md) | Prototype: SparkOS built on plain Fedora instead of Bazzite (separate test image) | In progress |
