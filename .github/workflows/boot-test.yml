@@ -612,7 +612,7 @@ jobs:
           # The VM follows latest but runs the tested image, so the real latest is an update.
           # Spark Update's own engine must find it, download it, check its signature, stage it,
           # and the PC must start it after a restart.
-          WANT=$(skopeo inspect --format '{{.Digest}}' docker://ghcr.io/wolklaw/sparkos:latest)
+          WANT=$(skopeo inspect --no-creds --format '{{.Digest}}' docker://ghcr.io/wolklaw/sparkos:latest)
           echo "latest in the registry: $WANT"
           $SSH 'rpm-ostree status --booted; df -h /sysroot'
           # what the Spark Update window's "Check now" starts (the signed-in user needs no password;
