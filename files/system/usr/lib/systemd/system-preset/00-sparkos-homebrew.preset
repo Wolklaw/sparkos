@@ -1,0 +1,8 @@
+# SparkOS: Homebrew's update timers stay off until someone sets Homebrew up.
+# Bazzite's 01-homebrew.preset turns them on at first boot, so they'd contact GitHub every day
+# on a PC that never uses Homebrew. Systemd reads presets in name order and the first line that
+# matches wins, so this file (00-) comes before Bazzite's (01-).
+# `sparkos-dev-setup --brew` turns them on (after asking for the password) once Homebrew is in use.
+# brew-setup.service stays on: it only unpacks the Homebrew that ships in the image, offline.
+disable brew-update.timer
+disable brew-upgrade.timer

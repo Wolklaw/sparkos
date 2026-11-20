@@ -138,7 +138,8 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 | Tailscale, preinstalled by Bazzite | Removed (installable by anyone who wants it) | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
 | Fedora's usage counting and connectivity check, KDE's "Get New Stuff" | Usage counting off and Get New Stuff hidden in PR [#13](https://github.com/Wolklaw/sparkos/pull/13); the connectivity check is the owner's call (in the PR) |
 | Spectacle, which Spark Snip uses to capture | Spark Snip captures through KWin directly | Done in the first release: Spectacle removed after the boot test's real-session capture passed |
-| Bazzite/ublue update tools (`ujust`, their update service and rollback helper) | **Spark Update**: "SparkOS updated, restart?", what changed, one-click rollback | Brief: [spark-update](briefs/spark-update.md) |
+| Bazzite/ublue update tools (`ujust`, their update service and rollback helper) | **Spark Update**: "SparkOS updated, restart?", what changed, one-click rollback | **Done 2026-11-20**: Spark Update downloads and stages updates itself (the boot test had it stage and start a real update); `uupd` and the Bazzite Updater are removed, and `ujust update` runs Spark Update. `ujust` itself stays until the Fedora move (Bazzite's own tools call it) |
+| Homebrew's daily update timers, Universal Blue's akmods repository | Homebrew quiet until `sparkos-dev-setup --brew`; the repository off | **Done 2026-11-20** |
 
 **Release 3: bigger moves**
 | Today | SparkOS's own | Status |

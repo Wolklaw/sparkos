@@ -97,7 +97,11 @@ jobs:
         run: |
           # uupd: the default (Bazzite's updater stays on, Spark Update notifies and rolls
           # back). spark: Spark Update downloads itself and uupd is switched off.
-          for engine in uupd spark; do
+          # The published image has no uupd since 2026-11-20 (SparkOS removes it), so the uupd
+          # engine is only tested on an image that still has it.
+          engines=spark
+          if sudo podman run --rm "$IMAGE" rpm -q uupd; then engines="uupd spark"; fi
+          for engine in $engines; do
           echo "=============== SPARK_UPDATE_ENGINE=$engine"
           sudo podman run --rm -e SPARK_UPDATE_ENGINE=$engine -v "$PWD/files:/files:ro" "$IMAGE" bash -euo pipefail -c '
             echo "--- before: Bazzite updater"
@@ -116,11 +120,17 @@ jobs:
             else
               test ! -e /etc/systemd/system/timers.target.wants/uupd.timer
               test -e /etc/systemd/system/timers.target.wants/spark-update.timer
-              grep -q "^ExecStart=/usr/bin/spark-update --system-run --now stage$" \
-                /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
-              cat /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
+              if [ -f /usr/lib/systemd/system/uupd.service ]; then
+                grep -q "^ExecStart=/usr/bin/spark-update --system-run --now stage$" \
+                  /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
+                cat /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
+              elif [ -x /usr/bin/ujust ]; then
+                # no uupd: `ujust update` runs Spark Update
+                grep -q "spark-update-now@stage.service" /usr/libexec/uupd-update
+              fi
             fi
-            grep -q "^NoDisplay=true" /usr/share/applications/io.github.rfrench3.bazzite-updater.desktop
+            d=/usr/share/applications/io.github.rfrench3.bazzite-updater.desktop
+            if [ -f "$d" ]; then grep -q "^NoDisplay=true" "$d"; fi
             out=$(bazzite-rollback-helper list || true)
             echo "$out"
             grep -q "Spark Update" <<<"$out"

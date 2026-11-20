@@ -22,9 +22,10 @@
 #   spark  Spark Update's own timer stages images and updates Flatpak apps; uupd.timer is
 #          disabled and a drop-in makes uupd.service and uupd-manual.service run Spark Update
 #          instead, so `ujust update` still works and the two never run side by side.
-# The swap to spark waits until Spark Update's own staging has run on a booted SparkOS (the
-# boot test); until then updates keep going through the tool Bazzite ships. If uupd ever
-# disappears from the base image, this falls back to spark so updates never stop.
+# SparkOS builds with spark since 2026-11-20 (the Containerfile sets SPARK_UPDATE_ENGINE and
+# removes the uupd package), after the boot test staged and booted a real update with Spark
+# Update's own engine. If the variable isn't set and uupd is missing, this still picks spark,
+# so updates never stop.
 #
 # Both engines:
 #   1. Spark Update installed: spark-update-user.timer (every user: the notification), the
@@ -69,7 +70,7 @@ if [ "$ENGINE" = uupd ]; then
 else
   if [ -f /usr/lib/systemd/system/uupd.service ]; then
     systemctl disable uupd.timer 2>/dev/null || true
-    rm -f /etc/systemd/system/timers.target.wants/uupd.timer
+    rm -f /etc/systemd/system/timers.target.wants/uupd.timer /usr/lib/systemd/system/timers.target.wants/uupd.timer
     for unit in uupd.service uupd-manual.service; do
       install -d "/usr/lib/systemd/system/$unit.d"
       cat > "/usr/lib/systemd/system/$unit.d/50-sparkos.conf" <<'EOF'
@@ -88,6 +89,28 @@ LogsDirectoryMode=0755
 EOF
     done
     echo "--- uupd.timer disabled; uupd.service and uupd-manual.service run Spark Update"
+  else
+    # Removing the uupd package leaves its enable link behind, pointing at nothing
+    rm -f /etc/systemd/system/timers.target.wants/uupd.timer /usr/lib/systemd/system/timers.target.wants/uupd.timer
+    # uupd isn't in the image (SparkOS removes the package). `ujust update` still runs
+    # /usr/libexec/uupd-update: point it at Spark Update's Check now, which active local users
+    # may start without a password (50-spark-update.rules).
+    if [ -x /usr/bin/ujust ]; then
+      cat > /usr/libexec/uupd-update <<'EOF'
+#!/bin/sh
+# SparkOS: `ujust update` downloads and stages the next SparkOS with Spark Update
+# (files/scripts/spark-update.sh). Restart afterwards to use it.
+systemctl start --wait spark-update-now@stage.service
+status=$?
+spark-update --status
+exit $status
+EOF
+      chmod 0755 /usr/libexec/uupd-update
+      echo "--- uupd isn't installed; ujust update runs Spark Update"
+    fi
+    if systemctl list-unit-files --no-legend 'uupd*' | grep -q .; then
+      echo "uupd units are still in the image:"; systemctl list-unit-files --no-legend 'uupd*'; exit 1
+    fi
   fi
 fi
 
@@ -155,7 +178,7 @@ else
 fi
 test -f /usr/share/polkit-1/actions/dev.wolklaw.SparkUpdate.policy
 test -f /usr/share/applications/dev.wolklaw.SparkUpdate.desktop
-report=$(/usr/bin/spark-update --self-test)
+report=$(/usr/bin/spark-update --self-test) || { echo "$report"; echo "Spark Update's self-test failed"; exit 1; }
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
 grep -q '^others:    no other automatic updater is on' <<<"$report"

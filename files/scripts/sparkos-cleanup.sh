@@ -39,6 +39,24 @@ if grep -l '^countme=1' /usr/share/dnf5/repos.d/*.repo /etc/yum.repos.d/*.repo 2
 fi
 # KDE's "Get New Stuff" (store.kde.org) is hidden by [KDE Action Restrictions] in /etc/xdg/kdeglobals
 grep -qx 'ghns=false' /etc/xdg/kdeglobals
+# Homebrew's update timers: off until `sparkos-dev-setup --brew` (00-sparkos-homebrew.preset,
+# read before Bazzite's 01-homebrew.preset, which turns them on at first boot)
+for timer in brew-update.timer brew-upgrade.timer; do
+  [ -f "/usr/lib/systemd/system/$timer" ] || continue
+  systemctl disable "$timer" 2>/dev/null || true
+  grep -qx "disable $timer" /usr/lib/systemd/system-preset/00-sparkos-homebrew.preset
+  test ! -e "/etc/systemd/system/timers.target.wants/$timer"
+done
+
+# Universal Blue's akmods repository (copr.fedorainfracloud.org) was the one third-party package
+# repository left switched on. SparkOS doesn't layer packages; the image is built in CI.
+for repo in /etc/yum.repos.d/_copr_ublue-os-akmods.repo; do
+  [ -f "$repo" ] && sed -i 's/^enabled=1$/enabled=0/' "$repo"
+done
+if grep -l '^enabled=1' /etc/yum.repos.d/_copr* 2>/dev/null; then
+  echo "a COPR repository is still switched on (above)"; exit 1
+fi
+
 # NetworkManager's connectivity check (fedoraproject.org, every 5 minutes) stays for now: it is
 # what detects hotel and café Wi-Fi sign-in pages. The owner decides (see the release2-cleanup PR).
 

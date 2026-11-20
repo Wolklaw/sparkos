@@ -40,4 +40,4 @@ The tests that open windows need a display. The D-Bus capture tests need `dbus-d
 - KWin's screenshot interface answers any program from Plasma 6.8 on (SparkOS has 6.8). Older Plasma only answers programs whose desktop entry declares it, matched by the running executable, which for Spark Snip is Python, so there it will likely fall back to the portal.
 - A selection stays on one monitor. Mixed scaling across monitors may misplace the recorded area.
 - On an existing install, Plasma keeps the shortcuts it already has saved. If Print does nothing or opens something else, set it in System Settings > Shortcuts > Spark Snip.
-- No annotation or upload. Flameshot is in the image for that.
+- No annotation or upload. For those, install Flameshot from the Store (it isn't in the image).

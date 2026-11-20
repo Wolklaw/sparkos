@@ -29,6 +29,10 @@ on:
         description: Install this tag first, then update to the tested one the way a PC does (empty = install the tested tag directly)
         type: string
         default: ""
+      spark_update_test:
+        description: At the end, let Spark Update download, stage and boot the real latest (test a branch image; the VM thinks it runs an older latest)
+        type: boolean
+        default: false
 
 concurrency:
   group: boot-test
@@ -45,6 +49,7 @@ jobs:
     env:
       IMAGE: ghcr.io/wolklaw/sparkos:${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
       UPDATE_FROM: ${{ github.event_name == 'workflow_dispatch' && inputs.update_from || '' }}
+      SPARK_UPDATE_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.spark_update_test }}
       WORK: /mnt/boot-test
       FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
@@ -78,6 +83,15 @@ jobs:
             INSTALL=ghcr.io/wolklaw/sparkos:$UPDATE_FROM
             for i in 1 2 3 4 5; do sudo podman pull -q "$INSTALL" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
             sudo podman image inspect "$INSTALL" --format '{{.Digest}} {{.Created}}'
+          fi
+          # Spark Update test: install the tested image under the name latest (only in this
+          # runner's storage), so the VM follows latest like a real PC and the real latest in
+          # the registry is an update for it
+          if [ "$SPARK_UPDATE_TEST" = true ]; then
+            [ -z "$UPDATE_FROM" ] || { echo "::error::use update_from or spark_update_test, not both"; exit 1; }
+            [ "$IMAGE" != ghcr.io/wolklaw/sparkos:latest ] || { echo "::error::spark_update_test needs a branch image (image_tag)"; exit 1; }
+            sudo podman tag "$IMAGE" ghcr.io/wolklaw/sparkos:latest
+            INSTALL=ghcr.io/wolklaw/sparkos:latest
           fi
           echo "INSTALL=$INSTALL" >> "$GITHUB_ENV"
           echo "Installing $INSTALL, testing $IMAGE"
@@ -327,11 +341,16 @@ jobs:
       - name: Check Spark Update
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # updates never stop: exactly one updater on (uupd for now) and the notification timer on
-          $SSH 'spark-update --version; systemctl is-enabled uupd.timer; systemctl is-active uupd.timer; ! systemctl is-enabled spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
+          # updates never stop: exactly one updater on (Spark Update's own timer; Universal Blue's
+          # uupd is gone) and the notification timer on
+          $SSH 'spark-update --version; systemctl is-enabled spark-update.timer; systemctl is-active spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
+          $SSH 'rpm -q uupd bazzite-updater 2>&1; systemctl list-unit-files --no-legend "uupd*"; cat /usr/libexec/uupd-update' | tee "$WORK/spark-update-uupd.txt"
+          grep -q 'package uupd is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::uupd is installed"; exit 1; }
+          grep -q 'package bazzite-updater is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::bazzite-updater is installed"; exit 1; }
+          grep -q 'spark-update-now@stage.service' "$WORK/spark-update-uupd.txt" || { echo "::error::ujust update doesn't run Spark Update"; exit 1; }
           $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"
-          grep -q "^updater:   Universal Blue's uupd" "$WORK/spark-update-self-test.txt"
+          grep -q '^updater:   Spark Update' "$WORK/spark-update-self-test.txt"
           grep -q '^image:     ghcr.io/wolklaw/sparkos (from rpm-ostree status)' "$WORK/spark-update-self-test.txt"
           grep -q '^others:    no other automatic updater is on' "$WORK/spark-update-self-test.txt"
           $SSH 'spark-update --status'
@@ -362,6 +381,12 @@ jobs:
           grep -qx 'countme timer: disabled' "$WORK/cleanup-calls.txt" || { echo "::error::rpm-ostree-countme.timer is not disabled"; exit 1; }
           grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
           grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
+          # Homebrew's update timers off until sparkos-dev-setup --brew; no COPR repository on
+          $SSH 'for t in brew-update.timer brew-upgrade.timer; do echo "$t: $(systemctl is-enabled $t 2>&1)"; done
+                echo "copr on: $(grep -l "^enabled=1" /etc/yum.repos.d/_copr* 2>/dev/null | wc -l)"' | tee "$WORK/cleanup-brew.txt"
+          grep -qx 'brew-update.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-update.timer is on"; exit 1; }
+          grep -qx 'brew-upgrade.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-upgrade.timer is on"; exit 1; }
+          grep -qx 'copr on: 0' "$WORK/cleanup-brew.txt" || { echo "::error::a COPR repository is on"; exit 1; }
 
       - name: Check SparkOS's own AppImage handling
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -580,6 +605,31 @@ jobs:
           else
             echo "::error::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"; exit 1
           fi
+
+      - name: Check Spark Update installs a real update
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.SPARK_UPDATE_TEST == 'true' }}
+        run: |
+          # The VM follows latest but runs the tested image, so the real latest is an update.
+          # Spark Update's own engine must find it, download it, check its signature, stage it,
+          # and the PC must start it after a restart.
+          WANT=$(skopeo inspect --no-creds --format '{{.Digest}}' docker://ghcr.io/wolklaw/sparkos:latest)
+          echo "latest in the registry: $WANT"
+          $SSH 'rpm-ostree status --booted; df -h /sysroot'
+          # what the Spark Update window's "Check now" starts (the signed-in user needs no password;
+          # SSH isn't a seat at the PC, so sudo here)
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" systemctl start --wait spark-update-now@stage.service; echo "exit $?"; cat /var/lib/spark-update/state.json; echo; journalctl -b -u spark-update-now@stage.service --no-pager | tail -20' 2>&1 | tee "$WORK/spark-update-stage.txt"
+          grep -q '"result": *"staged"' "$WORK/spark-update-stage.txt" || { echo "::error::Spark Update didn't stage the update"; exit 1; }
+          $SSH 'rpm-ostree status' | tee "$WORK/spark-update-staged.txt"
+          grep -q "$WANT" "$WORK/spark-update-staged.txt" || { echo "::error::the staged image isn't latest ($WANT)"; exit 1; }
+          $SSH "echo sparkos-boot-test | sudo -S -p '' systemctl reboot" || true
+          sleep 30
+          up=0
+          for i in $(seq 1 90); do if $SSH true 2>/dev/null; then up=1; echo "back after the update, ~$((i*10+30))s"; break; fi; sleep 10; done
+          [ "$up" = 1 ] || { echo "::error::no SSH after restarting into the update"; tail -50 "$WORK/serial.log"; exit 1; }
+          $SSH 'rpm-ostree status --booted' | tee "$WORK/spark-update-booted.txt"
+          grep -q "$WANT" "$WORK/spark-update-booted.txt" || { echo "::error::the PC didn't start the update"; exit 1; }
+          grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos:latest' "$WORK/spark-update-booted.txt"
+          echo "Spark Update downloaded, staged and started $WANT"
 
       - name: Screenshot at the end
         if: always()
