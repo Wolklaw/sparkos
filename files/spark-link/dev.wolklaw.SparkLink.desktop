@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Link
+GenericName=Phone link
+GenericName[fr]=Lien avec le téléphone
+Comment=Your phone and this PC, linked over the local network
+Comment[fr]=Votre téléphone et ce PC, reliés par le réseau local
+Exec=spark-link
+Icon=dev.wolklaw.SparkLink
+Terminal=false
+Categories=Network;Utility;
+Keywords=phone;android;link;pair;send;files;clipboard;notifications;battery;find my phone;kde connect;téléphone;appairer;envoyer;fichiers;presse-papiers;
+Keywords[fr]=téléphone;android;lien;appairer;envoyer;fichiers;presse-papiers;notifications;batterie;retrouver mon téléphone;
+StartupWMClass=SparkLink
+SingleMainWindow=true
+Actions=Pair;
+
+[Desktop Action Pair]
+Name=Pair a phone
+Name[fr]=Appairer un téléphone
+Exec=spark-link --tab pair

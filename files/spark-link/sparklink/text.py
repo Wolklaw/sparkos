@@ -1,5 +1,5 @@
 """Every sentence Spark Link shows, in one place, so a French translation can be added as a
-second table. t('key', name=...) fills in the blanks."""
+second table. t(id, name=...) fills in the blanks."""
 
 import locale
 import os
@@ -85,6 +85,8 @@ EN = {
     'dev.ring': "Ring",
     'dev.unpair': "Unpair",
     'dev.always_accept': "Accept files without asking",
+    'dev.keep': "Keep",
+    'dev.transfers': "TRANSFERS",
     'dev.unpair_title': "Unpair {name}?",
     'dev.unpair_confirm': "{name} won't be able to reach this PC until you pair it again.",
     'dev.rung': "Ringing {name}. Tap the phone to stop it.",
@@ -180,6 +182,6 @@ def _table():
 _T = _table()
 
 
-def t(key: str, **kw) -> str:
-    text = _T.get(key) or EN.get(key) or key
+def t(_id: str, **kw) -> str:
+    text = _T.get(_id) or EN.get(_id) or _id
     return text.format(**kw) if kw else text
