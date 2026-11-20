@@ -18,6 +18,8 @@ from urllib.parse import quote
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
+from .text import EN, t
 
 DEFAULT_LANG = "eng+fra"
 OCR_PSM = "6"
@@ -174,7 +176,7 @@ def open_folder(path: str) -> Optional[str]:
     """Open a folder in the file manager. None on success, otherwise what went wrong."""
     opener = shutil.which('xdg-open') or (shutil.which('explorer') if os.name == 'nt' else None)
     if not opener:
-        return "xdg-open is not installed"
+        return t('open.no_xdg')
     try:
         subprocess.Popen([opener, path], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                          stderr=subprocess.DEVNULL, start_new_session=os.name != 'nt')
@@ -184,8 +186,10 @@ def open_folder(path: str) -> Optional[str]:
 
 
 def language_label(lang: str) -> str:
-    """'eng+fra' -> 'English + French'; unknown codes are shown as they are."""
-    return " + ".join(LANGUAGE_NAMES.get(part, part) for part in lang.split('+'))
+    """'eng+fra' -> 'English + French' ('Anglais + Français' in French); unknown codes are
+    shown as they are."""
+    return " + ".join(t(f'ocr.{part}') if f'ocr.{part}' in EN else LANGUAGE_NAMES.get(part, part)
+                      for part in lang.split('+'))
 
 
 def language_short(lang: str) -> str:
@@ -193,12 +197,16 @@ def language_short(lang: str) -> str:
     return " + ".join(LANGUAGE_SHORT.get(part, part.upper()) for part in lang.split('+'))
 
 
-def human_size(size: int) -> str:
+def _human_size(size: int) -> str:
     for unit in ('B', 'KB', 'MB', 'GB'):
         if size < 1024 or unit == 'GB':
             return f"{size:.0f} {unit}" if unit == 'B' else f"{size:.1f} {unit}"
         size /= 1024
     return f"{size} B"
+
+
+def human_size(size: int) -> str:
+    return local_units(_human_size(size))
 
 
 def clock(seconds: float) -> str:
@@ -270,8 +278,7 @@ class Tesseract:
 
     def _args(self, *args: str) -> List[str]:
         if not self.cmd:
-            raise OCRError("Tesseract is not installed. On Fedora: "
-                           "sudo dnf install tesseract tesseract-langpack-fra")
+            raise OCRError(t('ocr.missing'))
         extra = ['--tessdata-dir', self.tessdata] if self.tessdata else []
         return [self.cmd, *args[:2], *extra, *args[2:]]
 
@@ -306,7 +313,7 @@ class Tesseract:
                                   capture_output=True, timeout=OCR_TIMEOUT,
                                   creationflags=NO_WINDOW)
         except subprocess.TimeoutExpired as exc:
-            raise OCRError(f"Tesseract took longer than {OCR_TIMEOUT}s") from exc
+            raise OCRError(t('ocr.slow', secs=OCR_TIMEOUT)) from exc
         finally:
             try:
                 os.remove(path)
@@ -314,7 +321,7 @@ class Tesseract:
                 pass
         if proc.returncode != 0:
             detail = proc.stderr.decode('utf-8', 'replace').strip().splitlines()
-            raise OCRError(detail[-1] if detail else f"Tesseract exited with {proc.returncode}")
+            raise OCRError(detail[-1] if detail else t('ocr.exit', code=proc.returncode))
         return proc.stdout.decode('utf-8', 'replace')
 
 
@@ -556,7 +563,7 @@ def grab_screen() -> Tuple[Image.Image, str]:
         except (CaptureError, OSError, subprocess.SubprocessError) as exc:
             log.warning("capture with %s failed: %s", tool, exc)
             problems.append(str(exc))
-    raise CaptureError("Could not read the screen. " + "; ".join(problems))
+    raise CaptureError(t('cap.failed', why='; '.join(problems)))
 
 
 MONITOR_RE = re.compile(r'(\d+)/\d+x(\d+)/\d+\+(-?\d+)\+(-?\d+)\s+(\S+)')
@@ -672,14 +679,14 @@ class Clipboard:
         image.save(buffer, 'PNG')
         if self._send('image/png', buffer.getvalue()):
             return None
-        return "copying images needs wl-copy (Wayland) or xclip (X11)"
+        return t('clip.no_image_tool')
 
     def copy_file(self, path: str) -> Optional[str]:
         """Put a file on the clipboard, so it pastes into a file manager or a chat app."""
         uri = 'file://' + quote(os.path.abspath(path))
         if self._send('text/uri-list', (uri + '\r\n').encode('utf-8')):
             return None
-        return "copying files needs wl-copy (Wayland) or xclip (X11)"
+        return t('clip.no_file_tool')
 
 
 # ─── Self-test samples ────────────────────────────────────────

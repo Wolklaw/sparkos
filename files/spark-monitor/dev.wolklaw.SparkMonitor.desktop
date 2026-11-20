@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spark Monitor
+Name[fr]=Spark Monitor
 GenericName=Task manager
 GenericName[fr]=Gestionnaire des tâches
 Comment=See what your PC is doing and end apps that stopped responding

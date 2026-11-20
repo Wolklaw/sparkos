@@ -22,12 +22,14 @@ class Tables(unittest.TestCase):
         self.assertEqual(table_problems(text.EN, text.FR), [])
 
     def test_every_sentence_fills_in(self):
-        """t() with made-up values for every blank: no KeyError, no leftover braces."""
+        """t() with made-up values for every blank: no KeyError, no blank named like t()'s
+        own argument, no leftover braces."""
         from langcheck import fields
-        for table in (text.EN, text.FR):
-            for key, value in table.items():
-                filled = value.format(**{name: 'X' for name in fields(value)})
-                self.assertNotIn('{', filled.replace('{{', ''), key)
+        for key, value in text.EN.items():
+            filled = text.t(key, **{name: 'X' for name in fields(value)})
+            self.assertNotIn('{', filled.replace('{{', ''), key)
+            for table in (text.EN, text.FR):
+                table[key].format(**{name: 'X' for name in fields(value)})
 
 
 class PickTheLanguage(unittest.TestCase):

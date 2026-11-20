@@ -48,6 +48,12 @@ jobs:
             USER=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
             bash -c 'cd ~/spark-edit && xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v'
 
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        run: |
+          setpriv --reuid=tester --regid=tester --init-groups env -i HOME=/home/tester \
+            USER=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 SPARK_LANG=fr \
+            bash -c 'cd ~/spark-edit && xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v'
+
       - name: Speed (start-up, 50 MB log file)
         run: |
           nproc; grep -m1 'model name' /proc/cpuinfo || true

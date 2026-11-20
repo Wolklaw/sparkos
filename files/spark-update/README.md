@@ -4,6 +4,8 @@ SparkOS's own updater: the "SparkOS updated" notification, a window with what ch
 now, Restart and Roll back, and (when switched on) its own background downloads, replacing
 Universal Blue's `uupd`. There is always exactly one updater, and never none.
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 ## Who downloads updates (the engine)
 
 | Engine | Downloads and stages images | Spark Update does |

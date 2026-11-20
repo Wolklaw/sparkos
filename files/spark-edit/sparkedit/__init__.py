@@ -7,7 +7,7 @@ APP_NAME = "Spark Edit"
 APP_SLUG = "spark-edit"          # command, folders, log names
 APP_CLASS = "SparkEdit"          # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkEdit"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 AUTOSAVE_MS = 2000               # unsaved changes reach the disk this long after the last key
 AUTOSAVE_BIG_MS = 20000          # the same, for buffers over BIG_BUFFER characters

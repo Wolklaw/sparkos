@@ -2,6 +2,8 @@
 
 The first-login helper for SparkOS, aimed at people coming from Windows. It replaces the Bazzite Portal that SparkOS removes. It opens once at a user's first login and then stays in the menu as "Spark Welcome".
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 **Ships in the SparkOS image.** The build step is [files/scripts/spark-welcome.sh](../scripts/spark-welcome.sh), which runs `install.sh --deps` and puts the autostart entry in `/etc/xdg/autostart/`, so every new user gets the window once at their first login. It can also install for one user with no root (`install.sh --user`, below), for machines without it and for the future Spark Portal.
 
 Every page can be skipped, nothing installs or copies until you click, and closing the window at any point is fine.

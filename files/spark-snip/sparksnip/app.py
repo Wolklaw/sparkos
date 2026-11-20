@@ -24,6 +24,7 @@ from .core import (DEFAULT_LANG, CaptureError, Clipboard, Monitor, OCREngine, OC
                    bounding_box, cache_dir, grab_screen, language_label, language_short,
                    load_config, log, monitors, place_on_desktop, recordings_dir, reduced_motion,
                    runtime_dir, sample_image, save_config, setup_logging, system_font_file)
+from .text import t
 from .widgets import T, Glitch, GlitchText, Mark, Segmented, Strip, Toggle, WolkButton, pick_mono
 
 try:
@@ -33,7 +34,7 @@ except ImportError:
 
 HIDE_DELAY_MS = 250         # let the compositor finish hiding our window before the grab
 HEARTBEAT_MS = 250
-BUTTON_LABELS = {"text": "Capture text", "image": "Take screenshot", "video": "Record screen"}
+BUTTON_LABELS = {mode: t(f'btn.{mode}') for mode in MODES}
 
 
 def detect_scale(root: tk.Tk) -> float:
@@ -149,7 +150,7 @@ class App:
 
     def _on_tk_error(self, exc_type, exc_value, exc_tb):
         log.error("unhandled callback error", exc_info=(exc_type, exc_value, exc_tb))
-        messagebox.showerror(APP_NAME, f"Unexpected error:\n{exc_value}")
+        messagebox.showerror(APP_NAME, t('error.unexpected', error=exc_value))
 
     # settings
     def remember_mode(self, mode: str):
@@ -188,7 +189,7 @@ class App:
         col.pack(side="left", padx=(px(12), 0))
         self.title = GlitchText(col, "SPARK SNIP", self.tkfont(15), bg)
         self.title.pack(anchor="w")
-        self.status = tk.Label(col, text="● READY", bg=bg, fg=T["accent"], font=self.font(7))
+        self.status = tk.Label(col, text="● " + t('status.ready'), bg=bg, fg=T["accent"], font=self.font(7))
         self.status.pack(anchor="w", padx=(px(6), 0))
         tk.Label(head, text=f"V{VERSION}", bg=T["panel"], fg=T["muted"], font=self.font(7),
                  padx=px(6), pady=px(2), highlightthickness=1,
@@ -201,9 +202,9 @@ class App:
         body.pack(fill="both", expand=True, padx=px(16), pady=(px(16), px(6)))
         modes = tk.Frame(body, bg=bg)
         modes.pack(fill="x", pady=(0, px(12)))
-        tk.Label(modes, text="MODE", bg=bg, fg=T["dim"], font=self.font(7)).pack(side="left")
-        self.mode_switch = Segmented(modes, [(m.upper(), m) for m in MODES], self.mode,
-                                     self.remember_mode, self.font(8))
+        tk.Label(modes, text=t('label.mode'), bg=bg, fg=T["dim"], font=self.font(7)).pack(side="left")
+        self.mode_switch = Segmented(modes, [(t(f'mode.{m}').upper(), m) for m in MODES],
+                                     self.mode, self.remember_mode, self.font(8))
         self.mode_switch.pack(side="right")
         self.capture_btn = WolkButton(body, BUTTON_LABELS[self.mode], self._main_button,
                                       self.font(11), variant="primary", padx=px(20),
@@ -214,10 +215,10 @@ class App:
 
         row = tk.Frame(body, bg=bg)
         row.pack(fill="x", pady=(0, px(8)))
-        tk.Label(row, text="TEXT LANGUAGE", bg=bg, fg=T["dim"], font=self.font(7)).pack(side="left")
+        tk.Label(row, text=t('label.language'), bg=bg, fg=T["dim"], font=self.font(7)).pack(side="left")
         choices = self.ocr.language_choices()
         if not choices:
-            tk.Label(row, text="NO LANGUAGE DATA", bg=bg, fg=T["pink"],
+            tk.Label(row, text=t('label.no_language'), bg=bg, fg=T["pink"],
                      font=self.font(8)).pack(side="right")
         elif len(choices) <= 4:
             Segmented(row, [(language_short(c), c) for c in choices], self.ocr.lang,
@@ -227,11 +228,11 @@ class App:
 
         row = tk.Frame(body, bg=bg)
         row.pack(fill="x")
-        tk.Label(row, text="VIDEO AUDIO", bg=bg, fg=T["dim"], font=self.font(7)).pack(side="left")
+        tk.Label(row, text=t('label.audio'), bg=bg, fg=T["dim"], font=self.font(7)).pack(side="left")
         self.toggles = {
-            "mic": Toggle(row, "Mic", bool(self.config.get("mic", False)),
+            "mic": Toggle(row, t('toggle.mic'), bool(self.config.get("mic", False)),
                           lambda v: self.set_option("mic", v), self.font(8)),
-            "sound": Toggle(row, "Sound", bool(self.config.get("sound", True)),
+            "sound": Toggle(row, t('toggle.sound'), bool(self.config.get("sound", True)),
                             lambda v: self.set_option("sound", v), self.font(8)),
         }
         self.toggles["mic"].pack(side="right")
@@ -241,8 +242,8 @@ class App:
         foot = tk.Frame(root, bg=bg)
         foot.pack(fill="x", padx=px(16), pady=(px(8), px(12)))
         version = self.tesseract.version()
-        engine = f"TESSERACT {version}" if version else "TESSERACT NOT FOUND"
-        tk.Label(foot, text=f"OFFLINE  ·  {engine}", bg=bg,
+        engine = t('foot.tesseract', version=version) if version else t('foot.no_tesseract')
+        tk.Label(foot, text=t('foot.offline', engine=engine), bg=bg,
                  fg=T["dim"] if version else T["pink"], font=self.font(7)).pack(side="left")
         tk.Label(foot, text="SPARKOS", bg=bg, fg=T["dim"], font=self.font(7)).pack(side="right")
 
@@ -265,9 +266,9 @@ class App:
         if self.recording is not None:
             return
         self.capture_btn.set_text(BUTTON_LABELS[self.mode])
-        key = SHORTCUTS[self.mode].upper()
-        extra = "  ·  META+SHIFT+S TOO" if self.mode == "image" else ""
-        self.hint.config(text=f"OR PRESS {key} ANYWHERE{extra}  ·  ESC CANCELS")
+        key = SHORTCUTS[self.mode].upper().replace('PRINT', t('key.print'))
+        extra = t('hint.also', shortcut="META+SHIFT+S") if self.mode == "image" else ""
+        self.hint.config(text=t('hint', shortcut=key, extra=extra))
 
     def _language_menu(self, parent: tk.Misc, choices: List[str]) -> WolkButton:
         menu = tk.Menu(self.root, tearoff=0, bg=T["panel"], fg=T["text"], bd=1, relief="flat",
@@ -341,7 +342,7 @@ class App:
         except (CaptureError, OSError, ValueError) as exc:
             log.exception("capture failed")
             self._restore_window()
-            self.open_popup(None, layout[0]).show_error("COULD NOT CAPTURE", str(exc))
+            self.open_popup(None, layout[0]).show_error(t('fail.capture'), str(exc))
             return
         try:
             self.overlay = SnipOverlay(self, shot, layout, self.mode, self._on_selection)
@@ -349,7 +350,7 @@ class App:
             log.exception("could not open the capture overlay")
             self.overlay = None
             self._restore_window()
-            self.open_popup(None, layout[0]).show_error("COULD NOT OPEN THE OVERLAY", str(exc))
+            self.open_popup(None, layout[0]).show_error(t('fail.overlay'), str(exc))
 
     def _on_selection(self, selection):
         self.overlay = None
@@ -376,8 +377,8 @@ class App:
             return
         self.busy, self.ocr_target = True, popup
         popup.reading()
-        self._button_state(False, "Reading…")
-        self._set_status("READING", T["gold"])
+        self._button_state(False, t('btn.reading'))
+        self._set_status(t('status.reading'), T["gold"])
         threading.Thread(target=self._ocr_worker, args=(image,), daemon=True).start()
         self.root.after(80, self._poll_ocr)
 
@@ -396,12 +397,12 @@ class App:
             return
         self.busy = False
         self._button_state(True)
-        self._set_status("READY", T["accent"])
+        self._set_status(t('status.ready'), T["accent"])
         popup, self.ocr_target = self.ocr_target, None
         if popup is None or popup.closed:            # closed while reading: cancelled
             return
         if kind == 'error':
-            popup.show_error("COULD NOT READ", str(payload))
+            popup.show_error(t('fail.read'), str(payload))
         elif not payload.text.strip():
             log.info("no text found")
             popup.show_empty()
@@ -433,8 +434,8 @@ class App:
     # recording
     def _audio_label(self) -> str:
         sound, mic = self.config.get("sound", True), self.config.get("mic", False)
-        parts = (["SOUND"] if sound else []) + (["MIC"] if mic else [])
-        return " + ".join(parts) if parts else "NO AUDIO"
+        parts = ([t('audio.sound')] if sound else []) + ([t('audio.mic')] if mic else [])
+        return " + ".join(parts) if parts else t('audio.none')
 
     def start_recording(self, selection):
         from .recorder import Recording, RecordError
@@ -445,7 +446,7 @@ class App:
         except OSError as exc:
             self._restore_window()
             self.open_popup(selection.image, selection.monitor).show_error(
-                "COULD NOT RECORD", f"can't create {folder}: {exc}")
+                t('fail.record'), t('fail.folder', folder=folder, error=exc))
             return
         stem = os.path.join(folder, datetime.now().strftime("SparkSnip_%Y-%m-%d_%H-%M-%S"))
         tokens = self.config.get("screencast_tokens")
@@ -459,22 +460,22 @@ class App:
         except RecordError as exc:
             self._restore_window()
             self.open_popup(selection.image, selection.monitor).show_error(
-                "COULD NOT RECORD", str(exc))
+                t('fail.record'), str(exc))
             return
         self.recording, self.rec_selection = recording, selection
         self.rec_bar = RecordBar(self, selection.region, selection.monitor, self._audio_label(),
                                  self.stop_recording)
         self.rec_bar.waiting()
         write_pid_file()
-        self._button_state(True, "Stop recording")
-        self._set_status("WAITING FOR THE SHARE DIALOG", T["gold"])
+        self._button_state(True, t('btn.stop'))
+        self._set_status(t('status.share'), T["gold"])
 
     def stop_recording(self):
         if self.recording is None:
             return
         if self.rec_bar is not None:
             self.rec_bar.finishing()
-        self._set_status("SAVING", T["gold"])
+        self._set_status(t('status.saving'), T["gold"])
         self.recording.stop(done=lambda: None)
 
     def _heartbeat(self):
@@ -498,8 +499,9 @@ class App:
                 self.rec_frame = RecordFrame(self.root, self.rec_selection.region)
             if self._beat % 2 == 0:
                 self.rec_bar.recording(rec.elapsed())
-                self._set_status(f"REC {int(rec.elapsed()) // 60:02d}:"
-                                 f"{int(rec.elapsed()) % 60:02d}", T["pink"])
+                elapsed = int(rec.elapsed())
+                self._set_status(t('status.rec', time=f"{elapsed // 60:02d}:{elapsed % 60:02d}"),
+                                 T["pink"])
         elif state in ('done', 'failed', 'cancelled'):
             self._end_recording(state)
 
@@ -512,7 +514,7 @@ class App:
         self.rec_bar = self.rec_frame = None
         remove_pid_file()
         self._button_state(True)
-        self._set_status("READY", T["accent"])
+        self._set_status(t('status.ready'), T["accent"])
         if self.window_built:
             self._show_mode()
         if rec.new_token:
@@ -534,8 +536,8 @@ class App:
             popup.show_video(rec.path, rec.duration, (rec.crop.width, rec.crop.height),
                              rec.encoder.label, self._audio_label())
         else:
-            popup.show_error("RECORDING FAILED", rec.error or "unknown error")
-            self._set_status("ERROR", T["pink"])
+            popup.show_error(t('fail.recording'), rec.error or t('fail.unknown'))
+            self._set_status(t('status.error'), T["pink"])
 
     def run(self):
         self.root.mainloop()

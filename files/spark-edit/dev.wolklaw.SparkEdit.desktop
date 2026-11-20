@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spark Edit
+Name[fr]=Spark Edit
 GenericName=Text editor
 GenericName[fr]=Éditeur de texte
 Comment=Edit text, notes, settings files and code

@@ -7,7 +7,7 @@ APP_NAME = "Spark Store"
 APP_SLUG = "spark-store"         # command, folders, log names
 APP_CLASS = "SparkStore"         # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkStore"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 REMOTE = "flathub"               # the Flatpak remote the catalog and installs come from
 FLATHUB_REPO = "https://dl.flathub.org/repo/flathub.flatpakrepo"

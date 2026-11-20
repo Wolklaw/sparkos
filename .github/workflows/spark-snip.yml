@@ -51,6 +51,14 @@ jobs:
           cd files/spark-snip
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
 
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        env:
+          SPARK_SNIP_REQUIRE_DBUS_TESTS: "1"
+          SPARK_LANG: fr
+        run: |
+          cd files/spark-snip
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
   sparkos:
     runs-on: ubuntu-24.04
     timeout-minutes: 45

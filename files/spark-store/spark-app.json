@@ -5,7 +5,7 @@
   "name_fr": "Spark Store",
   "summary": "The SparkOS app store: the Spark apps and every app on Flathub, installed for you with one click.",
   "summary_fr": "Le magasin d'applications de SparkOS : les applications Spark et toutes celles de Flathub, installées pour vous en un clic.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "size_kb": 420,
   "icon": "icons/spark-store-256.png",
   "desktop": "dev.wolklaw.SparkStore.desktop",

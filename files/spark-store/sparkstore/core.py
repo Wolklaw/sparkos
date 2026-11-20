@@ -104,7 +104,11 @@ def reduced_motion() -> bool:
 
 
 def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']; the order the catalog's translations are tried in."""
+    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']; the order the catalog's translations are tried in.
+    SPARK_LANG (lang.py) wins, so the catalog speaks the same language as the window."""
+    forced = (os.environ.get('SPARK_LANG') or '').strip().lower()
+    if forced in ('en', 'fr'):
+        return [forced]
     lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or \
         os.environ.get('LANG') or ''
     if not lang:

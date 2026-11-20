@@ -10,6 +10,8 @@ from PIL import Image, ImageTk
 from . import APP_NAME
 from .core import (CONF_WARN, Box, Monitor, OCRResult, clock, human_size, language_label, log,
                    open_folder, screenshots_dir, short_path)
+from .lang import local_units
+from .text import t
 from .widgets import T, GlitchPanel, GlitchText, Mark, Strip, WolkButton
 
 if TYPE_CHECKING:
@@ -70,9 +72,9 @@ class ResultWindow(tk.Toplevel):
         self.mark.pack(side="left", anchor="n", pady=(px(2), 0))
         col = tk.Frame(head, bg=bg)
         col.pack(side="left", fill="x", padx=(px(12), 0))
-        self.dot = tk.Label(col, text="● WORKING", bg=bg, fg=T["gold"], font=app.font(7))
+        self.dot = tk.Label(col, text="● " + t('pop.working'), bg=bg, fg=T["gold"], font=app.font(7))
         self.dot.pack(anchor="w")
-        self.headline = GlitchText(col, "ONE MOMENT", app.tkfont(15), bg)
+        self.headline = GlitchText(col, t('pop.moment'), app.tkfont(15), bg)
         self.headline.pack(anchor="w")
 
         self.sub = tk.Label(self, text="", bg=bg, fg=T["muted"], font=app.font(9, bold=False),
@@ -153,7 +155,7 @@ class ResultWindow(tk.Toplevel):
                                                   (T["accent"], 2))]
             self._scan_step(self._thumb_box[1], 1)
         else:
-            self.thumb.create_text(avail_w // 2, height // 2, text="READING…",
+            self.thumb.create_text(avail_w // 2, height // 2, text=t('pop.reading'),
                                    font=self.app.font(9), fill=T["accent"])
 
     def _scan_step(self, y: float, direction: int):
@@ -194,17 +196,16 @@ class ResultWindow(tk.Toplevel):
         can = self.app.clipboard.can_copy_binary()
         actions: List[Action] = []
         if read_text:
-            actions.append(("Read text", self.read_text, "ghost", True))
+            actions.append((t('act.read'), self.read_text, "ghost", True))
         else:
-            actions.append(("Copy text", self.copy_text, "ghost", True))
-        actions += [("Copy image", self.copy_image, "ghost", can),
-                    ("Save image", self.save_image, "ghost", True)]
+            actions.append((t('act.copy_text'), self.copy_text, "ghost", True))
+        actions += [(t('act.copy_image'), self.copy_image, "ghost", can),
+                    (t('act.save_image'), self.save_image, "ghost", True)]
         return actions
 
     # states
     def reading(self):
-        self._state("READING", T["gold"], "READING TEXT",
-                    "Tesseract is reading the area you picked.")
+        self._state(t('dot.reading'), T["gold"], t('head.reading'), t('sub.reading'))
         if self.image is not None:
             self._show_thumb(scanning=True)
         self.set_actions([])
@@ -220,23 +221,21 @@ class ResultWindow(tk.Toplevel):
         self.text.pack(fill="x")
         self.set_actions(self._image_actions(read_text=False))
         words = len(result.text.split())
-        self.meta.config(text=f"{words} WORD{'S' if words != 1 else ''}  ·  "
-                              f"{result.confidence:.0f}% SURE  ·  "
+        sure = t('meta.sure', pct=local_units(f"{result.confidence:.0f}%"))
+        count = t('meta.word') if words == 1 else t('meta.words', n=words)
+        self.meta.config(text=f"{count}  ·  {sure}  ·  "
                               f"{language_label(self.app.ocr.lang).upper()}")
         if copy_error:
-            self._state("NOT COPIED", T["pink"], "COULD NOT COPY",
-                        f"The clipboard refused the text ({copy_error}). "
-                        "Select it below and copy it by hand.")
+            self._state(t('dot.not_copied'), T["pink"], t('head.not_copied'),
+                        t('sub.text_refused', error=copy_error))
             self.app.glitch.now(self.headline, self.panel, strong=True)
             return
         self.copied_text = result.text
         if result.confidence < CONF_WARN:
-            self._state("CHECK IT", T["gold"], "COPIED. CHECK IT",
-                        f"Tesseract is only {result.confidence:.0f}% sure of this read. "
-                        "Fix it below, then press COPY TEXT.")
+            self._state(t('dot.check'), T["gold"], t('head.check'),
+                        t('sub.check', pct=local_units(f"{result.confidence:.0f}%")))
         else:
-            self._state("COPIED", T["accent"], "TEXT COPIED",
-                        "It's on the clipboard. Paste it anywhere with Ctrl+V.")
+            self._state(t('dot.copied'), T["accent"], t('head.text_copied'), t('sub.clipboard'))
         self.app.glitch.now(self.headline, self.panel, self.mark)
         self._start_countdown()
 
@@ -245,13 +244,11 @@ class ResultWindow(tk.Toplevel):
         self.set_actions(self._image_actions(read_text=True))
         self.meta.config(text=f"{self.image.width} × {self.image.height} PX  ·  PNG")
         if copy_error:
-            self._state("NOT COPIED", T["pink"], "COULD NOT COPY",
-                        f"The screenshot isn't on the clipboard ({copy_error}). "
-                        "Save it instead.")
+            self._state(t('dot.not_copied'), T["pink"], t('head.not_copied'),
+                        t('sub.image_refused', error=copy_error))
             self.app.glitch.now(self.headline, self.panel, strong=True)
             return
-        self._state("COPIED", T["accent"], "SCREENSHOT COPIED",
-                    "It's on the clipboard. Paste it anywhere with Ctrl+V.")
+        self._state(t('dot.copied'), T["accent"], t('head.shot_copied'), t('sub.clipboard'))
         self.app.glitch.now(self.headline, self.panel, self.mark)
         self._start_countdown()
 
@@ -260,19 +257,17 @@ class ResultWindow(tk.Toplevel):
         if self.image is not None:
             self._show_thumb()
         self.set_actions(self._image_actions(read_text=False)[1:])
-        self._state("NO TEXT", T["pink"], "NO TEXT FOUND",
-                    "Nothing readable in that area. Try a bigger box or another language, "
-                    "or keep the image instead.")
+        self._state(t('dot.no_text'), T["pink"], t('head.no_text'), t('sub.no_text'))
         self.app.glitch.now(self.headline, self.panel, strong=True)
 
     def show_error(self, title: str, message: str):
         self._stop_scan()
         if self.image is not None:
             self._show_thumb()
-            self.set_actions([("Save image", self.save_image, "ghost", True)])
+            self.set_actions([(t('act.save_image'), self.save_image, "ghost", True)])
         else:
             self.set_actions([])
-        self._state("ERROR", T["pink"], title, message)
+        self._state(t('dot.error'), T["pink"], title, message)
         self.app.glitch.now(self.headline, self.panel, strong=True)
 
     def show_video(self, path: str, duration: float, size: Tuple[int, int], codec: str,
@@ -286,10 +281,10 @@ class ResultWindow(tk.Toplevel):
             weight = "?"
         self.meta.config(text=f"{clock(duration)}  ·  {weight}  ·  {size[0]} × {size[1]}  ·  "
                               f"{codec}  ·  {audio}")
-        self._state("SAVED", T["accent"], "RECORDING SAVED", short_path(path))
+        self._state(t('dot.saved'), T["accent"], t('head.video_saved'), short_path(path))
         can = self.app.clipboard.can_copy_binary()
-        self.set_actions([("Open folder", self.open_video_folder, "ghost", True),
-                          ("Copy file", self.copy_video, "ghost", can)])
+        self.set_actions([(t('act.open_folder'), self.open_video_folder, "ghost", True),
+                          (t('act.copy_file'), self.copy_video, "ghost", can)])
         self.app.glitch.now(self.headline, self.panel, self.mark)
         self._start_countdown()
 
@@ -301,21 +296,21 @@ class ResultWindow(tk.Toplevel):
         text = self.text.get("1.0", "end-1c")
         error = self.app.clipboard.copy_text(text)
         if error:
-            self.say(f"COULD NOT COPY: {error}", T["pink"])
+            self.say(t('say.copy_failed', error=error), T["pink"])
             self.app.glitch.now(self.panel, strong=True)
             return
         self.copied_text = text
-        self.say("TEXT COPIED", T["accent"])
+        self.say(t('say.text_copied'), T["accent"])
         self.app.glitch.now(self.panel)
 
     def copy_image(self):
         error = self.app.clipboard.copy_image(self.image)
         if error:
-            self.say(f"COULD NOT COPY THE IMAGE: {error}", T["pink"])
+            self.say(t('say.image_failed', error=error), T["pink"])
             self.app.glitch.now(self.panel, strong=True)
             return
         self.copied_text = ""
-        self.say("IMAGE COPIED", T["accent"])
+        self.say(t('say.image_copied'), T["accent"])
         self.app.glitch.now(self.panel)
 
     def save_image(self):
@@ -326,32 +321,32 @@ class ResultWindow(tk.Toplevel):
             self.image.save(path)
         except (OSError, ValueError) as exc:
             log.exception("could not save the image")
-            self.say(f"COULD NOT SAVE: {exc}", T["pink"])
+            self.say(t('say.save_failed', error=exc), T["pink"])
             self.app.glitch.now(self.panel, strong=True)
             return
         log.info("saved %s", path)
-        self.say(f"SAVED TO {short_path(path)}", T["accent"])
+        self.say(t('say.saved_to', path=short_path(path)), T["accent"])
         self.app.glitch.now(self.panel)
 
     def open_video_folder(self):
         error = open_folder(os.path.dirname(self.video_path))
         if error:
-            self.say(f"COULD NOT OPEN THE FOLDER: {error}", T["pink"])
+            self.say(t('say.folder_failed', error=error), T["pink"])
         else:
-            self.say("OPENED IN THE FILE MANAGER", T["accent"])
+            self.say(t('say.folder_opened'), T["accent"])
 
     def copy_video(self):
         error = self.app.clipboard.copy_file(self.video_path)
         if error:
-            self.say(f"COULD NOT COPY: {error}", T["pink"])
+            self.say(t('say.copy_failed', error=error), T["pink"])
             self.app.glitch.now(self.panel, strong=True)
             return
-        self.say("FILE COPIED. PASTE IT INTO A CHAT OR A FOLDER.", T["accent"])
+        self.say(t('say.file_copied'), T["accent"])
         self.app.glitch.now(self.panel)
 
     def _on_edit(self, _event=None):
         if self.copied_text and self.text.get("1.0", "end-1c") != self.copied_text:
-            self.say("EDITED. PRESS COPY TEXT TO PUT THIS VERSION ON THE CLIPBOARD.", T["gold"])
+            self.say(t('say.edited'), T["gold"])
 
     # countdown
     def _interacted(self, _event=None):
@@ -439,13 +434,13 @@ class RecordBar(tk.Toplevel):
         px, bg = app.px, T["panel"]
         body = tk.Frame(self, bg=bg, padx=px(10), pady=px(6))
         body.pack(fill="both", expand=True, padx=1, pady=1)
-        self.dot = tk.Label(body, text="● WAITING", bg=bg, fg=T["gold"], font=app.font(9))
+        self.dot = tk.Label(body, text="● " + t('bar.waiting'), bg=bg, fg=T["gold"], font=app.font(9))
         self.dot.pack(side="left")
         self.clock = tk.Label(body, text="", bg=bg, fg=T["text"], font=app.font(9))
         self.clock.pack(side="left", padx=(px(10), 0))
         self.info = tk.Label(body, text=audio, bg=bg, fg=T["dim"], font=app.font(7))
         self.info.pack(side="left", padx=(px(12), px(12)))
-        self.button = WolkButton(body, "Cancel", on_stop, app.font(8), variant="danger",
+        self.button = WolkButton(body, t('bar.cancel'), on_stop, app.font(8), variant="danger",
                                  padx=px(10), pady=px(3))
         self.button.pack(side="left")
         self._blink = True
@@ -464,17 +459,17 @@ class RecordBar(tk.Toplevel):
         self.deiconify()
 
     def waiting(self):
-        self.dot.config(text="● CHOOSE THE SCREEN IN THE SHARE DIALOG", fg=T["gold"])
+        self.dot.config(text="● " + t('bar.choose'), fg=T["gold"])
 
     def recording(self, seconds: float):
-        if self.button.label.cget("text") != "STOP":
-            self.button.set_text("Stop")
+        if self.button.label.cget("text") != t('bar.stop').upper():
+            self.button.set_text(t('bar.stop'))
         self._blink = not self._blink if self.app.glitch.enabled else True
-        self.dot.config(text="● REC", fg=T["pink"] if self._blink else T["dim"])
+        self.dot.config(text="● " + t('bar.rec'), fg=T["pink"] if self._blink else T["dim"])
         self.clock.config(text=clock(seconds))
 
     def finishing(self):
-        self.dot.config(text="● SAVING", fg=T["gold"])
+        self.dot.config(text="● " + t('bar.saving'), fg=T["gold"])
         self.button.set_enabled(False)
 
     def close(self):

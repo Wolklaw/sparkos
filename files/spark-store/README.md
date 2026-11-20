@@ -2,6 +2,8 @@
 
 SparkOS's own app store. It lists the Spark apps first, then every app on Flathub, and installs them for you with one click. It is meant to replace Bazaar, the store SparkOS uses today, and to be the "Spark Portal" for optional Spark apps.
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 It goes into the first SparkOS release next to Bazaar, which stays the default store (taskbar, `.flatpakref` and `.flatpakrepo` files, `appstream://` links) until the owner decides to switch. The image build step is [files/scripts/spark-store.sh](../scripts/spark-store.sh). It also installs for one user without root (`install.sh --user`).
 
 ## What it does

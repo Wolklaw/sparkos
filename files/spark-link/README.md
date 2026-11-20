@@ -2,6 +2,8 @@
 
 Your phone and this PC, linked over the local network with no account and no outside server. It replaces KDE Connect with something both ends of which are SparkOS's own: this is the PC side; the phone side is the "Link to PC" section of Soot's Android app. The two follow [docs/spark-link-protocol.md](../../docs/spark-link-protocol.md).
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 Version 1 does:
 
 - **Links:** a tab or link sent from the phone opens in Soot on the PC (the default browser if Soot isn't there), and "Send a link" sends one back. Only `http://` and `https://`.

@@ -2,6 +2,8 @@
 
 The SparkOS calculator: standard, scientific and programmer modes. Sums are exact: 0.1 + 0.2 is 0.3, and 1 ÷ 3 × 3 is 1.
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run. In French it writes and reads a decimal comma (`1,5 + 2` is 3,5), the keypad's decimal key types it, and a function's numbers are separated with `;` (`round(2,5; 1)`). `spark-calc --eval` keeps the point, for scripts.
+
 SparkOS has had no calculator since KCalc went. Spark Calc is an optional Spark app: it installs for one user without root (`install.sh --user`), the way optional apps will through the future Spark Portal. It also has an image build step ([files/scripts/spark-calc.sh](../scripts/spark-calc.sh)) in case the owner decides to ship it in the image; the recipe doesn't use it yet.
 
 - **Standard:** the layout people know from Windows: %, CE, C, backspace, 1/x, x², √x, the four operations, ± and =.

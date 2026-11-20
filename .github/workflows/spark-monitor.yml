@@ -41,6 +41,11 @@ jobs:
           cd files/spark-monitor
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
 
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        run: |
+          cd files/spark-monitor
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
       - name: Speed (first paint, CPU with 400 processes)
         run: |
           nproc; grep -m1 'model name' /proc/cpuinfo || true

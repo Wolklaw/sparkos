@@ -2,6 +2,8 @@
 
 SparkOS's own way to run Windows programs. Double-click an `.exe` or `.msi` and choose **Run once** or **Install as an app**. An installed app gets its own Windows folder (a Wine prefix), a menu entry with the program's own icon, and a place in Spark Run's window, where you can open it, open its `C:` folder, change its options or uninstall it.
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 It runs on Wine, on purpose: Wine is one of the things SparkOS keeps ([PLAN.md](../../PLAN.md), Independence roadmap). Spark Run replaces fetching Bottles, another project's app, from Flathub. Games should still go through Steam, Heroic or Spark Games, which bring their own Proton; Spark Run is for ordinary Windows programs.
 
 ## Where Wine comes from

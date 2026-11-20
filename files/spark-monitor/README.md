@@ -2,6 +2,8 @@
 
 The SparkOS task manager, for people who press Ctrl+Shift+Esc when something hangs. It lists what is running grouped by app, ends the ones that stopped responding, graphs what the PC is doing, and switches startup apps on and off.
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 Spark Monitor ships in the SparkOS image ([build step](../scripts/spark-monitor.sh)). It also installs for one user without root (`install.sh --user`), the way optional Spark apps will through the future Spark Portal. Plasma System Monitor stays in the image next to it for now.
 
 - **Apps:** one row per app, not per process, in three groups: **Apps**, **Background** and **System**. Columns: CPU, memory, GPU (where the driver publishes it) and disk, with the totals in the headings. Click a heading to sort; open a row to see its processes. Select a row and press Delete or **End task**: the app is asked to close (SIGTERM), and if it is still running 5 seconds later it is forced to stop (SIGKILL). The status line says which happened. Steam games get their own row, named from Steam's library, so you can end a game without ending Steam.
