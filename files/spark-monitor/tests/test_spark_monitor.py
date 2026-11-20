@@ -344,6 +344,8 @@ class ProcessTests(FixtureCase):
 
     def test_gpu_per_app(self):
         def change():
+            bump_stat(self.root, 3060, 50)                  # only running processes are
+            bump_stat(self.root, 2100, 10)                  # looked at for the GPU
             bump_gpu(self.root, 3060, 40, 500_000_000)     # half of the second
             bump_gpu(self.root, 2100, 30, 100_000_000)     # same client on fd 30 and 31
             bump_gpu(self.root, 2100, 31, 100_000_000)
@@ -354,8 +356,23 @@ class ProcessTests(FixtureCase):
         by = self.groups_by_name(p)
         self.assertAlmostEqual(by['Cyberpunk 2077'].gpu, 50.0)
         self.assertAlmostEqual(by['Firefox'].gpu, 10.0)      # counted once, not twice
-        self.assertIsNone(by['Dolphin'].gpu)                  # never opened the GPU
+        self.assertIsNone(by['Dolphin'].gpu)                  # idle: never scanned
+        self.assertEqual(p.procs[2000].gpu_scans, 0)
         self.assertTrue(p.gpu_readable)
+
+    def test_idle_processes_are_read_less(self):
+        def change():
+            bump_stat(self.root, 2100, 10)
+            for pid, value in ((2100, 160000), (2000, 60000)):
+                rewrite(self.root, f'proc/{pid}/statm',
+                        lambda t, v=value: ' '.join([t.split()[0], str(v)] + t.split()[2:]))
+        p = ProcSampler(self.src, threads=16)
+        p.ticks = 4                         # so that neither PID is due for its 10 s look
+        p.sample(0.0)
+        change()
+        p.sample(1.0)
+        self.assertEqual(p.procs[2100].mem, (160000 - 50000) * PAGE)   # ran: read again
+        self.assertEqual(p.procs[2000].mem, (40000 - 25000) * PAGE)    # slept: kept
 
     def test_reused_pid_is_a_new_process(self):
         def change():

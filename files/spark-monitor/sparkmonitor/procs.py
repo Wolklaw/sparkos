@@ -58,7 +58,9 @@ class Proc:
     cpu: float = 0.0               # % of the whole CPU
     mem: int = 0                   # private memory (RssAnon), bytes
     io: Optional[int] = None       # bytes read + written so far
+    io_at: float = 0.0             # when io was read
     disk: float = 0.0              # bytes/s
+    active: bool = True            # used CPU since the last sample
     io_ok: bool = True
     gpu: float = 0.0
     gpu_fds: List[int] = field(default_factory=list)
@@ -95,7 +97,7 @@ def parse_stat(data: bytes):
     """(comm, state, ppid, flags, ticks, nice, threads, start) from /proc/<pid>/stat."""
     right = data.rfind(b')')
     comm = data[data.find(b'(') + 1:right].decode('utf-8', 'replace')
-    f = data[right + 2:].split()
+    f = data[right + 2:].split(None, 20)       # the fields after starttime aren't needed
     return (comm, f[0].decode(), int(f[1]), int(f[6]), int(f[11]) + int(f[12]), int(f[16]),
             int(f[17]), int(f[19]))
 
@@ -308,6 +310,13 @@ class ProcSampler:
                 continue
             if prev_ticks is not None and dt > 0:
                 p.cpu = min(100.0, 100.0 * (p.ticks - prev_ticks) / CLK_TCK / dt / self.threads)
+            p.active = prev_ticks is None or p.ticks != prev_ticks
+            if not p.active and (pid + self.ticks) % 10:
+                # It didn't run, so its memory and disk use can't have changed (much): skip
+                # two reads. Most processes sleep, so this halves the cost of a sample.
+                # Each one is still looked at every 10 s, for swapping and late writeback.
+                p.disk = 0.0
+                continue
             statm = read_bytes(base + 'statm')
             if statm:
                 parts = statm.split()
@@ -321,9 +330,9 @@ class ProcSampler:
                     p.io_ok = False        # not allowed (setuid programs); don't try again
                 else:
                     total = _io_total(io)
-                    if p.io is not None and dt > 0 and total >= p.io:
-                        p.disk = (total - p.io) / dt
-                    p.io = total
+                    if p.io is not None and now > p.io_at and total >= p.io:
+                        p.disk = (total - p.io) / (now - p.io_at)
+                    p.io, p.io_at = total, now
         self.procs = procs
         self.kernel_threads = kernel
         if gpu:
@@ -339,8 +348,10 @@ class ProcSampler:
         for p in self.procs.values():
             if p.kthread or p.uid != uid:
                 continue
-            due = p.gpu_scans == 0 or (p.gpu_scans <= len(self.GPU_RESCAN_S) and not p.gpu_fds
-                                       and now >= p.gpu_scan_at)
+            # Only a process that is running can be drawing; idle daemons are never scanned.
+            due = p.active and (p.gpu_scans == 0 or (
+                p.gpu_scans <= len(self.GPU_RESCAN_S) and not p.gpu_fds
+                and now >= p.gpu_scan_at))
             if due and budget > 0 and self.prev_time is not None:
                 budget -= self._scan_fds(p)
                 p.gpu_scan_at = now + self.GPU_RESCAN_S[min(p.gpu_scans - 1,

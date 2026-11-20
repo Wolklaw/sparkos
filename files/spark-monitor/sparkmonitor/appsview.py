@@ -44,6 +44,8 @@ class AppsView(tk.Frame):
         self.shown: Dict[str, tuple] = {}       # row id -> what the row shows now
         self.next_id = 0
         self.open_groups: set = set()
+        self.kids: Dict[str, str] = {}         # row id -> 'placeholder' or 'open'
+        self.section_labels: Dict[str, str] = {}
 
         bar = tk.Frame(self, bg=T["bg"])
         bar.pack(fill="x", padx=px(14), pady=px(10))
@@ -120,8 +122,9 @@ class AppsView(tk.Frame):
                 for i, iid in enumerate(order):
                     tree.move(iid, parent, i)
             label = f"{t(f'section.{sec}').upper()} ({len(items)})"
-            if tree.item(parent, 'text') != label:
+            if self.section_labels.get(sec) != label:
                 tree.item(parent, text=label)
+                self.section_labels[sec] = label
         for iid in list(self.shown):
             if iid not in live:
                 if tree.exists(iid):
@@ -130,6 +133,7 @@ class AppsView(tk.Frame):
                 key = self.keys.pop(iid, None)
                 self.iids.pop(key, None)
                 self.open_groups.discard(iid)
+                self.kids.pop(iid, None)
         self._headings()
         procs, _kernel = app.procs.totals()
         apps = len(by_section[APP])
@@ -141,18 +145,26 @@ class AppsView(tk.Frame):
     def _children(self, iid: str, g: Group) -> None:
         """A group's processes, listed only while it's open; a placeholder keeps the arrow."""
         tree = self.tree
-        kids = tree.get_children(iid)
         if len(g.pids) < 2:
+            want = 'none'
+        else:
+            want = 'open' if iid in self.open_groups else 'placeholder'
+        have = self.kids.get(iid, 'none')
+        if want != 'open' and want == have:
+            return                       # nothing to do: no Tk call for most rows
+        kids = tree.get_children(iid)
+        if want == 'none':
             if kids:
                 tree.delete(*kids)
+            self.kids.pop(iid, None)
             return
-        if iid not in self.open_groups:
-            if not kids:
-                tree.insert(iid, 'end', iid=f'{iid}|…', text='…')
-            elif len(kids) > 1 or kids[0] != f'{iid}|…':
+        if want == 'placeholder':
+            if kids:
                 tree.delete(*kids)
-                tree.insert(iid, 'end', iid=f'{iid}|…', text='…')
+            tree.insert(iid, 'end', iid=f'{iid}|…', text='…')
+            self.kids[iid] = 'placeholder'
             return
+        self.kids[iid] = 'open'
         procs = self.app.procs.procs
         want = sorted((p for p in (procs.get(pid) for pid in g.pids) if p),
                       key=lambda p: -p.cpu if self.sort[0] != 'name' else p.pid)

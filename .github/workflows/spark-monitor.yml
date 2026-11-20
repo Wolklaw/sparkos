@@ -1,7 +1,8 @@
 name: spark-monitor
-# Spark Monitor is optional (it is not in the image; the future Spark Portal installs it).
+# Spark Monitor ships in the SparkOS image (files/scripts/spark-monitor.sh) and also installs
+# per user without root, the way optional Spark apps will through the future Spark Portal.
 #
-# fedora:  installs it system-wide in a plain Fedora container, runs the self-test, the unit
+# fedora:  runs the image build step in a plain Fedora container, then the self-test, the unit
 #          and UI tests under Xvfb (End task against real processes included), and measures
 #          time to first paint and CPU use with 400 processes running.
 # sparkos: inside the published SparkOS image, installs it for a normal user with
@@ -11,10 +12,12 @@ on:
   push:
     paths:
       - "files/spark-monitor/**"
+      - "files/scripts/spark-monitor.sh"
       - ".github/workflows/spark-monitor.yml"
   pull_request:
     paths:
       - "files/spark-monitor/**"
+      - "files/scripts/spark-monitor.sh"
       - ".github/workflows/spark-monitor.yml"
   workflow_dispatch:
 
@@ -26,8 +29,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install
-        run: bash files/spark-monitor/install.sh --deps
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-monitor.sh
 
       - name: Self-test
         run: spark-monitor --self-test
@@ -79,7 +82,9 @@ jobs:
             home=$(getent passwd tester | cut -d: -f6)
             cp -r /src "$home/spark-monitor"
             chown -R tester: "$home/spark-monitor"
-            as() { su - tester -c "$1"; }
+            # runuser, not su: su wants a PAM session, which a container cannot open
+            as() { (cd "$home" && runuser -u tester -- env -i HOME="$home" USER=tester \
+                    LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
             usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
 
             echo "--- install --user"
