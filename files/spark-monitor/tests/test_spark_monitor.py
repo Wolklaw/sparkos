@@ -597,9 +597,10 @@ class MiscTests(FixtureCase):
 # ─── The window ───────────────────────────────────────────────
 
 def said(key: str, shown: str) -> bool:
-    """Does the status line show the sentence `key`, whatever the {name} in it?"""
-    return all(part.strip() in shown.upper()
-               for part in t(key, name='@@').upper().split('@@') if part.strip())
+    """Does the status line show the sentence `key`, whatever the {name} in it? The status
+    line shows it in capitals without the final full stop (App.end_finished)."""
+    sample = t(key, name='@@').upper().rstrip('.')
+    return all(part.strip() in shown for part in sample.split('@@') if part.strip())
 
 
 def have_display() -> bool:
