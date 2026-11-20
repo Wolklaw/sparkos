@@ -36,6 +36,7 @@ class Subject:
     app: Optional[App] = None
     spark: Optional[sparkapps.SparkApp] = None
     ref: Optional[flatpak.Ref] = None
+    repo: Optional[flatpak.Repo] = None
     details: Details = field(default_factory=Details)
 
     @property
@@ -83,6 +84,10 @@ class AppPage:
         self.shot_token = 0
         self.title: Optional[GlitchText] = None
         self.action_key = None
+        self.addon_frame: Optional[tk.Frame] = None
+        self.addon_key = None
+        self.addons_all = False
+        self.addon_status: Dict[str, tk.Label] = {}
 
     # — what to show —
     def subject_for(self, target) -> Optional[Subject]:
@@ -98,6 +103,9 @@ class AppPage:
             return Subject('flathub', target.id, target.name, target.summary,
                            target.developer, target.verified, target.license, target.branch,
                            app=target, details=store.catalog.details(target.id))
+        if isinstance(target, flatpak.Repo):
+            return Subject('repo', target.name, target.title or target.name, target.comment,
+                           target.host, False, '', '', repo=target)
         if isinstance(target, flatpak.Ref):
             app = store.catalog.apps.get(target.id)
             if app is not None and (target.from_flathub or not target.url):
@@ -127,7 +135,11 @@ class AppPage:
         self.shot_state.clear()
         self.shot_token += 1
         self.crumb.config(text={'spark': t('crumb.spark'), 'flathub': t('crumb.flathub'),
-                                'ref': t('crumb.ref'), 'local': t('crumb.local')}[subject.kind])
+                                'ref': t('crumb.ref'), 'local': t('crumb.local'),
+                                'repo': t('crumb.repo')}[subject.kind])
+        self.repo_added = None
+        if subject.kind == 'repo':
+            self.check_repo()
         self.build()
         self.canvas.yview_moveto(0)
         if subject.kind in ('flathub', 'ref', 'local'):
@@ -141,6 +153,8 @@ class AppPage:
         store, px, s = self.store, self.store.px, self.subject
         clear(self.inner)
         self.action_key = None
+        self.addon_frame, self.addon_key, self.addons_all = None, None, False
+        self.addon_status = {}
         head = tk.Frame(self.inner, bg=T["bg"])
         head.pack(fill="x", padx=px(16), pady=(px(8), 0))
         icon = tk.Label(head, bg=T["bg"], bd=0)
@@ -162,7 +176,7 @@ class AppPage:
         who.pack(fill="x", pady=(px(2), 0))
         if s.kind == 'spark':
             byline = t('app.by_spark')
-        elif s.kind == 'ref':
+        elif s.kind in ('ref', 'repo'):
             byline = t('app.from_host', host=s.developer or '?')
         elif s.kind == 'local':
             byline = t('app.from_remote', remote=s.developer or '?')
@@ -201,6 +215,13 @@ class AppPage:
         if s.kind == 'ref' and s.ref is not None and not s.ref.from_flathub:
             notice(store, self.inner, t('ref.title'),
                    t('ref.text', host=s.ref.host, name=s.name), T["gold"])
+        if s.kind == 'repo' and s.repo is not None:
+            if s.repo.is_flathub:
+                notice(store, self.inner, t('repo.flathub_title'), t('repo.flathub'),
+                       T["accent"])
+            else:
+                notice(store, self.inner, t('repo.title'),
+                       t('repo.text', title=s.name, host=s.repo.host), T["gold"])
 
         self.facts_frame = tk.Frame(self.inner, bg=T["bg"])
         self.facts_frame.pack(fill="x", padx=px(16), pady=(px(14), 0))
@@ -210,11 +231,21 @@ class AppPage:
             self.build_shots()
         if s.details.description:
             self.build_description()
+        if s.kind != 'spark' and store.catalog.addons.get(s.id):
+            self.build_addons()
         if s.kind == 'spark':
             self.build_spark_notes()
-        self.perm_frame = tk.Frame(self.inner, bg=T["bg"])
-        self.perm_frame.pack(fill="x")
-        self.update_permissions()
+        if s.kind == 'repo' and s.repo is not None and s.repo.description:
+            self._heading(t('about.title'))
+            about = tk.Label(self.inner, text=s.repo.description, font=store.font(9, False),
+                             bg=T["bg"], fg=T["text"], anchor="w", justify="left")
+            about.pack(fill="x", padx=px(16))
+            wrap_on_resize(self.inner, [about], px(36))
+        self.perm_frame = None
+        if s.kind != 'repo':
+            self.perm_frame = tk.Frame(self.inner, bg=T["bg"])
+            self.perm_frame.pack(fill="x")
+            self.update_permissions()
         self.build_links()
         tk.Frame(self.inner, bg=T["bg"], height=px(24)).pack()
 
@@ -232,6 +263,8 @@ class AppPage:
         job = store.queue.for_app(s.id)
         if s.kind == 'spark':
             return s.spark.installed, job, False
+        if s.kind == 'repo':
+            return ('user' if self.repo_added else None), job, False
         inst = store.installed.get(s.id)
         update = any(u.id == s.id for u in store.updates)
         return (inst.scope if inst else None), job, update
@@ -239,6 +272,7 @@ class AppPage:
     def update_actions(self, force: bool = False):
         if self.subject is None or self.actions is None or not self.actions.winfo_exists():
             return
+        self.update_addons()
         store, px, s = self.store, self.store.px, self.subject
         scope, job, update = self.state()
         key = (scope, job.id if job else None, job.state if job else None, update,
@@ -313,6 +347,16 @@ class AppPage:
 
         if not store.flatpak_ok:
             self._note(row, t('flatpak.missing'))
+            return
+        if s.kind == 'repo':
+            if self.repo_added is None:
+                self._note(row, t('app.checking'))
+            elif self.repo_added:
+                self._note(row, t('repo.added', name=s.id))
+            else:
+                WolkButton(row, t('repo.add'), lambda: store.add_remote(s), f8,
+                           variant="primary").pack(side="left")
+                self._note(row, t('install.for_you'))
             return
         if scope is not None:
             WolkButton(row, t('btn.open'), lambda: store.launch(s), f8, variant="primary"
@@ -401,7 +445,11 @@ class AppPage:
         facts = self.facts.get(s.id)
         inst = store.installed.get(s.id)
         cells = []
-        if s.kind == 'spark':
+        if s.kind == 'repo':
+            cells.append((t('fact.name'), s.id))
+            cells.append((t('fact.address'), s.repo.url if s.repo else '—'))
+            cells.append((t('fact.from'), s.developer or '?'))
+        elif s.kind == 'spark':
             sp = s.spark
             cells.append((t('fact.size'), fmt_size(sp.size_kb * 1024) if sp.size_kb else "—"))
             cells.append((t('fact.licence'), licence_label(sp.license) or t('fact.unknown')))
@@ -615,6 +663,96 @@ class AppPage:
 
         store.bg(work, done)
 
+    # — add-ons —
+    SHOWN_ADDONS = 8
+
+    def build_addons(self):
+        self._heading(t('addons.title'))
+        self.addon_frame = tk.Frame(self.inner, bg=T["bg"])
+        self.addon_frame.pack(fill="x")
+        self.update_addons()
+
+    def update_addons(self):
+        frame = self.addon_frame
+        if frame is None or not frame.winfo_exists() or self.subject is None:
+            return
+        store, px, s = self.store, self.store.px, self.subject
+        addons = store.catalog.addons.get(s.id, [])
+        scope, _job, _u = self.state()
+        jobs = {a.id: store.queue.for_app(a.id) for a in addons}
+        key = (scope, self.addons_all, store.installed_loaded,
+               tuple((a.id, store.runtimes.get(a.id), jobs[a.id].id if jobs[a.id] else None,
+                      jobs[a.id].state if jobs[a.id] else None) for a in addons))
+        if key == self.addon_key:
+            for addon_id, label in self.addon_status.items():
+                job = jobs.get(addon_id)
+                if job is not None and job.state == RUNNING and label.winfo_exists():
+                    pct = f" {round(job.progress * 100)}%" if job.progress is not None else "…"
+                    label.config(text=t(f'doing.{job.kind}').upper() + pct)
+            return
+        self.addon_key = key
+        self.addon_status = {}
+        clear(frame)
+        note = tk.Label(frame, text=t('addons.note', name=s.name) if scope else
+                        t('addons.need_app', name=s.name), font=store.font(8, False),
+                        bg=T["bg"], fg=T["muted"], anchor="w", justify="left")
+        note.pack(fill="x", padx=px(16), pady=(0, px(4)))
+        wrap_on_resize(frame, [note], px(36), slack=px(40))
+        shown = addons if self.addons_all else addons[:self.SHOWN_ADDONS]
+        for addon in shown:
+            self._addon_row(frame, addon, jobs.get(addon.id), scope)
+        if len(addons) > len(shown):
+            def more():
+                self.addons_all = True
+                self.update_addons()
+            WolkButton(frame, t('addons.more', n=len(addons)), more, store.font(8),
+                       padx=10, pady=4).pack(anchor="w", padx=px(16), pady=(px(6), 0))
+
+    def _addon_row(self, frame, addon, job, scope):
+        store, px = self.store, self.store.px
+        bg = T["panel"]
+        row = tk.Frame(frame, bg=bg, highlightthickness=1, highlightbackground=T["line"])
+        row.pack(fill="x", padx=px(16), pady=(px(3), 0))
+        right = tk.Frame(row, bg=bg)
+        right.pack(side="right", padx=px(8), pady=px(6))
+        col = tk.Frame(row, bg=bg)
+        col.pack(side="left", fill="x", expand=True, padx=px(10), pady=px(6))
+        head = tk.Frame(col, bg=bg)
+        head.pack(fill="x")
+        tk.Label(head, text=addon.name, font=store.font(9), bg=bg, fg=T["text"],
+                 anchor="w").pack(side="left")
+        if addon.proprietary:
+            chip(head, t('chip.proprietary'), store.font(7), T["gold"], px=px).pack(
+                side="left", padx=(px(8), 0))
+        labels = []
+        if addon.summary:
+            summary = tk.Label(col, text=addon.summary, font=store.font(8, False), bg=bg,
+                               fg=T["muted"], anchor="w", justify="left")
+            summary.pack(fill="x")
+            labels.append(summary)
+        installed = store.runtimes.get(addon.id)
+        if job is not None and job.state in (RUNNING, WAITING):
+            status = tk.Label(right, text=t(f'doing.{job.kind}').upper() + "…",
+                              font=store.font(8), bg=bg, fg=T["gold"])
+            status.pack(side="right")
+            self.addon_status[addon.id] = status
+        elif installed:
+            WolkButton(right, t('btn.remove'), lambda a=addon: store.remove_addon(a),
+                       store.font(8), variant="danger", padx=10, pady=3).pack(side="right")
+            chip(right, t('addons.installed'), store.font(7), T["accent"], True, px).pack(
+                side="right", padx=(0, px(8)))
+        elif scope and store.flatpak_ok:
+            WolkButton(right, t('btn.install'), lambda a=addon: store.install_addon(a),
+                       store.font(8), variant="primary", padx=10, pady=3).pack(side="right")
+        if job is not None and job.state == FAILED:
+            err = tk.Label(col, text=job.error or t('fail.unknown'), font=store.font(8, False),
+                           bg=bg, fg=T["pink"], anchor="w", justify="left")
+            err.pack(fill="x", pady=(px(2), 0))
+            labels.append(err)
+            WolkButton(right, t('btn.retry'), lambda j=job: store.retry(j), store.font(8),
+                       padx=10, pady=3).pack(side="right", padx=(0, px(6)))
+        wrap_on_resize(col, labels, px(4), slack=px(40))
+
     # — description and links —
     def build_description(self):
         store, px = self.store, self.store.px
@@ -664,6 +802,8 @@ class AppPage:
             urls['vcs-browser'] = s.spark.source_url
         if s.kind == 'ref' and s.ref and s.ref.homepage:
             urls['homepage'] = s.ref.homepage
+        if s.kind == 'repo' and s.repo and s.repo.homepage:
+            urls['homepage'] = s.repo.homepage
         if s.kind == 'flathub':
             urls.setdefault('flathub', f"https://flathub.org/apps/{s.id}")
         order = [('homepage', 'link.home'), ('help', 'link.help'),
@@ -688,10 +828,31 @@ class AppPage:
             except webbrowser.Error:
                 pass
 
+    def check_repo(self):
+        """Whether this app source is already one of your remotes (by name or address)."""
+        s = self.subject
+        if s is None or s.kind != 'repo':
+            return
+        repo = s.repo
+
+        def work():
+            names = flatpak.remotes()
+            return repo.name in names.get('user', []) or (
+                repo.is_flathub and flatpak.REMOTE in names.get('user', []))
+
+        def done(added):
+            if self.subject is s:
+                self.repo_added = bool(added)
+                self.update_actions(force=True)
+
+        self.store.bg(work, done)
+
     # — called by the window when something changed —
     def refresh(self):
         if self.subject is None:
             return
         if self.subject.kind == 'spark':
             sparkapps.refresh_state(self.subject.spark)
+        self.addon_key = None
         self.update_actions()
+        self.update_facts()

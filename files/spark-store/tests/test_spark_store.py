@@ -184,6 +184,13 @@ class AppstreamTests(unittest.TestCase):
         self.assertEqual(det.screenshots[0].caption, 'La fenêtre principale')
         self.assertEqual(apps['com.example.Chat'][0].name, 'Chatter')   # no French: English
 
+    def test_addons(self):
+        addons = []
+        list(parse(CATALOG_XML, [], addons))
+        self.assertEqual([(a.id, a.extends, a.branch) for a in addons],
+                         [('org.example.Paint.Plugin.Extra', ['org.example.Paint'], 'stable')])
+        self.assertEqual(addons[0].name, 'Extra brushes')
+
     def test_old_style_id(self):
         self.assertEqual(self.apps()['org.example.Old'][0].name, 'Old Editor')
 
@@ -210,6 +217,8 @@ class CatalogTests(unittest.TestCase):
         self.assertFalse(second.rebuilt)
         self.assertEqual(set(second.apps), set(first.apps))
         self.assertEqual(second.details('org.example.Paint').version, '3.2.0')
+        self.assertEqual([a.id for a in second.addons['org.example.Paint']],
+                         ['org.example.Paint.Plugin.Extra'])
         self.assertEqual(second.details('nope.nope.Nope').description, [])
 
     def test_rebuilds_when_the_catalog_changes(self):
@@ -481,6 +490,15 @@ class FlatpakTests(unittest.TestCase):
                          [('org.example.Paint', 'user', '3.3.0')])
         self.assertEqual((runtimes, error), (1, ''))
         self.assertEqual(flatpak.remotes(), {'user': ['flathub'], 'system': ['flathub', 'fedora']})
+        fake = FakeFlatpak(runtimes=[{'id': 'org.example.Ext', 'installation': 'system'},
+                                     {'id': 'org.example.Ext', 'installation': 'user'},
+                                     {'id': 'org.freedesktop.Platform', 'installation': 'system'}])
+        self.assertEqual(flatpak.installed_runtimes(), {'org.example.Ext': 'user',
+                                                        'org.freedesktop.Platform': 'system'})
+        self.assertEqual(flatpak.cmd_install_addon('org.example.Ext')[-1],
+                         'runtime/org.example.Ext//stable')
+        self.assertEqual(fake.calls()[-1], ['list', '--runtime',
+                                            '--columns=application,installation'])
         self.assertTrue(flatpak.version().startswith('Flatpak'))
 
     def test_remote_info(self):
@@ -523,6 +541,24 @@ class FlatpakTests(unittest.TestCase):
             self.assertEqual(flatpak.app_id_from_link(link), 'org.gimp.GIMP', link)
         for link in ('appstream://', 'https://example.com/org.gimp.GIMP', 'gimp', 'a;b.c.d'):
             self.assertIsNone(flatpak.app_id_from_link(link), link)
+
+    def test_flatpakrepo(self):
+        path = os.path.join(TMP, 'Some Games.flatpakrepo')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write("[Flatpak Repo]\nTitle=Some Games\nUrl=https://repo.games.example/\n"
+                    "Homepage=https://games.example\nComment=Games, packaged by us\n"
+                    "GPGKey=mQINBFlD2sABEADsiUZUO...\n")
+        repo = flatpak.read_flatpakrepo(path)
+        self.assertEqual((repo.name, repo.title, repo.host), ('some-games', 'Some Games',
+                                                             'repo.games.example'))
+        self.assertFalse(repo.is_flathub)
+        self.assertTrue(flatpak.is_flatpakrepo('file:///x/Some%20Games.flatpakrepo'))
+        self.assertEqual(flatpak.cmd_add_remote('some-games', path),
+                         ['--user', 'remote-add', '--if-not-exists', '--from', 'some-games', path])
+        bad = os.path.join(TMP, 'bad.flatpakrepo')
+        with open(bad, 'w', encoding='utf-8') as f:
+            f.write("[Flatpak Repo]\nUrl=javascript:alert(1)\n")
+        self.assertIsNone(flatpak.read_flatpakrepo(bad))
 
     def test_parse_size(self):
         self.assertEqual(parse_size('41.5 MB'), 41500000)
@@ -825,6 +861,28 @@ class UITests(unittest.TestCase):
         self.pump(lambda: 'org.example.Paint' not in s.installed, timeout=30)
         self.pump(lambda: not s.qbar_shown)
 
+    def test_addons_on_the_app_page(self):
+        s = self.store
+        s.open_app('org.example.Paint')
+        page = s.pages['app']
+        self.assertIn('ADD-ONS', self.texts(page.inner))
+        self.assertTrue(any('Install Paint Pro first' in x for x in self.texts(page.inner)))
+        self.fake.update(installed=[{'id': 'org.example.Paint', 'name': 'Paint Pro',
+                                     'installation': 'user'}])
+        s.refresh_installed()
+        self.pump(lambda: 'org.example.Paint' in s.installed)
+        self.pump(lambda: 'Extra brushes' in self.texts(page.addon_frame) and
+                  'INSTALL' in self.texts(page.addon_frame))
+        addon = s.catalog.addons['org.example.Paint'][0]
+        s.install_addon(addon)
+        self.pump(lambda: s.runtimes.get(addon.id) == 'user', timeout=30)
+        self.pump(lambda: 'INSTALLED' in self.texts(page.addon_frame))
+        self.assertIn(['--user', 'install', '-y', '--noninteractive', 'flathub',
+                       'runtime/org.example.Paint.Plugin.Extra//stable'], self.fake.calls())
+        s.remove_addon(addon)
+        self.pump(lambda: addon.id not in s.runtimes, timeout=30)
+        self.pump(lambda: 'INSTALLED' not in self.texts(page.addon_frame))
+
     def test_proprietary_and_failure(self):
         s = self.store
         self.fake.update(fail=['com.example.Chat'], installed=[])
@@ -875,6 +933,26 @@ class UITests(unittest.TestCase):
         self.assertEqual(s.page, 'search')
         s.handle_target('not a link')
         self.assertIn("CAN'T OPEN THIS LINK", s.status.cget('text'))
+
+    def test_flatpakrepo_page(self):
+        s = self.store
+        path = os.path.join(self.base, 'games.flatpakrepo')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write("[Flatpak Repo]\nTitle=Some Games\nUrl=https://repo.games.example/\n"
+                    "Comment=Games, packaged by us\n")
+        s.handle_target(path)
+        page = s.pages['app']
+        self.assertEqual(page.subject.kind, 'repo')
+        self.pump(lambda: 'ADD THIS SOURCE' in self.texts(page.actions))
+        texts = self.texts(page.inner)
+        self.assertIn('NOT CHECKED BY SPARKOS', texts)
+        self.assertIn('https://repo.games.example/', texts)
+        s.add_remote(page.subject)
+        self.pump(lambda: any('Added for you' in x for x in self.texts(page.actions)), timeout=30)
+        self.assertIn(['--user', 'remote-add', '--if-not-exists', '--from', 'games', path],
+                      self.fake.calls())
+        s.handle_target(os.path.join(self.base, 'missing.flatpakrepo'))
+        self.assertIn("CAN'T BE READ", s.status.cget('text'))
 
     def test_spark_app_page(self):
         s = self.store

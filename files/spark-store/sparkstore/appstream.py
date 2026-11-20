@@ -108,6 +108,31 @@ class App:
 
 
 @dataclass
+class Addon:
+    """An add-on (a Flatpak extension) for an app: OBS plugins, Steam's compatibility tools."""
+    id: str
+    name: str
+    summary: str = ''
+    extends: List[str] = field(default_factory=list)
+    branch: str = 'stable'
+    license: str = ''
+    developer: str = ''
+
+    @property
+    def proprietary(self) -> bool:
+        return is_proprietary(self.license)
+
+    def to_row(self) -> list:
+        return [self.id, self.name, self.summary, self.extends, self.branch, self.license,
+                self.developer]
+
+    @classmethod
+    def from_row(cls, row: list) -> 'Addon':
+        return cls(id=row[0], name=row[1], summary=row[2], extends=list(row[3]), branch=row[4],
+                   license=row[5], developer=row[6])
+
+
+@dataclass
 class Shot:
     caption: str
     url: str                         # a thumbnail about 752 px wide
@@ -325,8 +350,31 @@ def parse_component(c: ET.Element, langs: List[str]) -> Optional[Tuple[App, Deta
     return app, details
 
 
-def parse(path: str, langs: List[str]) -> Iterator[Tuple[App, Details]]:
-    """Every desktop app in a catalog file (.xml or .xml.gz), one at a time."""
+def parse_addon(c: ET.Element, langs: List[str]) -> Optional[Addon]:
+    if c.get('type') != 'addon':
+        return None
+    addon_id = (c.findtext('id') or '').strip()
+    bundle = c.find('bundle')
+    ref = (bundle.text or '').strip() if bundle is not None else ''
+    extends = [_clean(e.text) for e in c.findall('extends') if e.text]
+    name = _text(c, 'name', langs)
+    if not addon_id or not name or not extends or not ref.startswith('runtime/'):
+        return None
+    parts = ref.split('/')
+    developer = ''
+    dev = c.find('developer')
+    if dev is not None:
+        developer = _text(dev, 'name', langs)
+    return Addon(id=addon_id, name=name, summary=_text(c, 'summary', langs), extends=extends,
+                 branch=parts[3] if len(parts) == 4 and parts[3] else 'stable',
+                 license=_clean(c.findtext('project_license')),
+                 developer=developer or _text(c, 'developer_name', langs))
+
+
+def parse(path: str, langs: List[str],
+          addons: Optional[List[Addon]] = None) -> Iterator[Tuple[App, Details]]:
+    """Every desktop app in a catalog file (.xml or .xml.gz), one at a time. Add-ons go into
+    the addons list when one is given."""
     opener = gzip.open if path.endswith('.gz') else open
     with opener(path, 'rb') as f:
         root = None
@@ -338,6 +386,10 @@ def parse(path: str, langs: List[str]) -> Iterator[Tuple[App, Details]]:
             if el.tag != 'component':
                 continue
             result = parse_component(el, langs)
+            if result is None and addons is not None:
+                addon = parse_addon(el, langs)
+                if addon is not None:
+                    addons.append(addon)
             if root is not None:
                 root.clear()
             if result:

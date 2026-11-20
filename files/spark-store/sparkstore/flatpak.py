@@ -122,6 +122,23 @@ def installed() -> Dict[str, Installed]:
     return apps
 
 
+def installed_runtimes() -> Dict[str, str]:
+    """Installed runtimes and add-ons (extensions): ID -> 'user' or 'system' (yours wins)."""
+    code, out, err = run(['list', '--runtime', '--columns=application,installation'])
+    if code != 0:
+        log.warning("flatpak list --runtime: %s", err.strip())
+        return {}
+    found: Dict[str, str] = {}
+    for line in out.splitlines():
+        cols = line.split('\t')
+        if len(cols) < 2 or not cols[0].strip():
+            continue
+        scope = 'user' if cols[1].strip() == 'user' else 'system'
+        if found.get(cols[0].strip()) != 'user':
+            found[cols[0].strip()] = scope
+    return found
+
+
 @dataclass
 class Update:
     id: str
@@ -215,6 +232,16 @@ def installed_metadata(app_id: str, scope: str) -> str:
 def cmd_install(app_id: str, branch: str = 'stable', remote: str = REMOTE) -> List[str]:
     ref = f'app/{app_id}//{branch}' if branch else app_id
     return ['--user', 'install', '-y', '--noninteractive', remote, ref]
+
+
+def cmd_install_addon(addon_id: str, branch: str = 'stable', remote: str = REMOTE) -> List[str]:
+    return ['--user', 'install', '-y', '--noninteractive', remote,
+            f'runtime/{addon_id}//{branch}' if branch else f'runtime/{addon_id}']
+
+
+def cmd_remove_addon(addon_id: str, scope: str, branch: str = '') -> List[str]:
+    ref = f'runtime/{addon_id}//{branch}' if branch else f'runtime/{addon_id}'
+    return [f'--{scope}', 'uninstall', '-y', '--noninteractive', ref]
 
 
 def cmd_install_ref(path: str) -> List[str]:
@@ -316,6 +343,56 @@ def app_id_from_link(target: str) -> Optional[str]:
     if text.endswith('.desktop'):
         text = text[:-8]
     return text if APP_ID_RE.match(text) else None
+
+
+@dataclass
+class Repo:
+    """What a .flatpakrepo file says: a whole app source to add, not one app."""
+    name: str                        # the remote's name, from the file's name
+    title: str = ''
+    url: str = ''
+    homepage: str = ''
+    comment: str = ''
+    description: str = ''
+    path: str = ''
+
+    @property
+    def host(self) -> str:
+        return urlparse(self.url).hostname or self.url
+
+    @property
+    def is_flathub(self) -> bool:
+        return self.host in ('dl.flathub.org', 'flathub.org')
+
+
+def read_flatpakrepo(path: str) -> Optional[Repo]:
+    parser = configparser.ConfigParser(interpolation=None, strict=False)
+    parser.optionxform = str
+    try:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            parser.read_string(f.read(64 * 1024))
+    except (OSError, configparser.Error) as exc:
+        log.warning("could not read %s: %s", path, exc)
+        return None
+    if not parser.has_section('Flatpak Repo'):
+        return None
+    sec = dict(parser.items('Flatpak Repo'))
+    url = sec.get('Url', '').strip()
+    if not url.startswith(('https://', 'http://', 'oci+https://')):
+        return None
+    stem = os.path.splitext(os.path.basename(path))[0].lower()
+    name = re.sub(r'[^a-z0-9_-]+', '-', stem).strip('-')[:40] or 'apps'
+    return Repo(name=name, title=sec.get('Title', '').strip(), url=url,
+                homepage=sec.get('Homepage', '').strip(), comment=sec.get('Comment', '').strip(),
+                description=sec.get('Description', '').strip(), path=os.path.abspath(path))
+
+
+def is_flatpakrepo(target: str) -> bool:
+    return local_path(target).lower().endswith('.flatpakrepo')
+
+
+def cmd_add_remote(name: str, path: str) -> List[str]:
+    return ['--user', 'remote-add', '--if-not-exists', '--from', name, path]
 
 
 def is_flatpakref(target: str) -> bool:

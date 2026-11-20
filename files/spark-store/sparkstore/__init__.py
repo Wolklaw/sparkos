@@ -11,5 +11,5 @@ VERSION = "0.1.0"
 
 REMOTE = "flathub"               # the Flatpak remote the catalog and installs come from
 FLATHUB_REPO = "https://dl.flathub.org/repo/flathub.flatpakrepo"
-INDEX_VERSION = 3                # bump when the cached index's layout changes
+INDEX_VERSION = 4                # bump when the cached index's layout changes
 CATALOG_MAX_AGE_H = 24           # refresh the catalog through flatpak when older than this

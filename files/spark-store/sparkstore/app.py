@@ -119,6 +119,7 @@ class Store:
         self.spark_by_id: Dict[str, sparkapps.SparkApp] = {}
         self.spark_stamp = 0
         self.installed: Dict[str, flatpak.Installed] = {}
+        self.runtimes: Dict[str, str] = {}      # installed runtimes and add-ons -> scope
         self.installed_loaded = False
         self.installed_stamp = 0
         self.updates: List[flatpak.Update] = []
@@ -359,7 +360,11 @@ class Store:
 
     # — installed apps and updates —
     def refresh_installed(self):
-        def done(apps):
+        def work():
+            return flatpak.installed(), flatpak.installed_runtimes()
+
+        def done(result):
+            apps, self.runtimes = result
             first = not self.installed_loaded
             self.installed = apps
             self.installed_loaded = True
@@ -368,7 +373,7 @@ class Store:
                 self.restore_updates()
             self.updates = [u for u in self.updates if u.id in apps]
             self.redraw()
-        self.bg(flatpak.installed, done)
+        self.bg(work, done)
 
     def restore_updates(self):
         """The last check's answer, if it is recent; else check now (it asks Flathub)."""
@@ -479,10 +484,18 @@ class Store:
             if first is not None:
                 self.open_app(first)
 
-    # — links from outside: .flatpakref, appstream://, an app ID —
+    # — links from outside: .flatpakref, .flatpakrepo, appstream://, an app ID —
     def handle_target(self, target: str):
         self.bring_to_front()
         if not target:
+            return
+        if flatpak.is_flatpakrepo(target):
+            repo = flatpak.read_flatpakrepo(flatpak.local_path(target))
+            if repo is None:
+                self.set_status(t('link.bad_repo'), T["pink"], hold_ms=8000)
+                self.glitch.now(self.title, strong=True)
+                return
+            self.open_app(repo)
             return
         if flatpak.is_flatpakref(target):
             ref = flatpak.read_flatpakref(flatpak.local_path(target))
@@ -553,6 +566,20 @@ class Store:
     def update(self, app_id: str, scope: str):
         self._enqueue(Job('update', app_id, self.name_of(app_id),
                           steps=[flatpak.cmd_update(app_id, scope)], scope=scope))
+
+    def add_remote(self, subject):
+        self._enqueue(Job('remote_add', subject.id, subject.name,
+                          steps=[flatpak.cmd_add_remote(subject.id, subject.repo.path)]))
+
+    def install_addon(self, addon):
+        self._enqueue(Job('addon_install', addon.id, addon.name,
+                          steps=[flatpak.cmd_install_addon(addon.id, addon.branch)],
+                          needs_flathub=True))
+
+    def remove_addon(self, addon):
+        scope = self.runtimes.get(addon.id, 'user')
+        self._enqueue(Job('addon_remove', addon.id, addon.name, scope=scope,
+                          steps=[flatpak.cmd_remove_addon(addon.id, scope, addon.branch)]))
 
     def update_all(self):
         scopes = ['user'] + (['system'] if any(u.scope == 'system' for u in self.updates) else [])
@@ -626,7 +653,8 @@ class Store:
             elif job.state == FAILED:
                 self.set_status(t(f'failed.{job.kind}', name=name), T["pink"], hold_ms=10000)
                 self.glitch.now(self.title, self.strip, strong=True)
-            if job.kind in ('install', 'install_ref', 'remove', 'update', 'update_all'):
+            if job.kind in ('install', 'install_ref', 'remove', 'update', 'update_all',
+                            'addon_install', 'addon_remove'):
                 refresh_installed = True
                 if job.state == DONE and job.kind == 'update':
                     self.updates = [u for u in self.updates
@@ -640,6 +668,8 @@ class Store:
                 self.load_spark()
             elif job.kind == 'catalog' and job.state == DONE:
                 self.reload_catalog_if_changed()
+            elif job.kind == 'remote_add' and self.page == 'app':
+                self.pages['app'].check_repo()
         if refresh_installed and self.flatpak_ok:
             self.refresh_installed()
         view = self.pages.get(self.page)

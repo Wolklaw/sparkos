@@ -76,6 +76,10 @@ def main(argv):
     if cmd == '--version':
         print("Flatpak 1.16.1")
         return 0
+    if cmd == 'list' and '--runtime' in opts:
+        for rt in state.get('runtimes', []):
+            out.write(rt['id'] + '\t' + rt.get('installation', 'user') + '\n')
+        return 0
     if cmd == 'list':
         for app in state['installed']:
             out.write('\t'.join([app['id'], app.get('name', app['id']), app.get('version', ''),
@@ -133,7 +137,8 @@ def main(argv):
                         app_id = line.strip()[5:]
         else:
             ref = pos[-1]
-            app_id = ref.split('/')[1] if ref.startswith('app/') else ref
+            app_id = ref.split('/')[1] if ref.startswith(('app/', 'runtime/')) else ref
+        ref_is_runtime = '--from' not in rest and pos[-1].startswith('runtime/')
         if scope == 'user' and '--from' not in rest and \
                 'flathub' not in state['remotes'].get('user', []):
             print("error: No remote 'flathub'", file=sys.stderr)
@@ -153,9 +158,22 @@ def main(argv):
                 return 1
         out.write("\nInstallation complete.\n")
         state = load(path)
+        if ref_is_runtime:
+            state.setdefault('runtimes', []).append({'id': app_id, 'installation': scope})
+            save(path, state)
+            return 0
         state.setdefault('installed', []).append({'id': app_id, 'name': state.get('names', {}).get(
             app_id, app_id.rsplit('.', 1)[-1]), 'version': '2.0', 'installation': scope,
             'size': '108.3 MB'})
+        save(path, state)
+        return 0
+    if cmd == 'uninstall' and pos[-1].startswith('runtime/'):
+        rt_id = pos[-1].split('/')[1]
+        before = state.get('runtimes', [])
+        state['runtimes'] = [r for r in before if r['id'] != rt_id]
+        if len(state['runtimes']) == len(before):
+            print(f"error: {rt_id} not installed", file=sys.stderr)
+            return 1
         save(path, state)
         return 0
     if cmd == 'uninstall':

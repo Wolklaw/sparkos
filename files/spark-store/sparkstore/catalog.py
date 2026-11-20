@@ -12,7 +12,7 @@ from contextlib import closing
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from . import INDEX_VERSION
-from .appstream import App, Details, Source, find_sources, fold, fold_fields, parse
+from .appstream import Addon, App, Details, Source, find_sources, fold, fold_fields, parse
 from .core import cache_dir, languages, log
 
 # Curated rows on the home page: well-known apps first, in this order, then more from the
@@ -61,6 +61,7 @@ class Catalog:
         self.langs = languages() if langs is None else langs
         self.apps: Dict[str, App] = {}
         self.order: List[App] = []
+        self.addons: Dict[str, List[Addon]] = {}      # by the ID of the app they extend
         self.loaded = False
         self.rebuilt = False             # True when this load had to read the XML
         self.load_seconds = 0.0
@@ -87,15 +88,22 @@ class Catalog:
             self.loaded = True
             return self
         key = _key([self.source], self.langs)
-        rows = self._read_cache(key)
-        if rows is None:
+        cached = self._read_cache(key)
+        if cached is None:
             try:
-                rows = self._rebuild(key)
+                cached = self._rebuild(key)
                 self.rebuilt = True
             except (OSError, EOFError, ValueError, SyntaxError) as exc:   # broken catalog file
                 log.warning("could not read the catalog %s: %s", self.source.path, exc)
                 self.error = str(exc)
-                rows = []
+                cached = ([], [])
+        rows, addon_rows = cached
+        for row in addon_rows:
+            addon = Addon.from_row(row)
+            for target in addon.extends:
+                self.addons.setdefault(target, []).append(addon)
+        for found in self.addons.values():
+            found.sort(key=lambda a: fold(a.name))
         apps = [App.from_row(r) for r in rows]
         for app in apps:
             fold_fields(app)
@@ -110,7 +118,7 @@ class Catalog:
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self.path, timeout=5)
 
-    def _read_cache(self, key: str) -> Optional[list]:
+    def _read_cache(self, key: str) -> Optional[Tuple[list, list]]:
         if not os.path.isfile(self.path):
             return None
         try:
@@ -119,12 +127,15 @@ class Catalog:
                 if not row or row[0] != key:
                     return None
                 blob = db.execute("SELECT value FROM meta WHERE key='list'").fetchone()
-            return json.loads(blob[0]) if blob else None
+                extra = db.execute("SELECT value FROM meta WHERE key='addons'").fetchone()
+            if not blob or not extra:
+                return None
+            return json.loads(blob[0]), json.loads(extra[0])
         except (sqlite3.Error, ValueError) as exc:
             log.warning("catalog cache unreadable, rebuilding: %s", exc)
             return None
 
-    def _rebuild(self, key: str) -> list:
+    def _rebuild(self, key: str) -> Tuple[list, list]:
         """Read the catalog XML into a new index file, then swap it in."""
         tmp = self.path + '.new'
         try:
@@ -132,8 +143,9 @@ class Catalog:
         except OSError:
             pass
         rows, details = [], []
+        addons: List[Addon] = []
         seen = set()
-        for app, det in parse(self.source.path, self.langs):
+        for app, det in parse(self.source.path, self.langs, addons):
             if app.id in seen:
                 continue
             seen.add(app.id)
@@ -146,12 +158,15 @@ class Catalog:
             db.executemany("INSERT INTO details VALUES (?, ?)", details)
             db.execute("INSERT INTO meta VALUES ('list', ?)",
                        (json.dumps(rows, separators=(',', ':')),))
+            addon_rows = [a.to_row() for a in addons]
+            db.execute("INSERT INTO meta VALUES ('addons', ?)",
+                       (json.dumps(addon_rows, separators=(',', ':')),))
             db.execute("INSERT INTO meta VALUES ('key', ?)", (key,))
             db.commit()
         finally:
             db.close()
         os.replace(tmp, self.path)
-        return rows
+        return rows, addon_rows
 
     def details(self, app_id: str) -> Details:
         try:
