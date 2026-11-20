@@ -22,7 +22,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [spark-edit.md](spark-edit.md) | Spark Edit: light text and code editor (no editor ships today) | In progress |
 | [spark-calc.md](spark-calc.md) | Spark Calc: standard, scientific and programmer calculator | PR open (branch `spark-calc`), in [files/spark-calc](../files/spark-calc); optional, per-user install |
 | [spark-archive.md](spark-archive.md) | Spark Archive: zip, 7z, tar and more, Extract/Compress in Dolphin (replaces Ark) | In progress |
-| [spark-scan.md](spark-scan.md) | Spark Scan: scanning with preview, crop, multi-page PDF and OCR | In progress |
+| [spark-scan.md](spark-scan.md) | Spark Scan: scanning with preview, crop, multi-page PDF and OCR | PR open ([#9](https://github.com/Wolklaw/sparkos/pull/9)), in [files/spark-scan](../files/spark-scan); tested with SANE's test scanner, not yet with the Canon |
 | [spark-run.md](spark-run.md) | Spark Run: Windows programs on Wine (replaces Bottles) | In progress |
 | [sparkos-on-fedora.md](sparkos-on-fedora.md) | Prototype: SparkOS built on plain Fedora instead of Bazzite (separate test image) | In progress |
 | [spark-link.md](spark-link.md) | Spark Link: phone and PC linked with no outside service (PC side; phone side in Soot's Android app; protocol in [docs](../docs/spark-link-protocol.md)) | In progress |

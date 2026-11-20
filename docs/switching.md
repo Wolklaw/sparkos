@@ -15,7 +15,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Device | On SparkOS | Notes |
 |---|---|---|
 | Canon TR4700 series (network) printer | **Works** | Printing is driverless (IPP/AirPrint). SparkOS finds the printer on the network by itself. Add or check it in System Settings > Printers (from the Store). |
-| Canon TR4700 scanner | **Works** (check) | SANE's `pixma` and `airscan` scanner support is in the image. For a scanning app, install **Skanpage** from the Store. Confirm with your printer on the first day. |
+| Canon TR4700 scanner | **Works** (check) | SANE's `pixma` and `airscan` scanner support is in the image. Scan with **Spark Scan**, SparkOS's own scanning app: preview, crop, the glass or the feeder, one PDF (searchable, if you want) or an image per page, saved to Documents/Scans. It has only been tested with SANE's test scanner so far; confirm with your printer on the first day. |
 | Canon fax | **No** (probably) | The Linux printing system has no Canon fax support. Fax from the printer's own panel. |
 | Canon IJ Printer Assistant (nozzle check, cleaning) | **Replaced** | Open the printer's IP address in a browser to reach its own maintenance page (Remote UI). |
 | Logitech G502 HERO | **Works** | Mouse works as is. **Piper** (from the Store) sets DPI, buttons and lighting, replacing G HUB. Profiles already saved on the mouse keep working. |
