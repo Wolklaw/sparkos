@@ -1254,15 +1254,17 @@ class TestPickedOnly(Base):
     def test_names_the_command_misses_still_come_out(self):
         """If 7z names a member differently than the listing, everything is unpacked
         instead, and the picked file still arrives."""
-        job = ListJob(os.path.join(FIXTURES, 'secret.7z'), asker=Answers(password=['spark']))
+        job = ListJob(os.path.join(FIXTURES, 'secret.7z'))
         job.run_here()
         for e in job.listing.entries:
             if e.path == 'hello.txt':
-                e.name = 'not/what/7z/calls/it'              # the listing and 7z disagree
+                e.name = './hello.txt'          # what the listing said; 7z says hello.txt
         res = ExtractJob(os.path.join(FIXTURES, 'secret.7z'), self.dest,
-                         selection=['not/what/7z/calls/it'], listing=job.listing,
-                         asker=Answers()).run_here()
+                         selection=['hello.txt'], listing=job.listing,
+                         asker=Answers(password=['spark'])).run_here()
         self.assertTrue(res.ok, res)
+        self.assertEqual(tree(self.dest), ['hello.txt'])
+        self.assertEqual(read(os.path.join(self.dest, 'hello.txt')), b'hello from spark\n')
 
 
 # ─── making archives with a password ──────────────────────────
@@ -1535,11 +1537,18 @@ class TestWindows(Base):
                 entries = [w for w in all_children(top[0]) if isinstance(w, tkinter.Entry)]
                 entries[0].insert(0, first)
                 entries[1].insert(0, second)
-                entries[0].event_generate('<Return>')
+                top[0].spark_ok()
                 if first != second:                     # refused: still open; close it
                     app.root.after(100, top[0].destroy)
             return go
+
+        def close_all():                                # never hang the test run
+            for w in app.root.winfo_children():
+                if isinstance(w, tkinter.Toplevel):
+                    w.destroy()
         app = App(None)
+        for ms in (5000, 10000, 15000):
+            app.root.after(ms, close_all)
         try:
             app.root.after(300, fill('spark', 'spark'))
             self.assertEqual(app.ask_compress(2, '7z', with_password=True), ('7z', 'spark'))

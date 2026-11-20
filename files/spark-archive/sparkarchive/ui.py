@@ -332,6 +332,7 @@ class Look:
         self.button(buttons, t('button.cancel'), top.destroy).pack(side="right",
                                                                    padx=(0, px(8)))
         refresh()
+        top.spark_ok = ok                       # for the tests
         for entry in entries:
             entry.bind('<Return>', ok)
         top.bind('<Escape>', lambda _e: top.destroy())

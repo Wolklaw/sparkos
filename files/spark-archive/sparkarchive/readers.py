@@ -474,6 +474,11 @@ def run_tool(exe: str, args: List[str], stdin_text: str, cancelled: Never,
         out_lines.append(buf.decode('utf-8', 'replace'))
     rc = proc.wait()
     reader.join(5)
+    for pipe in (proc.stdout, proc.stderr):
+        try:
+            pipe.close()
+        except OSError:
+            pass
     err = b''.join(err_chunks).decode('utf-8', 'replace')
     return rc, '\n'.join(out_lines), err
 
@@ -690,11 +695,13 @@ def _unrar_problem(rc: int, out: str, err: str, password: Optional[str]) -> Arch
     missing = re.search(r'cannot find volume\s+(\S.*)', text, re.I)
     if missing:
         return MissingPart(os.path.basename(missing.group(1).strip()))
-    # 11: wrong password. RAR 5 checks it first; RAR 4 can only tell by a checksum error
-    # ("Corrupt file or wrong password"). 255: it asked for a password and stdin was closed.
-    if rc == 11 or 'password' in low and ('incorrect' in low or 'wrong' in low) or \
-            rc == 255 and 'password' in low:
+    # A wrong password: RAR 5 checks it first ("The specified password is incorrect");
+    # RAR 4 can only tell by a checksum error ("Corrupt file or wrong password"). Without one,
+    # unrar asks ("Enter password") and stops when it finds stdin closed.
+    if 'password' in low and ('incorrect' in low or 'wrong' in low):
         return WrongPassword(text) if password else NeedPassword(text)
+    if password is None and 'enter password' in low:
+        return NeedPassword(text)
     lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
     return BadArchive(lines[-1] if lines else f"unrar stopped with code {rc}")
 
