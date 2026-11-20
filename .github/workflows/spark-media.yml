@@ -1,0 +1,37 @@
+name: spark-media
+# Installs Spark Media in a plain Fedora container and checks it there: the install script,
+# the self-test (photo formats, decoders, test files played to the end, a video thumbnail)
+# and the unit and UI tests under Xvfb. Much faster than the full image build; the boot test
+# runs the self-test again inside the real image, where H.264, H.265 and AAC are required.
+on:
+  push:
+    paths:
+      - "files/spark-media/**"
+      - "files/scripts/spark-media.sh"
+      - ".github/workflows/spark-media.yml"
+  pull_request:
+    paths:
+      - "files/spark-media/**"
+      - "files/scripts/spark-media.sh"
+      - ".github/workflows/spark-media.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: bash files/spark-media/install.sh --deps
+
+      - name: Self-test
+        run: spark-media --self-test
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers
+          cd files/spark-media
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v

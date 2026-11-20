@@ -156,7 +156,7 @@ jobs:
             echo "Write the ISO to a USB stick (16 GB or larger) with Fedora Media Writer (Custom image) or Rufus (DD mode)."
             echo "The parts exist because GitHub limits each release file to 2 GiB."
             echo
-            echo "**Apps:** SparkOS ships only its own apps, Soot, FreeSuite and Spark Snip, as part of the system."
+            echo "**Apps:** SparkOS ships only its own apps, Soot, FreeSuite, Spark Snip and Spark Media, as part of the system."
             echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm."
             if grep -q . /tmp/installer-apps.txt; then
               echo; echo "Extra Flatpaks carried by this installer:"; echo '```'; cat /tmp/installer-apps.txt; echo '```'

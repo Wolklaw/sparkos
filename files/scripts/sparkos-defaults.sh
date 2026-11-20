@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Default apps for everyone: Soot for the web, FreeSuite for mail, calendar, PDF and every
-# office format it opens (Word, Excel, PowerPoint, old and new, OpenDocument, RTF, CSV).
+# office format it opens (Word, Excel, PowerPoint, old and new, OpenDocument, RTF, CSV), and
+# Spark Media for photos, videos and music (every type its desktop entry lists).
 # Lines are added to Bazzite's /etc/xdg/mimeapps.list so its own entries stay.
 # Plain text and Markdown also open in FreeSuite Writer, since SparkOS ships no other text editor.
 # A user's own choices still win.
@@ -24,6 +25,12 @@ add dev.wolklaw.Soot.desktop \
 add freesuite-mail.desktop     x-scheme-handler/mailto
 add freesuite-calendar.desktop text/calendar
 add freesuite-pdf.desktop      application/pdf
+
+# Photos, videos and music: Spark Media, for every type it declares
+MEDIA=/usr/share/applications/dev.wolklaw.SparkMedia.desktop
+test -f "$MEDIA" || { echo "Spark Media is not installed (spark-media.sh runs first)"; exit 1; }
+# shellcheck disable=SC2046
+add dev.wolklaw.SparkMedia.desktop $(sed -n 's/^MimeType=//p' "$MEDIA" | tr ';' ' ')
 
 # Installing apps by double-click, the way Windows users expect. SparkOS preinstalls no
 # third-party apps, so sparkos-open-package fetches Bottles (.exe/.msi) or Gear Lever (.AppImage)

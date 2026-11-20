@@ -6,7 +6,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 - **Partly**: works with limits.
 - **No**: keep Windows (dual boot or a Windows VM) for it.
 
-"In the image" means SparkOS ships it already: only SparkOS's own apps (Soot, FreeSuite, Spark Snip) and the system itself. "From the Store" means you install it with one click from the Store (Bazaar). "Check" means I couldn't confirm it, and you should test it before you rely on it.
+"In the image" means SparkOS ships it already: only SparkOS's own apps (Soot, FreeSuite, Spark Snip, Spark Media) and the system itself. "From the Store" means you install it with one click from the Store (Bazaar). "Check" means I couldn't confirm it, and you should test it before you rely on it.
 
 **Installing apps:** a store with an Install button, or double-click what you downloaded (`.exe`, `.AppImage`, `.rpm`). See [installing-apps.md](installing-apps.md).
 
@@ -57,15 +57,16 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 
 | Windows app | On SparkOS | Notes |
 |---|---|---|
-| Microsoft 365: Word, Excel, PowerPoint | **Replaced** | **FreeSuite** 0.4.1 (in the image) is the default for .docx/.xlsx/.pptx, the old .doc/.xls/.ppt, OpenDocument, RTF, CSV and PDF. It reads old binary files only partly: .doc without formatting or pictures, .ppt as text only, .xls without charts or merged cells. For those, **ONLYOFFICE** (in the image) is under "Open with". Office on the web works in any browser. |
+| Microsoft 365: Word, Excel, PowerPoint | **Replaced** | **FreeSuite** 0.4.1 (in the image) is the default for .docx/.xlsx/.pptx, the old .doc/.xls/.ppt, OpenDocument, RTF, CSV and PDF. It reads old binary files only partly: .doc without formatting or pictures, .ppt as text only, .xls without charts or merged cells. For those, install **ONLYOFFICE** from the Store; it then shows under "Open with". Office on the web works in any browser. |
 | Outlook | **Replaced** | **FreeSuite Mail** (in the image, default for email links). |
 | Teams, OneNote, Copilot, Amazon Music | **Replaced** | Their web versions, in Soot or Chrome. |
 | PDFgear | **Replaced** | **FreeSuite PDF** (in the image, default for PDFs). |
 | Firefox, Chrome | **Works** | **Soot** (in the image) is the default browser. Chrome and Firefox install from the Store. |
 | Google Drive | **Partly** | Add your Google account in System Settings > Online Accounts and Drive appears in Dolphin (in the image). Unlike the Windows client, it doesn't keep offline copies. For that, use rclone or a paid client such as Insync. |
 | Discord, Spotify | **Works** | Both install from the Store. |
-| OBS Studio | **Works** | In the image, with Bazzite's game-capture plugin. |
-| Blender, GIMP, Audacity | **Works** | In the image. Blender renders on the RX 6800 XT through HIP. |
+| OBS Studio | **Works** | From the Store. |
+| Blender, GIMP, Audacity | **Works** | From the Store. Blender renders on the RX 6800 XT through HIP. |
+| Photos, Media Player | **Replaced** | **Spark Media** (in the image) opens photos, videos and music by default: double-click a file, or open it from the menu to browse Pictures, Videos and Music. H.264, H.265, AAC and MP3 play out of the box. It doesn't edit photos or sort music by artist; for that, **GIMP**, **digiKam** or **Elisa** are in the Store. |
 | Clipchamp | **Replaced** | **Kdenlive** (from the Store). |
 | Snipping Tool, QuickOCR | **Replaced** | **Spark Snip** (in the image): Print or Meta+Shift+S for a screenshot, Meta+Shift+T to copy text off the screen (OCR, English and French), Meta+Shift+R to start and stop a recording. The keys match Snipping Tool and PowerToys Text Extractor, with Meta for the Windows key. |
 | ShareX | **Replaced** | **Spark Snip** for quick snips, text and recordings, or **Flameshot** (from the Store) to annotate and upload. |

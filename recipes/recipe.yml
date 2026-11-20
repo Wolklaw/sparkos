@@ -7,7 +7,7 @@ description: SparkOS, a desktop for gaming and everyday work, built on Bazzite.
 # Base: Bazzite (KDE Plasma, AMD/Intel GPUs, current Mesa drivers, gaming kernel).
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
-# FreeSuite, Spark Snip). Every other company's or project's app is removed, Bazzite's
+# FreeSuite, Spark Snip, Spark Media). Every other company's or project's app is removed, Bazzite's
 # included; people install what they want from the Store (Bazaar). What stays is the platform
 # SparkOS needs to work: Plasma, Dolphin, Konsole, Spectacle (Spark Snip uses it), System
 # Settings and Monitor, Ark (zip support), KDE Connect, the Store, drivers, printing and scanning.
@@ -72,7 +72,8 @@ modules:
       - soot.sh # Soot browser, latest release
       - freesuite.sh # FreeSuite office apps, latest release
       - spark-snip.sh # Spark Snip: screenshots, text (OCR) and screen recording
-      - sparkos-defaults.sh # Soot and FreeSuite as default apps; downloaded installers open the SparkOS way
+      - spark-media.sh # Spark Media: photos, videos and music
+      - sparkos-defaults.sh # Soot, FreeSuite and Spark Media as default apps; downloaded installers open the SparkOS way
 
   - type: default-flatpaks
     configurations:

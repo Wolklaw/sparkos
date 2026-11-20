@@ -204,6 +204,19 @@ jobs:
           # OCR in English and French, and a test video through each installed encoder
           $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
 
+      - name: Check Spark Media
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Photos, videos and music open in Spark Media out of the box
+          $SSH 'spark-media --version; ls -l /usr/bin/spark-media /usr/share/applications/dev.wolklaw.SparkMedia.desktop'
+          $SSH 'for m in image/jpeg image/png image/heic image/webp video/mp4 video/x-matroska video/webm audio/mpeg audio/flac audio/mp4 audio/ogg; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/media-defaults.txt"
+          if grep -v -- '-> dev.wolklaw.SparkMedia.desktop$' "$WORK/media-defaults.txt"; then
+            echo "::error::these types don't open in Spark Media"; exit 1
+          fi
+          # Photo formats, H.264/H.265/AAC/MP3 decoders, test files played to the end, a video thumbnail
+          $SSH 'spark-media --self-test --require h264,h265,aac,mp3' 2>&1 | tee "$WORK/spark-media-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-media-self-test.txt"
+
       - name: Check Androidbox installs for a user
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         timeout-minutes: 20
@@ -233,7 +246,7 @@ jobs:
       - name: Check no third-party apps are preinstalled
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # SparkOS ships only Soot, FreeSuite and Spark Snip. Give the first-boot Flatpak services
+          # SparkOS ships only Soot, FreeSuite, Spark Snip and Spark Media. Give the first-boot Flatpak services
           # (BlueBuild's and Bazzite's) time to run, then nothing may have been installed.
           for i in $(seq 1 30); do
             STATES=$($SSH 'systemctl is-active system-flatpak-setup.service bazzite-flatpak-manager.service' 2>/dev/null || true)
@@ -248,7 +261,7 @@ jobs:
           ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
           ! grep -q 'bazzite-portal' "$WORK/apps.txt"
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && echo "platform and SparkOS apps present"'
+          $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

@@ -25,6 +25,6 @@ Most apps you know are there: Discord, Spotify, OBS, VLC, GIMP, Blender, Zoom, T
 ## Good to know
 
 - **Your apps sit apart from the system.** That's why updates are safe and a bad system update can be undone from the boot menu. It's also why a few Windows habits don't apply: there's no "install for all users" wizard and no registry.
-- **SparkOS starts clean.** It ships only its own apps (Soot, FreeSuite, Spark Snip). Steam, Heroic (Epic, GOG, Amazon), Lutris (Battle.net, EA and others), Discord, Chrome and everything else install from the Store in a click.
-- **Your own Linux builds** (Soot, FreeSuite, Spark Snip) come with SparkOS. Androidbox installs from its release with `bash packaging/linux/install.sh --user` (see the switching guide).
+- **SparkOS starts clean.** It ships only its own apps (Soot, FreeSuite, Spark Snip, Spark Media). Steam, Heroic (Epic, GOG, Amazon), Lutris (Battle.net, EA and others), Discord, Chrome and everything else install from the Store in a click.
+- **Your own Linux builds** (Soot, FreeSuite, Spark Snip, Spark Media) come with SparkOS. Androidbox installs from its release with `bash packaging/linux/install.sh --user` (see the switching guide).
 - **Developer tools** (Node, Python, GitHub CLI, JDK) install with `sparkos-dev-setup`, which is the one place a command is the easier way.
