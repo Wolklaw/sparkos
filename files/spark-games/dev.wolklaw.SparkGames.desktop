@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Games
+GenericName=Game library
+GenericName[fr]=Bibliothèque de jeux
+Comment=Play the games from Steam, Heroic, Lutris and your own, in one place
+Comment[fr]=Jouer aux jeux de Steam, Heroic, Lutris et aux vôtres, au même endroit
+Exec=spark-games
+Icon=dev.wolklaw.SparkGames
+Terminal=false
+Categories=Game;
+Keywords=games;library;launcher;steam;heroic;epic;gog;amazon;lutris;play;jeux;bibliothèque;jouer;
+Keywords[fr]=jeux;bibliothèque;lanceur;steam;heroic;epic;gog;amazon;lutris;jouer;
+StartupWMClass=SparkGames
