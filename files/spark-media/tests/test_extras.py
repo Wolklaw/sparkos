@@ -420,8 +420,20 @@ class TagTests(Temp):
 
     @unittest.skipUnless(tags.taglib() is not None, "TagLib's C library (libtag_c) is not installed")
     def test_taglib(self):
-        print("scan: tags read with TagLib")
         self.check(lambda p, c: tags.taglib().read(p, c))
+        lib = tags.taglib()
+        t0 = time.perf_counter()
+        for _ in range(200):
+            lib.read(self.flac, False)
+            lib.read(self.ogg, False)
+        each = (time.perf_counter() - t0) / 400
+        print(f"scan: TagLib reads a song's tags in {each * 1000:.2f} ms "
+              f"({1 / each:.0f} songs a second, FLAC and Ogg, file cache warm)")
+        t0 = time.perf_counter()
+        for _ in range(20):
+            tags._discover(self.flac, False)
+        print(f"scan: GStreamer's Discoverer takes {(time.perf_counter() - t0) / 20 * 1000:.1f} ms "
+              f"a song")
 
     def test_gstreamer_discoverer(self):
         self.check(tags._discover)
