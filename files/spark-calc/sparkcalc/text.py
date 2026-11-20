@@ -12,7 +12,6 @@ EN: Dict[str, str] = {
     'mode.programmer': "Programmer",
     'angle.deg': "DEG",
     'angle.rad': "RAD",
-    'bits': "{bits}-bit",
     'base.hex': "HEX",
     'base.dec': "DEC",
     'base.oct': "OCT",

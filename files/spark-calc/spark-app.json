@@ -6,7 +6,7 @@
   "summary": "Calculator with exact sums (0.1 + 0.2 is 0.3), and scientific and programmer modes.",
   "summary_fr": "Calculatrice aux calculs exacts (0,1 + 0,2 donne 0,3), avec modes scientifique et programmeur.",
   "version": "1.0.0",
-  "installed_size_kb": 400,
+  "installed_size_kb": 640,
   "icon": "icons/spark-calc-256.png",
   "categories": ["Utility", "Calculator"],
   "shortcut": "Calculator",

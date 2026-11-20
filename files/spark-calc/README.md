@@ -18,6 +18,7 @@ SparkOS has had no calculator since KCalc went. Spark Calc is an optional Spark 
 | Backspace, Delete, arrows, Home, End | Edit the sum |
 | Up / Down | Earlier sums from the history |
 | Ctrl+C | Copy the answer (or the selected text) |
+| Ctrl+A | Select the whole sum |
 | Ctrl+V | Paste a sum or a number (1,234.5 loses its thousands separators) |
 | F9 | Change the sign of the last number |
 | Ctrl+1 / 2 / 3 | Standard / Scientific / Programmer |
@@ -33,7 +34,7 @@ Spark Calc reads sums with its own tokenizer and recursive-descent parser ([spar
 
 - **Exact while it can be.** Numbers are fractions (Python's `fractions`), so decimals typed in are kept exactly: 0.1 is 1/10, not the nearest binary fraction. 2^200 keeps all its digits.
 - **60 digits when it can't.** Results that are irrational (√2, π, sin 45°, ln 2) are worked out with Python's `decimal` to 60 significant digits; Spark Calc computes π, the trigonometric and hyperbolic functions itself from series. If a result comes out within rounding error of a short number, it becomes exact again: asin(0.5) in degrees is 30, √2² is 2, and √2² − 2 is 0 (not 1e-59).
-- **Shown to 20 digits.** Answers are rounded to 20 significant digits for display, and in scientific notation past 10²⁰ or below 10⁻⁹ (`1.5e+25`). When an answer is rounded, the display says so and the line above shows ≈ instead of =. The exact value is kept: 1 ÷ 3 =, then × 3 = gives 1, not 0.99999999999999999999.
+- **Shown to 20 digits.** Answers are rounded to 20 significant digits for display, and in scientific notation past 10²⁰ or below 10⁻⁹ (`1.5e+25`). When an answer is rounded, the display says so and the line above shows ≈ instead of =. The exact value is kept while Spark Calc is open: 1 ÷ 3 =, then × 3 = gives 1, not 0.99999999999999999999 (the history file stores answers as shown).
 - **Degrees are exact too.** sin 30°, cos 60°, tan 45° and the other multiples of 30° and 45° that have rational values come out exact; tan 90° says it has no value.
 - **Limits.** Numbers must stay below 10¹⁰⁰⁰⁰; below 10⁻¹⁰⁰⁰⁰ they become 0. Factorials go up to 3248!. Trigonometry takes angles below 10¹⁰⁰. A sum can be 10,000 characters and nest 64 levels deep. Anything bigger stops with a sentence saying why instead of hanging.
 
@@ -60,7 +61,15 @@ Errors say what is wrong and put the cursor where it is: "Can't divide by zero."
 
 Target from the brief: open in under 0.3 s.
 
-Measured on 2026-11-20 on the owner's Windows PC (Python 3.13, Tk 8.6), from the moment the app's code was loaded to the first paint: 0.28 to 0.32 s over several runs in each mode, so just at the target there; about 0.1 s of it is Tk starting its interpreter, which is slower on Windows than on Linux. Each sum, from the keys to the answer on screen with the history saved and redrawn, takes 10 to 60 ms. CI measures the same on Linux under Xvfb (`spark-calc --bench --mode <mode>`, in the workflow's summary); it hasn't been measured on a SparkOS desktop yet.
+Measured by CI on 2026-11-20 (GitHub runner: 4 vCPUs of an AMD EPYC 9V74, Fedora, Python 3.15, Tk 9.0, Xvfb), second launch of each mode:
+
+| Mode | First paint, from process start | Per sum (keys to answer on screen, history saved) |
+|---|---|---|
+| Standard | 0.12 s | 4.5 ms average, 23 ms slowest |
+| Scientific | 0.12 s | 3.2 ms average, 6.5 ms slowest |
+| Programmer | 0.12 s | 5.0 ms average, 9.9 ms slowest |
+
+The target is met on Linux. On the owner's Windows PC (Python 3.13, Tk 8.6) the same takes 0.28 to 0.32 s from the app's code being loaded, mostly Tk starting up, which is slower on Windows. It hasn't been measured on a SparkOS desktop yet; `spark-calc --bench --mode standard` does it on any PC.
 
 Nothing runs while it waits: no timers except the house glitch every 7 to 12 seconds, which stops when the desktop asks for no animation.
 

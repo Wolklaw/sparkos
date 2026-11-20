@@ -298,6 +298,9 @@ class App:
         for k in ('v', 'V'):
             e.bind(f'<Control-{k}>', self.paste)
         e.bind('<<Paste>>', self.paste)
+        for k in ('a', 'A'):                     # select all (Tk's entry moves to the start)
+            e.bind(f'<Control-Key-{k}>', lambda _e: (self.entry.selection_range(0, 'end'),
+                                                    self.entry.icursor('end'), 'break')[2])
         self.entry_var.trace_add('write', self._changed)
 
     def _build_memory(self):
@@ -514,6 +517,9 @@ class App:
         ch = event.char
         if ch == '=':
             self.equals()
+            return 'break'
+        if event.keysym == 'KP_Decimal' and ch != '.':   # some layouts give "," there
+            self.press('ins:.')
             return 'break'
         if not ch or not ch.isprintable():
             return None
