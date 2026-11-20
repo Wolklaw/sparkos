@@ -64,6 +64,14 @@ or by hand with "full"). A branch build can be tested before merging: Run workfl
 tested image the way a PC does (a signed `rpm-ostree rebase`, then a restart) and runs the checks on
 the updated system.
 
+Every run also signs in to Plasma in the VM and opens each app in the menu (the Spark apps, Soot
+and FreeSuite) the way the menu does, then once more in French (Spark apps):
+[.github/scripts/desktop-smoke.py](../.github/scripts/desktop-smoke.py) waits for KWin to show the
+window, screenshots the screen through KWin, fails on a Python traceback, and closes the app. The
+screenshots are in the run's `desktop-screenshots` artifact, and the run's summary has a table of
+window titles and opening times. Branch test runs queue per branch, so they never cancel a run of
+main's.
+
 ## Building it yourself
 
 From the repo root on any Linux machine with podman (SparkOS has it):
