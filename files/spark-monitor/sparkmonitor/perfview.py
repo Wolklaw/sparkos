@@ -77,7 +77,7 @@ class Pane(tk.Frame):
         cap.pack(fill="x", pady=(px(4), px(2)))
         self.graph = Graph(self, colour, height=px(190), width=px(400), maximum=maximum,
                            colour2=T["pink"] if len(series) > 1 else None,
-                           label=label or (lambda v: f"{v:.0f}%"), font=app.font(7, False),
+                           label=label or (lambda v: core.pct(v, 0)), font=app.font(7, False),
                            floor=1024)
         self.graph.pack(fill="both", expand=True)
         self.extra_graph = None
@@ -89,7 +89,7 @@ class Pane(tk.Frame):
             self.extra_graph = Graph(self, colour, height=px(80), width=px(400),
                                      maximum=ex_max,
                                      colour2=T["pink"] if len(ex_series) > 1 else None,
-                                     label=ex_label or (lambda v: f"{v:.0f}%"),
+                                     label=ex_label or (lambda v: core.pct(v, 0)),
                                      font=app.font(7, False), floor=1024)
             self.extra_graph.pack(fill="x")
             self.extra_series = ex_series

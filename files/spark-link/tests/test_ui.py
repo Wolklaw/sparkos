@@ -10,6 +10,9 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 
+from sparklink.service import human_size  # noqa: E402
+from sparklink.text import t  # noqa: E402
+
 try:
     import tkinter as tk
     _root = tk.Tk()
@@ -104,15 +107,15 @@ class Window(unittest.TestCase):
     def test_devices(self):
         text = '\n'.join(self.texts())
         self.assertIn('Pixel 8', text)
-        self.assertIn('battery 82 %, charging', text)
+        self.assertIn(t('dev.battery_charging', level=82), text)
         self.assertIn('Old tablet', text)
-        self.assertIn('last seen 2 h ago', text)
+        self.assertIn(t('dev.last_seen', when=t('hours_ago', n=2)), text)
         self.assertIn('report.pdf', text)
         self.assertIn('25 %', text)
-        self.assertIn('● LISTENING ON PORT 47100', text)
+        self.assertIn('● ' + t('app.status.listening', port=47100), text)
 
     def test_buttons_send_requests(self):
-        ring = [w for w in self._all() if isinstance(w, tk.Label) and w.cget('text') == 'RING']
+        ring = [w for w in self._all() if isinstance(w, tk.Label) and w.cget('text') == t('dev.ring').upper()]
         self.assertEqual(len(ring), 2)
         self.press(ring[0])
         self.pump()
@@ -126,14 +129,15 @@ class Window(unittest.TestCase):
         self.app.show('pair')
         self.pump()
         start = [w for w in self._all() if isinstance(w, tk.Label) and
-                 w.cget('text') == 'SHOW A PAIRING CODE']
+                 w.cget('text') == t('pair.start').upper()]
         self.press(start[0])
         self.pump(0.6)
         self.app.apply_status(self.ctl.request({'cmd': 'status'}))
         self.pump()
         text = '\n'.join(self.texts())
         self.assertIn('123 456', text)
-        self.assertIn('address 192.168.1.23:47100, code 123456', text)
+        self.assertIn(t('pair.typed', address='192.168.1.23:47100', code='123456',
+                        key='@').split('@')[0], text)
         self.assertIn('3F2A 91C0 7D11 4E8B', text)
         from sparklink.app import QRView
         qr = [w for w in self._all() if isinstance(w, QRView)][0]
@@ -143,8 +147,8 @@ class Window(unittest.TestCase):
         st['pairing']['request'] = {'name': 'Pixel 8', 'key': '11AA 22BB 33CC 44DD'}
         self.app.apply_status(st)
         self.pump()
-        self.assertIn('Pair with Pixel 8?', self.texts())
-        yes = [w for w in self._all() if isinstance(w, tk.Label) and w.cget('text') == 'PAIR']
+        self.assertIn(t('pair.request', name='Pixel 8'), self.texts())
+        yes = [w for w in self._all() if isinstance(w, tk.Label) and w.cget('text') == t('pair.yes').upper()]
         self.press(yes[0])
         self.pump()
         self.assertIn({'cmd': 'pair.answer', 'yes': True}, self.ctl.sent)
@@ -156,9 +160,10 @@ class Window(unittest.TestCase):
                                 'state': 'waiting', 'reason': '', 'path': ''})
         self.app.apply_status(st)
         self.pump()
-        self.assertIn('Pixel 8 wants to send notes.txt (1.5 KB).', self.texts())
+        self.assertIn(t('offer.in', name='Pixel 8', file='notes.txt',
+                        size=human_size(1500)), self.texts())
         accept = [w for w in self._all() if isinstance(w, tk.Label) and
-                  w.cget('text') == 'ACCEPT']
+                  w.cget('text') == t('offer.accept').upper()]
         self.press(accept[0])
         self.pump()
         self.assertIn({'cmd': 'file.answer', 'key': 'b:in:12', 'accept': True}, self.ctl.sent)
@@ -168,7 +173,7 @@ class Window(unittest.TestCase):
         self.pump()
         from sparklink.widgets import Toggle
         toggles = [w for w in self._all() if isinstance(w, Toggle)]
-        clip = [w for w in toggles if 'CLIPBOARD' in w.cget('text')][0]
+        clip = [w for w in toggles if t('feat.clipboard').upper() in w.cget('text')][0]
         self.assertFalse(clip.value)
         self.press(clip)
         self.pump()
@@ -178,8 +183,8 @@ class Window(unittest.TestCase):
         self.app.apply_status(None, running=False)
         self.pump()
         text = '\n'.join(self.texts())
-        self.assertIn('● NOT RUNNING', text)
-        self.assertIn('START SPARK LINK', text)
+        self.assertIn('● ' + t('app.status.stopped'), text)
+        self.assertIn(t('app.start').upper(), text)
 
     def _all(self, widget=None):
         widget = widget or self.app.root

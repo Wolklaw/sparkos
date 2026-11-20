@@ -1,9 +1,7 @@
-"""Every sentence Spark Link shows, in one place, so a French translation can be added as a
-second table. t(id, name=...) fills in the blanks."""
+"""Every sentence Spark Link shows, in English and in French. The PC's language picks the
+table (lang.py); t(id, name=...) fills in the blanks."""
 
-import locale
-import os
-from typing import List
+from .lang import ui_language
 
 EN = {
     # service: pairing
@@ -155,31 +153,166 @@ EN = {
     'xfer.stop': "Stop",
 }
 
-TABLES = {'en': EN}
+FR = {
+    # service: pairing
+    'pair.too_many': "Jumelage arrêté : un téléphone a entré le mauvais code cinq fois. "
+                     "Recommencez pour obtenir un nouveau code.",
+    'pair.timeout': "Jumelage arrêté : personne n'a répondu sur ce PC en 2 minutes.",
+    'pair.declined': "Vous n'avez pas jumelé {name}.",
+    'pair.done': "Jumelé avec {name}.",
+    'pair.nothing': "Aucun téléphone n'attend d'être jumelé.",
 
+    # service: events shown in the window
+    'ev.connected': "{name} est connecté.",
+    'ev.disconnected': "{name} est déconnecté.",
+    'ev.unpaired': "{name} n'est plus jumelé.",
+    'ev.unpaired_by_phone': "{name} s'est retiré lui-même de ce PC.",
+    'ev.link': "Lien ouvert depuis {name}.",
+    'ev.sent': "{file} envoyé à {name}.",
+    'ev.received': "{file} reçu de {name} et enregistré dans Téléchargements.",
+    'ev.rejected': "{name} n'a pas pris {file}.",
+    'ev.failed': "{file} : {why}",
 
-def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']"""
-    lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or \
-        os.environ.get('LANG') or ''
-    if not lang:
-        try:
-            lang = locale.getlocale()[0] or ''
-        except ValueError:
-            lang = ''
-    lang = lang.split('.')[0].split('@')[0]
-    return [lang, lang.split('_')[0]] if '_' in lang else ([lang] if lang else [])
+    # service: transfers
+    'xfer.lost': "le téléphone s'est déconnecté",
+    'xfer.phone_check': "le téléphone dit que le fichier est arrivé endommagé",
+    'xfer.cancelled_by': "{name} a arrêté le transfert",
+    'xfer.cancelled': "arrêté",
+    'xfer.broken': "le téléphone a envoyé le fichier dans le désordre",
+    'xfer.disk': "impossible de l'écrire : {why}",
+    'xfer.check': "il est arrivé endommagé (taille ou somme de contrôle incorrecte), alors il "
+                  "n'a pas été gardé",
+    'xfer.no_answer': "le téléphone n'a pas répondu",
+    'send.not_file': "ce n'est pas un fichier, ou il dépasse 16 Go",
 
+    # service: notifications
+    'offer.title': "{name} veut envoyer un fichier",
+    'offer.body': "{file} ({size}). Ouvrez Spark Link pour l'accepter ou le refuser.",
+    'received.title': "Fichier de {name}",
+    'received.body': "{file} est dans Téléchargements.",
+    'notify.app_unknown': "Téléphone",
+    'battery.low_title': "{name} : batterie faible",
+    'battery.low': "{level} % restant et pas en charge.",
+    'ring.here_title': "Recherche de ce PC",
+    'ring.here': "{name} fait sonner ce PC.",
 
-def _table():
-    for lang in languages():
-        short = lang.split('_')[0].lower()
-        if short in TABLES:
-            return TABLES[short]
-    return EN
+    # service: errors returned to the window and command line
+    'err.port': "Impossible d'écouter sur le port {port} : {why}. Un autre programme "
+                "l'utilise peut-être.",
+    'err.running': "Spark Link tourne déjà en arrière-plan.",
+    'err.no_device': "Ce téléphone n'est pas jumelé.",
+    'err.no_offer': "Ce transfert n'est plus en attente.",
+    'err.not_connected': "Aucun téléphone jumelé n'est connecté en ce moment.",
+    'err.feature_off': "C'est désactivé sur ce PC ou sur {name}.",
+    'err.bad_url': "Seuls les liens http:// et https:// peuvent être envoyés.",
+    'err.no_service': "Spark Link ne tourne pas en arrière-plan.",
 
+    # window
+    'app.status.running': "EN MARCHE",
+    'app.status.listening': "À L'ÉCOUTE SUR LE PORT {port}",
+    'app.status.idle': "INACTIF : AUCUN TÉLÉPHONE JUMELÉ",
+    'app.status.stopped': "ARRÊTÉ",
+    'app.tab.devices': "Téléphones",
+    'app.tab.pair': "Jumeler un téléphone",
+    'app.tab.features': "Fonctions",
+    'app.start': "Démarrer Spark Link",
+    'app.stopped': "Spark Link tourne en arrière-plan pour que votre téléphone puisse joindre "
+                   "ce PC. Il n'est pas en marche en ce moment.",
+    'app.starting': "Démarrage…",
+    'app.start_failed': "Impossible de démarrer le service d'arrière-plan : {why}",
 
-_T = _table()
+    'dev.none': "Aucun téléphone n'est jumelé pour l'instant. Ouvrez Soot sur votre téléphone, "
+                "allez dans Link to PC, et jumelez-le à partir de l'onglet Jumeler un "
+                "téléphone ici.",
+    'dev.connected': "CONNECTÉ",
+    'dev.offline': "NON CONNECTÉ",
+    'dev.last_seen': "vu {when}",
+    'dev.never': "jamais connecté",
+    'dev.battery': "batterie {level} %",
+    'dev.battery_charging': "batterie {level} %, en charge",
+    'dev.key': "clé {key}",
+    'dev.send_files': "Envoyer des fichiers",
+    'dev.send_link': "Envoyer un lien",
+    'dev.ring': "Faire sonner",
+    'dev.unpair': "Oublier",
+    'dev.always_accept': "Accepter les fichiers sans demander",
+    'dev.keep': "Garder",
+    'dev.transfers': "TRANSFERTS",
+    'dev.unpair_title': "Oublier {name}?",
+    'dev.unpair_confirm': "{name} ne pourra plus joindre ce PC tant que vous ne le jumelez pas "
+                          "de nouveau.",
+    'dev.rung': "{name} sonne. Touchez le téléphone pour l'arrêter.",
+    'dev.link_title': "Envoyer un lien à {name}",
+    'dev.link_prompt': "Collez une adresse Web (http:// ou https://)",
+    'dev.link_send': "Envoyer",
+    'dev.link_sent': "Lien envoyé à {name}.",
+    'dev.files_title': "Envoyer des fichiers à {name}",
+    'dev.files_sending': "{n} fichier(s) proposé(s) à {name}. Ils partent quand le téléphone "
+                         "accepte.",
+    'just_now': "à l'instant",
+    'minutes_ago': "il y a {n} min",
+    'hours_ago': "il y a {n} h",
+    'days_ago': "il y a {n} jours",
+
+    'pair.intro': "Le jumelage permet à un téléphone de joindre ce PC. Ouvrez Soot sur votre "
+                  "téléphone, allez dans Link to PC, et balayez ce code.",
+    'pair.start': "Afficher un code de jumelage",
+    'pair.stop': "Arrêter le jumelage",
+    'pair.waiting': "EN ATTENTE DU TÉLÉPHONE · LE CODE EXPIRE DANS {left}",
+    'pair.expired': "Le code a expiré. Affichez-en un nouveau pour jumeler.",
+    'pair.no_camera': "Pas de caméra? Copiez ce lien sur le téléphone :",
+    'pair.copy': "Copier le lien",
+    'pair.copied': "Lien copié.",
+    'pair.typed': "Ou entrez dans Soot : adresse {address}, code {code}. Soot affichera une "
+                  "clé; vérifiez qu'elle indique {key}.",
+    'pair.request': "Jumeler avec {name}?",
+    'pair.request_key': "La clé du téléphone est {key}.",
+    'pair.yes': "Jumeler",
+    'pair.no': "Ne pas jumeler",
+    'pair.not_listening': "Spark Link ne peut pas écouter les téléphones : {why}",
+    'pair.no_address': "Ce PC n'a pas d'adresse sur le réseau local en ce moment.",
+
+    'feat.url': "Liens",
+    'feat.url_about': "Ouvrir dans Soot les liens et les onglets envoyés de votre téléphone, "
+                      "et lui renvoyer des liens.",
+    'feat.clipboard': "Presse-papiers partagé",
+    'feat.clipboard_about': "Le texte copié sur un appareil peut être collé sur l'autre. "
+                            "Désactivé tant que vous ne l'activez pas : tout ce que vous "
+                            "copiez va au téléphone.",
+    'feat.files': "Fichiers",
+    'feat.files_about': "Recevoir des fichiers dans Téléchargements et envoyer des fichiers au "
+                        "téléphone. Vous confirmez chacun, sauf si vous avez dit autrement pour "
+                        "un téléphone.",
+    'feat.notify': "Notifications du téléphone",
+    'feat.notify_about': "Afficher les notifications de votre téléphone sur ce PC. Le téléphone "
+                         "demande la permission de les lire.",
+    'feat.battery': "Batterie",
+    'feat.battery_about': "Afficher la batterie du téléphone ici, et avertir à 15 %.",
+    'feat.ring': "Retrouver mon téléphone",
+    'feat.ring_about': "Faire sonner le téléphone à plein volume à partir de ce PC.",
+    'feat.local_only': "Tout reste sur votre réseau local. Spark Link n'a pas de compte et "
+                       "n'utilise aucun serveur extérieur.",
+
+    'offer.in': "{name} veut envoyer {file} ({size}).",
+    'offer.accept': "Accepter",
+    'offer.decline': "Refuser",
+    'xfer.in': "de {name}",
+    'xfer.out': "à {name}",
+    'xfer.state.waiting': "attend votre réponse",
+    'xfer.state.offered': "attend le téléphone",
+    'xfer.state.sending': "envoi",
+    'xfer.state.sent': "vérification",
+    'xfer.state.receiving': "réception",
+    'xfer.state.done': "terminé",
+    'xfer.state.failed': "échec",
+    'xfer.state.rejected': "refusé",
+    'xfer.state.cancelled': "arrêté",
+    'xfer.stop': "Arrêter",
+}
+
+TABLES = {'en': EN, 'fr': FR}
+LANG = ui_language()
+_T = TABLES[LANG]
 
 
 def t(_id: str, **kw) -> str:

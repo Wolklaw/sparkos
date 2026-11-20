@@ -9,6 +9,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, Optional
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
 
 log = logging.getLogger(APP_SLUG)
 
@@ -87,7 +88,7 @@ def reduced_motion() -> bool:
 
 # ─── Numbers for people ───────────────────────────────────────
 
-def size(n: Optional[float], digits: int = 1) -> str:
+def _size(n: Optional[float], digits: int = 1) -> str:
     """Bytes, in the units Windows uses (1 KB = 1024 bytes)."""
     if n is None:
         return "—"
@@ -100,7 +101,12 @@ def size(n: Optional[float], digits: int = 1) -> str:
     return f"{n:.1f} TB"
 
 
-def rate(n: Optional[float]) -> str:
+def size(n: Optional[float], digits: int = 1) -> str:
+    """Bytes, in the units Windows uses (1 KB = 1024 bytes)."""
+    return local_units(_size(n, digits))
+
+
+def _rate(n: Optional[float]) -> str:
     if n is None:
         return "—"
     if n < 0.05 * 1024 * 1024:
@@ -108,7 +114,11 @@ def rate(n: Optional[float]) -> str:
     return f"{n / 1024 / 1024:.1f} MB/s"
 
 
-def bits(n: Optional[float]) -> str:
+def rate(n: Optional[float]) -> str:
+    return local_units(_rate(n))
+
+
+def _bits(n: Optional[float]) -> str:
     """Network speed in bits per second, like Windows."""
     if n is None:
         return "—"
@@ -120,14 +130,27 @@ def bits(n: Optional[float]) -> str:
     return f"{b:.1f} Gbps"
 
 
-def pct(n: Optional[float], digits: int = 1) -> str:
+def bits(n: Optional[float]) -> str:
+    """Network speed in bits per second, like Windows."""
+    return local_units(_bits(n))
+
+
+def _pct(n: Optional[float], digits: int = 1) -> str:
     return "—" if n is None else f"{n:.{digits}f}%"
 
 
-def mhz(n: Optional[float]) -> str:
+def pct(n: Optional[float], digits: int = 1) -> str:
+    return local_units(_pct(n, digits))
+
+
+def _mhz(n: Optional[float]) -> str:
     if n is None:
         return "—"
     return f"{n / 1000:.2f} GHz" if n >= 1000 else f"{n:.0f} MHz"
+
+
+def mhz(n: Optional[float]) -> str:
+    return local_units(_mhz(n))
 
 
 def temp(n: Optional[float]) -> str:

@@ -33,6 +33,7 @@ from . import (APP_SLUG, FEATURES, FIRST_FRAME_TIMEOUT, IDLE_TIMEOUT, MAX_CHUNK,
                PAIR_MAX_WRONG, PROTOCOL, SERVICE_TYPE)
 from . import config, identity
 from .devices import Device, Devices, clean_name
+from .lang import local_units
 from .text import t
 from .wire import Link, ProtocolError
 
@@ -1045,13 +1046,17 @@ def file_sha256(path: str) -> str:
     return h.hexdigest()
 
 
-def human_size(n: int) -> str:
+def _human_size(n: int) -> str:
     size = float(n)
     for unit in ('B', 'KB', 'MB', 'GB'):
         if size < 1024 or unit == 'GB':
             return f'{size:.0f} {unit}' if unit == 'B' else f'{size:.1f} {unit}'
         size /= 1024
     return f'{n} B'
+
+
+def human_size(n: int) -> str:
+    return local_units(_human_size(n))
 
 
 def run_service(announce: bool = True, port: Optional[int] = None) -> int:

@@ -354,11 +354,13 @@ class Features(Base):
             self.assertTrue(st['devices'][0]['charging'])
             self.assertEqual(self.svc.actions('notify'), [])
             await s.send({'type': 'battery', 'level': 12, 'charging': False})
-            await self.svc.wait_action('notify', summary='Pixel 8: battery low')
+            from sparklink.text import t
+            await self.svc.wait_action('notify', summary=t('battery.low_title', name='Pixel 8'))
             await s.send({'type': 'battery', 'level': 11, 'charging': False})
             mid = await s.send({'type': 'battery', 'level': 101, 'charging': False})
             self.assertEqual((await s.expect('error', re=mid))['reason'], 'bad-message')
-            low = [r for r in self.svc.actions('notify') if 'battery' in r['summary']]
+            low = [r for r in self.svc.actions('notify')
+                   if r['summary'] == t('battery.low_title', name='Pixel 8')]
             self.assertEqual(len(low), 1, 'warns once per discharge')
             await s.close()
             # kept after the phone leaves

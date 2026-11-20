@@ -15,6 +15,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
 
 log = logging.getLogger(APP_SLUG)
 
@@ -248,9 +249,13 @@ def xdg_user_dir(key: str, fallback: str) -> str:
     return os.path.join(home, fallback)
 
 
-def human_size(n: float) -> str:
+def _human_size(n: float) -> str:
     for unit in ('B', 'KB', 'MB', 'GB'):
         if n < 1000:
             return f"{n:.0f} {unit}" if unit == 'B' else f"{n:.1f} {unit}"
         n /= 1000.0
     return f"{n:.1f} TB"
+
+
+def human_size(n: float) -> str:
+    return local_units(_human_size(n))

@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, List
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
 
 log = logging.getLogger(APP_SLUG)
 
@@ -142,9 +143,13 @@ def home_short(path: str) -> str:
     return path
 
 
-def size_text(n: float) -> str:
+def _size_text(n: float) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if n < 1024 or unit == "GB":
             return f"{int(n)} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
     return f"{n:.1f} GB"
+
+
+def size_text(n: float) -> str:
+    return local_units(_size_text(n))

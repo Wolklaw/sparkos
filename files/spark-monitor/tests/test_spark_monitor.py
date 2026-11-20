@@ -585,15 +585,14 @@ class MiscTests(FixtureCase):
         self.assertEqual(keys['Icon'], APP_ID)
 
     def test_formatting(self):
-        self.assertEqual(core.size(512), "512 B")
-        self.assertEqual(core.size(1536), "1.5 KB")
-        self.assertEqual(core.size(4294967296), "4.0 GB")
-        self.assertEqual(core.rate(3 * 1024 * 1024), "3.0 MB/s")
-        self.assertEqual(core.rate(0), "0 MB/s")
-        self.assertEqual(core.bits(125_000), "1.0 Mbps")
-        self.assertEqual(core.mhz(4475), "4.47 GHz")
-        self.assertEqual(core.pct(None), "—")
-
+        cases = [(core.size(512), "512 B", "512 o"), (core.size(1536), "1.5 KB", "1,5 Ko"),
+                 (core.size(4294967296), "4.0 GB", "4,0 Go"),
+                 (core.rate(3 * 1024 * 1024), "3.0 MB/s", "3,0 Mo/s"),
+                 (core.rate(0), "0 MB/s", "0 Mo/s"), (core.bits(125_000), "1.0 Mbps", "1,0 Mbit/s"),
+                 (core.mhz(4475), "4.47 GHz", "4,47 GHz"), (core.pct(12.34), "12.3%", "12,3 %"),
+                 (core.pct(None), "—", "—")]
+        for got, en, fr in cases:
+            self.assertEqual(got, fr if t('tab.apps') != 'Apps' else en)
 
 # ─── The window ───────────────────────────────────────────────
 

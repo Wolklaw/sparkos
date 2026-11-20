@@ -20,6 +20,7 @@ from sparklink import identity, qr                                  # noqa: E402
 from sparklink.devices import Devices, clean_name                   # noqa: E402
 from sparklink.service import (allowed_peer, human_size, safe_filename, safe_text,  # noqa: E402
                                unique_path)
+from sparklink import text                                          # noqa: E402
 from sparklink.text import EN                                       # noqa: E402
 
 
@@ -72,9 +73,10 @@ class Names(unittest.TestCase):
         self.assertEqual(safe_text('abcdef', 3), 'abc')
 
     def test_human_size(self):
-        self.assertEqual(human_size(12), '12 B')
-        self.assertEqual(human_size(1536), '1.5 KB')
-        self.assertEqual(human_size(5 << 30), '5.0 GB')
+        french = EN is not text._T
+        self.assertEqual(human_size(12), '12 o' if french else '12 B')
+        self.assertEqual(human_size(1536), '1,5 Ko' if french else '1.5 KB')
+        self.assertEqual(human_size(5 << 30), '5,0 Go' if french else '5.0 GB')
 
 
 class Addresses(unittest.TestCase):

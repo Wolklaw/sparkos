@@ -202,7 +202,7 @@ class AppsView(tk.Frame):
         for c in COLUMNS:
             arrow = (' ▼' if desc else ' ▲') if c == col else ''
             value = totals[c]
-            text = f"{t(f'col.{c}').upper()} {value:.0f}%{arrow}" if value is not None \
+            text = f"{t(f'col.{c}').upper()} {core.pct(value, 0)}{arrow}" if value is not None \
                 else f"{t(f'col.{c}').upper()}{arrow}"
             if self.headings.get(c) != text:
                 self.tree.heading(c, text=text)
