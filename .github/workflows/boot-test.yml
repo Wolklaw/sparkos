@@ -98,10 +98,6 @@ jobs:
           [customizations.kernel]
           append = "systemd.wants=sshd.service rhgb quiet"
           EOF
-          if [ -n "$UPDATE_FROM" ]; then
-            # Room for a second deployment, like a real disk (the qcow2 is sparse, so it costs nothing)
-            printf '\n[[customizations.filesystem]]\nmountpoint = "/"\nminsize = "60 GiB"\n' >> "$WORK/blueprint.toml"
-          fi
           mkdir -p "$WORK/output"
           sudo podman run --rm --privileged --pull=newer \
             --security-opt label=type:unconfined_t \
