@@ -888,7 +888,7 @@ class UITests(unittest.TestCase):
         page = s.pages['app']
         self.pump(lambda: 'org.example.Paint' in page.facts)
         texts = self.texts(page.inner)
-        self.assertIn('Paint Pro', texts)
+        self.assertIn(s.catalog.apps['org.example.Paint'].name, texts)    # Peinture Pro in French
         self.assertIn(T('chip.verified'), texts)
         self.assertIn(T('btn.install'), texts)
         self.assertIn(text_mod.t('size.remote', size=local_units('103.3 MB'),
@@ -913,7 +913,8 @@ class UITests(unittest.TestCase):
         s.open_app('org.example.Paint')
         page = s.pages['app']
         self.assertIn(T('addons.title'), self.texts(page.inner))
-        self.assertIn(text_mod.t('addons.need_app', name='Paint Pro'), self.texts(page.inner))
+        paint = s.catalog.apps['org.example.Paint'].name           # Peinture Pro in French
+        self.assertIn(text_mod.t('addons.need_app', name=paint), self.texts(page.inner))
         self.fake.update(installed=[{'id': 'org.example.Paint', 'name': 'Paint Pro',
                                      'installation': 'user'}])
         s.refresh_installed()
