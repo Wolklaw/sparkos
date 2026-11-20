@@ -1,0 +1,7 @@
+{
+  "library": [
+    {"app_name": "Sugar", "title": "Celeste", "runner": "legendary",
+     "art_square": "https://cdn.example.invalid/celeste-tall.jpg",
+     "art_cover": "https://cdn.example.invalid/celeste-wide.jpg"}
+  ]
+}

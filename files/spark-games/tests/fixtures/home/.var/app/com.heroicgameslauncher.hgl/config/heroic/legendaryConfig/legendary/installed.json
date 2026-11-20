@@ -1,0 +1,18 @@
+{
+  "Sugar": {
+    "app_name": "Sugar",
+    "title": "Celeste",
+    "install_path": "@HOME@/Games/Heroic/Celeste",
+    "is_dlc": false,
+    "platform": "Windows",
+    "executable": "Celeste.exe",
+    "version": "1.4.0.0"
+  },
+  "SugarSoundtrack": {
+    "app_name": "SugarSoundtrack",
+    "title": "Celeste Soundtrack",
+    "install_path": "@HOME@/Games/Heroic/Celeste/Soundtrack",
+    "is_dlc": true,
+    "platform": "Windows"
+  }
+}

@@ -1,0 +1,5 @@
+[
+  {"name": "The \"Quoted\" Game \\ Deluxe", "status": "Denied", "storeIds": {"steam": "999990"}, "anticheats": ["Example"]},
+  {"name": "Lutris Example Brawler", "status": "Broken", "storeIds": {}, "anticheats": ["Example"]},
+  {"name": "Portal 2", "status": "Supported", "storeIds": {"steam": "620"}, "anticheats": []}
+]
