@@ -33,6 +33,9 @@ from . import libarchive as la
 from .safety import DIR, FILE, HARDLINK, LINK, OTHER, Cancelled, Parts, clean_parts
 
 
+REFUSED = 'refused'                 # the 7z command wouldn't write it: unsafe
+
+
 class ArchiveProblem(Exception):
     """Base: something about the archive itself."""
 
@@ -437,8 +440,9 @@ def _7z_problem(rc: int, out: str, err: str, password: Optional[str]) -> Archive
 
 
 def _refused_links(err: str, staging: str) -> Optional[List[str]]:
-    """What 7z refused to make because it would lead out (links, dangerous paths), if those are
-    its only errors: their names, for the list of what was left out. None if any other error."""
+    """What 7z refused to write because it was unsafe (links leading out, writes through such
+    links), if those are its only errors: their names, for the list of what was left out.
+    None if any other error (damaged data, a full disk), which stays fatal."""
     errors = []
     for raw in err.splitlines():
         line = re.sub(r'[\x00-\x1f]', '', raw).strip()
@@ -449,11 +453,16 @@ def _refused_links(err: str, staging: str) -> Optional[List[str]]:
     root = staging.rstrip('/') + '/'
     names = []
     for line in errors:
-        if not re.search(r'link|dangerous|unsafe', line, re.I):
+        if re.search(r'errno=(28|122)\b|no space|quota', line, re.I):
             return None
         pieces = [p.strip() for p in line.split(' : ')]
         inside = [p for p in pieces if p.startswith(root)]
-        names.append(os.path.relpath(inside[0], staging) if inside else pieces[-1])
+        if inside:
+            names.append(os.path.relpath(inside[0], staging))
+        elif re.search(r'dangerous', line, re.I) and len(pieces) >= 2:
+            names.append(pieces[1])
+        else:
+            return None
     return names
 
 
@@ -525,8 +534,8 @@ class SevenZipReader(Reader):
                 log.warning("7z stopped with code %s: %s", rc, err.strip()[-2000:])
                 raise _7z_problem(rc, out, err, self.password)
             for name in refused or ():
-                # 7z wouldn't make these links (they lead out); report them like any other
-                yield Entry(name, HARDLINK, 0, None, 0, '/'), None
+                # 7z wouldn't write these (unsafe); they go on the list of what was left out
+                yield Entry(name, REFUSED), None
             if on_progress:
                 on_progress(1.0)
             for top, dirs, files in os.walk(staging, topdown=True, followlinks=False):

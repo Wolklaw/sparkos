@@ -15,8 +15,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from . import formats
 from .core import keep_both_name, log, stem, unique_path
-from .readers import (ArchiveProblem, BadArchive, Entry, NeedPassword, Unsupported,
-                      WrongPassword, candidates, open_reader)
+from .readers import (REFUSED, ArchiveProblem, BadArchive, Entry, NeedPassword,
+                      Unsupported, WrongPassword, candidates, open_reader)
 from .safety import (DIR, FILE, HARDLINK, LINK, OTHER, Blocked, Cancelled, SafeWriter,
                      clean_parts, is_root, link_target_ok)
 
@@ -407,6 +407,9 @@ class ExtractJob(Job):
         name = e.path or e.name
         if parts is None and e.kind == DIR and is_root(e.name):
             return                                      # the folder itself
+        if e.kind == REFUSED:
+            res.problems.append((e.name, REFUSED))
+            return
         if parts is None:
             res.problems.append((e.name, OUTSIDE))
             self._count_skip(e)

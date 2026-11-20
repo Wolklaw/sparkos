@@ -79,6 +79,7 @@ EN = {
     'why.outside': "its path leads outside the folder",
     'why.link_out': "a link that points outside the folder",
     'why.special': "a device, pipe or socket",
+    'why.refused': "the 7z command refused it as unsafe",
     'why.in_the_way': "a folder or link with that name is in the way",
     'why.failed': "the system refused: {why}",
     'why.unreadable': "couldn't read it: {why}",
