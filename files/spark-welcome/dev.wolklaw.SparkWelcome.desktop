@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Welcome
+GenericName=First steps on SparkOS
+GenericName[fr]=Premiers pas sur SparkOS
+Comment=Install game launchers and apps, bring your files from Windows, check this PC
+Comment[fr]=Installer des lanceurs de jeux et des applis, récupérer vos fichiers de Windows, vérifier ce PC
+Exec=spark-welcome
+Icon=dev.wolklaw.SparkWelcome
+Terminal=false
+Categories=System;Settings;
+Keywords=welcome;setup;first;start;games;steam;apps;windows;files;printer;check;bienvenue;démarrage;jeux;applis;fichiers;imprimante;
+StartupWMClass=SparkWelcome

@@ -1,0 +1,52 @@
+{
+  "_comment": "What Spark Welcome offers. Every id is a Flathub app id; nothing here is installed until the user ticks it and clicks Install. 'by' is whose app it is. Optional French: name_fr, blurb_fr.",
+  "version": 1,
+  "launchers": [
+    {"id": "com.valvesoftware.Steam", "name": "Steam", "by": "Valve",
+     "blurb": "The biggest PC game store. Runs most Windows games through Proton."},
+    {"id": "com.heroicgameslauncher.hgl", "name": "Heroic", "by": "the Heroic Games Launcher project",
+     "blurb": "Your Epic Games, GOG and Amazon Prime Gaming libraries."},
+    {"id": "net.lutris.Lutris", "name": "Lutris", "by": "the Lutris project",
+     "blurb": "Battle.net, EA app, Ubisoft Connect and other launchers, set up by install scripts."},
+    {"id": "net.davidotek.pupgui2", "name": "ProtonUp-Qt", "by": "DavidoTek",
+     "blurb": "Adds newer Proton and Wine builds to Steam, Heroic and Lutris, for games that need them."}
+  ],
+  "categories": [
+    {"name": "Chat", "apps": [
+      {"id": "com.discordapp.Discord", "name": "Discord", "by": "Discord Inc.",
+       "blurb": "Voice, video and text chat, mostly for gaming."},
+      {"id": "org.signal.Signal", "name": "Signal", "by": "the Signal Foundation",
+       "blurb": "Encrypted messages and calls. Links to the Signal app on your phone."},
+      {"id": "org.telegram.desktop", "name": "Telegram", "by": "Telegram",
+       "blurb": "Messages, groups and channels."}
+    ]},
+    {"name": "Music", "apps": [
+      {"id": "com.spotify.Client", "name": "Spotify", "by": "Spotify",
+       "blurb": "Music and podcasts streaming. Needs a Spotify account."}
+    ]},
+    {"name": "Streaming and recording", "apps": [
+      {"id": "com.obsproject.Studio", "name": "OBS Studio", "by": "the OBS Project",
+       "blurb": "Record your screen or stream to Twitch and YouTube."}
+    ]},
+    {"name": "Video calls", "apps": [
+      {"id": "us.zoom.Zoom", "name": "Zoom", "by": "Zoom Communications",
+       "blurb": "Video meetings."}
+    ]},
+    {"name": "Creative", "apps": [
+      {"id": "org.gimp.GIMP", "name": "GIMP", "by": "the GIMP team",
+       "blurb": "Photo editing and retouching."},
+      {"id": "org.kde.krita", "name": "Krita", "by": "KDE and the Krita Foundation",
+       "blurb": "Digital painting and drawing."},
+      {"id": "org.kde.kdenlive", "name": "Kdenlive", "by": "KDE",
+       "blurb": "Video editing."},
+      {"id": "org.blender.Blender", "name": "Blender", "by": "the Blender Foundation",
+       "blurb": "3D modelling, animation and rendering."}
+    ]},
+    {"name": "Utilities", "apps": [
+      {"id": "org.kde.kcalc", "name": "KCalc", "by": "KDE",
+       "blurb": "A calculator."},
+      {"id": "com.bitwarden.desktop", "name": "Bitwarden", "by": "Bitwarden Inc.",
+       "blurb": "Password manager. Needs a Bitwarden account."}
+    ]}
+  ]
+}

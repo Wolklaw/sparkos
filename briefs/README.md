@@ -12,8 +12,8 @@ every optional Spark app is listed and can be installed or removed with a click.
 
 | Brief | App | Status |
 |---|---|---|
-| [spark-welcome.md](spark-welcome.md) | Spark Welcome: first-login setup | Not started |
-| [spark-games.md](spark-games.md) | Spark Games: one library for every launcher | Built in `files/spark-games/`, build step `files/scripts/spark-games.sh` (owner had no extra notes); PR open on branch `spark-games` |
+| [spark-welcome.md](spark-welcome.md) | Spark Welcome: first-login setup | Merged ([#4](https://github.com/Wolklaw/sparkos/pull/4)), in [files/spark-welcome](../files/spark-welcome); ships in the first build |
+| [spark-games.md](spark-games.md) | Spark Games: one library for every launcher | Merged ([#3](https://github.com/Wolklaw/sparkos/pull/3)), in [files/spark-games](../files/spark-games); ships in the first build |
 | [spark-monitor.md](spark-monitor.md) | Spark Monitor: task manager (Ctrl+Shift+Esc) | Not started |
 | (no brief yet) | Spark Portal: the hub that lists, installs, updates and removes optional Spark apps | Idea; the owner decides the format first |
 
