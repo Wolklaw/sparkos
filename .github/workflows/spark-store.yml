@@ -154,7 +154,9 @@ jobs:
             as "SPARK_STORE_REQUIRE_CATALOG=1 ~/.local/bin/spark-store --self-test"
 
             echo "--- install, update and remove a real app through the queue"
-            as "python3 ~/files/spark-store/tests/real_flatpak_check.py $APPS"
+            # inside a D-Bus session, like a desktop login (flatpak uninstall talks to it)
+            command -v dbus-run-session
+            as "dbus-run-session -- python3 ~/files/spark-store/tests/real_flatpak_check.py $APPS"
 
             echo "--- uninstall"
             as "bash ~/files/spark-store/install.sh --user --uninstall"
