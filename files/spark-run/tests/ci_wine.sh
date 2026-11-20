@@ -19,7 +19,7 @@ got() { tr -d '\r' < "$1"; }      # what Spark Hello wrote, without Windows line
 winpath() { printf 'Z:%s' "$(printf '%s' "$1" | tr / '\\')"; }
 t0=$(date +%s)
 since() { echo $(( $(date +%s) - $1 )); }
-row() { echo "| $1 | $2 |" >> "$summary"; }
+row() { echo "| $1 | $2 |" | tee -a "$summary"; }
 
 echo "--- $($SR --version), display: ${DISPLAY:-none}, user: $(id -un)"
 { echo "### Spark Run on real Wine ($(id -un), display ${DISPLAY:-none})"; echo

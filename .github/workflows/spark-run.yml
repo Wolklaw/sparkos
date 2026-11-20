@@ -182,7 +182,7 @@ jobs:
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)
             # keep Spark Run'"'"'s logs for the summary if anything fails
-            trap "cp -r $home/.local/state/spark-run /out/state 2>/dev/null; chmod -R a+rX /out" EXIT
+            trap "cp -r $home/.local/state/spark-run /out/state 2>/dev/null || true; chmod -R a+rX /out || true" EXIT
             cp -r /src "$home/spark-run"
             cp -r /fixtures "$home/fixtures"
             chown -R tester: "$home"
