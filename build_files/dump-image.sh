@@ -5,7 +5,7 @@
 #   packages.txt   every installed package, name-epoch:version-release.arch
 #   files.txt      every path under /etc and /usr: type, mode, owner, size, link target
 #   sums.txt       sha256 of every regular file under /etc and /usr
-#   os-release, policy.json, registries.d.txt, pki.txt, kargs.txt, units.txt
+#   os-release, policy.json, registries.d.txt, pki.txt, kargs.txt, units.txt, lint.txt
 #   image.json     labels, layer count, size on disk; compressed.txt  size in the registry
 set -euo pipefail
 
@@ -30,6 +30,9 @@ podman run --rm --net=none -v "$(readlink -f "$out")":/out "$image" bash -c '
   find /etc/systemd /usr/lib/systemd -xdev -path "*.wants/*" -printf "%p -> %l\n" | sort > /out/units.txt
   chmod -R a+rX /out
 '
+
+# What bootc itself thinks of the image (BlueBuild doesn't run this; information only)
+podman run --rm --net=none "$image" bootc container lint > "$out/lint.txt" 2>&1 || true
 
 podman image inspect "$image" --format '{"labels": {{json .Labels}}, "layers": {{len .RootFS.Layers}}, "size": {{.Size}}}' > "$out/image.json"
 

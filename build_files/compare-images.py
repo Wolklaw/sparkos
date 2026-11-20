@@ -99,7 +99,7 @@ block("Files with different contents, by folder", [f"{n:6d}  {f}" for f, n in by
 block("Files with different contents under /etc", [p for p in changed if p.startswith("/etc/")])
 block("Files with different contents (all)", changed)
 
-for name in ("os-release", "policy.json", "registries.d.txt", "pki.txt", "kargs.txt", "units.txt"):
+for name in ("os-release", "policy.json", "registries.d.txt", "pki.txt", "kargs.txt", "units.txt", "lint.txt"):
     xa, xb = lines(A / name), lines(B / name)
     if xa == xb:
         print(f"\n#### {name}: identical\n")

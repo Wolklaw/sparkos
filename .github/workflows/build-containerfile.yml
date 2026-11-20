@@ -463,6 +463,29 @@ jobs:
           $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
           $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub reachable for Bottles and Gear Lever"'
 
+      # --- not in boot-test.yml: the one service that's SparkOS's own code in this image, not
+      # BlueBuild's (Flathub for the system 30 s after boot, and for each user at login)
+      - name: Check the Flathub setup services
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Both are oneshot services started by timers; wait until each has run once
+          ran() { $SSH "systemctl $1 show -p ExecMainExitTimestampMonotonic --value $2" | grep -qv '^0$'; }
+          for i in $(seq 1 18); do
+            ran "" system-flatpak-setup.service && ran --user user-flatpak-setup.service && break
+            sleep 10
+          done
+          $SSH 'for u in system-flatpak-setup user-flatpak-setup; do
+                  [ $u = user-flatpak-setup ] && s=--user || s=
+                  echo "$u: $(systemctl $s show -p Result,ExecMainStatus,ExecMainExitTimestamp $u.service | tr "\n" " ")"
+                done
+                journalctl -b --no-pager -u system-flatpak-setup.service --user-unit user-flatpak-setup.service | tail -8
+                echo "== system remotes"; flatpak remotes --system --columns=name
+                echo "== user remotes"; flatpak remotes --user --columns=name' 2>&1 | tee "$WORK/flathub.txt"
+          grep '^system-flatpak-setup: ' "$WORK/flathub.txt" | grep 'Result=success' | grep -q 'ExecMainStatus=0 '
+          grep '^user-flatpak-setup: ' "$WORK/flathub.txt" | grep 'Result=success' | grep -q 'ExecMainStatus=0 '
+          sed -n '/== system remotes/,/== user remotes/p' "$WORK/flathub.txt" | grep -qx flathub
+          sed -n '/== user remotes/,$p' "$WORK/flathub.txt" | grep -qx flathub
+
       - name: Measure boot time and idle load
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
