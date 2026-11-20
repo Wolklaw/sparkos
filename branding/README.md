@@ -9,3 +9,5 @@
 | `preview.html` | Not in git. Built by `python3 tools/make-bot-preview.py`: the animation and sound in one page; press *Play with sound*. |
 
 Status: draft artwork. Phase 3 (PLAN.md) puts it in the boot splash, sign-in screen and app launcher, after the mockup is agreed.
+
+**Build copy:** `files/sparkos-theme/sparkos-bot.svg` is a copy of `sparkos-bot.svg` that the image build renders into the icons, wallpaper and splash images. Change both together.

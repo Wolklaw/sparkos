@@ -1,0 +1,68 @@
+[Plymouth Theme]
+Name=SparkOS
+Description=The SparkOS bot and wordmark on a dark field, with a thin mint progress line
+ModuleName=two-step
+
+[two-step]
+Font=Inter 12
+TitleFont=Chakra Petch Bold 26
+ImageDir=/usr/share/plymouth/themes/sparkos
+DialogHorizontalAlignment=.5
+DialogVerticalAlignment=.75
+TitleHorizontalAlignment=.5
+TitleVerticalAlignment=.75
+HorizontalAlignment=.5
+VerticalAlignment=.70
+WatermarkHorizontalAlignment=.5
+WatermarkVerticalAlignment=.42
+Transition=none
+TransitionDuration=0.0
+BackgroundStartColor=0x05040f
+BackgroundEndColor=0x05040f
+ProgressBarBackgroundColor=0x1f1d33
+ProgressBarForegroundColor=0x9be8b8
+ProgressBarWidth=260
+ProgressBarHeight=3
+DialogClearsFirmwareBackground=true
+MessageBelowAnimation=true
+
+[boot-up]
+UseEndAnimation=false
+UseFirmwareBackground=false
+UseProgressBar=true
+
+[shutdown]
+UseEndAnimation=false
+UseFirmwareBackground=false
+
+[reboot]
+UseEndAnimation=false
+UseFirmwareBackground=false
+
+[updates]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Installing updates
+SubTitle=Keep your computer on
+
+[system-upgrade]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Upgrading SparkOS
+SubTitle=Keep your computer on
+
+[firmware-upgrade]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Upgrading firmware
+SubTitle=Keep your computer on
+
+[system-reset]
+SuppressMessages=true
+ProgressBarShowPercentComplete=true
+UseProgressBar=true
+Title=Resetting SparkOS
+SubTitle=Keep your computer on

@@ -1,0 +1,24 @@
+name: inspect
+# Runs a shell command inside the published SparkOS image (no boot) and prints the output.
+# For looking things up while building SparkOS, e.g. which theme files Bazzite ships.
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Bash command to run inside the image
+        required: true
+        default: "cat /etc/os-release"
+
+jobs:
+  inspect:
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: read
+    steps:
+      - name: Run it inside the image
+        env:
+          CMD: ${{ inputs.command }}
+        run: |
+          echo "${{ github.token }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do podman pull -q ghcr.io/wolklaw/sparkos:latest && break; sleep $((i*30)); done
+          podman run --rm -e CMD ghcr.io/wolklaw/sparkos:latest bash -c 'eval "$CMD"' 2>&1
