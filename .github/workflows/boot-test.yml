@@ -226,23 +226,9 @@ jobs:
           # It opens and stays open with no Android installed, and writes no crash log
           # (its output goes to a file and stdin is closed, so a helper it starts in the
           # background can't hold the SSH session open; anything left is killed afterwards)
-          timeout 60 $SSH 'export ANDROIDBOX_HOME=$(mktemp -d) QT_QPA_PLATFORM=offscreen; timeout -k 3 12 ~/.local/bin/androidbox </dev/null >/tmp/androidbox-run.log 2>&1; code=$?; pkill -f androidbox-app || true; tail -5 /tmp/androidbox-run.log; test -f "$ANDROIDBOX_HOME/data/crash.log" && { cat "$ANDROIDBOX_HOME/data/crash.log"; exit 1; }; test $code -eq 124 && echo "androidbox stayed open"'
+          timeout 60 $SSH 'export ANDROIDBOX_HOME=$(mktemp -d) QT_QPA_PLATFORM=offscreen; timeout -k 3 12 ~/.local/bin/androidbox </dev/null >/tmp/androidbox-run.log 2>&1; code=$?; pkill -f androidbox-app || true; tail -5 /tmp/androidbox-run.log; test -f "$ANDROIDBOX_HOME/data/crash.log" && { cat "$ANDROIDBOX_HOME/data/crash.log"; exit 1; }; { test $code -eq 124 || test $code -eq 137; } && echo "androidbox stayed open (exit $code: stopped by the test after 12 s)"'
           # KVM may not exist inside this test VM, so only report it
           $SSH 'ls -l /dev/kvm 2>&1 || true'
-
-      - name: Check installing apps the Windows way
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # Double-clicked downloads open in the right app
-          $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
-          grep -q 'application/x-ms-dos-executable -> com.usebottles.bottles.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/vnd.appimage -> it.mijorus.gearlever.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/vnd.flatpak.ref -> io.github.kolunmi.Bazaar.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          # The Store and the guided package installer are there, and what the installer uses exists
-          $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
-          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio >/dev/null && echo "package installer ready"'
 
       - name: Wait for preinstalled Flatpaks
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -259,6 +245,21 @@ jobs:
           echo "Still missing after 40 minutes:"; echo "$MISSING"
           $SSH 'systemctl status system-flatpak-setup.service --no-pager; journalctl -u system-flatpak-setup.service --no-pager | tail -40'
           exit 1
+
+      - name: Check installing apps the Windows way
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Runs after the Flatpak wait: Bottles and Gear Lever are Flatpaks installed on first boot
+          # Double-clicked downloads open in the right app
+          $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
+          grep -q 'application/x-ms-dos-executable -> com.usebottles.bottles.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/vnd.appimage -> it.mijorus.gearlever.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/vnd.flatpak.ref -> io.github.kolunmi.Bazaar.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
+          # The Store and the guided package installer are there, and what the installer uses exists
+          $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
+          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio >/dev/null && echo "package installer ready"'
 
       - name: Screenshot at the end
         if: always()
