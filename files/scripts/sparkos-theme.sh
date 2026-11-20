@@ -33,8 +33,11 @@ d480f4f97405fac3600652e2e14fd0b14339031c0af4da11582994878f04d919 ChakraPetch-Med
 13831d02389d917d22fcfa6c79f98f8acbf61d230add0e73a4d4dc5f3bfb9e56 OFL.txt
 EOF
 fc-cache -f
-fc-list : family | grep -qx "Chakra Petch" || { echo "Chakra Petch not found by fontconfig"; exit 1; }
-fc-list : family | grep -q "^Inter" || { echo "Inter not found by fontconfig"; exit 1; }
+# (read the list once: `fc-list | grep -q` fails under pipefail when grep stops early)
+FAMILIES=$(fc-list : family | tr ',' '\n' | sort -u)
+echo "--- font families: $(grep -E '^(Inter|Chakra|Cascadia)' <<<"$FAMILIES" | tr '\n' ' ')"
+grep -qx "Chakra Petch" <<<"$FAMILIES" || { echo "Chakra Petch not found by fontconfig"; exit 1; }
+grep -qx "Inter" <<<"$FAMILIES" || { echo "Inter not found by fontconfig"; exit 1; }
 CHAKRA_BOLD="$FDIR/ChakraPetch-Bold.ttf"
 
 # --- the logo as an icon, for the launcher, About This System and os-release (LOGO=sparkos)
