@@ -442,7 +442,7 @@ def _refused_links(err: str, staging: str) -> Optional[List[str]]:
         return None
     names = []
     for line in errors:
-        if not re.search(r'Cannot create (hard |symbolic )?link', line, re.I):
+        if not re.search(r'Cannot create (hard |symbolic )?link|Dangerous .*link', line, re.I):
             return None
         for piece in line.split(' : '):
             piece = piece.strip()
