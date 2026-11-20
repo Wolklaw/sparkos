@@ -520,9 +520,14 @@ class Timeouts(Base):
         async def go():
             _p, s, _i = await self.paired_session()
             mid = await s.offer_file('late.txt', b'x')
-            pid = await s.send({'type': 'ping'})
-            await s.expect('pong', re=pid)
-            self.assertEqual((await s.expect('file.reject', 10, re=mid))['reason'], 'timeout')
+            for _ in range(20):                    # keep the link alive past the idle limit
+                pid = await s.send({'type': 'ping'})
+                await s.expect('pong', re=pid)
+                rejects = [m for m in s.inbox if m['type'] == 'file.reject']
+                if rejects:
+                    break
+                await asyncio.sleep(0.5)
+            self.assertEqual((await s.expect('file.reject', 5, re=mid))['reason'], 'timeout')
             await s.close()
         run(go())
 
@@ -531,7 +536,10 @@ class Timeouts(Base):
             self.svc.ctl({'cmd': 'pair.start'})
             r, w = await asyncio.open_connection(HOST, self.svc.port, ssl=_bare_ctx())
             try:
-                data = await asyncio.wait_for(r.read(), 15)
+                try:
+                    data = await asyncio.wait_for(r.read(), 15)
+                except (ssl.SSLError, ConnectionError):
+                    data = b''                     # closed without a TLS goodbye: also closed
                 self.assertEqual(data, b'')
             finally:
                 w.close()

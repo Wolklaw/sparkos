@@ -63,17 +63,18 @@ class Service:
     # ── start, stop ──
     def start(self) -> 'Service':
         if SUBPROCESS:
+            self.out_path = os.path.join(self.tmp, 'service.out')
+            self.out = open(self.out_path, 'wb')       # a file, not a pipe nobody reads
             self.proc = subprocess.Popen(
                 [sys.executable, os.path.join(APP, 'spark_link.py'), '--service', '--no-mdns'],
-                env=self.env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                env=self.env, stdin=subprocess.DEVNULL, stdout=self.out,
                 stderr=subprocess.STDOUT)
             from sparklink.control import Control, NotRunning
             self.ctl_client = Control(os.path.join(self.run_dir, 'spark-link', 'control.sock'))
             deadline = time.monotonic() + 20
             while time.monotonic() < deadline:
                 if self.proc.poll() is not None:
-                    raise RuntimeError('service exited: ' +
-                                       self.proc.stdout.read().decode('utf-8', 'replace'))
+                    raise RuntimeError('service exited: ' + self.output())
                 try:
                     self.ctl_client.request({'cmd': 'status', 'peek': True})
                     return self
@@ -121,14 +122,17 @@ class Service:
                 self.proc.wait()
             if self.ctl_client:
                 self.ctl_client.close()
+            self.out.close()
         if self.thread is not None:
             self.thread.join(10)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def output(self) -> str:
-        if self.proc is not None and self.proc.stdout and self.proc.poll() is not None:
-            return self.proc.stdout.read().decode('utf-8', 'replace')
-        return ''
+        try:
+            with open(self.out_path, 'rb') as f:
+                return f.read().decode('utf-8', 'replace')
+        except (AttributeError, OSError):
+            return ''
 
     # ── talking to it ──
     def ctl(self, req: Dict[str, Any]) -> Dict[str, Any]:
