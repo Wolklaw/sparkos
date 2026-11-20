@@ -66,6 +66,15 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 - Remove Bazzite's Portal autostart, announcements and wallpaper, in the live installer too.
 - Rethink the taskbar layout rather than keep the Windows-style bar.
 - Mock it up first (desktop, login, boot splash) and agree on it before building, because each image round takes about an hour.
+- **Mockup approved (2026-11-20):** [SparkOS look](https://claude.ai/artifact/52XRMbG3ELXyz4K2FdYfHe). Build this:
+  - **Desktop:** a floating, centred dock (not a full-width taskbar) with the bot as the launcher button, and a slim top bar with the SPARKOS wordmark, tray and clock.
+  - **Wallpaper:** the dark field with the bot large and faint, and one slipped magenta/cyan scan line.
+  - **App launcher:** search first, then pinned apps, recent files and the power buttons.
+  - **Sign-in screen:** a big glitch clock and a sign-in card.
+  - **Boot splash:** the bot, the spaced-out wordmark and a thin progress line.
+  - **Logo:** the SparkOS bot (`branding/`), with its animation timed to the zap startup sound at sign-in.
+  - **Accent:** mint by default.
+  - **Still needed:** real app icons in place of the lettered tiles.
 
 Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surface, mint `#9be8b8` accent, 3px corners. The magenta/cyan slip (`#ff2e88` / `#22d8ff`) is the only decoration.
 - KDE Plasma colour scheme, window decoration and Konsole profile. Fonts: Chakra Petch for headings, Inter for UI, Cascadia Code for mono.
