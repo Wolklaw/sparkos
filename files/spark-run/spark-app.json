@@ -23,8 +23,8 @@
       "xdg-open": "opening C: folders, the log and the switching guide"
     },
     "downloads_on_first_use": [
-      {"name": "Wine 11.22 (vanilla, amd64-wow64)", "from": "github.com/Kron4ek/Wine-Builds",
-       "bytes": 98200812, "sha256": "e2967393d203121195cba94159efe9b575a6fa8fad2815c557036e69285093d8"},
+      {"name": "Wine 11.22 (vanilla, amd64-wow64, built by SparkOS)", "from": "github.com/Wolklaw/sparkos releases",
+       "bytes": 77024200, "sha256": "f45dd527f528160c7d35ddb7bb3ebe402c65194c29d81bf60ef38eb81976007c"},
       {"name": "Wine Mono 11.3.0", "from": "dl.winehq.org",
        "bytes": 39412620, "sha256": "54a1b0111c3fe4b785eae688af94d27e64995707ad648b6fee8000381b80d298"}
     ],

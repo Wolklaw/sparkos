@@ -146,7 +146,7 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 | Bazaar, the store | **Spark Store**: SparkOS's own store over Flathub, with the Spark apps in it (the Spark Portal idea) | Brief: [spark-store](briefs/spark-store.md) |
 | Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Prototype merged as a separate image, `sparkos-fedora` ([#16](https://github.com/Wolklaw/sparkos/pull/16)): it builds and boots, and 19 of 22 checks pass (missing: H.265, Bazaar, Homebrew). Results in [docs/fedora-base.md](docs/fedora-base.md) |
 | BlueBuild | A plain Containerfile and SparkOS's scripts | **Done 2026-11-20**: the real build uses SparkOS's own Containerfile ([#15](https://github.com/Wolklaw/sparkos/pull/15), [docs/building.md](docs/building.md)) |
-| Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | In the first release ([#17](https://github.com/Wolklaw/sparkos/pull/17)) |
+| Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | In the first release ([#17](https://github.com/Wolklaw/sparkos/pull/17)). The Wine it downloads is now built by SparkOS's own CI from WineHQ's signed source (release [wine-11.22-2](https://github.com/Wolklaw/sparkos/releases/tag/wine-11.22-2), reproducible), no longer Kron4ek's build |
 | Ark | Spark Archive | Brief: [spark-archive](briefs/spark-archive.md) |
 | KDE Connect | Spark Link: the PC side in SparkOS, the phone side in Soot's Android app, no outside service | Briefs: [spark-link](briefs/spark-link.md), [protocol](docs/spark-link-protocol.md) |
 
