@@ -111,7 +111,21 @@ jobs:
             -daemonize -pidfile "$WORK/qemu.pid"
           echo "QEMU started"
           mkdir -p "$WORK/shots"
-          # Try to catch the boot splash (firmware and boot menu take the first seconds)
+          # The first boot restarts once (Bazzite's hardware setup adds a kernel argument), and
+          # the splash of that second boot never fit the screenshots below. Watch the serial log
+          # for GRUB's second "Booting `SparkOS" and photograph the next 15 s, once a second.
+          # Not a check: the pictures are for looking at the splash. Runs in the background.
+          nohup bash -c '
+            booted() { [ "$(grep -ac "Booting .SparkOS" "$WORK/serial.log" 2>/dev/null)" -ge 2 ]; }
+            for i in $(seq 1 1800); do booted && break; sleep 0.5; done
+            booted || { echo "no second boot within 15 minutes"; exit 0; }
+            echo "second boot seen at $(date +%T)"
+            for n in $(seq 1 15); do
+              sleep 1
+              echo "screendump $WORK/shots/0b-boot2-${n}s.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+            done
+            echo "done at $(date +%T)"' > "$WORK/boot2-shots.txt" 2>&1 &
+          # Try to catch the first boot's splash (firmware and boot menu take the first seconds)
           for t in $(seq 2 2 30); do
             sleep 2
             echo "screendump $WORK/shots/0-boot-${t}s.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
