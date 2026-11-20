@@ -1,5 +1,6 @@
 """CI only: screenshots of the windows under Xvfb, to look at the interface without a desktop.
-Uses invented files. Writes PNGs to the folder given (default: screenshots/).
+Uses invented files. Writes PNGs to the folder given (default: screenshots/). Run with
+SPARK_LANG=fr for the French interface.
 
     xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/screenshots.py OUT
 """
@@ -68,6 +69,10 @@ def main():
                                  for w in app.root.winfo_children()
                                  if w.winfo_class() == 'Toplevel'])
     app.ask_password('holiday-photos.7z', True)
+    app.root.after(400, lambda: [grab(w, os.path.join(out, 'compress.png')) or w.destroy()
+                                 for w in app.root.winfo_children()
+                                 if w.winfo_class() == 'Toplevel'])
+    app.ask_compress(3, '7z', with_password=True)
     app.extract_all()
     settle(app.root, 1500)
     grab(app.root, os.path.join(out, 'extracted.png'))

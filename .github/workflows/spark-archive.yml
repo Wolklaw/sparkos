@@ -1,15 +1,20 @@
 name: spark-archive
-# Spark Archive: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, with Dolphin's Extract and
-# Compress menu. Build step files/scripts/spark-archive.sh; also installs per user without
-# root, the way optional Spark apps will through the future Spark Portal.
+# Spark Archive: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, also in several parts and with
+# passwords, with Dolphin's Extract and Compress menu. Build step
+# files/scripts/spark-archive.sh; also installs per user without root, the way optional Spark
+# apps will through the future Spark Portal.
 #
-# fedora:  in a plain Fedora container (as root), the unit tests (every format, every
-#          path-escape case) and the window tests under Xvfb, then the image build step, then
-#          times opening the window and a 20 000-file archive.
+# fedora:  in a plain Fedora container (as root), with unrar from RPM Fusion, the unit tests
+#          (every format, passwords, multi-part sets, every path-escape case) and the window
+#          tests under Xvfb, screenshots in English and French, then the image build step,
+#          then times opening the window and a 20 000-file archive.
 # sparkos: inside the published SparkOS image, as a normal user (setpriv: su and runuser need
 #          PAM, which a container doesn't have), the unit tests on the image's own Python,
-#          libarchive and 7z, then install.sh --user, the self-test, uninstall, and a check
-#          that nothing is left behind.
+#          libarchive, 7z and unrar, then install.sh --user, the self-test, uninstall, and a
+#          check that nothing is left behind.
+#
+# The RAR test files (encrypted, encrypted names, volumes) are written by tests/makers.py:
+# rarlab's rar may not be redistributed, so it isn't downloaded here.
 on:
   push:
     paths:
@@ -35,10 +40,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: What SparkOS has (Python with Tk, libarchive, 7z, zstd), and Xvfb
+      - name: What SparkOS has (Python with Tk, libarchive, 7z, zstd, unrar), and Xvfb
         run: |
           dnf -y install --setopt=install_weak_deps=False python3 python3-tkinter libarchive \
             7zip zstd cpio lz4 lzip ncompress xorg-x11-server-Xvfb xorg-x11-xauth
+          # unrar is in RPM Fusion nonfree, as in the SparkOS image. The sparkos job below
+          # tests with the image's own unrar either way.
+          dnf -y install --setopt=install_weak_deps=False \
+            "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-$(rpm -E %fedora).noarch.rpm" \
+            && dnf -y install --setopt=install_weak_deps=False unrar \
+            || echo "::warning::unrar not installed; the password-protected RAR tests skip here"
+          unrar 2>/dev/null | head -n 2 || true
 
       - name: Tests (Xvfb)
         shell: bash
@@ -59,6 +71,8 @@ jobs:
           dnf -y install --setopt=install_weak_deps=False python3-pillow cascadia-mono-fonts
           cd files/spark-archive
           xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/screenshots.py /tmp/screenshots
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/screenshots.py \
+            /tmp/screenshots/fr
 
       - uses: actions/upload-artifact@v4
         if: success() || failure()
@@ -137,6 +151,7 @@ jobs:
             as "grep -q \"^Exec=$home/.local/bin/spark-archive %f$\" ~/.local/share/applications/dev.wolklaw.SparkArchive.desktop"
             as "test -x ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.extract.desktop"
             as "grep -q \"^Exec=$home/.local/bin/spark-archive --compress zip %F$\" ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.compress.desktop"
+            as "grep -q \"^Exec=$home/.local/bin/spark-archive --compress-password %F$\" ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.compress.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkArchive.png"
             # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
 

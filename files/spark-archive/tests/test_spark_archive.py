@@ -20,17 +20,20 @@ import tempfile
 import time
 import unittest
 import zipfile
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 sys.path.insert(0, HERE)
+os.environ.setdefault('SPARK_LANG', 'en')         # the tests read English messages
 
-from sparkarchive import cli, formats  # noqa: E402
+from sparkarchive import cli, formats, readers  # noqa: E402
 from sparkarchive import libarchive as la  # noqa: E402
 from sparkarchive.jobs import (CANCEL, KEEP_BOTH, REPLACE, SKIP, CompressJob,  # noqa: E402
-                               ExtractJob, Listing, ListJob, default_output, single_top)
+                               ExtractJob, Listing, ListJob, default_output, single_top,
+                               unique_archives)
 from sparkarchive.readers import (LibarchiveReader, SevenZipReader, candidates,  # noqa: E402
-                                  sevenzip)
+                                  sevenzip, unrar)
 from sparkarchive.safety import (SafeWriter, clean_parts, is_root,  # noqa: E402
                                  link_target_ok, read_umask)
 import makers  # noqa: E402
@@ -39,6 +42,7 @@ FIXTURES = os.path.join(HERE, 'fixtures')
 LINUX = sys.platform.startswith('linux')
 ROOT = LINUX and os.geteuid() == 0
 HAS_7Z = sevenzip() is not None
+HAS_UNRAR = unrar() is not None
 HAS_LA = la.load() is not None
 HAS_ZSTD = formats.has_zstd()
 
@@ -885,6 +889,541 @@ class TestSelfTest(unittest.TestCase):
         self.assertIn('self-test passed', out.getvalue())
 
 
+# ─── password-protected RAR, through unrar ────────────────────
+
+def spy_staging():
+    """A stand-in for readers.staged_entries that notes what the command unpacked."""
+    real = readers.staged_entries
+
+    def spy(staging):
+        for top, _dirs, files in os.walk(staging):
+            for f in files:
+                spy.files.append(os.path.relpath(os.path.join(top, f), staging)
+                                 .replace(os.sep, '/'))
+        yield from real(staging)
+    spy.files = []
+    return spy
+
+
+RAR_FILES = [('dir', 'docs'), ('file', 'docs/inner.txt', b'inner rar\n'),
+             ('file', 'hello.txt', b'hello rar\n' * 40)]
+
+
+class TestPasswordRar(Base):
+    """RAR 4 and RAR 5 with a password, made by tests/makers.py (there is no free RAR
+    writer), opened through the unrar command and placed by the safe writer."""
+
+    def check_hello(self):
+        self.assertEqual(read(os.path.join(self.dest, 'hello.txt')), b'hello rar\n' * 40)
+        self.assertEqual(read(os.path.join(self.dest, 'docs', 'inner.txt')), b'inner rar\n')
+        self.assertFalse([n for n in os.listdir(self.dest) if n.startswith('.spark-')])
+        self.assert_contained()
+
+    def show_unrar(self, res, arc, password='spark'):
+        """On failure: what unrar itself says about the archive."""
+        if res.ok:
+            return
+        from sparkarchive.readers import run_tool
+        rc, out, err = run_tool(unrar(), ['t', '-cfg-', '-idc', '--', arc], password + '\n',
+                                lambda: False)
+        self.fail(f"{res}\nunrar t rc={rc}\nstdout={out[-1500:]!r}\nstderr={err[-800:]!r}")
+
+    @unittest.skipUnless(HAS_UNRAR, "the unrar command is not installed")
+    def test_rar5_password(self):
+        arc = self.arc('locked5.rar')
+        makers.rar5(arc, RAR_FILES, password='spark')
+        answers = Answers(password=['wrong', 'spark'])
+        res = self.extract(arc, answers)
+        self.show_unrar(res, arc)
+        self.check_hello()
+        self.assertEqual([i['retry'] for q, i in answers.asked if q == 'password'],
+                         [False, True])
+
+    @unittest.skipUnless(HAS_UNRAR, "the unrar command is not installed")
+    def test_rar4_password(self):
+        arc = self.arc('locked4.rar')
+        makers.rar4(arc, [('dir', 'docs'), ('file', 'docs/inner.txt', b'inner rar4\n')],
+                    password='spark')
+        answers = Answers(password=['nope', 'spark'])
+        res = self.extract(arc, answers)
+        self.show_unrar(res, arc)
+        self.assertEqual(read(os.path.join(self.dest, 'docs', 'inner.txt')), b'inner rar4\n')
+        # RAR 4 has no password check: the wrong one shows as a checksum error
+        self.assertEqual([i['retry'] for q, i in answers.asked if q == 'password'],
+                         [False, True])
+        self.assertEqual(os.listdir(self.dest), ['docs'])
+        self.assert_contained()
+
+    @unittest.skipUnless(HAS_UNRAR, "the unrar command is not installed")
+    def test_rar5_encrypted_names(self):
+        """Even the listing needs the password; libarchive can't, unrar can."""
+        arc = self.arc('hidden.rar')
+        makers.rar5(arc, RAR_FILES, password='spark', encrypt_names=True)
+        res = ListJob(arc, asker=Answers(password=[])).run_here()
+        self.assertTrue(res.cancelled, res)                    # it asked: names are hidden
+        job = ListJob(arc, asker=Answers(password=['spark']))
+        res = job.run_here()
+        self.assertTrue(res.ok, res)
+        self.assertEqual(job.listing.backend, 'unrar')
+        self.assertEqual(sorted(e.path for e in job.listing.entries),
+                         ['docs', 'docs/inner.txt', 'hello.txt'])
+        sizes = {e.path: e.size for e in job.listing.entries if e.kind == 'file'}
+        self.assertEqual(sizes, {'docs/inner.txt': 10, 'hello.txt': 400})
+        res = self.extract(arc, Answers(), listing=job.listing)
+        self.show_unrar(res, arc)
+        self.check_hello()
+
+    @unittest.skipUnless(HAS_UNRAR, "the unrar command is not installed")
+    def test_rar_password_cancel(self):
+        arc = self.arc('locked5.rar')
+        makers.rar5(arc, RAR_FILES, password='spark')
+        res = self.extract(arc, Answers(password=[]))
+        self.assertTrue(res.cancelled, res)
+        self.assertEqual(os.listdir(self.dest), [])
+
+    def test_rar_password_without_unrar(self):
+        """No unrar: say so, rather than calling the archive damaged."""
+        arc = self.arc('locked5.rar')
+        makers.rar5(arc, RAR_FILES, password='spark')
+        with mock.patch('sparkarchive.readers.unrar', return_value=None), \
+                mock.patch('sparkarchive.jobs.unrar', return_value=None):
+            res = self.extract(arc, Answers(password=['spark']))
+        self.assertFalse(res.ok)
+        if HAS_LA:                                  # libarchive lists it, then can't decrypt
+            self.assertEqual(res.error, 'needs_unrar', res)
+        self.assertFalse([n for n in os.listdir(self.dest) if n.startswith('.spark-')])
+
+    @unittest.skipUnless(HAS_UNRAR, "the unrar command is not installed")
+    def test_rar_selection_unpacks_only_that(self):
+        arc = self.arc('locked5.rar')
+        makers.rar5(arc, RAR_FILES, password='spark')
+        staged = spy_staging()
+        with mock.patch.object(readers, 'staged_entries', staged):
+            res = self.extract(arc, Answers(password=['spark']), selection=['docs/inner.txt'])
+        self.show_unrar(res, arc)
+        self.assertEqual(tree(self.dest), ['docs/', 'docs/inner.txt'])
+        self.assertEqual(staged.files, ['docs/inner.txt'])
+
+    @unittest.skipUnless(HAS_UNRAR, "the unrar command is not installed")
+    def test_hostile_rar_through_unrar(self):
+        """Names and links that lead out, in an encrypted RAR 5: unrar unpacks into staging,
+        and nothing gets past the safe writer."""
+        arc = self.arc('evil-locked.rar')
+        makers.rar5(arc, [('file', '../escaped.txt', b'x'),
+                          ('symlink', 'sneaky', self.outer),        # absolute, to a real folder
+                          ('file', 'sneaky/escaped', b'x'),          # then a write through it
+                          ('symlink', 'up', '../..'),
+                          ('file', 'up/escaped2', b'x'),
+                          ('symlink', 'here', '.'),
+                          ('file', 'ok.txt', b'ok')], password='spark')
+        res = self.extract(arc, Answers(password=['spark']))
+        self.assert_contained()
+        got = tree(self.dest)
+        self.assertIn('ok.txt', got)
+        self.assertFalse(any(g.startswith(('sneaky ->', 'up ->')) for g in got), got)
+        self.assertFalse([g for g in got if g.startswith('.spark-archive-')], got)
+        for p in got:
+            full = os.path.join(self.dest, p.split(' -> ')[0].rstrip('/'))
+            self.assertTrue(os.path.realpath(full).startswith(os.path.realpath(self.dest)), p)
+        self.assertEqual(read(os.path.join(self.dest, 'ok.txt')), b'ok')
+        if not res.ok:
+            self.assertNotEqual(res.error, 'bug', res)
+
+
+# ─── archives in several parts ────────────────────────────────
+
+BIG = os.urandom(2500)
+SET_FILES = [('file', 'small.txt', b'small\n'), ('dir', 'deep'),
+             ('file', 'deep/big.bin', BIG), ('file', 'tail.txt', b'tail\n')]
+
+
+class TestParts(Base):
+    def check_set(self, folder):
+        self.assertEqual(read(os.path.join(folder, 'small.txt')), b'small\n')
+        self.assertEqual(read(os.path.join(folder, 'deep', 'big.bin')), BIG)
+        self.assertEqual(read(os.path.join(folder, 'tail.txt')), b'tail\n')
+        self.assert_contained()
+
+    def open_any_part(self, parts):
+        """Every part opens the whole set, and Extract to folder names it after the set."""
+        for i, part in enumerate(parts):
+            job = ListJob(part)
+            res = job.run_here()
+            self.assertTrue(res.ok, (part, res))
+            self.assertEqual(sorted(e.path for e in job.listing.entries
+                                    if e.kind == 'file'),
+                             ['deep/big.bin', 'small.txt', 'tail.txt'], part)
+            self.assertEqual(len(job.listing.volumes.parts), len(parts))
+        res = self.extract(parts[-1], new_folder=True)
+        self.assertTrue(res.ok, res)
+        self.assertEqual(res.output, os.path.join(self.dest, 'set'))
+        self.check_set(res.output)
+
+    def rar_readers(self):
+        if not HAS_LA and not HAS_UNRAR:
+            self.skipTest("neither libarchive nor unrar")
+
+    def test_rar5_parts(self):
+        self.rar_readers()
+        parts = makers.rar5_volumes(self.arc('set'), SET_FILES, 1000)
+        self.assertEqual([os.path.basename(p) for p in parts],
+                         ['set.part1.rar', 'set.part2.rar', 'set.part3.rar'])
+        self.open_any_part(parts)
+
+    def test_rar5_parts_two_digits(self):
+        self.rar_readers()
+        parts = makers.rar5_volumes(self.arc('set'), SET_FILES, 1000, digits=2)
+        self.assertEqual(os.path.basename(parts[0]), 'set.part01.rar')
+        self.open_any_part(parts)
+
+    def test_rar4_old_names(self):
+        self.rar_readers()
+        parts = makers.rar4_volumes(self.arc('set'), [m for m in SET_FILES if m[0] == 'file'],
+                                    1000)
+        self.assertEqual([os.path.basename(p) for p in parts],
+                         ['set.rar', 'set.r00', 'set.r01'])
+        for part in parts:
+            job = ListJob(part)
+            self.assertTrue(job.run_here().ok, part)
+        res = self.extract(parts[1], new_folder=True)
+        self.assertTrue(res.ok, res)
+        self.assertEqual(read(os.path.join(res.output, 'deep', 'big.bin')), BIG)
+
+    def test_rar4_part_names(self):
+        self.rar_readers()
+        parts = makers.rar4_volumes(self.arc('set'), [m for m in SET_FILES if m[0] == 'file'],
+                                    1000, old_names=False)
+        self.assertEqual(os.path.basename(parts[0]), 'set.part1.rar')
+        res = self.extract(parts[2])
+        self.assertTrue(res.ok, res)
+        self.assertEqual(read(os.path.join(self.dest, 'deep', 'big.bin')), BIG)
+
+    def split_7z(self, fixture, size=100):
+        arc = self.arc('set.7z')
+        shutil.copy(os.path.join(FIXTURES, fixture), arc)
+        parts = makers.split_bytes(arc, size)
+        os.unlink(arc)
+        self.assertGreater(len(parts), 1)
+        return parts
+
+    def test_7z_split(self):
+        if not HAS_LA and not HAS_7Z:
+            self.skipTest("nothing reads 7z here")
+        parts = self.split_7z('plain.7z')
+        res = self.extract(parts[1], new_folder=True)
+        self.assertTrue(res.ok, res)
+        self.assertEqual(res.output, os.path.join(self.dest, 'set'))
+        self.assertEqual(read(os.path.join(res.output, 'docs', 'café.txt')), b'accent\n')
+
+    @unittest.skipUnless(HAS_7Z, "the 7z command is not installed")
+    def test_7z_split_with_password(self):
+        parts = self.split_7z('secret.7z')
+        res = self.extract(parts[0], Answers(password=['spark']))
+        self.assertTrue(res.ok, res)
+        self.assertEqual(read(os.path.join(self.dest, 'docs', 'café.txt')), b'accent\n')
+        self.assertEqual(sorted(os.listdir(self.dest)), ['docs', 'hello.txt'])
+
+    @unittest.skipUnless(HAS_7Z, "the 7z command is not installed")
+    def test_split_zip(self):
+        parts = makers.split_zip(self.arc('set'), {'small.txt': b'small\n',
+                                                   'deep/big.bin': BIG,
+                                                   'tail.txt': b'tail\n'}, 1000)
+        self.assertEqual([os.path.basename(p) for p in parts],
+                         ['set.z01', 'set.z02', 'set.zip'])
+        for part in parts:
+            job = ListJob(part)
+            res = job.run_here()
+            self.assertTrue(res.ok, (part, res))
+            self.assertEqual(job.listing.style, 'zip')
+        res = self.extract(parts[0], new_folder=True)
+        self.assertTrue(res.ok, res)
+        self.check_set(res.output)
+
+    def missing(self, path):
+        res = ListJob(path).run_here()
+        self.assertEqual(res.error, 'missing_part', res)
+        res = self.extract(path)
+        self.assertEqual(res.error, 'missing_part', res)
+        self.assertEqual(os.listdir(self.dest), [])
+        return res.detail
+
+    def test_missing_rar_parts(self):
+        parts = makers.rar5_volumes(self.arc('set'), SET_FILES, 1000)
+        os.unlink(parts[1])
+        self.assertEqual(self.missing(parts[0]), 'set.part2.rar')
+        self.assertEqual(self.missing(parts[2]), 'set.part2.rar')
+
+    def test_missing_last_rar_part(self):
+        """The last part is gone: the one before it says another follows."""
+        parts = makers.rar5_volumes(self.arc('set'), SET_FILES, 1000)
+        os.unlink(parts[-1])
+        self.assertEqual(self.missing(parts[0]), 'set.part3.rar')
+
+    def test_missing_first_rar_part(self):
+        parts = makers.rar4_volumes(self.arc('set'), [m for m in SET_FILES if m[0] == 'file'],
+                                    1000)
+        os.unlink(parts[0])
+        self.assertEqual(self.missing(parts[1]), 'set.rar')
+        parts = makers.rar4_volumes(self.arc('other'), [m for m in SET_FILES
+                                                       if m[0] == 'file'], 1000)
+        os.unlink(parts[-1])
+        self.assertEqual(self.missing(parts[0]), 'other.r01')
+
+    def test_missing_7z_parts(self):
+        parts = self.split_7z('plain.7z')
+        os.unlink(parts[-1])                       # the 7z header says how long it is
+        self.assertEqual(self.missing(parts[0]), os.path.basename(parts[-1]))
+        os.unlink(parts[0])
+        self.assertEqual(self.missing(parts[1]), 'set.7z.001')
+
+    def test_missing_zip_parts(self):
+        parts = makers.split_zip(self.arc('set'), {'big.bin': BIG}, 1000)
+        os.unlink(parts[0])
+        self.assertEqual(self.missing(parts[-1]), 'set.z01')
+        parts = makers.split_zip(self.arc('two'), {'big.bin': BIG}, 1000)
+        os.unlink(parts[-1])
+        self.assertEqual(self.missing(parts[0]), 'two.zip')
+
+    def test_not_a_set(self):
+        """A lone .rar, .zip or a file named 'data.123' is not a set of parts."""
+        from sparkarchive import volumes
+        plain = self.arc('notes.rar')
+        makers.rar5(plain, [('file', 'a.txt', b'a')])
+        self.assertIsNone(volumes.find(plain))
+        z = self.zip('one.zip', {'a.txt': 'a'})
+        self.assertIsNone(volumes.find(z))
+        lone = self.arc('photo.part1.rar')
+        makers.rar5(lone, [('file', 'a.txt', b'a')])
+        self.assertIsNone(volumes.find(lone))
+        numbered = self.zip('data.123', {'a.txt': 'a'})
+        self.assertIsNone(volumes.find(numbered))
+        self.assertTrue(ListJob(numbered).run_here().ok)
+
+    def zip(self, name, files):
+        arc = self.arc(name)
+        with zipfile.ZipFile(arc, 'w') as zf:
+            for n, d in files.items():
+                zf.writestr(n, d)
+        return arc
+
+    def test_dolphin_passes_every_part(self):
+        parts = makers.rar5_volumes(self.arc('set'), SET_FILES, 1000)
+        other = self.zip('other.zip', {'a.txt': 'a'})
+        self.assertEqual(unique_archives(parts + [other]), [parts[0], other])
+
+    def test_hostile_names_in_parts(self):
+        self.rar_readers()
+        parts = makers.rar5_volumes(self.arc('evil'), [
+            ('file', '../escaped.txt', b'x' * 1500), ('symlink', 'etc', '/etc'),
+            ('symlink', 'up', '../..'), ('file', 'ok.txt', b'ok' * 900)], 1000)
+        self.assertGreater(len(parts), 1)
+        res = self.extract(parts[-1])
+        self.assertTrue(res.ok, res)
+        self.assert_contained()
+        got = tree(self.dest)
+        self.assertIn('ok.txt', got)
+        self.assertFalse([g for g in got if '->' in g or g.startswith('.spark-')], got)
+        self.assertEqual(read(os.path.join(self.dest, 'ok.txt')), b'ok' * 900)
+
+
+# ─── the 7z command unpacks only what was picked ──────────────
+
+class TestPickedOnly(Base):
+    @unittest.skipUnless(HAS_7Z, "the 7z command is not installed")
+    def test_7z_selection_unpacks_only_that(self):
+        staged = spy_staging()
+        with mock.patch.object(readers, 'staged_entries', staged):
+            res = self.extract(os.path.join(FIXTURES, 'secret.7z'),
+                               Answers(password=['spark']), selection=['docs/inner.txt'])
+        self.assertTrue(res.ok, res)
+        self.assertEqual(tree(self.dest), ['docs/', 'docs/inner.txt'])
+        self.assertEqual(staged.files, ['docs/inner.txt'])
+
+    @unittest.skipUnless(HAS_7Z, "the 7z command is not installed")
+    def test_7z_selection_folder(self):
+        staged = spy_staging()
+        with mock.patch.object(readers, 'staged_entries', staged):
+            res = self.extract(os.path.join(FIXTURES, 'secret.7z'),
+                               Answers(password=['spark']), selection=['docs'])
+        self.assertTrue(res.ok, res)
+        self.assertNotIn('hello.txt', staged.files)
+        self.assertEqual(sorted(f for f in tree(self.dest) if not f.endswith('/')),
+                         ['docs/café.txt', 'docs/inner.txt'])
+
+    @unittest.skipUnless(HAS_7Z, "the 7z command is not installed")
+    def test_names_the_command_misses_still_come_out(self):
+        """If 7z names a member differently than the listing, everything is unpacked
+        instead, and the picked file still arrives."""
+        job = ListJob(os.path.join(FIXTURES, 'secret.7z'))
+        job.run_here()
+        for e in job.listing.entries:
+            if e.path == 'hello.txt':
+                e.name = './hello.txt'          # what the listing said; 7z says hello.txt
+        res = ExtractJob(os.path.join(FIXTURES, 'secret.7z'), self.dest,
+                         selection=['hello.txt'], listing=job.listing,
+                         asker=Answers(password=['spark'])).run_here()
+        self.assertTrue(res.ok, res)
+        self.assertEqual(tree(self.dest), ['hello.txt'])
+        self.assertEqual(read(os.path.join(self.dest, 'hello.txt')), b'hello from spark\n')
+
+
+# ─── making archives with a password ──────────────────────────
+
+@unittest.skipUnless(HAS_7Z, "the 7z command is not installed")
+class TestCompressPassword(Base):
+    def make(self):
+        os.makedirs(self.path('album/sub'))
+        with open(self.path('album/sub/song.flac'), 'wb') as f:
+            f.write(BIG * 20)
+        with open(self.path('album/notes été.txt'), 'w', encoding='utf-8') as f:
+            f.write('liner notes\n')
+        os.symlink('sub/song.flac', self.path('album/link'))
+        return self.path('album')
+
+    def check_album(self, folder):
+        self.assertEqual(read(os.path.join(folder, 'sub', 'song.flac')), BIG * 20)
+        self.assertEqual(read(os.path.join(folder, 'notes été.txt')), b'liner notes\n')
+        self.assertEqual(os.readlink(os.path.join(folder, 'link')), 'sub/song.flac')
+
+    def test_zip_aes(self):
+        res = CompressJob([self.make()], 'zip', password='spark-zip').run_here()
+        self.assertTrue(res.ok, res)
+        self.assertEqual(res.output, self.path('album.zip'))
+        with zipfile.ZipFile(res.output) as zf:
+            infos = [i for i in zf.infolist() if not i.is_dir()]
+            self.assertTrue(infos)
+            for info in infos:
+                if not stat.S_ISLNK(info.external_attr >> 16):
+                    self.assertEqual(info.compress_type, 99, info.filename)   # WinZip AES
+                    self.assertTrue(info.flag_bits & 0x1)
+        self.assertTrue(self.extract(res.output, Answers(password=[])).cancelled)
+        got = self.extract(res.output, Answers(password=['spark-zip']))
+        self.assertTrue(got.ok, got)
+        self.check_album(os.path.join(self.dest, 'album'))
+
+    def test_7z_names_hidden(self):
+        res = CompressJob([self.make()], '7z', password='spark été').run_here()
+        self.assertTrue(res.ok, res)
+        self.assertEqual(res.output, self.path('album.7z'))
+        self.assertTrue(ListJob(res.output, asker=Answers(password=[])).run_here().cancelled)
+        with open(res.output, 'rb') as f:
+            self.assertNotIn(b'song', f.read())
+        job = ListJob(res.output, asker=Answers(password=['spark été']))
+        self.assertTrue(job.run_here().ok)
+        self.assertIn('album/sub/song.flac', [e.path for e in job.listing.entries])
+        got = self.extract(res.output, listing=job.listing)
+        self.assertTrue(got.ok, got)
+        self.check_album(os.path.join(self.dest, 'album'))
+
+    def test_7z_plain(self):
+        res = CompressJob([self.make()], '7z').run_here()
+        self.assertTrue(res.ok, res)
+        got = self.extract(res.output, new_folder=True)
+        self.assertTrue(got.ok, got)
+        self.check_album(os.path.join(self.dest, 'album'))
+
+    def test_several_items(self):
+        self.make()
+        with open(self.path('loose.txt'), 'w') as f:
+            f.write('loose')
+        res = CompressJob([self.path('album'), self.path('loose.txt')], '7z',
+                          password='spark').run_here()
+        self.assertTrue(res.ok, res)
+        self.assertEqual(res.output, self.path('src.7z'))
+        got = self.extract(res.output, Answers(password=['spark']))
+        self.assertTrue(got.ok, got)
+        self.assertEqual(read(os.path.join(self.dest, 'loose.txt')), b'loose')
+        self.check_album(os.path.join(self.dest, 'album'))
+
+    def test_pipe_is_left_out(self):
+        """7z would wait on a named pipe forever; it is left out and said so."""
+        folder = self.make()
+        os.mkfifo(os.path.join(folder, 'pipe'))
+        job = CompressJob([folder], '7z', password='spark').start()
+        job.thread.join(120)
+        if job.thread.is_alive():
+            job.cancel()
+            job.thread.join(30)
+            self.fail("7z hung on the pipe")
+        self.assertTrue(job.result.ok, job.result)
+        self.assertIn((os.path.join(folder, 'pipe'), 'special'), job.result.problems)
+
+    def test_cancel(self):
+        folder = self.make()
+        job = CompressJob([folder], 'zip', password='spark')
+        job.cancel()
+        res = job.run_here()
+        self.assertTrue(res.cancelled, res)
+        self.assertEqual(sorted(os.listdir(self.src)), ['album'])     # nothing left behind
+
+    def test_tar_zst_has_no_password(self):
+        with self.assertRaises(ValueError):
+            CompressJob([self.make()], 'tar.zst', password='spark')
+
+    def test_without_7z(self):
+        with mock.patch('sparkarchive.jobs.sevenzip', return_value=None):
+            res = CompressJob([self.make()], '7z').run_here()
+        self.assertEqual(res.error, 'needs_sevenzip')
+
+
+# ─── French ───────────────────────────────────────────────────
+
+class TestText(unittest.TestCase):
+    def test_same_keys_and_blanks(self):
+        from string import Formatter
+        from sparkarchive.text import EN, FR
+
+        def blanks(s):
+            return sorted(f for _, f, _, _ in Formatter().parse(s) if f)
+        self.assertEqual(sorted(EN), sorted(FR))
+        for key in EN:
+            self.assertEqual(blanks(EN[key]), blanks(FR[key]), key)
+            self.assertTrue(FR[key].strip(), key)
+
+    def test_every_key_used_exists(self):
+        import re
+        from sparkarchive.text import EN
+        here = os.path.join(os.path.dirname(HERE), 'sparkarchive')
+        for name in os.listdir(here):
+            if name.endswith('.py'):
+                with open(os.path.join(here, name), encoding='utf-8') as f:
+                    for key in re.findall(r"\bt\('([a-z_]+\.[a-z_.]+)'", f.read()):
+                        self.assertIn(key, EN, f"{name}: {key}")
+        for err in ('missing_part', 'needs_unrar', 'needs_sevenzip', 'damaged', 'password'):
+            self.assertIn('error.' + err, EN)
+
+    def test_language(self):
+        from sparkarchive.core import language
+        cases = [({'SPARK_LANG': 'fr'}, 'fr'), ({'SPARK_LANG': 'en', 'LANG': 'fr_CA.UTF-8'}, 'en'),
+                 ({'LANG': 'fr_CA.UTF-8'}, 'fr'), ({'LC_MESSAGES': 'fr_FR.UTF-8'}, 'fr'),
+                 ({'LC_ALL': 'C.UTF-8', 'LANG': 'fr_CA.UTF-8'}, 'en'),
+                 ({'LC_ALL': 'fr_BE.UTF-8', 'LANG': 'en_US.UTF-8'}, 'fr'),
+                 ({'LANG': 'en_CA.UTF-8'}, 'en'), ({}, 'en'), ({'SPARK_LANG': 'de'}, 'en')]
+        for env, want in cases:
+            with mock.patch.dict(os.environ, env, clear=True):
+                self.assertEqual(language(), want, env)
+
+    def test_sizes(self):
+        from sparkarchive.core import size
+        with mock.patch.dict(os.environ, {'SPARK_LANG': 'en'}):
+            self.assertEqual(size(402022), '392.6 KB')
+            self.assertEqual(size(12), '12 B')
+        with mock.patch.dict(os.environ, {'SPARK_LANG': 'fr'}):
+            self.assertEqual(size(402022), '392,6 Ko')
+            self.assertEqual(size(3 << 30), '3,0 Go')
+            self.assertEqual(size(12), '12 o')
+
+    def test_french_in_a_real_run(self):
+        """A process with LANG=fr_CA.UTF-8 speaks French."""
+        env = {k: v for k, v in os.environ.items() if k not in ('SPARK_LANG', 'LC_ALL',
+                                                                'LC_MESSAGES')}
+        env['LANG'] = 'fr_CA.UTF-8'
+        out = subprocess.run([sys.executable, '-c', 'from sparkarchive.text import t; '
+                              'print(t("button.extract_all"))'], capture_output=True,
+                             text=True, env=env, cwd=os.path.dirname(HERE))
+        self.assertEqual(out.stdout.strip(), 'Tout extraire', out.stderr)
+
+
 # ─── the windows (Xvfb) ───────────────────────────────────────
 
 def display_ok():
@@ -988,6 +1527,61 @@ class TestWindows(Base):
         self.assertEqual(asked, ['same.txt'])
         self.assertEqual(read(os.path.join(self.dest, 'same.txt')), b'new')
         self.assertEqual(read(os.path.join(self.dest, 'other.txt')), b'other')
+        try:
+            win.root.destroy()
+        except Exception:
+            pass
+
+    def test_compress_dialog(self):
+        import tkinter
+        from sparkarchive.app import App
+
+        def all_children(w):
+            for c in w.winfo_children():
+                yield c
+                yield from all_children(c)
+
+        def fill(first, second):
+            def go():
+                top = [w for w in app.root.winfo_children() if isinstance(w, tkinter.Toplevel)]
+                entries = [w for w in all_children(top[0]) if isinstance(w, tkinter.Entry)]
+                entries[0].insert(0, first)
+                entries[1].insert(0, second)
+                top[0].spark_ok()
+                if first != second:                     # refused: still open; close it
+                    app.root.after(100, top[0].destroy)
+            return go
+
+        def close_all():                                # never hang the test run
+            for w in app.root.winfo_children():
+                if isinstance(w, tkinter.Toplevel):
+                    w.destroy()
+        app = App(None)
+        for ms in (5000, 10000, 15000):
+            app.root.after(ms, close_all)
+        try:
+            app.root.after(300, fill('spark', 'spark'))
+            self.assertEqual(app.ask_compress(2, '7z', with_password=True), ('7z', 'spark'))
+            app.root.after(300, fill('spark', 'sparks'))
+            self.assertIsNone(app.ask_compress(2, 'zip', with_password=True))
+            app.root.after(300, lambda: [w.destroy() for w in app.root.winfo_children()
+                                         if isinstance(w, tkinter.Toplevel)])
+            self.assertIsNone(app.ask_compress(2, 'tar.zst'))
+        finally:
+            app.root.destroy()
+
+    @unittest.skipUnless(HAS_7Z, "the 7z command is not installed")
+    def test_job_window_compress_7z(self):
+        from sparkarchive.jobwindow import JobWindow
+        os.makedirs(self.path('folder'))
+        with open(self.path('folder/a.txt'), 'w') as f:
+            f.write('a')
+        win = JobWindow('compress-7z', [self.path('folder')])
+        try:
+            pump(win.root, lambda: win.index >= 1 and win.job is None, 30)
+        except Exception:
+            pass
+        self.assertTrue(os.path.isfile(self.path('folder.7z')))
         try:
             win.root.destroy()
         except Exception:

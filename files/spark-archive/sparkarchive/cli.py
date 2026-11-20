@@ -4,7 +4,9 @@
   spark-archive --extract-here A [A...]    Dolphin: extract next to each archive
   spark-archive --extract-folder A [A...]  Dolphin: extract into a folder named after it
   spark-archive --compress zip F [F...]    Dolphin: make F.zip next to the files
+  spark-archive --compress 7z F...         Dolphin: make F.7z (needs the 7z command)
   spark-archive --compress tar.zst F...    Dolphin: make F.tar.zst
+  spark-archive --compress-password F...   Dolphin: ask zip or 7z and a password, then make it
   spark-archive --list ARCHIVE             print what's inside, no window
   spark-archive --self-test                check what it needs, with a round trip, no window
 """
@@ -33,8 +35,10 @@ def _print_listing(path: str, password: Optional[str]) -> int:
         print(t('error.' + (res.error or 'bug'), detail=res.detail), file=sys.stderr)
         return 1
     listing = job.listing
+    parts = len(listing.volumes.parts) if listing.volumes else 1
     print(f"{os.path.basename(path)}: {formats.describe(listing.kind)}, read with "
           f"{listing.backend}, {listing.file_count} files, {core.size(listing.total_size)}"
+          + (f", {parts} parts" if parts > 1 else "")
           + (", password-protected" if listing.encrypted else ""))
     from .safety import is_root
     for e in listing.entries:
@@ -76,9 +80,10 @@ def self_test() -> int:
     print(f"libarchive: {lav or 'MISSING (7z, rar and iso need it)'}")
     if not lav:
         failures.append("libarchive")
-    from .readers import sevenzip, what_reads
+    from .readers import sevenzip, unrar, what_reads
     seven = sevenzip()
-    print(f"7z command: {seven or 'not installed (only needed for password-protected 7z)'}")
+    print(f"7z command: {seven or 'not installed (needed for password-protected 7z, making 7z and zip with a password, split zip)'}")
+    print(f"unrar:      {unrar() or 'not installed (needed for password-protected RAR)'}")
     for kind in ('zip', 'tar.gz', 'tar.bz2', 'tar.xz', 'tar.zst', '7z', 'rar', 'iso'):
         readers = what_reads(kind)
         print(f"reads:      {kind:8} with {' then '.join(readers) or 'NOTHING'}")
@@ -97,7 +102,7 @@ def self_test() -> int:
 
 
 def _round_trip(seven: Optional[str]) -> List[str]:
-    from .jobs import TAR_ZST, ZIP, CompressJob, ExtractJob
+    from .jobs import SEVEN_Z, TAR_ZST, ZIP, CompressJob, ExtractJob
     failures = []
     with tempfile.TemporaryDirectory(prefix='spark-archive-selftest-') as tmp:
         src = os.path.join(tmp, 'photos')
@@ -147,6 +152,22 @@ def _round_trip(seven: Optional[str]) -> List[str]:
             else:
                 print(f"round trip: 7z       not tried (7z a failed: "
                       f"{proc.stderr.decode('utf-8', 'replace').strip()[-200:]})")
+        if seven:
+            # made by the 7z command with a password: zip (AES-256) and 7z (names hidden)
+            for fmt in (ZIP, SEVEN_Z):
+                started = time.monotonic()
+                made = CompressJob([src], fmt, output=os.path.join(tmp, 'locked.' + fmt),
+                                   password='spark-self-test').run_here()
+                out = os.path.join(tmp, 'out-locked-' + fmt)
+                os.mkdir(out)
+                got = ExtractJob(made.output or '', out, new_folder=True,
+                                 asker=lambda q, i: 'spark-self-test' if q == 'password' else None
+                                 ).run_here() if made.ok else made
+                ok = got.ok and _same(os.path.join(out, 'locked', 'photos'), payload)
+                print(f"password:   {fmt:8} {'ok' if ok else 'FAILED ' + _why(got, out)} "
+                      f"({(time.monotonic() - started) * 1000:.0f} ms)")
+                if not ok:
+                    failures.append(f"password {fmt}")
         # a hostile zip must stay inside its folder
         evil = os.path.join(tmp, 'evil.zip')
         with zipfile.ZipFile(evil, 'w') as zf:
@@ -197,8 +218,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="extract each archive into the folder it is in")
     action.add_argument('--extract-folder', action='store_true',
                         help="extract each archive into a new folder named after it")
-    action.add_argument('--compress', choices=('zip', 'tar.zst'),
+    action.add_argument('--compress', choices=('zip', '7z', 'tar.zst'),
                         help="put the files and folders into one archive next to them")
+    action.add_argument('--compress-password', action='store_true',
+                        help="the same, asking for zip or 7z and a password first")
     action.add_argument('--list', action='store_true', help="print what's inside, no window")
     action.add_argument('--self-test', action='store_true',
                         help="check what it needs and do a round trip; no display needed")
@@ -217,7 +240,8 @@ def main(argv: Optional[List[str]] = None) -> int:
             parser.error("--list takes one archive")
         password = sys.stdin.readline().rstrip('\n') if args.password_stdin else None
         return _print_listing(args.paths[0], password)
-    if (args.extract_here or args.extract_folder or args.compress) and not args.paths:
+    if (args.extract_here or args.extract_folder or args.compress or args.compress_password) \
+            and not args.paths:
         parser.error("give the files to work on")
 
     try:
@@ -230,10 +254,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         if args.bench is not None:
             from .app import bench
             return bench(args.paths[0] if args.paths else None, args.bench)
-        if args.extract_here or args.extract_folder or args.compress:
+        if args.extract_here or args.extract_folder or args.compress or args.compress_password:
             from .jobwindow import JobWindow
             action_name = ('extract-here' if args.extract_here else 'extract-folder'
-                           if args.extract_folder else f'compress-{args.compress}')
+                           if args.extract_folder else 'compress-password'
+                           if args.compress_password else f'compress-{args.compress}')
             return JobWindow(action_name, args.paths).run()
         from .app import App
         App(args.paths[0] if args.paths else None).run()

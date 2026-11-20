@@ -4,7 +4,8 @@ and iso need no new package and no outside program."""
 
 import ctypes
 import ctypes.util
-from typing import Iterator, Optional, Tuple
+import os
+from typing import Iterator, List, Optional, Tuple
 
 OK, EOF, RETRY, WARN, FAILED, FATAL = 0, 1, -10, -20, -25, -30
 
@@ -31,6 +32,7 @@ def _bind(lib) -> None:
         'archive_read_support_format_raw': ([vp], i),
         'archive_read_add_passphrase': ([vp, cp], i),
         'archive_read_open_filename': ([vp, cp, ctypes.c_size_t], i),
+        'archive_read_open_filenames': ([vp, ctypes.POINTER(cp), ctypes.c_size_t], i),
         'archive_read_next_header': ([vp, ctypes.POINTER(vp)], i),
         'archive_read_data': ([vp, vp, ctypes.c_size_t], ctypes.c_ssize_t),
         'archive_read_data_skip': ([vp], i),
@@ -108,9 +110,11 @@ class Header:
 
 class Reader:
     """One pass over an archive. Use as a context manager; iterate headers(), and call
-    read(n) for the current member's bytes."""
+    read(n) for the current member's bytes. `parts`: an archive in several files (RAR
+    volumes, a 7z cut into .001 .002...), read as one, in order."""
 
-    def __init__(self, path: str, password: Optional[str] = None, raw: bool = False):
+    def __init__(self, path: str, password: Optional[str] = None, raw: bool = False,
+                 parts: Optional[List[str]] = None):
         self.lib = load()
         if not self.lib:
             raise ArchiveError("libarchive is not installed")
@@ -124,8 +128,12 @@ class Reader:
             self.lib.archive_read_support_format_all(self.a)
         if password is not None:
             self.lib.archive_read_add_passphrase(self.a, password.encode('utf-8'))
-        rc = self.lib.archive_read_open_filename(self.a, path.encode('utf-8', 'surrogateescape'),
-                                                 1 << 16)
+        if parts and len(parts) > 1:
+            names = [os.fsencode(p) for p in parts]
+            self._names = (ctypes.c_char_p * (len(names) + 1))(*names, None)
+            rc = self.lib.archive_read_open_filenames(self.a, self._names, 1 << 16)
+        else:
+            rc = self.lib.archive_read_open_filename(self.a, os.fsencode(path), 1 << 16)
         if rc < WARN:
             msg = self.error()
             self.close()
