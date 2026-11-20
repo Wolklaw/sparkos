@@ -24,7 +24,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [spark-archive.md](spark-archive.md) | Spark Archive: zip, 7z, tar and more, Extract/Compress in Dolphin (replaces Ark) | In progress |
 | [spark-scan.md](spark-scan.md) | Spark Scan: scanning with preview, crop, multi-page PDF and OCR | In progress |
 | [spark-run.md](spark-run.md) | Spark Run: Windows programs on Wine (replaces Bottles) | In progress |
-| [sparkos-on-fedora.md](sparkos-on-fedora.md) | Prototype: SparkOS built on plain Fedora instead of Bazzite (separate test image) | In progress |
+| [sparkos-on-fedora.md](sparkos-on-fedora.md) | Prototype: SparkOS built on plain Fedora instead of Bazzite (separate test image) | PR open; results in [docs/fedora-base.md](../docs/fedora-base.md) |
 
 ## Optional apps install on their own
 
