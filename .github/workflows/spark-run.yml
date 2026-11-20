@@ -74,7 +74,7 @@ jobs:
           fi
           exit $status
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: spark-run-fixtures
           path: fixtures
@@ -145,7 +145,7 @@ jobs:
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: spark-run-fixtures
           path: fixtures
