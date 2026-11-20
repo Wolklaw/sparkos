@@ -57,9 +57,12 @@ jobs:
           rm -rf ~/.cache/spark-store
           timeout 180 xvfb-run -a -s "-screen 0 1920x1080x24" spark-store --bench 10 | tee bench-cold.txt
           timeout 180 xvfb-run -a -s "-screen 0 1920x1080x24" spark-store --bench 10 | tee bench-cached.txt
+          SPARK_STORE_REDUCED_MOTION=1 timeout 180 xvfb-run -a -s "-screen 0 1920x1080x24" \
+            spark-store --bench 10 | tee bench-still.txt
           { echo '### Spark Store speed (GitHub runner, Xvfb, real Flathub catalog)'
             echo 'First run (index built):'; echo '```'; cat bench-cold.txt; echo '```'
-            echo 'Every run after:'; echo '```'; cat bench-cached.txt; echo '```'; } \
+            echo 'Every run after:'; echo '```'; cat bench-cached.txt; echo '```'
+            echo 'With animations off (no glitch):'; echo '```'; cat bench-still.txt; echo '```'; } \
             >> "$GITHUB_STEP_SUMMARY"
 
   sparkos:
