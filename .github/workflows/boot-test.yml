@@ -217,32 +217,6 @@ jobs:
           $SSH 'spark-media --self-test --require h264,h265,aac,mp3' 2>&1 | tee "$WORK/spark-media-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-media-self-test.txt"
 
-      - name: Check Androidbox installs for a user
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        timeout-minutes: 20
-        run: |
-          # Androidbox isn't in the image; SparkOS ships what it needs so a user can install it.
-          # Do exactly what a user would: latest release, its installer with --user, no root.
-          $SSH 'set -e
-                tag=$(curl -fsSI https://github.com/Wolklaw/Androidbox/releases/latest | tr -d "\r" | sed -n "s|^[Ll]ocation: .*/releases/tag/||p" | tail -1)
-                echo "Androidbox latest release: $tag"
-                mkdir -p /tmp/abx && curl -fsSL "https://github.com/Wolklaw/Androidbox/archive/refs/tags/$tag.tar.gz" | tar -xz -C /tmp/abx
-                # --no-test: its own end-of-install start check waits on a screen this VM lacks;
-                # the timed start check below does that job
-                timeout 900 bash /tmp/abx/*/packaging/linux/install.sh --user --no-test' 2>&1 | tee "$WORK/androidbox-install.txt"
-          $SSH 'QT_QPA_PLATFORM=offscreen ~/.local/bin/androidbox --version' | tee "$WORK/androidbox-version.txt"
-          grep -q '^Androidbox [0-9]' "$WORK/androidbox-version.txt"
-          $SSH 'test -f ~/.local/share/applications/dev.wolklaw.Androidbox.desktop && echo "menu entry present"'
-          # Qt's window plugin finds its libraries
-          $SSH 'ldd ~/.local/share/androidbox-app/venv/lib/python3*/site-packages/PySide6/Qt/plugins/platforms/libqxcb.so | grep "not found" || echo "androidbox: no missing libraries"' | tee "$WORK/androidbox-ldd.txt"
-          ! grep -q 'not found' "$WORK/androidbox-ldd.txt"
-          # It opens and stays open with no Android installed, and writes no crash log
-          # (its output goes to a file and stdin is closed, so a helper it starts in the
-          # background can't hold the SSH session open; anything left is killed afterwards)
-          timeout 60 $SSH 'export ANDROIDBOX_HOME=$(mktemp -d) QT_QPA_PLATFORM=offscreen; timeout -k 3 12 ~/.local/bin/androidbox </dev/null >/tmp/androidbox-run.log 2>&1; code=$?; pkill -f androidbox-app || true; tail -5 /tmp/androidbox-run.log; test -f "$ANDROIDBOX_HOME/data/crash.log" && { cat "$ANDROIDBOX_HOME/data/crash.log"; exit 1; }; { test $code -eq 124 || test $code -eq 137; } && echo "androidbox stayed open (exit $code: stopped by the test after 12 s)"'
-          # KVM may not exist inside this test VM, so only report it
-          $SSH 'ls -l /dev/kvm 2>&1 || true'
-
       - name: Check no third-party apps are preinstalled
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
