@@ -25,7 +25,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [spark-scan.md](spark-scan.md) | Spark Scan: scanning with preview, crop, multi-page PDF and OCR | PR open ([#9](https://github.com/Wolklaw/sparkos/pull/9)), in [files/spark-scan](../files/spark-scan); tested with SANE's test scanner, not yet with the Canon |
 | [spark-run.md](spark-run.md) | Spark Run: Windows programs on Wine (replaces Bottles) | In progress |
 | [sparkos-on-fedora.md](sparkos-on-fedora.md) | Prototype: SparkOS built on plain Fedora instead of Bazzite (separate test image) | In progress |
-| [spark-link.md](spark-link.md) | Spark Link: phone and PC linked with no outside service (PC side; phone side in Soot's Android app; protocol in [docs](../docs/spark-link-protocol.md)) | In progress |
+| [spark-link.md](spark-link.md) | Spark Link: phone and PC linked with no outside service (PC side; phone side in Soot's Android app; protocol in [docs](../docs/spark-link-protocol.md)) | PR open ([#11](https://github.com/Wolklaw/sparkos/pull/11)), in [files/spark-link](../files/spark-link); protocol draft 2 agreed with the phone side ([Soot#3](https://github.com/Wolklaw/Soot/pull/3)). Not yet tried with a real phone |
 | [build-without-bluebuild.md](build-without-bluebuild.md) | SparkOS built from its own Containerfile, side by side with the BlueBuild build | In progress |
 
 ## Optional apps install on their own
