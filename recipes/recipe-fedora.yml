@@ -23,6 +23,8 @@ modules:
         - bubblewrap
         - socat
         - kdialog
+        - fuse
+        - fuse-libs
         - rsms-inter-fonts
         - python3.13
         - SDL2
@@ -70,7 +72,7 @@ modules:
   - type: script
     scripts:
       - fedora-identity.sh # "SparkOS" as the system name; ID stays fedora
-      - fedora-apps.sh # remove Kinoite's third-party apps, as sparkos-apps.sh does on Bazzite
+      - fedora-apps.sh # remove Kinoite's third-party apps (and Spectacle, Plasma System Monitor), as the real recipe does on Bazzite
       - fedora-gaming.sh # Steam controller/VR udev rules (Valve's, pinned), and a record of the gaming layer
       - soot.sh
       - freesuite.sh
@@ -79,6 +81,15 @@ modules:
       - spark-welcome.sh
       - spark-games.sh
       - spark-monitor.sh
+      - spark-edit.sh
+      - spark-calc.sh
+      - spark-archive.sh
+      - spark-scan.sh
+      - spark-run.sh
+      - spark-link.sh
+      - spark-store.sh
+      - spark-update.sh # Fedora has no uupd, so Spark Update runs its own timer (the script's fallback)
+      - sparkos-cleanup.sh
       - sparkos-defaults.sh
       - sparkos-theme.sh
 

@@ -10,13 +10,16 @@
 #   plasma-drkonqi      the crash reporter that sends reports to KDE's bug tracker
 #   fedora-third-party, fedora-workstation-repositories
 #                       Fedora's switch for Google Chrome, NVIDIA and Steam repositories
+#   spectacle, plasma-systemmonitor
+#                       replaced by Spark Snip and Spark Monitor, as in the real recipe
 set -oue pipefail
 
 remove=()
 for pkg in firefox firefox-langpacks kwrite kate filelight kfind krdc krfb kwalletmanager5 \
            kdebugsettings khelpcenter kmahjongg kmines kpat elisa-player dragon \
            gwenview okular kcalc skanpage haruna plasma-welcome kcharselect kde-partitionmanager \
-           plasma-setup plasma-drkonqi fedora-third-party fedora-workstation-repositories; do
+           plasma-setup plasma-drkonqi fedora-third-party fedora-workstation-repositories \
+           spectacle plasma-systemmonitor; do
   rpm -q "$pkg" >/dev/null 2>&1 && remove+=("$pkg")
 done
 if [ ${#remove[@]} -gt 0 ]; then
@@ -32,6 +35,6 @@ for pkg in "${remove[@]}"; do
   if rpm -q "$pkg" >/dev/null 2>&1; then echo "still installed: $pkg"; exit 1; fi
 done
 # The removals must not have taken the platform with them
-rpm -q plasma-workspace plasma-login-manager dolphin konsole spectacle ark plasma-systemsettings \
-  plasma-discover flatpak kde-connect
+rpm -q plasma-workspace plasma-login-manager dolphin konsole ark plasma-systemsettings \
+  plasma-discover flatpak kde-connect kwin
 echo "No third-party apps preinstalled as RPMs."
