@@ -69,6 +69,8 @@ jobs:
           [[customizations.user]]
           name = "spark"
           key = "$(cat "$WORK/id.pub")"
+          # Throwaway test disk only: a password so the checks can use sudo
+          password = "sparkos-boot-test"
           groups = ["wheel"]
 
           # Bazzite ships with sshd off (SparkOS keeps that). Start it on this
@@ -104,6 +106,12 @@ jobs:
             -monitor unix:"$WORK/qmon",server,nowait \
             -daemonize -pidfile "$WORK/qemu.pid"
           echo "QEMU started"
+          # Try to catch the boot splash (firmware and boot menu take the first seconds)
+          mkdir -p "$WORK/shots"
+          for t in 8 12 16; do
+            sleep 4
+            echo "screendump $WORK/shots/0-boot-${t}s.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+          done
 
       - name: Wait for SSH
         id: ssh
@@ -265,6 +273,35 @@ jobs:
             echo "running services: $(tail -1 "$WORK/performance.txt")"
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the SparkOS look
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          $SSH 'set -e
+            echo "== defaults"; grep -E "^(LookAndFeelPackage|ColorScheme)=" /etc/xdg/kdeglobals
+            echo "== fonts"; fc-list : family | grep -E "^(Chakra Petch|Inter)$" | sort -u
+            echo "== wallpaper"; ls -l /usr/share/wallpapers/SparkOS/contents/images/
+            echo "== boot splash"; grep "^Theme=" /etc/plymouth/plymouthd.conf
+            echo "== about"; grep -E "^(Name|LogoPath)=" /etc/xdg/kcm-about-distrorc; grep "^LOGO=" /etc/os-release' | tee "$WORK/look.txt"
+          grep -q "LookAndFeelPackage=dev.wolklaw.sparkos.desktop" "$WORK/look.txt"
+          grep -qx "Chakra Petch" "$WORK/look.txt"
+          grep -qx "Inter" "$WORK/look.txt"
+          grep -q "Theme=sparkos" "$WORK/look.txt"
+          grep -q "Name=SparkOS" "$WORK/look.txt"
+          # Sign in once automatically as the test user, to see the real desktop
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "printf \"[Autologin]\nUser=spark\nSession=plasma.desktop\n\" > /etc/plasmalogin.conf.d/zz-boot-test.conf && systemctl restart plasmalogin"'
+          for i in $(seq 1 18); do
+            $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break
+            sleep 5
+          done
+          sleep 25
+          echo "screendump $WORK/shots/3-desktop.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+          $SSH 'pgrep -u spark -a plasmashell; cat ~/.config/plasma-org.kde.plasma.desktop-appletsrc' > "$WORK/desktop-layout.txt" || true
+          # The SparkOS layout: kickoff in both bars, a floating dock with pinned apps
+          grep -q "plasmashell" "$WORK/desktop-layout.txt" || { echo "::error::Plasma did not start for the test user"; exit 1; }
+          grep -q "org.kde.plasma.icontasks" "$WORK/desktop-layout.txt"
+          grep -q "menuLabel=SPARKOS" "$WORK/desktop-layout.txt" || { echo "::error::the SparkOS layout was not used"; exit 1; }
+          grep -E "^launchers=" "$WORK/desktop-layout.txt" || true
 
       - name: Screenshot at the end
         if: always()

@@ -1,0 +1,12 @@
+{
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Wolklaw"
+            }
+        ],
+        "Id": "SparkOS",
+        "License": "CC-BY-SA-4.0",
+        "Name": "SparkOS"
+    }
+}
