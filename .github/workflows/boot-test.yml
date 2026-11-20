@@ -6,9 +6,11 @@ name: boot-test
 # Full run (Sundays, or by hand with "full"): everything, including the checks that have passed
 # many times (Soot/FreeSuite, printing, startup sound, Claude Code, Spark Snip, Windows-style
 # installs), so a Bazzite update that breaks one is still caught within the week.
+# Update test (by hand, "update_from"): installs that tag, updates it to the tested one the way
+# a PC does (signed rebase, reboot), then runs the checks on the updated system.
 on:
   workflow_run:
-    workflows: [bluebuild]
+    workflows: [build]
     types: [completed]
     branches: [main]
   schedule:
@@ -23,6 +25,10 @@ on:
         description: Image tag to test (a branch build is br-<branch>-<Fedora version>)
         type: string
         default: latest
+      update_from:
+        description: Install this tag first, then update to the tested one the way a PC does (empty = install the tested tag directly)
+        type: string
+        default: ""
 
 concurrency:
   group: boot-test
@@ -38,6 +44,7 @@ jobs:
       packages: read
     env:
       IMAGE: ghcr.io/wolklaw/sparkos:${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
+      UPDATE_FROM: ${{ github.event_name == 'workflow_dispatch' && inputs.update_from || '' }}
       WORK: /mnt/boot-test
       FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
@@ -65,6 +72,15 @@ jobs:
           echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+          # Update test: the disk is installed from UPDATE_FROM, then updated to IMAGE
+          INSTALL=$IMAGE
+          if [ -n "$UPDATE_FROM" ]; then
+            INSTALL=ghcr.io/wolklaw/sparkos:$UPDATE_FROM
+            for i in 1 2 3 4 5; do sudo podman pull -q "$INSTALL" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+            sudo podman image inspect "$INSTALL" --format '{{.Digest}} {{.Created}}'
+          fi
+          echo "INSTALL=$INSTALL" >> "$GITHUB_ENV"
+          echo "Installing $INSTALL, testing $IMAGE"
 
       - name: Build a test disk image
         run: |
@@ -90,7 +106,7 @@ jobs:
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             ghcr.io/osbuild/image-builder-cli:latest \
             build --blueprint /blueprint.toml --output-dir /output \
-            --bootc-ref "$IMAGE" --bootc-default-fs btrfs qcow2
+            --bootc-ref "$INSTALL" --bootc-default-fs btrfs qcow2
           sudo chown -R "$USER" "$WORK/output"
           DISK=$(find "$WORK/output" -name '*.qcow2' | head -1)
           test -n "$DISK" || { echo "no qcow2 produced"; find "$WORK/output"; exit 1; }
@@ -141,6 +157,29 @@ jobs:
             sleep 10
           done
           echo "SSH never came up"; tail -50 "$WORK/serial.log"; exit 1
+
+      - name: Update to the image under test
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.UPDATE_FROM != '' }}
+        run: |
+          $SSH 'rpm-ostree status --booted; df -h /sysroot'
+          # The same transport and signature check a SparkOS PC uses for its updates (rebase
+          # instead of upgrade only because the tested image has another tag)
+          ok=0
+          for i in 1 2 3 4 5 6; do
+            if $SSH "echo sparkos-boot-test | sudo -S -p '' rpm-ostree rebase ostree-image-signed:docker://$IMAGE"; then ok=1; break; fi
+            echo "rebase failed (another transaction running?), retry $i"; sleep 30
+          done
+          [ "$ok" = 1 ] || { echo "::error::the update to $IMAGE failed"; exit 1; }
+          $SSH "echo sparkos-boot-test | sudo -S -p '' systemctl reboot" || true
+          sleep 30
+          up=0
+          for i in $(seq 1 90); do if $SSH true 2>/dev/null; then up=1; echo "back after the update, ~$((i*10+30))s"; break; fi; sleep 10; done
+          [ "$up" = 1 ] || { echo "::error::no SSH after rebooting into the update"; tail -50 "$WORK/serial.log"; exit 1; }
+          $SSH 'rpm-ostree status --booted' | tee "$WORK/after-update.txt"
+          grep -q "ostree-image-signed:docker://$IMAGE" "$WORK/after-update.txt"
+          WANT=$(sudo podman image inspect "$IMAGE" --format '{{.Digest}}')
+          grep -q "$WANT" "$WORK/after-update.txt" || { echo "::error::the booted image isn't $WANT"; exit 1; }
+          echo "Updated from $UPDATE_FROM to $IMAGE ($WANT) and booted it"
 
       - name: Screenshot after boot
         if: always()
@@ -452,6 +491,29 @@ jobs:
           $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
           $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub set up for the Store"'
           $SSH 'grep -A2 "\*.exe|\*.msi)" /usr/bin/sparkos-open-package | grep -q "exec spark-run" && command -v spark-run && echo ".exe and .msi open in Spark Run"'
+
+      # SparkOS's own Flathub setup (build_files/flathub.sh): Flathub for the system 30 s after
+      # boot, and for each user at login, so the Store works
+      - name: Check the Flathub setup services
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Both are oneshot services started by timers; wait until each has run once
+          ran() { $SSH "systemctl $1 show -p ExecMainExitTimestampMonotonic --value $2" | grep -qv '^0$'; }
+          for i in $(seq 1 18); do
+            ran "" system-flatpak-setup.service && ran --user user-flatpak-setup.service && break
+            sleep 10
+          done
+          $SSH 'for u in system-flatpak-setup user-flatpak-setup; do
+                  [ $u = user-flatpak-setup ] && s=--user || s=
+                  echo "$u: $(systemctl $s show -p Result,ExecMainStatus,ExecMainExitTimestamp $u.service | tr "\n" " ")"
+                done
+                journalctl -b --no-pager -u system-flatpak-setup.service --user-unit user-flatpak-setup.service | tail -8
+                echo "== system remotes"; flatpak remotes --system --columns=name
+                echo "== user remotes"; flatpak remotes --user --columns=name' 2>&1 | tee "$WORK/flathub.txt"
+          grep '^system-flatpak-setup: ' "$WORK/flathub.txt" | grep 'Result=success' | grep -q 'ExecMainStatus=0 '
+          grep '^user-flatpak-setup: ' "$WORK/flathub.txt" | grep 'Result=success' | grep -q 'ExecMainStatus=0 '
+          sed -n '/== system remotes/,/== user remotes/p' "$WORK/flathub.txt" | grep -qx flathub
+          sed -n '/== user remotes/,$p' "$WORK/flathub.txt" | grep -qx flathub
 
       - name: Measure boot time and idle load
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

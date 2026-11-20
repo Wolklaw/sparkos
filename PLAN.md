@@ -1,6 +1,6 @@
 # SparkOS plan
 
-SparkOS is a custom Linux image for gaming and everyday work. It is built on **Bazzite** (Fedora Atomic + Universal Blue) using **BlueBuild**: a short recipe file in a GitHub repo, which GitHub Actions turns into a signed OS image on every change and again each day when upstream updates.
+SparkOS is a custom Linux image for gaming and everyday work. It is built on **Bazzite** (Fedora Atomic + Universal Blue) from SparkOS's own **Containerfile** (BlueBuild until 2026-11-20; see [docs/building.md](docs/building.md)), which GitHub Actions turns into a signed OS image on every change and again each day when upstream updates.
 
 We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. SparkOS adds the apps, defaults and branding.
 
@@ -48,11 +48,11 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 
 ### Phase 0: Prep (about an hour)
 - Install VMware Workstation Pro or VirtualBox, and confirm SVM virtualization is on in the BIOS.
-- Create the repo from the BlueBuild template, generate a cosign signing key, and store it as the `SIGNING_SECRET` repo secret.
+- Create the repo (from the BlueBuild template at first), generate a cosign signing key, and store it as the `SIGNING_SECRET` repo secret.
 - **Done when:** the first CI build goes green and the image shows up in GHCR.
 
 ### Phase 1: Minimal image (one evening)
-- `recipes/recipe.yml`: base Bazzite, with the image name and description set to SparkOS.
+- The build file (`recipes/recipe.yml` then, the `Containerfile` since 2026-11-20): base Bazzite, with the image name and description set to SparkOS.
 - Game launchers (Steam, Heroic, Lutris) install from the Store; none are preinstalled.
 - Add the office suite (FreeSuite) and Soot.
 - In the VM: install the stock Bazzite ISO, then `rpm-ostree rebase` onto `ghcr.io/wolklaw/sparkos:latest`.
@@ -124,7 +124,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 
 ### Phase 6: Upkeep (minutes a week)
 - CI rebuilds daily against the latest Bazzite. Updates are atomic, and a bad update rolls back from the boot menu.
-- When Bazzite changes something, it's usually a one-line recipe fix.
+- When Bazzite changes something, it's usually a one-line fix in the Containerfile or a build script.
 
 ## Independence roadmap (owner's goal, 2026-11-20)
 Rely on other people's products as little as possible by Release 2 or 3. Replace what a Spark app or a small change can own; keep what no one person can maintain. Work items have briefs in [briefs/](briefs/README.md).
@@ -144,8 +144,8 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 | Today | SparkOS's own | Status |
 |---|---|---|
 | Bazaar, the store | **Spark Store**: SparkOS's own store over Flathub, with the Spark apps in it (the Spark Portal idea) | Brief: [spark-store](briefs/spark-store.md) |
-| Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Prototype on a separate image: [sparkos-on-fedora](briefs/sparkos-on-fedora.md) |
-| BlueBuild | A plain Containerfile and SparkOS's scripts | Side-by-side build: [build-without-bluebuild](briefs/build-without-bluebuild.md) |
+| Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Prototype merged as a separate image, `sparkos-fedora` ([#16](https://github.com/Wolklaw/sparkos/pull/16)): it builds and boots, and 19 of 22 checks pass (missing: H.265, Bazaar, Homebrew). Results in [docs/fedora-base.md](docs/fedora-base.md) |
+| BlueBuild | A plain Containerfile and SparkOS's scripts | **Done 2026-11-20**: the real build uses SparkOS's own Containerfile ([#15](https://github.com/Wolklaw/sparkos/pull/15), [docs/building.md](docs/building.md)) |
 | Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | In the first release ([#17](https://github.com/Wolklaw/sparkos/pull/17)) |
 | Ark | Spark Archive | Brief: [spark-archive](briefs/spark-archive.md) |
 | KDE Connect | Spark Link: the PC side in SparkOS, the phone side in Soot's Android app, no outside service | Briefs: [spark-link](briefs/spark-link.md), [protocol](docs/spark-link-protocol.md) |

@@ -1,0 +1,38 @@
+#!/usr/bin/bash
+# Adds the Flathub remote, so the Store and `flatpak install` work. Installs no apps.
+#   flathub-setup --system   (system-flatpak-setup.service, 30 s after boot)
+#   flathub-setup --user     (user-flatpak-setup.service, for each user at login)
+# If Fedora's own Flatpak remotes are there, they're removed with anything installed from them,
+# so apps come from Flathub only. Installed by build_files/flathub.sh; does what BlueBuild's
+# default-flatpaks module did for SparkOS (Flathub, no apps), without its notifications.
+set -euo pipefail
+
+scope=${1:-}
+case "$scope" in
+  --system|--user) ;;
+  *) echo "usage: flathub-setup --system|--user" >&2; exit 2 ;;
+esac
+
+remotes=$(flatpak remotes "$scope" --columns=name)
+has() { grep -qx "$1" <<<"$remotes"; }
+
+if has fedora || has fedora-testing; then
+  if [ "$scope" = --system ] && [ -x /usr/bin/fedora-third-party ]; then
+    /usr/bin/fedora-third-party disable || true
+  fi
+  for r in fedora fedora-testing; do
+    if has "$r"; then flatpak remote-delete "$scope" --force "$r"; fi
+  done
+fi
+
+if [ "$scope" = --user ] || has fedora || has fedora-testing; then
+  mapfile -t apps < <(flatpak list "$scope" --app --columns=origin,application | awk '$1 == "fedora" {print $2}')
+  if [ ${#apps[@]} -gt 0 ]; then flatpak remove "$scope" --noninteractive "${apps[@]}"; fi
+  mapfile -t runtimes < <(flatpak list "$scope" --runtime --columns=origin,application,arch,branch \
+                            | awk '$1 == "fedora" {print $2 "/" $3 "/" $4}')
+  if [ ${#runtimes[@]} -gt 0 ]; then flatpak remove "$scope" --noninteractive "${runtimes[@]}"; fi
+fi
+
+flatpak remote-add "$scope" --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo --title Flathub
+flatpak remote-modify "$scope" --enable flathub
+echo "Flathub ready ($scope)."
