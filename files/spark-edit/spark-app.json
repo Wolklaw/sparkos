@@ -1,0 +1,32 @@
+{
+  "id": "dev.wolklaw.SparkEdit",
+  "slug": "spark-edit",
+  "name": "Spark Edit",
+  "name_fr": "Spark Edit",
+  "summary": "Text and code editor: tabs, find and replace, syntax colours, files kept in their own encoding and line endings.",
+  "summary_fr": "Éditeur de texte et de code : onglets, rechercher et remplacer, couleurs de syntaxe, fichiers gardés dans leur encodage et leurs fins de ligne.",
+  "version": "1.0.0",
+  "installed_size_kb": 610,
+  "icon": "icons/spark-edit-256.png",
+  "categories": ["Utility", "TextEditor", "Development"],
+  "command": "spark-edit",
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "pkexec": "Save as administrator, for system files",
+      "kdialog": "the desktop's own Open and Save dialogs (Tk's are used without it)"
+    },
+    "system": "Linux; any desktop"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-edit --self-test"
+  },
+  "license": "Apache-2.0",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-edit"
+}

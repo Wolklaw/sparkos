@@ -1,0 +1,70 @@
+{
+  "apiVersion": "org.containers.bootc/v1",
+  "kind": "BootcHost",
+  "metadata": {
+    "name": "host"
+  },
+  "spec": {
+    "image": {
+      "image": "ghcr.io/wolklaw/sparkos:latest",
+      "transport": "registry",
+      "signature": {
+        "ostreeRemote": "sparkos"
+      }
+    },
+    "bootOrder": "default"
+  },
+  "status": {
+    "staged": null,
+    "booted": {
+      "image": {
+        "image": {
+          "image": "ghcr.io/wolklaw/sparkos:latest",
+          "transport": "registry",
+          "signature": {
+            "ostreeRemote": "sparkos"
+          }
+        },
+        "version": "45.20261117.1",
+        "timestamp": "2026-11-17T09:12:00Z",
+        "imageDigest": "sha256:1111111111111111111111111111111111111111111111111111111111111111",
+        "architecture": "amd64"
+      },
+      "cachedUpdate": null,
+      "incompatible": false,
+      "pinned": false,
+      "store": "ostreeContainer",
+      "ostree": {
+        "checksum": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "deploySerial": 0,
+        "stateroot": "default"
+      }
+    },
+    "rollback": {
+      "image": {
+        "image": {
+          "image": "ghcr.io/wolklaw/sparkos:latest",
+          "transport": "registry",
+          "signature": {
+            "ostreeRemote": "sparkos"
+          }
+        },
+        "version": "45.20261110.0",
+        "timestamp": "2026-11-10T09:05:00Z",
+        "imageDigest": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+        "architecture": "amd64"
+      },
+      "cachedUpdate": null,
+      "incompatible": false,
+      "pinned": false,
+      "store": "ostreeContainer",
+      "ostree": {
+        "checksum": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+        "deploySerial": 0,
+        "stateroot": "default"
+      }
+    },
+    "rollbackQueued": false,
+    "type": "bootcHost"
+  }
+}

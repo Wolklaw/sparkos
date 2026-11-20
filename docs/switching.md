@@ -15,7 +15,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Device | On SparkOS | Notes |
 |---|---|---|
 | Canon TR4700 series (network) printer | **Works** | Printing is driverless (IPP/AirPrint). SparkOS finds the printer on the network by itself. Add or check it in System Settings > Printers (from the Store). |
-| Canon TR4700 scanner | **Works** (check) | SANE's `pixma` and `airscan` scanner support is in the image. For a scanning app, install **Skanpage** from the Store. Confirm with your printer on the first day. |
+| Canon TR4700 scanner | **Works** (check) | SANE's `pixma` and `airscan` scanner support is in the image. Scan with **Spark Scan**, SparkOS's own scanning app: preview, crop, the glass or the feeder, one PDF (searchable, if you want) or an image per page, saved to Documents/Scans. It has only been tested with SANE's test scanner so far; confirm with your printer on the first day. |
 | Canon fax | **No** (probably) | The Linux printing system has no Canon fax support. Fax from the printer's own panel. |
 | Canon IJ Printer Assistant (nozzle check, cleaning) | **Replaced** | Open the printer's IP address in a browser to reach its own maintenance page (Remote UI). |
 | Logitech G502 HERO | **Works** | Mouse works as is. **Piper** (from the Store) sets DPI, buttons and lighting, replacing G HUB. Profiles already saved on the mouse keep working. |
@@ -73,11 +73,11 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Notepad++ | **Replaced** | Text files open in **FreeSuite Writer** (default). For a code-style editor, install **Kate** from the Store. |
 | 7-Zip | **Replaced** | **Ark** (built in). |
 | WinDirStat | **Replaced** | **Filelight** from the Store. |
-| HWiNFO, Task Manager | **Replaced** | **Mission Center** (from the Store). |
+| HWiNFO, Task Manager | **Replaced** | **Spark Monitor** (in the image): Ctrl+Shift+Esc, as on Windows (Meta+Esc and Ctrl+Esc work too). For detailed sensor readings like HWiNFO, **Mission Center** is in the Store. |
 | Ryzen Master | **No** | Set PBO and Curve Optimizer in the BIOS instead. They then apply to both systems. |
 | Logitech G HUB, SignalRGB, 8BitDo, Focusrite Control | See Devices above | |
 | Wallpaper Engine | **Partly** | A community KDE plugin plays many Wallpaper Engine scenes. It isn't in the image. |
-| Tailscale | **Works** | In Bazzite. Run `ujust tailscale`. |
+| Tailscale | **Works** | Not in the image (it's a company's service, and Bazzite's `ujust tailscale` no longer applies). To add it, run `sudo curl -fsSLo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo`, then `rpm-ostree install tailscale` and restart. Then `sudo systemctl enable --now tailscaled` and `sudo tailscale up` to sign in. It updates with SparkOS from then on. |
 | hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN work in System Settings > Network. |
 | TeamViewer | **Works** | Download the Linux .rpm from teamviewer.com and double-click it: SparkOS asks, installs it and offers a restart. |
 | PuTTY | **Replaced** | `ssh` in Konsole (built in). |
@@ -96,7 +96,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Claude Code | **Works** | Open **Claude Code** from the app menu, right-click a folder in Dolphin and choose **Open Claude Code here**, or run `sparkos-claude` in a terminal. The first start installs it with Anthropic's official installer (into `~/.local`, updates itself). Run `sparkos-claude-import` once to bring over your Windows `CLAUDE.md`, skills, agents and commands. See [claude-code.md](claude-code.md). |
 | Claude desktop app (Chat, Cowork, Code tab) | **No** | Its Linux version is a beta for Ubuntu and Debian only. On SparkOS, use Claude Code (above), and claude.ai in the browser for chat. |
 | Antigravity IDE | **Check** | Look for a Linux download. |
-| Inno Setup (Windows installers for your apps) | **Partly** | Runs under Wine or Bottles (from the Store, or fetched the first time you double-click an .exe). For building and testing Windows releases, a Windows VM in virt-manager is the dependable choice. |
+| Inno Setup (Windows installers for your apps) | **Partly** | Runs under Wine through Spark Run (double-click the .exe). For building and testing Windows releases, a Windows VM in virt-manager is the dependable choice. |
 | Androidbox | **Works** (check) | Not preinstalled. SparkOS has everything it needs, so install it for your user (no admin password): download the latest release's source from github.com/Wolklaw/Androidbox/releases, unpack it, and run `bash packaging/linux/install.sh --user`. It then appears in the app menu. To update, do the same with a newer release. Android needs virtualization (KVM) turned on in the BIOS. The boot test installs and starts it this way on every build, but no Android has been run in it on SparkOS yet. The boss key and other shortcuts that work while another program is in front don't work on Linux. |
 | Your own apps: Nova, BotWatch, Broke'nt, OSRS Toolkit, Upscape, Delta | **Check each** | They're Windows builds. Each needs a Linux build, as Soot and FreeSuite got, or runs in the Windows VM. |
 

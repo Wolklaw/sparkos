@@ -1,0 +1,135 @@
+name: spark-link
+# Spark Link, the PC side of SparkOS's phone link. The phone side (Soot's Android app) isn't
+# here: tests/linkclient.py plays the phone, written from docs/spark-link-protocol.md.
+#
+# fedora:  runs the image build step in a plain Fedora container, the self-test, then every
+#          test against the real service (its own process, the real control socket): pairing,
+#          reconnecting, each feature, the failure cases, the window under Xvfb, QR codes read
+#          back with zbar. Then the mDNS announcement through a real Avahi, and idle CPU.
+# sparkos: inside the published SparkOS image, as a normal user (setpriv, no root): installs it
+#          with install.sh --user, runs the self-test and the same tests on the image's Python
+#          and OpenSSL, uninstalls it and checks nothing is left; reports the image's firewall.
+on:
+  push:
+    paths:
+      - "files/spark-link/**"
+      - "files/scripts/spark-link.sh"
+      - "docs/spark-link-protocol.md"
+      - ".github/workflows/spark-link.yml"
+  pull_request:
+    paths:
+      - "files/spark-link/**"
+      - "files/scripts/spark-link.sh"
+      - "docs/spark-link-protocol.md"
+      - ".github/workflows/spark-link.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install (the image build step)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False firewalld
+          CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-link.sh
+
+      - name: Self-test
+        run: spark-link --self-test
+
+      - name: Tests (real service, reference phone, window under Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
+            zbar iproute procps-ng
+          cd files/spark-link
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: mDNS through Avahi, and idle CPU
+        run: |
+          set -o pipefail
+          dnf -y install --setopt=install_weak_deps=False avahi avahi-tools dbus-daemon
+          mkdir -p /run/dbus
+          dbus-daemon --system --fork
+          avahi-daemon --daemonize --no-chroot --no-drop-root || avahi-daemon --daemonize --no-chroot
+          sleep 2
+          export HOME=$(mktemp -d)
+          python3 files/spark-link/tests/smoke.py /usr/bin/spark-link --mdns --cpu 10 | tee smoke.txt
+          { echo '### Spark Link idle'; grep '^cpu:' smoke.txt; } >> "$GITHUB_STEP_SUMMARY"
+
+  sparkos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: Install, self-test, tests, uninstall as a normal user
+        run: |
+          sudo podman run --rm -v "$PWD/files/spark-link:/src:ro" "$IMAGE" bash -euo pipefail -c '
+            echo "--- what the image has"
+            command -v openssl && openssl version
+            python3 -c "import ssl, gi; print(ssl.OPENSSL_VERSION); from gi.repository import Gio; print(\"Gio ok\")" || true
+            echo "firewalld: $(systemctl is-enabled firewalld.service 2>/dev/null || echo unknown)"
+            if command -v firewall-offline-cmd >/dev/null; then
+              zone=$(firewall-offline-cmd --get-default-zone)
+              echo "default zone $zone: ports [$(firewall-offline-cmd --zone=$zone --list-ports)] services [$(firewall-offline-cmd --zone=$zone --list-services)]"
+            fi
+            echo "avahi-daemon: $(systemctl is-enabled avahi-daemon.service 2>/dev/null || echo unknown)"
+            echo "kdeconnect: $(ls /usr/bin/kdeconnect* 2>/dev/null | head -3 | tr "\n" " ")"
+
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            cp -r /src "$home/spark-link"
+            chown -R tester: "$home/spark-link"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester \
+                    LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+            usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+
+            echo "--- install --user"
+            as "bash ~/spark-link/install.sh --user"
+            as "test -x ~/.local/bin/spark-link"
+            as "grep -q \"^Exec=$home/.local/bin/spark-link$\" ~/.local/share/applications/dev.wolklaw.SparkLink.desktop"
+            as "grep -q \"^ExecStart=$home/.local/bin/spark-link --service$\" ~/.config/systemd/user/spark-link.service"
+            as "test -x ~/.local/share/kio/servicemenus/dev.wolklaw.SparkLink.send.desktop"
+            as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkLink.png"
+            as "test ! -e ~/.config/systemd/user/graphical-session.target.wants/spark-link.service"
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
+
+            echo "--- self-test and tests on the image'"'"'s Python and OpenSSL"
+            as "~/.local/bin/spark-link --version"
+            as "~/.local/bin/spark-link --self-test"
+            as "cd ~/spark-link && python3 -m unittest discover -s tests -v"
+
+            echo "--- the service runs from the user install"
+            as "python3 ~/spark-link/tests/smoke.py ~/.local/bin/spark-link --cpu 5"
+
+            echo "--- uninstall"
+            as "bash ~/spark-link/install.sh --user --uninstall"
+            left=$(as "find ~/.local ~/.config -iname \"*spark*link*\" -o -iname \"*SparkLink*\" | grep -v -e \"/.local/share/spark-link\" -e \"/.config/spark-link\" -e \"/.local/state/spark-link\"" || true)
+            if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
+            usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+            [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
+            echo "installed, tested and removed without root"
+          '

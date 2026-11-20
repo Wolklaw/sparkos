@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Update
+GenericName=System updates
+GenericName[fr]=Mises à jour du système
+Comment=See what changed in SparkOS, check for updates, restart or roll back
+Comment[fr]=Voir ce qui a changé dans SparkOS, vérifier les mises à jour, redémarrer ou revenir en arrière
+Exec=spark-update
+Icon=dev.wolklaw.SparkUpdate
+Terminal=false
+Categories=System;Settings;
+Keywords=update;updates;upgrade;system;sparkos;rollback;roll back;restart;version;flatpak;mise à jour;mises à jour;système;version précédente;
+Keywords[fr]=mise à jour;mises à jour;système;sparkos;revenir;version précédente;redémarrer;version;flatpak;
+StartupWMClass=SparkUpdate
+SingleMainWindow=true
+X-GNOME-UsesNotifications=true
+Actions=Settings;Log;
+
+[Desktop Action Settings]
+Name=Update settings
+Name[fr]=Réglages des mises à jour
+Exec=spark-update --view settings
+
+[Desktop Action Log]
+Name=Update log
+Name[fr]=Journal des mises à jour
+Exec=spark-update --view log

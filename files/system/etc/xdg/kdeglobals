@@ -8,6 +8,11 @@ widgetStyle=Breeze
 [KDE Control Module Restrictions][$i]
 kcm_updates=false
 
+# Hide KDE's "Get New Stuff" (themes and add-ons downloaded from store.kde.org inside Settings
+# and apps). A user can turn it back on with ghns=true in ~/.config/kdeglobals.
+[KDE Action Restrictions]
+ghns=false
+
 [General]
 ColorScheme=SparkOS
 AccentColor=155,232,184

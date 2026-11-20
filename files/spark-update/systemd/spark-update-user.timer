@@ -1,0 +1,10 @@
+[Unit]
+Description=Spark Update: hourly look at your apps and whether to notify
+
+[Timer]
+OnStartupSec=3min
+OnUnitActiveSec=1h
+RandomizedDelaySec=5min
+
+[Install]
+WantedBy=timers.target

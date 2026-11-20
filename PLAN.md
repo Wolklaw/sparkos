@@ -31,7 +31,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
    - **Spark Welcome, Spark Games, Spark Monitor 1.0: in the image (owner's decision, 2026-11-20)**, built by separate sessions from [briefs/](briefs/README.md) and merged in PRs #3 to #5. Welcome opens once at first login; Games gathers Steam, Heroic and Lutris libraries; Monitor is the Ctrl+Shift+Esc task manager. The boot test runs each one's self-test in the real image. Later Spark apps are optional, through a future Spark Portal.
    - **Androidbox: not in the image, but ready to install.** SparkOS ships what its Linux installer needs: `python3.13`, because Qt for Python has no packages for Fedora 45's Python 3.15, plus the Qt, SDL and emulator libraries. You install it for your user, with no root, from the latest release (see the switching guide). The boot test does exactly that on every build and starts it.
    - **Androidbox compatibility: parked (2026-11-20).** The owner will finish it later. The boot test no longer installs Androidbox as a user (that check was slow and kept failing). `python3.13` and the Qt/SDL libraries stay in the image, ready for when it's picked up.
-   - **App policy (2026-11-20):** SparkOS ships only the owner's own apps: Soot, FreeSuite and the Spark apps (Snip, Media, Welcome, Games, Monitor). Every other company's or project's app is removed, Bazzite's included (Steam, Lutris, Waydroid, Firefox and its other first-boot apps, Kate/KWrite, Filelight, the Portal), and is installable from the Store. ONLYOFFICE is gone too: old .doc/.xls/.ppt open in FreeSuite, which reads them partly. The platform stays: Plasma, Dolphin, Konsole, Spectacle, System Settings, Ark, KDE Connect and the Store.
+   - **App policy (2026-11-20):** SparkOS ships only the owner's own apps: Soot, FreeSuite and the Spark apps (Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan, Run, Link, Store, Update). Every other company's or project's app is removed, Bazzite's included (Steam, Lutris, Waydroid, Firefox and its other first-boot apps, Kate/KWrite, Filelight, the Portal), and is installable from the Store. ONLYOFFICE is gone too: old .doc/.xls/.ppt open in FreeSuite, which reads them partly. The platform stays: Plasma, Dolphin, Konsole, Spectacle, System Settings, Ark, KDE Connect and the Store.
    - **Updates:** publish a new release of Soot or FreeSuite, and the next image build (daily, or any push) includes it. The boot test then checks it.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**
    - **Chosen: E:, after its games are uninstalled.** In Phase 5, uninstall the Windows games on E: (Steam, Epic, Battle.net and Xbox app), then shrink E: in Disk Management (run as admin) and install SparkOS into the freed space. Uninstall the Xbox app's games through the Xbox app itself. Their protected `WindowsApps`/`XboxGames` files are what usually block a shrink.
@@ -132,12 +132,12 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 **Release 2: easy wins**
 | Today | SparkOS's own | Status |
 |---|---|---|
-| Chakra Petch downloaded from Google's GitHub at every build | The font kept in this repo (OFL allows it) | Brief: [release2-cleanup](briefs/release2-cleanup.md) |
-| Plasma System Monitor | Spark Monitor, already shipping; KDE's removed | Brief: release2-cleanup |
-| Gear Lever, fetched to open `.AppImage` files | A small Spark handler in `sparkos-open-package` | Brief: release2-cleanup |
-| Tailscale, preinstalled by Bazzite | Removed (installable by anyone who wants it) | Brief: release2-cleanup |
-| Fedora's usage counting and connectivity check, KDE's "Get New Stuff" | Off, or pointed at SparkOS's own address | Brief: release2-cleanup |
-| Spectacle, which Spark Snip uses to capture | Spark Snip captures through KWin directly | Brief: [spark-snip-capture](briefs/spark-snip-capture.md) |
+| Chakra Petch downloaded from Google's GitHub at every build | The font kept in this repo (OFL allows it) | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) ([brief](briefs/release2-cleanup.md)) |
+| Plasma System Monitor | Spark Monitor, already shipping, also on Meta+Esc and Ctrl+Esc; KDE's removed | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
+| Gear Lever, fetched to open `.AppImage` files | A small Spark handler in `sparkos-open-package` | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
+| Tailscale, preinstalled by Bazzite | Removed (installable by anyone who wants it) | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
+| Fedora's usage counting and connectivity check, KDE's "Get New Stuff" | Usage counting off and Get New Stuff hidden in PR [#13](https://github.com/Wolklaw/sparkos/pull/13); the connectivity check is the owner's call (in the PR) |
+| Spectacle, which Spark Snip uses to capture | Spark Snip captures through KWin directly | Done in the first release: Spectacle removed after the boot test's real-session capture passed |
 | Bazzite/ublue update tools (`ujust`, their update service and rollback helper) | **Spark Update**: "SparkOS updated, restart?", what changed, one-click rollback | Brief: [spark-update](briefs/spark-update.md) |
 
 **Release 3: bigger moves**
@@ -146,7 +146,7 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 | Bazaar, the store | **Spark Store**: SparkOS's own store over Flathub, with the Spark apps in it (the Spark Portal idea) | Brief: [spark-store](briefs/spark-store.md) |
 | Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Prototype on a separate image: [sparkos-on-fedora](briefs/sparkos-on-fedora.md) |
 | BlueBuild | A plain Containerfile and SparkOS's scripts | Side-by-side build: [build-without-bluebuild](briefs/build-without-bluebuild.md) |
-| Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | Brief: [spark-run](briefs/spark-run.md) |
+| Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | In the first release ([#17](https://github.com/Wolklaw/sparkos/pull/17)) |
 | Ark | Spark Archive | Brief: [spark-archive](briefs/spark-archive.md) |
 | KDE Connect | Spark Link: the PC side in SparkOS, the phone side in Soot's Android app, no outside service | Briefs: [spark-link](briefs/spark-link.md), [protocol](docs/spark-link-protocol.md) |
 

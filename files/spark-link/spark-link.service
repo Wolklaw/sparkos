@@ -1,0 +1,22 @@
+[Unit]
+Description=Spark Link: your phone and this PC, over the local network
+Documentation=https://github.com/Wolklaw/sparkos/tree/main/files/spark-link
+# The window enables this unit the first time you pair a phone (systemctl --user enable --now);
+# it isn't on for anyone who never used Spark Link. It needs the desktop session for
+# notifications and the clipboard, so it starts and stops with it.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=@BIN@ --service
+Restart=on-failure
+RestartSec=5
+Nice=5
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=graphical-session.target

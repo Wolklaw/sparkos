@@ -1,0 +1,15 @@
+// Spark Update: whoever is sitting at the PC may start a check now from the window, without a
+// password. It does what the hourly timer does on its own (look for, download and stage the
+// new SparkOS version); it never restarts the PC. Roll back and settings still ask for an
+// administrator password (dev.wolklaw.SparkUpdate.helper).
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.local && subject.active &&
+        action.lookup("verb") == "start") {
+        var unit = action.lookup("unit");
+        if (unit == "spark-update-now@check.service" ||
+            unit == "spark-update-now@stage.service") {
+            return polkit.Result.YES;
+        }
+    }
+});
