@@ -4,12 +4,16 @@ name: spark-store
 #
 # fedora:  runs the image build step in a plain Fedora container, the self-test, the unit and
 #          UI tests under Xvfb (installs, removals and updates run through the queue against a
-#          fake flatpak), then downloads the real Flathub catalog with flatpak and measures
-#          the time to first paint and to the catalog on screen, cold and cached.
-# sparkos: inside the published SparkOS image, installs it for a normal user with
-#          install.sh --user (no root), runs the self-test and the unit tests on the image's
-#          Python, has that user's flatpak download the Flathub catalog and self-tests against
-#          it, uninstalls, and checks nothing is left behind.
+#          fake flatpak), then downloads the real Flathub catalog with flatpak, installs and
+#          removes one real app through the Store's window, and measures the time to first
+#          paint and to the catalog on screen, cold and cached.
+# sparkos: inside the published SparkOS image: runs the image build step as root, then, as a
+#          normal user, install.sh --user (no root), the self-test and the unit tests on the
+#          image's Python; has that user's flatpak download the Flathub catalog, self-tests
+#          against it, installs, updates and removes one real app through the Store's queue,
+#          uninstalls the Store, and checks nothing is left behind.
+#
+# The real app is the first of $APPS in the catalog: small apps on the freedesktop runtime.
 on:
   push:
     paths:
@@ -23,11 +27,16 @@ on:
       - ".github/workflows/spark-store.yml"
   workflow_dispatch:
 
+env:
+  APPS: com.github.rkoesters.xkcd-gtk ch.imatt.ClipQR dev.edfloreshz.Calculator
+
 jobs:
   fedora:
     runs-on: ubuntu-24.04
-    container: registry.fedoraproject.org/fedora:latest
-    timeout-minutes: 30
+    container:
+      image: registry.fedoraproject.org/fedora:latest
+      options: --privileged          # flatpak install runs its triggers in bubblewrap
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
@@ -49,6 +58,11 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
           for i in 1 2 3; do flatpak update --user --appstream flathub && break; sleep $((i*20)); done
           SPARK_STORE_REQUIRE_CATALOG=1 spark-store --self-test
+
+      - name: Install and remove a real app through the window (Xvfb)
+        run: |
+          xvfb-run -a -s "-screen 0 1920x1080x24" \
+            python3 files/spark-store/tests/real_flatpak_check.py --ui $APPS
 
       - name: Speed (first paint, catalog on screen, idle CPU)
         run: |
@@ -89,9 +103,16 @@ jobs:
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
 
-      - name: Install, self-test, uninstall as a normal user
+      - name: The image build step, as root, in the SparkOS image
         run: |
           sudo podman run --rm -v "$PWD/files:/src:ro" "$IMAGE" bash -euo pipefail -c '
+            CONFIG_DIRECTORY=/src bash /src/scripts/spark-store.sh
+            spark-store --self-test
+          '
+
+      - name: Install, self-test, a real app, uninstall as a normal user
+        run: |
+          sudo podman run --rm --privileged -e APPS -v "$PWD/files:/src:ro" "$IMAGE" bash -euo pipefail -c '
             useradd -m tester
             # an image ships /var empty; a booted SparkOS has /var/tmp, which flatpak needs
             mkdir -p /var/tmp && chmod 1777 /var/tmp
@@ -129,6 +150,9 @@ jobs:
             for i in 1 2 3; do as "flatpak update --user --appstream flathub" && { ok=1; break; }; sleep $((i*20)); done
             [ "$ok" = 1 ]
             as "SPARK_STORE_REQUIRE_CATALOG=1 ~/.local/bin/spark-store --self-test"
+
+            echo "--- install, update and remove a real app through the queue"
+            as "python3 ~/files/spark-store/tests/real_flatpak_check.py $APPS"
 
             echo "--- uninstall"
             as "bash ~/files/spark-store/install.sh --user --uninstall"
