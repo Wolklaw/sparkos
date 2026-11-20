@@ -14,7 +14,7 @@ Everything runs on the computer. Nothing is uploaded.
 
 ## How it works
 
-- **Screenshots:** on Plasma, Spark Snip asks KWin for the whole desktop over D-Bus (`org.kde.KWin.ScreenShot2`, `CaptureWorkspace`, at the screens' native resolution). KWin writes the pixels into a pipe; there is no helper program and no file on disk. If KWin refuses or isn't there, it asks the XDG Desktop Portal for a screenshot instead. grim and gnome-screenshot are used on other Wayland desktops, and Pillow on X11. Spark Snip then shows that frozen frame full screen, so what you pick is exactly what you saw. Spectacle is not used.
+- **Screenshots:** on Plasma, Spark Snip asks KWin for the whole desktop over D-Bus (`org.kde.KWin.ScreenShot2`, `CaptureWorkspace`, at the screens' native resolution). KWin writes the pixels into a pipe; there is no helper program and no file on disk. If KWin refuses or isn't there, it uses Spectacle while Spectacle is still installed, then asks the XDG Desktop Portal for a screenshot. grim and gnome-screenshot are used on other Wayland desktops, and Pillow on X11. Spark Snip then shows that frozen frame full screen, so what you pick is exactly what you saw. Spark Snip never needs Spectacle.
 - **Text:** Tesseract, with the same preprocessing as QuickOCR: three variants, and the most confident read wins.
 - **Recording:** the desktop's ScreenCast portal shares one monitor as a PipeWire stream, and GStreamer crops it to the area and encodes it. It tries the GPU (VA-API H.264) first, then x264, OpenH264, and finally VP8 in WebM. The first recording on each monitor shows Plasma's share dialog. The answer is remembered after that. System sound is on by default and the microphone is off. Switch them in the main window, or with M and S in the overlay.
 - **Interface:** Tk, in the Wolklaw app style: BotWatch palette, mono type, sharp corners, and the magenta/cyan channel slip.
@@ -25,6 +25,7 @@ Everything runs on the computer. Nothing is uploaded.
 python3 spark_snip.py                 # the window
 python3 spark_snip.py text            # straight to a capture: text, image or video
 python3 spark_snip.py --self-test     # OCR samples, capture setup, a test encode; no display needed
+python3 spark_snip.py --capture-test /tmp/snip.png  # in a Plasma session: one screenshot through KWin only; exit 1 if it fails
 python3 spark_snip.py --capture-check # on a desktop: try every capture path, save the results
 sudo bash install.sh --deps           # system-wide, with Fedora packages (what the image build runs)
 python3 -m unittest discover -s tests -v

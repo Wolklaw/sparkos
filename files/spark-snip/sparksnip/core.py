@@ -464,9 +464,12 @@ class Monitor(NamedTuple):
 
 # Built in (sparksnip/capture.py): 'kwin' is KWin's ScreenShot2 D-Bus interface, 'portal'
 # the XDG Desktop Portal's Screenshot call, 'pil' Pillow on X11 and Windows. The helper
-# programs below are only for other Wayland desktops. Spectacle is not used.
+# programs below are for other Wayland desktops, and Spectacle is only a fallback on Plasma
+# for as long as it is still installed: Spark Snip never needs it.
 BUILT_IN_CAPTURE = ('kwin', 'portal', 'pil')
 CAPTURE_TOOLS: Dict[str, Callable[[str], List[str]]] = {
+    'spectacle': lambda path: ['spectacle', '--background', '--nonotify', '--fullscreen',
+                               '--output', path],
     'grim': lambda path: ['grim', path],                       # Sway, Hyprland, wlroots
     'gnome-screenshot': lambda path: ['gnome-screenshot', '--file', path],
 }
@@ -485,7 +488,8 @@ def capture_order() -> List[str]:
     if 'gnome' in desktop:
         return ['gnome-screenshot', 'portal']
     if 'kde' in desktop or not desktop:
-        return ['kwin', 'portal']
+        # Spectacle before the portal: the portal may show a dialog, Spectacle never does
+        return ['kwin', 'spectacle', 'portal']
     return ['grim', 'portal']
 
 

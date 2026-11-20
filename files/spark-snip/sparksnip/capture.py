@@ -427,13 +427,51 @@ def self_check() -> Dict[str, Any]:
         report['raw_decode'] = f"failed: {exc}"
     orders = orders_by_desktop()
     report['capture_order'] = orders
-    report['spectacle_required'] = any('spectacle' in order for order in orders.values())
+    # Spectacle may be tried after a built-in method, but never in place of one
+    report['spectacle_required'] = any(
+        'spectacle' in order and not set(order[:order.index('spectacle')]) & {'kwin', 'portal'}
+        for order in orders.values())
     report['plasma_uses_kwin'] = orders['plasma'][:1] == ['kwin']
     report['spectacle_installed'] = bool(shutil.which('spectacle'))     # just for the record
     entries = [check_desktop_entry(path) for path in desktop_entry_paths()]
     report['desktop_entries'] = entries
     report['passed'] = (ok and report['raw_decode'] is True and not report['spectacle_required']
                         and report['plasma_uses_kwin'] and all(e['passed'] for e in entries))
+    return report
+
+
+def capture_test(path: str) -> Dict[str, Any]:
+    """spark-snip --capture-test FILE: one full-screen screenshot through KWin only (no
+    portal, no Spectacle), saved as PNG. For the boot test, run in the user's Plasma session.
+    Fails when KWin refuses, sends nothing usable, or sends a picture of a single colour
+    (what a broken capture usually looks like; a real desktop never is one)."""
+    report: Dict[str, Any] = {'method': 'kwin CaptureWorkspace', 'file': path}
+    started = time.monotonic()
+    try:
+        with KWinScreenShot() as kwin:
+            try:
+                report['kwin_version'] = kwin.version()
+            except ScreenReadError as exc:
+                report['kwin_version'] = str(exc)
+            image = kwin.workspace().convert('RGB')
+    except ScreenReadError as exc:
+        report['error'] = str(exc)
+        report['passed'] = False
+        return report
+    report['ms'] = round((time.monotonic() - started) * 1000)
+    report['size'] = list(image.size)
+    report['single_colour'] = all(low == high for low, high in image.getextrema())
+    try:
+        folder = os.path.dirname(os.path.abspath(path))
+        os.makedirs(folder, exist_ok=True)
+        image.save(path, 'PNG')
+    except (OSError, ValueError) as exc:
+        report['error'] = f"could not save {path}: {exc}"
+        report['passed'] = False
+        return report
+    if report['single_colour']:
+        report['error'] = "KWin sent a picture of a single colour"
+    report['passed'] = not report['single_colour']
     return report
 
 

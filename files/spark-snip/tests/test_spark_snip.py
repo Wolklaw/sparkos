@@ -129,7 +129,7 @@ class LogicTests(unittest.TestCase):
 
 
 class CaptureLogicTests(unittest.TestCase):
-    """Reading the screen without Spectacle: decoding, order, desktop entry. Run anywhere."""
+    """Reading the screen without needing Spectacle: decoding, order, desktop entry."""
 
     def test_raw_rgbx_with_padded_rows(self):
         width, height, stride = 3, 2, 3 * 4 + 4
@@ -158,16 +158,16 @@ class CaptureLogicTests(unittest.TestCase):
             capture.image_from_raw(bytes(16), 2, 2, 8, 9999)
 
     @unittest.skipIf(os.name == 'nt', "Windows always uses Pillow")
-    def test_no_desktop_uses_spectacle(self):
+    def test_spectacle_is_only_a_fallback(self):
         orders = capture.orders_by_desktop()
-        self.assertEqual(orders['plasma'], ['kwin', 'portal'])
+        self.assertEqual(orders['plasma'], ['kwin', 'spectacle', 'portal'])
         for desktop, order in orders.items():
-            self.assertNotIn('spectacle', order, desktop)
             self.assertIn('portal', order, desktop)
-        self.assertNotIn('spectacle', core.CAPTURE_TOOLS)
+            if 'spectacle' in order:
+                self.assertIn(order[0], ('kwin', 'pil'), desktop)
 
-    def test_forced_spectacle_is_refused(self):
-        with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'spectacle'}):
+    def test_unknown_capture_method_is_refused(self):
+        with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'nosuchtool'}):
             with self.assertRaises(core.CaptureError) as caught:
                 core.grab_screen()
         self.assertIn("not a capture method", str(caught.exception))
@@ -289,21 +289,85 @@ class DBusCaptureTests(unittest.TestCase):
         self.assertEqual(tool, 'kwin')
         self.assertEqual(shot.size, (300, 200))
 
+    def without_spectacle(self):
+        real = shutil.which
+        return mock.patch.object(core.shutil, 'which',
+                                 lambda name, *a, **k: None if name == 'spectacle'
+                                 else real(name, *a, **k))
+
+    def fake_spectacle(self):
+        """A 'spectacle' on PATH that writes a 90 x 60 picture where --output says."""
+        bin_dir = os.path.join(self.folder, 'bin')
+        os.makedirs(bin_dir)
+        script = os.path.join(bin_dir, 'spectacle')
+        with open(script, 'w', encoding='utf-8') as f:
+            f.write(f"#!{sys.executable}\n"
+                    "import sys\n"
+                    "from PIL import Image\n"
+                    "out = sys.argv[sys.argv.index('--output') + 1]\n"
+                    "Image.new('RGB', (90, 60), (4, 5, 6)).save(out, 'PNG')\n")
+        os.chmod(script, 0o755)
+        return mock.patch.dict(os.environ, {'PATH': bin_dir + os.pathsep + os.environ['PATH']})
+
+    def test_falls_back_to_spectacle_while_it_is_installed(self):
+        self.start_fake('--kwin-refuses')
+        with self.fake_spectacle():
+            shot, tool = core.grab_screen()
+        self.assertEqual(tool, 'spectacle')
+        self.assertEqual(shot.size, (90, 60))
+        self.assertNotIn("portal Screenshot", self.calls())
+
     def test_falls_back_to_the_portal_when_kwin_refuses(self):
         self.start_fake('--kwin-refuses')
-        shot, tool = core.grab_screen()
+        with self.without_spectacle():
+            shot, tool = core.grab_screen()
         self.assertEqual(tool, 'portal')
         self.assertEqual(shot.getpixel((0, 0)), (1, 2, 3))
         self.assertIn("portal Screenshot interactive=False", self.calls())
 
     def test_reports_every_failure_clearly(self):
         self.start_fake('--no-kwin', '--no-portal')
-        with self.assertRaises(core.CaptureError) as caught:
+        with self.without_spectacle(), self.assertRaises(core.CaptureError) as caught:
             core.grab_screen()
         message = str(caught.exception)
         self.assertTrue(message.startswith("Could not read the screen."), message)
         self.assertIn("KWin CaptureWorkspace", message)
+        self.assertIn("spectacle: not installed", message)
         self.assertIn("portal:", message)
+
+    def run_capture_test(self):
+        """spark-snip --capture-test FILE, exactly as the boot test runs it."""
+        import json
+        out = os.path.join(self.folder, 'snip.png')
+        proc = subprocess.run([sys.executable, os.path.join(os.path.dirname(HERE),
+                                                            'spark_snip.py'),
+                               '--capture-test', out],
+                              capture_output=True, text=True, timeout=60)
+        return proc.returncode, json.loads(proc.stdout), out
+
+    def test_capture_test_command_passes(self):
+        self.start_fake()
+        code, report, out = self.run_capture_test()
+        self.assertEqual(code, 0, report)
+        self.assertTrue(report['passed'])
+        self.assertEqual(report['size'], [300, 200])
+        self.assertEqual(report['kwin_version'], 5)
+        with Image.open(out) as image:
+            self.assertEqual(image.size, (300, 200))
+
+    def test_capture_test_command_fails_when_kwin_refuses(self):
+        self.start_fake('--kwin-refuses')
+        with self.fake_spectacle():          # KWin only: Spectacle must not rescue it
+            code, report, out = self.run_capture_test()
+        self.assertEqual(code, 1, report)
+        self.assertIn("NoAuthorized", report['error'])
+        self.assertFalse(os.path.exists(out))
+
+    def test_capture_test_command_fails_on_a_blank_picture(self):
+        self.start_fake('--kwin-blank')
+        code, report, _out = self.run_capture_test()
+        self.assertEqual(code, 1, report)
+        self.assertTrue(report['single_colour'])
 
     def test_capture_check_saves_every_path(self):
         self.start_fake()

@@ -621,7 +621,7 @@ def self_test(skip_record: bool = False) -> int:
                 report["reads"].append({"lang": lang, "error": str(exc), "passed": False})
             ok = ok and passed
     report["ocr_passed"] = ok
-    # screenshots through KWin or the portal, never Spectacle
+    # screenshots through KWin or the portal; Spectacle is only ever a fallback
     from .capture import self_check
     report["capture"] = self_check()
     report["pygobject"] = report["capture"]["dbus"].startswith("PyGObject")
@@ -652,6 +652,10 @@ def main(argv: Optional[List[str]] = None) -> int:
                              "needs no display")
     parser.add_argument('--skip-record', action='store_true',
                         help="with --self-test: leave out the recording check")
+    parser.add_argument('--capture-test', metavar='FILE',
+                        help="on a running Plasma session: take one full-screen screenshot "
+                             "through KWin only, save it to FILE as PNG, print a report, and "
+                             "exit 1 if it failed")
     parser.add_argument('--capture-check', nargs='?', const='', metavar='FOLDER',
                         help="on a running desktop: take a screenshot every way Spark Snip "
                              "can (KWin workspace, screen, window, area, then the portal), "
@@ -663,6 +667,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     setup_logging()
     if args.self_test:
         return self_test(skip_record=args.skip_record)
+    if args.capture_test:
+        from .capture import capture_test
+        report = capture_test(args.capture_test)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["passed"] else 1
     if args.capture_check is not None:
         from .capture import capture_check
         folder = args.capture_check or os.path.join(cache_dir(), 'capture-check')

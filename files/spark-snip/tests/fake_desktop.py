@@ -3,9 +3,10 @@
 Run on a private session bus. It answers the way KWin 6.8 does: the reply (size, stride,
 pixel format) first, then the raw pixels written into the caller's pipe from another thread.
 
-    python3 fake_desktop.py FOLDER [--no-kwin] [--kwin-refuses] [--no-portal]
+    python3 fake_desktop.py FOLDER [--no-kwin] [--kwin-refuses] [--kwin-blank] [--no-portal]
 
-Prints READY once its names are owned. Every pixel is (x % 256, y % 256, 77).
+Prints READY once its names are owned. Every pixel is (x % 256, y % 256, 77), or black with
+--kwin-blank (what a broken capture looks like).
 """
 
 import os
@@ -45,7 +46,9 @@ PORTAL_XML = """
 </interface></node>"""
 
 
-def pixels(width, height, stride):
+def pixels(width, height, stride, blank=False):
+    if blank:
+        return bytes(stride * height)
     rows = []
     for y in range(height):
         row = bytearray(stride)
@@ -89,7 +92,7 @@ def main():
                    'width': GLib.Variant('u', width), 'height': GLib.Variant('u', height),
                    'stride': GLib.Variant('u', stride), 'scale': GLib.Variant('d', 1.0)}
         invocation.return_value(GLib.Variant('(a{sv})', (results,)))
-        write_later(fd, pixels(width, height, stride))
+        write_later(fd, pixels(width, height, stride, blank='--kwin-blank' in flags))
 
     def kwin_property(conn, sender, path, iface, name):
         return GLib.Variant('u', 5)
