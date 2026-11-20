@@ -44,7 +44,7 @@ Measured by CI on 2026-11-20 (GitHub runner: 4 vCPUs of an Intel Xeon 6975P-C, F
 | Every run after | 0.22 s | 0.21 s (index: 0.05 s) | 0.20% |
 | Animations off | 0.22 s | 0.21 s | 0.00% |
 
-First paint counts from the moment the process started, Python's own start-up included. A search over all apps takes about 8 ms. It hasn't been measured on the owner's Ryzen yet; the line above runs anywhere.
+First paint counts from the moment the process started, Python's own start-up included. A search over all apps takes about 8 ms. It hasn't been measured on the owner's Ryzen yet; `spark-store --bench 10` measures it on any PC.
 
 - The window, the Spark apps and the header are drawn first; the catalog index, the installed list and the update check load in threads. Icons load a few per idle moment.
 - When nothing is running, nothing is scheduled: the window only polls while a background job or the queue is busy. The idle 0.2% is the glitch on the title (every 7-12 s); it's off when Plasma's animations are off, and then the Store uses no CPU.
