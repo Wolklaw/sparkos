@@ -48,3 +48,11 @@ for e in id3demux apedemux taginject qtdemux matroskademux flacparse vorbisparse
          wavpackdec avdec_wmav2 avdec_ape avdec_alac jpegdec; do
   printf '%-14s %s\n' "$e" "$(gst-inspect-1.0 --exists "$e" 2>/dev/null && echo yes || echo no)"
 done
+echo "--- HEIF/AVIF (libheif) and D-Bus"
+rpm -q libheif libheif-freeworld libheif-tools libde265 x265-libs dav1d libaom dbus-tools dbus-daemon python3-dbus 2>&1 | sort
+ldconfig -p 2>/dev/null | grep -E 'libheif|libde265|libdav1d|libaom|libdbus' | sed 's/ (.*=>/ =>/' | sort -u
+ls /usr/lib64/libheif/plugins 2>/dev/null | sed 's/^/heif plugin: /'
+for cmd in heif-enc heif-dec heif-info heif-convert dbus-run-session dbus-daemon gdbus busctl dbus-send; do
+  printf 'command %-20s %s\n' "$cmd" "$(command -v "$cmd" || echo no)"
+done
+python3 /t/heif_probe.py

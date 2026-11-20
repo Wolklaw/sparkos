@@ -646,7 +646,7 @@ class MimeTests(unittest.TestCase):
         with open(desktop, encoding='utf-8') as f:
             claimed = set(re.search(r'^MimeType=(.*)$', f.read(), re.M).group(1).split(';'))
         missing = []
-        for ext in sorted(raw.RAW_EXT | {'m3u', 'm3u8'}):
+        for ext in sorted(raw.RAW_EXT | {'m3u', 'm3u8', 'heic', 'heif', 'hif', 'avif'}):
             if ext not in best:
                 continue
             print(f"mime: *.{ext} -> {', '.join(best[ext][1])}")

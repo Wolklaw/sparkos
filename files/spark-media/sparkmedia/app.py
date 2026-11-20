@@ -18,12 +18,13 @@ from tkinter import messagebox
 from PIL import Image
 
 from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, KINDS, VERSION
-from . import musiclib
+from . import instance, musiclib
 from . import player as gst
 from . import playlists as m3u
-from .core import (folder_items, image_formats, kind_of, load_json, log, natural_key,
-                   open_externally, path_from_arg, pick_files, pick_folder, reduced_motion,
-                   save_json, setup_logging, siblings, user_dir)
+from .core import (file_uri, folder_cover, folder_items, image_formats, kind_of, load_json,
+                   log, natural_key, open_externally, path_from_arg, pick_files, pick_folder,
+                   reduced_motion, save_json, setup_logging, siblings, user_dir)
+from .mpris import Mpris, art_url
 from .library import HomeView
 from .musicview import MusicView
 from .playview import MusicPlayerView, PlayerView
@@ -106,8 +107,12 @@ class App:
         self._scan_ended = 0.0
         self._library_listeners: List[Callable[[str, Any], None]] = []
         self._music: Optional[MusicSession] = None
+        self.mpris: Optional[Mpris] = None
         self._covers: Dict[str, Optional[Image.Image]] = {}
         self._build()
+        # one Spark Media: a second start hands its files to this window
+        self.listener = instance.Listener(self.root, self.remote_open)
+        self.listener.start()
 
         opened = False
         if paths:
@@ -340,7 +345,180 @@ class App:
     def music(self) -> MusicSession:
         if self._music is None:
             self._music = MusicSession(self)
+            self._start_mpris()
         return self._music
+
+    # ── opened again from outside ──
+    def raise_window(self):
+        root = self.root
+        root.deiconify()
+        root.lift()
+        try:
+            root.attributes('-topmost', True)
+            root.after(400, lambda: root.attributes('-topmost', False))
+        except tk.TclError:
+            pass
+        root.focus_force()
+
+    def remote_open(self, paths: List[str], kind: Optional[str] = None):
+        """Files from a second `spark-media` (a double-click in Dolphin while this is open).
+        Songs and playlists go into the queue and play now; a photo or a video opens here."""
+        self.raise_window()
+        songs: List[str] = []
+        for path in paths:
+            if os.path.isfile(path) and m3u.is_playlist(path):
+                try:
+                    songs += [p for p in m3u.read(path).items if kind_of(p) in ('music', None)]
+                except OSError as exc:
+                    log.warning("playlist %s: %s", path, exc)
+            elif os.path.isfile(path) and kind_of(path) == 'music':
+                songs.append(os.path.abspath(path))
+        if songs:
+            self.music.play_now(songs)
+            if isinstance(self.view, MusicView):
+                self.view._after_play()
+            elif not isinstance(self.view, MusicPlayerView):
+                if self._editing_photo():
+                    return
+                self.show_now_playing()
+            self.set_status(tr('status.playing_now', name=self.music.info()['title']).upper(),
+                            T["accent"])
+            return
+        files = [os.path.abspath(p) for p in paths if os.path.isfile(p)
+                 and kind_of(p) in ('photo', 'video')]
+        if files:
+            if self._editing_photo():
+                return
+            same = len({kind_of(f) for f in files}) == 1
+            self.open_path(files[0], playlist=files if len(files) > 1 and same else None)
+            return
+        if len(paths) == 1 and os.path.isdir(paths[0]):
+            _dirs, found = folder_items(paths[0])
+            self.show_home(kind or (kind_of(found[0]) if found else 'photo'), paths[0])
+        elif paths:
+            messagebox.showerror(APP_NAME, tr('app.cant_open', path=paths[0]), parent=self.root)
+        elif kind:
+            self.show_home(kind)
+
+    def _editing_photo(self) -> bool:
+        """True (and the new file is left alone) when an unsaved photo edit would be lost and
+        the person says to keep it."""
+        view = self.view
+        if isinstance(view, PhotoView) and view.editing and view.edits.changed:
+            if not messagebox.askyesno(APP_NAME, tr('edit.discard_ask'), parent=self.root):
+                return True
+            view.cancel_edit()
+        return False
+
+    # ── media keys and Plasma's media controls (MPRIS) ──
+    def _start_mpris(self):
+        session = self._music
+        if session is None or session.player is None or os.environ.get('SPARK_MEDIA_NO_MPRIS'):
+            return
+        player = session.player
+        mpris = Mpris(self.root, self._mpris_command,
+                      lambda: player.position() if self._music is not None else None)
+        if mpris.start():
+            self.mpris = mpris
+            session.listen(self._mpris_event)
+            self._mpris_event('state', None)
+
+    def _mpris_command(self, method: str, *args):
+        session = self._music
+        if session is None:
+            return
+        log.info("MPRIS: %s%s", method, args or '')
+        if method == 'Play':
+            if session.current is not None and not session.playing:
+                session.toggle()
+        elif method == 'Pause':
+            session.pause()
+        elif method == 'PlayPause':
+            session.toggle()
+        elif method == 'Stop':
+            session.stop()
+        elif method == 'Next':
+            session.next()
+        elif method == 'Previous':
+            session.prev()
+        elif method == 'Seek' and session.player is not None:
+            pos = (session.player.position() or 0) + args[0] / 1_000_000
+            duration = session.player.duration
+            if duration and pos > duration:
+                session.next()                       # the spec: past the end is Next
+            else:
+                session.seek(max(0.0, pos))
+        elif method == 'SetPosition' and session.player is not None:
+            pos = args[1] / 1_000_000
+            duration = session.player.duration
+            if pos >= 0 and (not duration or pos <= duration):
+                session.seek(pos)
+        elif method == 'OpenUri':
+            self.remote_open([path_from_arg(args[0])])
+        elif method == 'Raise':
+            self.raise_window()
+        elif method == 'Quit':
+            self._on_close()
+        elif method == 'SetShuffle':
+            session.set_shuffle(bool(args[0]))
+        elif method == 'SetLoopStatus':
+            session.set_repeat(args[0] in ('Playlist', 'Track'))
+        elif method == 'SetVolume':
+            session.set_volume(max(0.0, min(1.0, float(args[0]))))
+
+    def _mpris_event(self, what: str, data: Any):
+        if self.mpris is None or what == 'tick':
+            return
+        if what == 'seeked':
+            self.mpris.seeked(float(data or 0))
+            return
+        session = self._music
+        if session is None:
+            return
+        self.mpris.update(self._mpris_state(session))
+
+    def _mpris_state(self, session: MusicSession) -> Dict[str, Any]:
+        player = session.player
+        path = session.current
+        if player is None or path is None:
+            status = 'Stopped'
+        elif session.playing:
+            status = 'Playing'
+        elif session.stopped:
+            status = 'Stopped'
+        else:
+            status = 'Paused'
+        meta: Dict[str, Any] = {'mpris:trackid': '/org/mpris/MediaPlayer2/TrackList/NoTrack'}
+        if path is not None:
+            info = session.info()
+            song = self.song_info(path) or {}
+            length = (player.duration if player is not None and player.path == path else None) \
+                or song.get('length') or 0
+            cover_file = None
+            if song:
+                cover_file = musiclib.cover_path(
+                    musiclib.Album(musiclib.album_key(song), '').cover_id)
+            if not cover_file or not os.path.isfile(cover_file):
+                cover_file = folder_cover(path)
+            tags = player.tags if player is not None and player.path == path else None
+            meta = {'mpris:trackid': f'/dev/wolklaw/SparkMedia/track/{session.queue.index or 0}',
+                    'mpris:length': int(length * 1_000_000),
+                    'xesam:title': info['title'],
+                    'xesam:artist': [info['artist']] if info['artist'] else [],
+                    'xesam:album': info['album'],
+                    'xesam:albumArtist': [song['albumartist']] if song.get('albumartist') else [],
+                    'xesam:trackNumber': song.get('track') or 0,
+                    'xesam:url': file_uri(path),
+                    'mpris:artUrl': art_url(tags.cover if tags is not None else None,
+                                            cover_file, path)}
+        q = session.queue
+        return {'PlaybackStatus': status, 'Metadata': meta,
+                'LoopStatus': 'Playlist' if q.repeat else 'None', 'Shuffle': bool(q.shuffle),
+                'Volume': float(player.volume) if player is not None else 0.0,
+                'CanGoNext': len(q) > 1 or (path is not None and q.repeat),
+                'CanGoPrevious': path is not None, 'CanPlay': path is not None,
+                'CanPause': path is not None,
+                'CanSeek': bool(path is not None and player is not None and player.duration)}
 
     def music_if_started(self) -> Optional[MusicSession]:
         return self._music
@@ -498,6 +676,10 @@ class App:
         if self.view is not None:
             self.view.destroy()
             self.view = None
+        self.listener.stop()
+        if self.mpris is not None:
+            self.mpris.stop()
+            self.mpris = None
         if self._music is not None:
             self._music.close()
             self._music = None
@@ -654,8 +836,11 @@ def self_test(require: List[str]) -> int:
             print(f"  open {ext}: FAILED ({exc})")
             failures.append(f"photo {ext}")
     # what reads music tags and develops camera RAW here (reported, not required)
-    from . import raw, tags
+    from . import heif, raw, tags
     print(f"music tags: {tags.backend()}")
+    found = heif.decoders()
+    print(f"heic/avif: libheif {heif.version() or 'not found'}   HEIC (HEVC): "
+          f"{'yes' if found['heic'] else 'no'}   AVIF (AV1): {'yes' if found['avif'] else 'no'}")
     print(f"camera raw: built-in preview: yes   full decode: {raw.decoder() or 'no (no LibRaw)'}")
 
     problem = gst.init()
@@ -753,8 +938,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.self_test:
         return self_test([r.strip() for r in args.require.split(',') if r.strip()])
     setup_logging()
+    paths = [path_from_arg(a) for a in args.files]
+    if instance.hand_off(paths, args.kind):
+        log.info("handed %s to the open Spark Media", paths or "nothing")
+        return 0
     try:
-        app = App([path_from_arg(a) for a in args.files], args.kind)
+        app = App(paths, args.kind)
     except tk.TclError as exc:
         print(tr("cli.need_display", error=exc), file=sys.stderr)
         return 1

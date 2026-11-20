@@ -15,7 +15,7 @@ from urllib.parse import quote, unquote, urlparse
 from PIL import Image, ImageOps, ImageSequence, PngImagePlugin
 
 from . import APP_NAME, APP_SLUG, MUSIC_EXT, PHOTO_EXT, VERSION, VIDEO_EXT
-from . import raw
+from . import heif, raw
 from .text import tr
 
 log = logging.getLogger(APP_SLUG)
@@ -343,9 +343,9 @@ class Photo:
         except FileNotFoundError:
             raise PhotoError(tr('photo.gone')) from None
         except Exception as exc:     # noqa: BLE001 - Pillow raises many kinds
-            ext = os.path.splitext(path)[1][1:].upper()
-            if ext in ('HEIC', 'HEIF', 'AVIF'):
-                raise PhotoError(tr('photo.need_heif', ext=ext)) from None
+            if heif.is_heif(path):
+                self._open_heif(path)                # Pillow has no HEIC reader here
+                return
             log.warning("cannot open %s: %s", path, exc)
             raise PhotoError(tr('photo.damaged')) from None
         with source:
@@ -398,6 +398,23 @@ class Photo:
         self.exif = raw.exif_of(path, preview)
         self.taken = _date_taken_exif(self.exif)
         self.camera = _camera(self.exif)
+        self._finish()
+
+    def _open_heif(self, path: str):
+        try:
+            image, exif, label = heif.read(path)
+        except (OSError, heif.HeifError) as exc:
+            log.warning("cannot open %s: %s", path, exc)
+            why = heif.explain(path) if os.path.exists(path) else 'gone'
+            ext = os.path.splitext(path)[1][1:].upper()
+            raise PhotoError(tr('photo.gone') if why == 'gone' else
+                             tr(f'photo.heif_{why}', ext=ext)) from None
+        self.image = _displayable(image)
+        self.format = label
+        self.frames, self.durations = [], []
+        self.exif = exif
+        self.taken = _date_taken_exif(exif)
+        self.camera = _camera(exif)
         self._finish()
 
     def use_decoded(self, image: Image.Image):
@@ -560,8 +577,15 @@ def photo_thumbnail(path: str, flavour: str = 'large') -> Optional[Image.Image]:
             image = _displayable(ImageOps.exif_transpose(source))
             image.thumbnail((size, size), Image.Resampling.LANCZOS)
     except Exception as exc:      # noqa: BLE001
-        log.debug("no thumbnail for %s: %s", path, exc)
-        return None
+        if not heif.is_heif(path):
+            log.debug("no thumbnail for %s: %s", path, exc)
+            return None
+        try:
+            image = _displayable(heif.read(path, thumbnail=size)[0])   # its stored thumbnail
+            image.thumbnail((size, size), Image.Resampling.LANCZOS)
+        except (OSError, heif.HeifError) as why:
+            log.debug("no thumbnail for %s: %s", path, why)
+            return None
     store_thumbnail(path, image, flavour)
     return image
 
@@ -574,4 +598,7 @@ def image_formats() -> Dict[str, bool]:
     for ext in ('jpg', 'png', 'gif', 'webp', 'bmp', 'tiff', 'avif', 'heic'):
         out[ext] = ext in registered
     out['webp'] = out['webp'] and bool(features.check('webp'))
+    found = heif.decoders()             # libheif, when Pillow has no plugin for them
+    out['avif'] = out['avif'] or found['avif']
+    out['heic'] = out['heic'] or found['heic']
     return out
