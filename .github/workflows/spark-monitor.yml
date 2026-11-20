@@ -82,8 +82,9 @@ jobs:
             home=$(getent passwd tester | cut -d: -f6)
             cp -r /src "$home/spark-monitor"
             chown -R tester: "$home/spark-monitor"
-            # runuser, not su: su wants a PAM session, which a container cannot open
-            as() { (cd "$home" && runuser -u tester -- env -i HOME="$home" USER=tester \
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester \
                     LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
             usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
 
