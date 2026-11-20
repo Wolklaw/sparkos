@@ -135,7 +135,7 @@ for f in \
   /usr/share/color-schemes/SparkOS.colors \
   /usr/share/plasma/look-and-feel/dev.wolklaw.sparkos.desktop/metadata.json \
   "$LNF/layouts/org.kde.plasma.desktop-layout.js" \
-  "$LNF/splash/Splash.qml" "$LNF/splash/images/bot.png" "$LNF/previews/preview.png" \
+  "$LNF/splash/Splash.qml" "$LNF/splash/images/bot.png" "$LNF/splash/images/bot.gif" "$LNF/previews/preview.png" \
   "$WALL/3840x2160.png" /usr/share/wallpapers/SparkOS/metadata.json \
   "$PLY/sparkos.plymouth" "$PLY/watermark.png" \
   /usr/share/icons/hicolor/256x256/apps/sparkos.png /usr/share/pixmaps/sparkos-logo.png \

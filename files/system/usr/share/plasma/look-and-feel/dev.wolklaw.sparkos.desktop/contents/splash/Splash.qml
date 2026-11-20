@@ -17,14 +17,33 @@ Rectangle {
         anchors.centerIn: parent
         spacing: 26
 
-        Image {
-            id: bot
+        // The bot hammering the anvil (tools/make-splash-animation.py), in time with the
+        // startup zaps. Plays once and rests on the last frame; the still image stands in
+        // if the animation can't load.
+        Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            source: "images/bot.png"
             width: 280
             height: 280
-            smooth: true
-            mipmap: true
+
+            AnimatedImage {
+                id: bot
+                anchors.fill: parent
+                source: "images/bot.gif"
+                smooth: true
+                playing: true
+                onCurrentFrameChanged: {
+                    if (frameCount > 0 && currentFrame === frameCount - 1) {
+                        playing = false
+                    }
+                }
+            }
+            Image {
+                anchors.fill: parent
+                source: "images/bot.png"
+                visible: bot.status !== AnimatedImage.Ready
+                smooth: true
+                mipmap: true
+            }
         }
 
         // Wordmark: the text three times, the two channel copies slipped sideways
