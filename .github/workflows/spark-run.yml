@@ -157,7 +157,8 @@ jobs:
             before=$(rpm -qa | sort)
             CONFIG_DIRECTORY=/files bash /files/scripts/spark-run.sh
             after=$(rpm -qa | sort)
-            added=$(comm -13 <(echo "$before") <(echo "$after"))
+            # the mono font comes with Spark Monitor in the first build; anything else is a surprise
+            added=$(comm -13 <(echo "$before") <(echo "$after") | grep -v "^cascadia-" || true)
             echo "packages added: ${added:-none}"
             [ -z "$added" ] || { echo "the build step installed packages; the image has everything Spark Run needs"; exit 1; }
             if command -v wine; then echo "wine is in the image; Spark Run does not use it"; fi

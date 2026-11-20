@@ -10,8 +10,8 @@
 #            what the SparkOS image has (Python 3 with tkinter); Wine itself is downloaded by
 #            Spark Run the first time someone runs a Windows program, not by this script.
 # --deps     system-wide only: install what it needs with dnf first (Fedora; the image build):
-#            Python with tkinter and Pillow, and the libraries Wine loads (by soname, so
-#            nothing is added when the image already has them).
+#            Python with tkinter and Pillow, the house mono font (Cascadia Mono), and the
+#            libraries Wine loads (by soname), so nothing is added when the image has them.
 # --purge    with --user --uninstall: also delete ~/.local/share/spark-run (downloaded Wine
 #            and every installed Windows app) and the apps' menu entries.
 # --no-test  skip the self-test at the end.
@@ -187,7 +187,7 @@ fi
 
 if [ "$DEPS" = 1 ]; then
   missing=()
-  for pkg in python3 python3-tkinter $WINE_LIBS; do
+  for pkg in python3 python3-tkinter cascadia-mono-fonts $WINE_LIBS; do
     rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
   done
   if [ ${#missing[@]} -gt 0 ]; then

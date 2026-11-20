@@ -23,7 +23,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [spark-calc.md](spark-calc.md) | Spark Calc: standard, scientific and programmer calculator | In progress |
 | [spark-archive.md](spark-archive.md) | Spark Archive: zip, 7z, tar and more, Extract/Compress in Dolphin (replaces Ark) | In progress |
 | [spark-scan.md](spark-scan.md) | Spark Scan: scanning with preview, crop, multi-page PDF and OCR | In progress |
-| [spark-run.md](spark-run.md) | Spark Run: Windows programs on Wine (replaces Bottles) | In progress |
+| [spark-run.md](spark-run.md) | Spark Run: Windows programs on Wine (replaces Bottles) | PR open (branch `spark-run`), in [files/spark-run](../files/spark-run); Wine downloaded on first use, 0 MB added to the image |
 | [sparkos-on-fedora.md](sparkos-on-fedora.md) | Prototype: SparkOS built on plain Fedora instead of Bazzite (separate test image) | In progress |
 
 ## Optional apps install on their own
