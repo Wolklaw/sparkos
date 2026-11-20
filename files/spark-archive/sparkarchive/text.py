@@ -68,7 +68,7 @@ EN = {
     'done.compressed': "Made {name} ({size}).",
     'done.replaced': "{n} existing files replaced.",
     'done.skipped': "{n} files skipped (you chose Skip).",
-    'done.problems': "{n} items left out:",
+    'done.problems': "Left out ({n}):",
     'done.cancelled_extract': "Cancelled. What this extraction had written was removed.",
     'done.cancelled_extract_replaced': "Cancelled. What this extraction had written was "
                                        "removed; {n} files it had already replaced stay "

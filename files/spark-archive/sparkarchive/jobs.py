@@ -299,6 +299,8 @@ class ExtractJob(Job):
                     return Result(error='cant_write', detail=f"{self.dest}: {exc.strerror}")
                 made_root = root
         res.output = root
+        if self.new_folder and root == self.dest:
+            res.output = os.path.join(self.dest, stem(self.archive))   # its one folder
 
         # room
         try:

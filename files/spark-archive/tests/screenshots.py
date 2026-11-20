@@ -81,13 +81,21 @@ def main():
 
     # the Dolphin progress window, held on its progress panel
     from sparkarchive.jobwindow import JobWindow
+    from sparkarchive import jobs
+    import time
+    real_add = jobs.Job._add_bytes
+
+    def slow_add(self, n):                     # screenshots only: a slow disk
+        time.sleep(0.03)
+        real_add(self, n)
+    jobs.Job._add_bytes = slow_add
     big = os.path.join(tmp, 'big.zip')
     with zipfile.ZipFile(big, 'w', zipfile.ZIP_STORED) as zf:
         for i in range(40):
             zf.writestr(f'big/part{i:02d}.bin', os.urandom(3 << 20))
     win = JobWindow('extract-here', [big])
     win.root.geometry('+0+0')
-    settle(win.root, 700)
+    settle(win.root, 1500)
     if win.job is not None:
         grab(win.root, os.path.join(out, 'progress.png'))
         win.cancel()

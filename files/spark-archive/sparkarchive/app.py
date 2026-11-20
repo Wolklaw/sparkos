@@ -539,31 +539,48 @@ class App(Look):
         self.root.mainloop()
 
 
+def process_age() -> Optional[float]:
+    """Seconds since this process started (Python's own start-up included), from /proc."""
+    try:
+        with open('/proc/self/stat', encoding='ascii') as f:
+            stat = f.read()
+        with open('/proc/uptime', encoding='ascii') as f:
+            up = float(f.read().split()[0])
+        start = int(stat[stat.rfind(')') + 2:].split()[19])
+        return up - start / os.sysconf('SC_CLK_TCK')
+    except (OSError, ValueError, IndexError, AttributeError):
+        return None
+
+
 def bench(path: Optional[str], seconds: float) -> int:
-    """Open the window (and an archive), report time to first paint and to the listing."""
-    started = time.monotonic()
+    """Open the window (and an archive); report the time to first paint and to the listing,
+    from the moment the process started (Python's own start-up included)."""
+    age = process_age()
+    base = time.monotonic() - (age or 0.0)
     app = App(path)
     shown: Dict[str, float] = {}
 
     def check():
         if app.first_paint and 'paint' not in shown:
-            shown['paint'] = app.first_paint - started
+            shown['paint'] = app.first_paint - base
         if path and app.listing is not None and 'listed' not in shown:
-            shown['listed'] = time.monotonic() - started
-        if time.monotonic() - started > seconds or ('paint' in shown and
-                                                    (not path or 'listed' in shown)):
+            shown['listed'] = time.monotonic() - base
+        if time.monotonic() - base > seconds or ('paint' in shown and
+                                                 (not path or 'listed' in shown)):
             app.root.destroy()
             return
         app.root.after(20, check)
 
     app.root.after(20, check)
     app.root.mainloop()
+    since = "process start" if age is not None else "window creation"
     paint = shown.get('paint')
-    print(f"first paint: {paint * 1000:.0f} ms" if paint is not None else "first paint: none")
+    print(f"first paint: {paint * 1000:.0f} ms after {since}" if paint is not None
+          else "first paint: none")
     if path:
         listed = shown.get('listed')
-        print(f"listed {os.path.basename(path)}: {listed * 1000:.0f} ms" if listed is not None
-              else "listing: not finished")
+        print(f"listed {os.path.basename(path)}: {listed * 1000:.0f} ms after {since}"
+              if listed is not None else "listing: not finished")
     log.info("bench: %s", shown)
     return 0 if paint is not None else 1
 

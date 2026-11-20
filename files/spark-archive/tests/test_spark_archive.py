@@ -742,7 +742,7 @@ class TestBehaviour(Base):
     def test_extract_to_folder_no_double_folder(self):
         arc = self.zip('project.zip', {'project/a.txt': 'a', 'project/src/b.py': 'b'})
         res = self.extract(arc, new_folder=True)
-        self.assertEqual(res.output, self.dest)
+        self.assertEqual(res.output, os.path.join(self.dest, 'project'))
         self.assertEqual(tree(self.dest), ['project/', 'project/a.txt', 'project/src/',
                                            'project/src/b.py'])
 
