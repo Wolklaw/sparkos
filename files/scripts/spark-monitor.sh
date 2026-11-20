@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Spark Monitor, the SparkOS task manager (Ctrl+Shift+Esc). Its source lives in this repo at
-# files/spark-monitor. Plasma System Monitor stays in the image next to it for now; whether
-# Spark Monitor replaces it is the owner's call.
+# files/spark-monitor. It replaces Plasma System Monitor, which the recipe removes
+# (sparkos-cleanup.sh checks that it's gone and gives Spark Monitor its keys).
 #
 # install.sh --deps installs it system-wide, links its desktop entry into
 # /usr/share/kglobalaccel so Plasma registers Ctrl+Shift+Esc, and runs --self-test (reads
