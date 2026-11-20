@@ -648,6 +648,53 @@ def run_app(kwin, app, launcher, session_env, lang, out_dir, number, screenshots
     return result
 
 
+ELECTRON_TRIES = [('started again', []),
+                  ('XWayland (--ozone-platform=x11)', ['--ozone-platform=x11']),
+                  ('no GPU (--disable-gpu)', ['--disable-gpu']),
+                  ('no KWallet (--password-store=basic)', ['--password-store=basic'])]
+
+
+def diagnose(kwin, app, session_env, out_dir, number):
+    """Not a fix and not part of the verdict: when an Electron app (FreeSuite) shows no window,
+    start its program directly a few more ways to narrow down why. -> lines for the report."""
+    folder = os.path.dirname(os.path.realpath(app['program'] or ''))
+    if not glob.glob(os.path.join(folder, 'chrome-sandbox')):
+        return []
+    lines = []
+    real = os.path.realpath(app['program'])
+    try:
+        if os.path.getsize(real) < 4096:
+            with open(real, encoding='utf-8') as f:
+                lines.append(f'{real} is a script: ' + ' / '.join(
+                    l.strip() for l in f if l.strip() and not l.startswith('#')))
+    except (OSError, UnicodeDecodeError):
+        pass
+    for n, (label, flags) in enumerate(ELECTRON_TRIES, 1):
+        tag = f'diag-{number:02d}-{slug(app)}-{n}'
+        before = {w['id'] for w in kwin.script()['windows']}
+        before_pids = set(processes(app['patterns']))
+        t0 = time.monotonic()
+        start([app['program']] + flags, session_env, os.path.join(out_dir, tag + '.log'))
+        found = None
+        while time.monotonic() - t0 < 40 and not found:
+            time.sleep(0.5)
+            pids = set(processes(app['patterns'])) - before_pids
+            found = next((w for w in kwin.script()['windows']
+                          if w['id'] not in before and matches(app, w, pids)), None)
+        if found:
+            time.sleep(SETTLE['other'])
+            try:
+                kwin.screenshot(os.path.join(out_dir, tag + '.png'))
+            except (RuntimeError, GLib.Error):
+                pass
+            lines.append(f'{label}: window "{found["caption"]}" after '
+                         f'{time.monotonic() - t0 - SETTLE["other"]:.1f} s ({tag}.png)')
+        else:
+            lines.append(f'{label}: no window in 40 s')
+        close_app(kwin, app, [found['id']] if found else [], before_pids)
+    return lines
+
+
 # ─── Main ────────────────────────────────────────────────────
 
 def main():
@@ -702,13 +749,20 @@ def main():
         group = apps if lang == 'en' else [a for a in apps if a['spark']]
         log(f'== pass "{lang}": {len(group)} apps')
         for number, app in enumerate(group, 1):
-            log(f'-- {app["name"]} ({app["id"]})')
+            log(f'-- {app["name"]} ({app["id"]}: Exec={app["exec"]})')
             try:
                 result = run_app(kwin, app, chosen, session_env, lang, args.out, number, True)
             except Exception as exc:                # noqa: BLE001 - one app must not stop the rest
                 result = {'pass': lang, 'id': app['id'], 'name': app['name'], 'ok': False,
                           'title': '', 'seconds': None, 'notes': [],
                           'reason': f'the test itself failed: {type(exc).__name__}: {exc}'}
+            if not result['ok'] and not app['spark'] and 'no window' in result['reason']:
+                try:
+                    result['diagnosis'] = diagnose(kwin, app, session_env, args.out, number)
+                except Exception as exc:            # noqa: BLE001 - only extra information
+                    result['diagnosis'] = [f'the extra tries failed: {exc}']
+                for line in result['diagnosis']:
+                    result['notes'].append(f'tried directly, {line}')
             status = 'OK' if result['ok'] else 'FAIL'
             log(f'   {status} "{result["title"]}" {result["seconds"]} s'
                 f' {result.get("match", "")} {result.get("lang_seen") or ""}'
