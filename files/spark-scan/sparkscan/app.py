@@ -20,15 +20,16 @@ from tkinter import messagebox
 from PIL import Image
 
 from . import (APP_CLASS, APP_ID, APP_NAME, APP_SLUG, DPI_CHOICES, FORMATS, MODES, VERSION)
+from . import adjust
 from .core import (Tesseract, language_label, load_config, log, new_session_dir, open_folder,
                    page_paths, reduced_motion, save_config, scan_name, scans_dir, short_path,
                    unique_path)
 from .document import Cancelled, Page, SaveError, save_images, save_ocr_pdf, save_pdf
 from .scanner import Caps, Device, Request, ScanError, list_devices, query_caps
-from .text import pages_word, t
-from .widgets import (T, Glitch, GlitchPanel, GlitchText, IconButton, Mark, Segmented, Strip,
-                      Toggle, WolkButton, pick_mono)
-from .work import THUMB_SIZE, Session, view_image
+from .text import decimal, pages_word, t
+from .widgets import (T, Glitch, GlitchPanel, GlitchText, IconButton, Mark, Segmented, Slider,
+                      Strip, Toggle, WolkButton, pick_mono)
+from .work import THUMB_SIZE, Session, edited_view, prepare, straighten, view_image, whiten
 
 try:
     from PIL import ImageTk
@@ -110,6 +111,9 @@ class App:
         self.tesseract = Tesseract()
         self.ocr_choices: List[str] = []
         self.ocr_lang = cfg.get('ocr_lang') if isinstance(cfg.get('ocr_lang'), str) else ''
+        # Straighten and Whiten paper, as last set: new pages get them too
+        self.straighten_new = cfg.get('straighten') is True
+        self.whiten_new = cfg.get('whiten') is True
 
         self.devices: List[Device] = []
         self.device: Optional[str] = device or (cfg.get('device') if isinstance(
@@ -135,6 +139,8 @@ class App:
         self._scaled: Optional[Image.Image] = None
         self._base: Optional[int] = None
         self._img_box = (0, 0, 1, 1)              # where the image sits on the canvas
+        self._page_fit: Optional[Image.Image] = None   # the page turned, straightened, scaled
+        self._measuring: set = set()              # pages whose angle is being measured
         self._drag: Optional[Tuple[str, Any]] = None
         self.busy: Optional[str] = None           # 'preview', 'scan', 'save'
         self.cancel_event: Optional[threading.Event] = None
@@ -218,6 +224,7 @@ class App:
         self.view = tk.Canvas(self.middle.inner, bg=T["out_bg"], highlightthickness=0, bd=0,
                               cursor="crosshair")
         self.view.pack(fill="both", expand=True, padx=px(8), pady=px(8))
+        self._build_edit_bar(self.middle.inner)
         self.view.bind("<Configure>", self._on_view_resize)
         self.view.bind("<ButtonPress-1>", self._press)
         self.view.bind("<B1-Motion>", self._motion)
@@ -351,8 +358,11 @@ class App:
                                       tip=t('tip.down'))
         self.delete_button = IconButton(tools, "trash", self.delete_page, px(26),
                                         tip=t('tip.delete'))
+        self.rotate_all_button = IconButton(tools, "rotate_all", self.turn_all, px(26),
+                                            tip=t('tip.rotate_all'))
         for b in (self.up_button, self.down_button, self.delete_button):
             b.pack(side="left", padx=(0, px(4)))
+        self.rotate_all_button.pack(side="right")
 
         wrap = tk.Frame(box, bg=pbg)
         wrap.pack(fill="both", expand=True, padx=(px(10), px(4)))
@@ -363,6 +373,52 @@ class App:
             self.list.bind(seq, self._scroll_pages)
         self.list.bind("<ButtonRelease-1>", self._click_pages)
         self._draw_pages()
+
+    def _build_edit_bar(self, parent: tk.Frame):
+        """Under the page: turn it, straighten it, whiten its paper, brightness and
+        contrast. Shown while a page is shown."""
+        px, pbg = self.px, T["panel"]
+        bar = self.edit_bar = tk.Frame(parent, bg=pbg)
+        tk.Frame(bar, bg=T["line"], height=1).pack(fill="x")
+        row = tk.Frame(bar, bg=pbg)
+        row.pack(fill="x", padx=px(10), pady=(px(8), 0))
+        self.turn_left_button = IconButton(row, "rotate_left", lambda: self.turn(-1), px(26),
+                                           tip=t('tip.rotate_left'))
+        self.turn_right_button = IconButton(row, "rotate_right", lambda: self.turn(1), px(26),
+                                            tip=t('tip.rotate_right'))
+        self.turn_180_button = IconButton(row, "rotate_180", lambda: self.turn(2), px(26),
+                                          tip=t('tip.rotate_180'))
+        for b in (self.turn_left_button, self.turn_right_button, self.turn_180_button):
+            b.pack(side="left", padx=(0, px(4)))
+        self.straighten_toggle = Toggle(row, t('edit.straighten'), False,
+                                        self.set_straighten, self.font(8))
+        self.straighten_toggle.pack(side="left", padx=(px(10), 0))
+        self.whiten_toggle = Toggle(row, t('edit.whiten'), False, self.set_whiten,
+                                    self.font(8))
+        self.whiten_toggle.pack(side="left", padx=(px(6), 0))
+
+        tone = tk.Frame(bar, bg=pbg)
+        tone.pack(fill="x", padx=px(10), pady=(px(8), 0))
+        self.sliders: Dict[str, Slider] = {}
+        for i, key in enumerate(('brightness', 'contrast')):
+            box = tk.Frame(tone, bg=pbg)
+            box.pack(side="left", fill="x", expand=True, padx=(0 if i == 0 else px(14), 0))
+            self.micro(box, t(f'edit.{key}')).pack(fill="x")
+            slider = Slider(box, lambda v, k=key: self.set_tone(k, v), px(150), px(20),
+                            self.font(8), on_release=self._edited_thumb)
+            slider.pack(fill="x")
+            self.sliders[key] = slider
+        foot = tk.Frame(bar, bg=pbg)
+        foot.pack(fill="x", padx=px(10), pady=(px(4), px(8)))
+        self.reset_button = tk.Label(foot, text=t('edit.reset').upper(), bg=pbg, fg=T["dim"],
+                                     font=self.font(7), cursor="hand2")
+        self.reset_button.pack(side="right", anchor="n")
+        self.reset_button.bind("<ButtonRelease-1>", lambda _e: self.reset_edits())
+        self.edit_note = tk.Label(foot, text="", bg=pbg, fg=T["muted"], font=self.font(7, False),
+                                  anchor="w", justify="left")
+        self.edit_note.pack(side="left", fill="x", expand=True)
+        self.edit_note.bind("<Configure>", lambda e: self.edit_note.configure(
+            wraplength=max(100, e.width - 4)))
 
     # ─── threads ──────────────────────────────────────────────
 
@@ -668,7 +724,8 @@ class App:
 
     def _settings(self) -> Dict[str, Any]:
         self.cfg.update(dpi=self.dpi, mode=self.mode, format=self.fmt, source=self.source,
-                        ocr=self.ocr_on, ocr_lang=self.ocr_lang, version=VERSION)
+                        ocr=self.ocr_on, ocr_lang=self.ocr_lang, straighten=self.straighten_new,
+                        whiten=self.whiten_new, version=VERSION)
         if self.device:
             self.cfg.update(device=self.device, device_label=self.device_label)
         return self.cfg
@@ -688,6 +745,8 @@ class App:
         self.up_button.set_enabled(sel and self.selected > 0)
         self.down_button.set_enabled(sel and self.selected < len(self.pages) - 1)
         self.delete_button.set_enabled(sel)
+        self.rotate_all_button.set_enabled(has_pages)
+        self._sync_edit_bar()
         self.clear_button.config(fg=T["muted"] if has_pages else T["dim"])
         self.pages_label.config(text=(t('label.pages') + (f"  {len(self.pages)}" if self.pages
                                                           else '')).upper())
@@ -790,7 +849,10 @@ class App:
                 if feeder else t('status.scanning', pct=f"{int(fraction * 100)}%")
             self.post(self._progress, fraction, text)
 
+        straighten_new, whiten_new = self.straighten_new, self.whiten_new
+
         def on_page(page: Page):
+            prepare(page, straighten_new, whiten_new)
             thumb = self._make_thumb(page)
             self.post(self._add_page, page, thumb)
 
@@ -805,7 +867,7 @@ class App:
 
     @staticmethod
     def _make_thumb(page: Page) -> Image.Image:
-        image = view_image(page)
+        image = edited_view(page)
         image.thumbnail((THUMB_SIZE, THUMB_SIZE), Image.Resampling.LANCZOS)
         return image
 
@@ -960,6 +1022,161 @@ class App:
         self._refresh_buttons()
         self.glitch.now(self.middle)
 
+    # ─── changing a page ──────────────────────────────────────
+
+    def current_page(self) -> Optional[Page]:
+        if self.showing == 'page' and self.selected is not None and \
+                self.selected < len(self.pages):
+            return self.pages[self.selected]
+        return None
+
+    def _can_edit(self) -> bool:
+        # while saving, the pages are being read in the background
+        return self.busy != 'save'
+
+    def turn(self, quarters: int):
+        """Turn the shown page: 1 right, -1 left, 2 upside down."""
+        page = self.current_page()
+        if page is None or not self._can_edit():
+            return
+        page.edits.turn = (page.edits.turn + quarters) % 4
+        self._edited(page, geometry=True)
+
+    def turn_all(self):
+        """Turn every page a quarter turn right (twice for pages that came out upside
+        down)."""
+        if not self.pages or not self._can_edit():
+            return
+        for page in self.pages:
+            page.edits.turn = (page.edits.turn + 1) % 4
+            self._refresh_thumb(page, draw=False)
+        self.dirty = True
+        self._draw_pages()
+        if self.current_page() is not None:
+            self._show_view()
+        self.say(t('done.turned_all', pages=pages_word(len(self.pages))), T["accent"])
+        self.glitch.now(self.middle)
+
+    def set_straighten(self, on: bool):
+        page = self.current_page()
+        self.straighten_new = on
+        if page is None or not self._can_edit():
+            self._sync_edit_bar()
+            return
+        if on and not page.measured:
+            # measuring takes about 0.2 s on a big page: not on the Tk thread
+            key = id(page)
+            if key in self._measuring:
+                return
+            self._measuring.add(key)
+            self._sync_edit_bar()
+
+            def work():
+                try:
+                    straighten(page, True)
+                finally:
+                    self.post(self._measured, page)
+
+            self.spawn(work)
+            return
+        straighten(page, on)
+        self._edited(page, geometry=True)
+
+    def _measured(self, page: Page):
+        self._measuring.discard(id(page))
+        if self.closed or not any(p is page for p in self.pages):
+            return
+        # it may have been turned off again while it was measuring
+        straighten(page, self.straighten_new)
+        self._edited(page, geometry=True)
+
+    def set_whiten(self, on: bool):
+        page = self.current_page()
+        self.whiten_new = on
+        if page is None or not self._can_edit() or page.mode == 'bw':
+            self._sync_edit_bar()
+            return
+        whiten(page, on)
+        self._edited(page)
+
+    def set_tone(self, key: str, value: int):
+        """A brightness or contrast slider moved: only the tone of the shown page is redone,
+        on the copy already scaled to the view, so it follows the drag."""
+        page = self.current_page()
+        if page is None or not self._can_edit() or page.mode == 'bw':
+            return
+        setattr(page.edits, key, int(value))
+        self.dirty = True
+        self._retone()
+        self.reset_button.config(fg=T["muted"] if page.edits.any() else T["dim"])
+
+    def reset_edits(self):
+        page = self.current_page()
+        if page is None or not self._can_edit() or not page.edits.any():
+            return
+        page.edits = adjust.Edits(angle=page.skew or 0.0)
+        self._edited(page, geometry=True)
+
+    def _edited(self, page: Page, geometry: bool = False):
+        self.dirty = True
+        self._refresh_thumb(page)
+        if page is self.current_page():
+            if geometry:
+                self._show_view()
+            else:
+                self._retone()
+        self._sync_edit_bar()
+
+    def _edited_thumb(self):
+        page = self.current_page()
+        if page is not None:
+            self._refresh_thumb(page)
+
+    def _refresh_thumb(self, page: Page, draw: bool = True):
+        try:
+            self.thumbs[page.path] = to_photo(self.root, self._make_thumb(page))
+        except OSError:
+            log.exception("could not redraw the thumbnail of %s", page.path)
+        if draw:
+            self._draw_pages()
+
+    def _retone(self):
+        page = self.current_page()
+        if page is None or self._page_fit is None or self._base is None:
+            return
+        self._scaled = adjust.apply_tone(self._page_fit, page.edits)
+        self._photo = to_photo(self.root, self._scaled)
+        self.view.itemconfigure(self._base, image=self._photo)
+
+    def _sync_edit_bar(self):
+        """Show the shown page's edits in the bar."""
+        page = self.current_page()
+        if page is None:
+            return
+        editable = self._can_edit()
+        bw = page.mode == 'bw'
+        for b in (self.turn_left_button, self.turn_right_button, self.turn_180_button):
+            b.set_enabled(editable)
+        self.straighten_toggle.set(page.edits.straighten)
+        self.whiten_toggle.set(bool(page.edits.levels))
+        for key, slider in self.sliders.items():
+            slider.set(getattr(page.edits, key))
+            slider.set_enabled(editable and not bw)
+        self.reset_button.config(fg=T["muted"] if page.edits.any() and editable else T["dim"])
+        if id(page) in self._measuring:
+            note = t('edit.measuring')
+        elif page.edits.straighten and abs(page.skew or 0.0) >= 0.05:
+            note = t('edit.straightened', angle=decimal(abs(page.skew or 0.0)))
+        elif page.edits.straighten:
+            note = t('edit.straight')
+        elif page.measured and page.skew is None and self.straighten_new:
+            note = t('edit.no_lines')
+        elif bw:
+            note = t('edit.bw')
+        else:
+            note = ''
+        self.edit_note.config(text=note)
+
     # ─── the middle: preview with crop, or a page ─────────────
 
     def _show_area(self):
@@ -1015,8 +1232,12 @@ class App:
                                        dpi=round(page.dpi), w=round(w_mm), h=round(h_mm)),
                                 fg=T["muted"])
             self.view.configure(cursor="arrow")
+            if not self.edit_bar.winfo_ismapped():
+                self.edit_bar.pack(side="bottom", fill="x", before=self.view)
+            self._sync_edit_bar()
         else:
             self.showing = 'preview'
+            self.edit_bar.pack_forget()
             self.shown = self.preview
             if self.preview is not None:
                 self.caption.config(text=t('view.preview_crop') if self.crop else
@@ -1043,12 +1264,21 @@ class App:
             self._photo = self._dim_photo = self._crop_photo = None
             self._base = None
             return
-        iw, ih = self.shown.size
-        k = min(cw / iw, ch / ih)
-        w, h = max(1, int(iw * k)), max(1, int(ih * k))
+        page = self.current_page()
+        if page is not None:
+            # turned and straightened on the screen-sized copy, then toned after scaling
+            self._page_fit = adjust.fit(adjust.apply_geometry(self.shown, page.edits,
+                                                              fast=True), (cw, ch))
+            self._scaled = adjust.apply_tone(self._page_fit, page.edits)
+            w, h = self._scaled.size
+        else:
+            self._page_fit = None
+            iw, ih = self.shown.size
+            k = min(cw / iw, ch / ih)
+            w, h = max(1, int(iw * k)), max(1, int(ih * k))
+            self._scaled = self.shown.resize((w, h), Image.Resampling.BILINEAR if k < 1 else
+                                             Image.Resampling.NEAREST).convert('RGB')
         x0, y0 = (cw - w) // 2, (ch - h) // 2
-        self._scaled = self.shown.resize((w, h), Image.Resampling.BILINEAR if k < 1 else
-                                         Image.Resampling.NEAREST).convert('RGB')
         self._photo = to_photo(self.root, self._scaled)
         self._dim_photo = None
         self._base = c.create_image(x0, y0, image=self._photo, anchor="nw")
@@ -1251,6 +1481,10 @@ class App:
             self.start_save()
         elif ctrl and k.lower() == 'p':
             self.start_preview()
+        elif ctrl and k.lower() == 'r' and event.state & 0x1:
+            self.turn_all()
+        elif ctrl and k.lower() in ('r', 'l'):
+            self.turn(1 if k.lower() == 'r' else -1)
         elif ctrl and k.lower() in ('w', 'q'):
             self._on_close()
         elif k == 'Escape':
@@ -1293,6 +1527,10 @@ class App:
                 self.root.after_cancel(pending)
         self.session.clear()
         log.info("--- shutting down ---")
+        # let go of the Tk images here, on the Tk thread: a garbage collection that happens
+        # to run in a worker thread later must not be the one to delete them
+        self.thumbs.clear()
+        self._photo = self._dim_photo = self._crop_photo = self.icon = None
         self.root.destroy()
 
     def run(self):

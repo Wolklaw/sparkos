@@ -1,7 +1,8 @@
 """Every sentence the interface shows, in one place: English, and French for a French
-desktop (LANG=fr_*). t('key', name=...) fills in the blanks."""
+desktop (LC_ALL, LC_MESSAGES or LANG starting with fr; SPARK_LANG=en|fr overrides it).
+t('key', name=...) fills in the blanks."""
 
-from .core import languages
+import os
 
 EN = {
     # status line
@@ -45,6 +46,7 @@ EN = {
     'tip.up': "Move page up (Alt+Up)",
     'tip.down': "Move page down (Alt+Down)",
     'tip.delete': "Delete page (Delete)",
+    'tip.rotate_all': "Turn every page right (Ctrl+Shift+R)",
     'ocr.toggle': "Searchable text",
     'ocr.missing': "Searchable PDFs need tesseract, which isn't installed.",
     'ocr.no_lang': "tesseract has no English or French language data installed.",
@@ -78,6 +80,23 @@ EN = {
     'area.whole': "Whole glass",
     'area.part': "{w} × {h} mm",
     'area.feeder': "Whole page (feeder)",
+
+    # changing a page after the scan
+    'tip.rotate_left': "Turn left (Ctrl+L)",
+    'tip.rotate_right': "Turn right (Ctrl+R)",
+    'tip.rotate_180': "Turn 180°",
+    'edit.straighten': "Straighten",
+    'edit.whiten': "Whiten paper",
+    'edit.brightness': "Brightness",
+    'edit.contrast': "Contrast",
+    'edit.reset': "Reset",
+    'edit.measuring': "Measuring the angle…",
+    'edit.straightened': "Straightened by {angle}°.",
+    'edit.straight': "Already straight.",
+    'edit.no_lines': "No lines of text to straighten by; the page is left as it is.",
+    'edit.bw': "Black and white pages have no brightness or contrast.",
+    'edit.new_pages': "Straighten and Whiten paper stay on for the next pages.",
+    'done.turned_all': "Turned {pages}.",
 
     # pages
     'pages.count': "{n} pages",
@@ -163,6 +182,7 @@ FR = {
     'tip.up': "Monter la page (Alt+Haut)",
     'tip.down': "Descendre la page (Alt+Bas)",
     'tip.delete': "Supprimer la page (Suppr)",
+    'tip.rotate_all': "Tourner toutes les pages à droite (Ctrl+Maj+R)",
     'ocr.toggle': "Texte cherchable",
     'ocr.missing': "Les PDF cherchables demandent tesseract, qui n'est pas installé.",
     'ocr.no_lang': "tesseract n'a ni l'anglais ni le français d'installé.",
@@ -197,6 +217,22 @@ FR = {
     'area.whole': "Toute la vitre",
     'area.part': "{w} × {h} mm",
     'area.feeder': "Page entière (chargeur)",
+
+    'tip.rotate_left': "Tourner à gauche (Ctrl+L)",
+    'tip.rotate_right': "Tourner à droite (Ctrl+R)",
+    'tip.rotate_180': "Tourner de 180°",
+    'edit.straighten': "Redresser",
+    'edit.whiten': "Blanchir le fond",
+    'edit.brightness': "Luminosité",
+    'edit.contrast': "Contraste",
+    'edit.reset': "Rétablir",
+    'edit.measuring': "Mesure de l'angle…",
+    'edit.straightened': "Redressée de {angle}°.",
+    'edit.straight': "Déjà droite.",
+    'edit.no_lines': "Aucune ligne de texte pour la redresser; la page reste telle quelle.",
+    'edit.bw': "Les pages en noir et blanc n'ont ni luminosité ni contraste.",
+    'edit.new_pages': "Redresser et Blanchir le fond restent actifs pour les pages suivantes.",
+    'done.turned_all': "Pages tournées : {pages}.",
 
     'pages.count': "{n} pages",
     'pages.one': "1 page",
@@ -244,15 +280,20 @@ FR = {
 TABLES = {'en': EN, 'fr': FR}
 
 
-def pick_table(langs=None):
-    for lang in (langs if langs is not None else languages()):
-        short = lang.split('_')[0].lower()
-        if short in TABLES:
-            return TABLES[short]
-    return EN
+def language() -> str:
+    """'fr' or 'en'. SPARK_LANG=en|fr wins; otherwise the first of LC_ALL, LC_MESSAGES and
+    LANG that is set, French if it starts with fr (fr_CA.UTF-8, fr_FR, fr)."""
+    forced = os.environ.get('SPARK_LANG', '').strip().lower()
+    if forced in TABLES:
+        return forced
+    for var in ('LC_ALL', 'LC_MESSAGES', 'LANG'):
+        value = os.environ.get(var, '')
+        if value:
+            return 'fr' if value.lower().startswith('fr') else 'en'
+    return 'en'
 
 
-_T = pick_table()
+_T = TABLES[language()]
 
 
 def t(key: str, **kw) -> str:
@@ -262,3 +303,9 @@ def t(key: str, **kw) -> str:
 
 def pages_word(n: int) -> str:
     return t('pages.one') if n == 1 else t('pages.count', n=n)
+
+
+def decimal(value: float, places: int = 1) -> str:
+    """3.2 in English, 3,2 in French."""
+    text = f"{value:.{places}f}"
+    return text.replace('.', ',') if _T is FR else text

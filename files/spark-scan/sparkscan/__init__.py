@@ -8,7 +8,7 @@ APP_NAME = "Spark Scan"
 APP_SLUG = "spark-scan"          # command, folders, log names
 APP_CLASS = "SparkScan"          # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkScan"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 DPI_CHOICES = (150, 300, 600)
 MODES = ("color", "gray", "bw")          # colour, grey, black and white

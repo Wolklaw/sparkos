@@ -110,7 +110,7 @@ def scan_to(args) -> int:
     from .document import save_images, save_ocr_pdf, save_pdf
     from .scanner import Request, ScanError, list_devices, query_caps
     from .text import t
-    from .work import Session
+    from .work import Session, prepare
     setup_logging()
     try:
         device = args.device
@@ -149,7 +149,20 @@ def scan_to(args) -> int:
             print(f"{APP_SLUG}: nothing scanned", file=sys.stderr)
             return 1
         for i, p in enumerate(pages, 1):
-            print(f"page {i}: {p.width}x{p.height} px at {p.dpi:g} dpi, {p.mode}")
+            p.edits.turn = args.rotate // 90
+            prepare(p, args.straighten, args.whiten)
+            w, h = p.size
+            done = []
+            if args.rotate:
+                done.append(f"turned {args.rotate}")
+            if args.straighten:
+                done.append("nothing to straighten by" if p.skew is None else
+                            "already straight" if abs(p.skew) < 0.05 else
+                            f"straightened {p.skew:+.1f} degrees")
+            if p.edits.levels:
+                done.append("paper whitened")
+            print(f"page {i}: {w}x{h} px at {p.dpi:g} dpi, {p.mode}"
+                  + (f" ({', '.join(done)})" if done else ''))
         if os.path.isdir(target):
             stem = scan_name(t('file.scan'))
             paths = [unique_path(target, stem, fmt)] if fmt == 'pdf' else \
@@ -197,6 +210,12 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument('--area', type=parse_area, help="with --scan-to: x0,y0,x1,y1 as "
                         "fractions of the glass")
     parser.add_argument('--format', choices=FORMATS + ('jpeg',))
+    parser.add_argument('--rotate', type=int, default=0, choices=(0, 90, 180, 270),
+                        help="with --scan-to: turn every page clockwise by this much")
+    parser.add_argument('--straighten', action='store_true',
+                        help="with --scan-to: straighten pages scanned at a slant (up to 10 degrees)")
+    parser.add_argument('--whiten', action='store_true',
+                        help="with --scan-to: make the paper white and the ink dark")
     parser.add_argument('--ocr', action='store_true', help="with --scan-to: searchable PDF")
     parser.add_argument('--ocr-lang', help="tesseract languages, e.g. eng+fra")
     parser.add_argument('--sane-option', action='append', default=[], metavar='NAME=VALUE',

@@ -10,13 +10,14 @@ import subprocess
 import threading
 import time
 import zlib
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Callable, List, Optional, Sequence
 
 from PIL import Image
 
 from . import APP_NAME, JPEG_QUALITY, JPEG_QUALITY_FILE, VERSION
+from .adjust import Edits, apply, turned_size
 from .core import NO_WINDOW, Tesseract, log
 
 Progress = Callable[[float, str], None]       # fraction done, page "2/5"
@@ -38,17 +39,33 @@ class Page:
     dpi: float
     mode: str            # 'color', 'gray', 'bw'
     view_path: str = ''  # a screen-sized JPEG of it (work.make_view)
+    edits: Edits = field(default_factory=Edits)   # turn, straighten, tone (adjust.py)
+    skew: Optional[float] = None    # the measured straightening angle (work.straighten)
+    measured: bool = False          # skew has been measured (None then: nothing to go by)
 
-    def open(self) -> Image.Image:
+    def open(self, edited: bool = True) -> Image.Image:
+        """The page as it will be saved: the scan with its edits applied. What is on disk
+        stays as the scanner sent it."""
         image = Image.open(self.path)
         image.load()
         if image.mode not in ('1', 'L', 'RGB'):
             image = image.convert('RGB')
+        if edited and self.edits.any():
+            done = apply(image, self.edits)
+            if done is not image:
+                image.close()
+            image = done
         return image
 
     @property
+    def size(self):
+        """Width and height in pixels as saved (a quarter turn swaps them)."""
+        return turned_size((self.width, self.height), self.edits.turn)
+
+    @property
     def size_mm(self):
-        return (self.width / self.dpi * 25.4, self.height / self.dpi * 25.4)
+        w, h = self.size
+        return (w / self.dpi * 25.4, h / self.dpi * 25.4)
 
     def discard(self) -> None:
         for path in (self.path, self.view_path):

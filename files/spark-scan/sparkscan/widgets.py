@@ -3,8 +3,8 @@ recurring fault, the magenta and cyan channels slipping out of register.
 
 Copied from Spark Media (files/spark-media/sparkmedia/widgets.py) so the Spark apps look
 like one family. Spark Scan's own changes: Mark draws the scan mark (a page with the scan line
-across it, as make_icons.py does), IconButton has up, down, refresh and crop icons, and Seek
-(Spark Media's player bar) is left out. Keep the common parts in step."""
+across it, as make_icons.py does), IconButton has up, down, refresh, crop and turn icons,
+Slider is for brightness and contrast, and Seek (Spark Media's player bar) is left out. Keep the common parts in step."""
 
 import random
 from typing import Any, Callable, List, Optional, Tuple
@@ -491,9 +491,20 @@ class IconButton(tk.Canvas):
         elif icon == "back":
             line(19, 12, 6, 12)
             line(11, 7, 6, 12, 11, 17)
-        elif icon == "rotate":
+        elif icon in ("rotate", "rotate_right"):
             line(18, 9, 18, 18, 6, 18, 6, 6, 14, 6)
             poly(13, 3, 17.5, 6, 13, 9)
+        elif icon == "rotate_left":
+            line(6, 9, 6, 18, 18, 18, 18, 6, 10, 6)
+            poly(11, 3, 6.5, 6, 11, 9)
+        elif icon == "rotate_180":
+            line(8, 19, 8, 9, 10.5, 6, 13.5, 6, 16, 9, 16, 14)
+            poly(12, 13.5, 20, 13.5, 16, 19)
+        elif icon == "rotate_all":
+            rect(4, 10, 12, 20, fill=False)
+            rect(8, 6, 16, 16, fill=False)
+            line(15, 3.5, 20, 3.5, 20, 9)
+            poly(17, 8.5, 23, 8.5, 20, 12)
         elif icon == "zoom_in":
             line(5, 12, 19, 12)
             line(12, 5, 12, 19)
@@ -539,3 +550,118 @@ class IconButton(tk.Canvas):
             line(4, 17, 9, 17, 15, 7, 19, 7)
             poly(18, 4, 21.5, 7, 18, 10)
             poly(18, 14, 21.5, 17, 18, 20)
+
+
+class Slider(tk.Canvas):
+    """A -100..100 slider for brightness and contrast: a 1px track, the part from 0 to the
+    value lit in the accent, a sharp handle that splits into the channels on hover, and the
+    value at the end. Click or drag to set it, the wheel or Left/Right to step, double-click
+    or Home for 0. command(value) runs on every change (live); on_release when a drag or a
+    run of steps ends."""
+
+    def __init__(self, parent: tk.Misc, command: Callable[[int], None], width: int,
+                 height: int, font, value: int = 0, lo: int = -100, hi: int = 100,
+                 on_release: Optional[Callable[[], None]] = None):
+        self.pbg = parent.cget("bg")
+        super().__init__(parent, width=width, height=height, bg=self.pbg, highlightthickness=0,
+                         bd=0, cursor="hand2", takefocus=1)
+        self.command, self.on_release = command, on_release
+        self.lo, self.hi, self.value = lo, hi, value
+        self.font, self.enabled, self.hover, self.focused = font, True, False, False
+        self._release_id: Optional[str] = None
+        for seq, fn in (("<ButtonPress-1>", self._press), ("<B1-Motion>", self._press),
+                        ("<ButtonRelease-1>", lambda _e: self._released()),
+                        ("<Double-Button-1>", lambda _e: self._step(None)),
+                        ("<MouseWheel>", self._wheel), ("<Button-4>", self._wheel),
+                        ("<Button-5>", self._wheel),
+                        ("<Left>", lambda _e: self._step(-5)), ("<Right>", lambda _e: self._step(5)),
+                        ("<Home>", lambda _e: self._step(None)),
+                        ("<Enter>", lambda _e: self._set_hover(True)),
+                        ("<Leave>", lambda _e: self._set_hover(False)),
+                        ("<FocusIn>", lambda _e: self._set_focus(True)),
+                        ("<FocusOut>", lambda _e: self._set_focus(False)),
+                        ("<Configure>", lambda _e: self.draw())):
+            self.bind(seq, fn)
+
+    def _geometry(self):
+        w, h = max(1, self.winfo_width()), max(1, self.winfo_height())
+        text_w = max(28, int(self.font[1] * 4.2)) if isinstance(self.font, tuple) else 34
+        return 6, max(7, w - text_w - 6), h // 2
+
+    def _x(self, value: int) -> float:
+        x0, x1, _ = self._geometry()
+        return x0 + (value - self.lo) * (x1 - x0) / (self.hi - self.lo)
+
+    def set(self, value: int, fire: bool = False) -> None:
+        value = int(max(self.lo, min(self.hi, round(value))))
+        changed = value != self.value
+        self.value = value
+        self.draw()
+        if fire and changed:
+            self.command(value)
+
+    def set_enabled(self, on: bool) -> None:
+        self.enabled = on
+        self.configure(cursor="hand2" if on else "arrow", takefocus=1 if on else 0)
+        self.draw()
+
+    def _press(self, event):
+        if not self.enabled:
+            return "break"
+        self.focus_set()
+        x0, x1, _ = self._geometry()
+        frac = (min(max(event.x, x0), x1) - x0) / max(1, x1 - x0)
+        self.set(self.lo + frac * (self.hi - self.lo), fire=True)
+        return "break"
+
+    def _released(self):
+        if self.enabled and self.on_release:
+            self.on_release()
+
+    def _step(self, by: Optional[int]):
+        if not self.enabled:
+            return "break"
+        self.set(0 if by is None else self.value + by, fire=True)
+        # a run of key presses or wheel turns ends when they stop
+        if self._release_id:
+            self.after_cancel(self._release_id)
+        self._release_id = self.after(250, self._step_done)
+        return "break"
+
+    def _step_done(self):
+        self._release_id = None
+        self._released()
+
+    def _wheel(self, event):
+        up = getattr(event, 'num', None) == 4 or getattr(event, 'delta', 0) > 0
+        return self._step(5 if up else -5)
+
+    def _set_hover(self, on: bool):
+        self.hover = on and self.enabled
+        self.draw()
+
+    def _set_focus(self, on: bool):
+        self.focused = on
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        x0, x1, y = self._geometry()
+        on = self.enabled
+        self.create_line(x0, y, x1, y, fill=T["line2"] if on else T["line"], width=1)
+        zero, at = self._x(0), self._x(self.value)
+        if on and self.value:
+            self.create_line(zero, y, at, y, fill=T["accent"], width=3)
+        self.create_line(zero, y - 3, zero, y + 4, fill=T["dim"], width=1)
+        hw, hh = 4, 7
+        if self.hover or self.focused:
+            self.create_rectangle(at - hw - 2, y - hh, at + hw - 2, y + hh, fill=T["ch_a"],
+                                  outline="")
+            self.create_rectangle(at - hw + 2, y - hh, at + hw + 2, y + hh, fill=T["ch_b"],
+                                  outline="")
+        self.create_rectangle(at - hw, y - hh, at + hw, y + hh,
+                              fill=(T["accent"] if on else T["dim"]), outline="")
+        label = f"{self.value:+d}" if self.value else "0"
+        self.create_text(self.winfo_width() - 2, y, text=label, anchor="e",
+                         fill=T["text"] if on and self.value else T["muted"] if on else T["dim"],
+                         font=self.font)
