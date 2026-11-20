@@ -48,18 +48,11 @@ jobs:
 
       - name: Make the app list
         run: |
-          # Bazzite's own first-boot apps, plus every system Flatpak in the SparkOS recipe.
-          curl -fsSL --retry 5 https://raw.githubusercontent.com/ublue-os/bazzite/main/installer/kde_flatpaks/flatpaks > /tmp/bazzite-flatpaks
-          sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | grep '\.' > /tmp/sparkos-flatpaks
-          python3 - <<'EOF'
-          seen, out = set(), []
-          for line in open('/tmp/bazzite-flatpaks').read().split() + open('/tmp/sparkos-flatpaks').read().split():
-              ident = line.split('/')[1] if '/' in line else line
-              if ident not in seen:
-                  seen.add(ident); out.append(line)
-          open('installer/flatpaks', 'w').write('\n'.join(out) + '\n')
-          print(f"{len(out)} Flatpaks")
-          EOF
+          # Only the system Flatpaks the SparkOS recipe lists (none today: SparkOS preinstalls no
+          # third-party apps). Bazzite's own first-boot apps are deliberately left out.
+          sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | { grep '\.' || true; } > /tmp/sparkos-flatpaks
+          cp /tmp/sparkos-flatpaks installer/flatpaks
+          echo "$(grep -c . installer/flatpaks || true) Flatpaks in the installer"
           cat installer/flatpaks
 
       - name: Build the installer image
@@ -163,11 +156,11 @@ jobs:
             echo "Write the ISO to a USB stick (16 GB or larger) with Fedora Media Writer (Custom image) or Rufus (DD mode)."
             echo "The parts exist because GitHub limits each release file to 2 GiB."
             echo
-            echo "**Apps inside** (copied onto the new system during install, so they're there on first start, even offline):"
-            echo '```'
-            cat /tmp/installer-apps.txt
-            echo '```'
-            echo "Soot, FreeSuite, Spark Snip and Claude Code's launchers are part of the system image itself."
+            echo "**Apps:** SparkOS ships only its own apps, Soot, FreeSuite and Spark Snip, as part of the system."
+            echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm."
+            if grep -q . /tmp/installer-apps.txt; then
+              echo; echo "Extra Flatpaks carried by this installer:"; echo '```'; cat /tmp/installer-apps.txt; echo '```'
+            fi
           } > notes.md
           gh release view installer >/dev/null 2>&1 || \
             gh release create installer --target main --title "SparkOS installer" --notes "Building..." --latest=false

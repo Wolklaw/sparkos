@@ -4,8 +4,13 @@
 name: sparkos
 description: SparkOS, a desktop for gaming and everyday work, built on Bazzite.
 
-# Bazzite (KDE Plasma, AMD/Intel GPUs). It already ships Steam, Lutris,
-# gamescope, MangoHud, Firefox and current Mesa drivers.
+# Base: Bazzite (KDE Plasma, AMD/Intel GPUs, current Mesa drivers, gaming kernel).
+#
+# App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
+# FreeSuite, Spark Snip). Every other company's or project's app is removed, Bazzite's
+# included; people install what they want from the Store (Bazaar). What stays is the platform
+# SparkOS needs to work: Plasma, Dolphin, Konsole, Spectacle (Spark Snip uses it), System
+# Settings and Monitor, Ark (zip support), KDE Connect, the Store, drivers, printing and scanning.
 base-image: ghcr.io/ublue-os/bazzite
 image-version: stable
 
@@ -18,11 +23,11 @@ modules:
   - type: dnf
     install:
       packages:
-        # Printing (CUPS, driverless, plasma-print-manager) is already in Bazzite.
-        - skanpage # scanning app (SANE pixma and airscan backends are already in Bazzite)
+        # Printing (CUPS, driverless, plasma-print-manager) and scanning (SANE pixma, airscan) are
+        # already in Bazzite; a scanning app comes from the Store.
         - bubblewrap # Claude Code's command sandbox (already in Bazzite for Flatpak; listed so it stays)
         - socat # Claude Code's command sandbox
-        - kdialog # folder picker for sparkos-claude
+        - kdialog # folder picker for sparkos-claude and the install dialogs
         # So Androidbox installs for your user (bash packaging/linux/install.sh --user) with no root:
         # a Python that Qt for Python supports (Fedora 45's own is 3.15), and the libraries Qt, SDL
         # and Google's emulator load. Androidbox itself is not in the image.
@@ -43,50 +48,36 @@ modules:
         - libXi
         - libXrandr
         - libXtst
+    remove:
+      packages:
+        # Other companies' and projects' apps that Bazzite ships. All installable from the Store.
+        - steam
+        - lutris
+        - waydroid
+        - input-remapper
+        - kate
+        - kwrite
+        - filelight
+        - kfind
+        - krdc
+        - krfb
+        - kwalletmanager5
+        - kdebugsettings
+        - khelpcenter
 
   - type: script
     scripts:
       - sparkos-identity.sh # shows "SparkOS" as the system name
+      - sparkos-apps.sh # no preinstalled third-party apps: empties Bazzite's first-boot app list, drops the Portal
       - soot.sh # Soot browser, latest release
       - freesuite.sh # FreeSuite office apps, latest release
       - spark-snip.sh # Spark Snip: screenshots, text (OCR) and screen recording
-      - sparkos-defaults.sh # Soot and FreeSuite as default apps
+      - sparkos-defaults.sh # Soot and FreeSuite as default apps; downloaded installers open the SparkOS way
 
   - type: default-flatpaks
     configurations:
-      - notify: true
-        scope: system
-        install:
-          # Games
-          - com.heroicgameslauncher.hgl # Epic, GOG and Amazon games
-          - org.prismlauncher.PrismLauncher # Minecraft, including CurseForge modpacks
-          - net.runelite.RuneLite # Old School RuneScape
-          - com.adamcake.Bolt # Jagex accounts launcher (replaces the Jagex Launcher)
-          # Everyday
-          - com.google.Chrome # also for VIA keyboard setup (WebHID) and Google sites
-          - com.discordapp.Discord
-          - com.spotify.Client
-          - org.onlyoffice.desktopeditors # "Open with" fallback for old .doc/.ppt/.xls with pictures or charts
-          # Create
-          - com.obsproject.Studio
-          - org.blender.Blender
-          - org.gimp.GIMP
-          - org.audacityteam.Audacity
-          - org.kde.kdenlive # video editing (replaces Clipchamp)
-          - org.flameshot.Flameshot # screenshots with upload and annotation (replaces ShareX)
-          # Code
-          - com.visualstudio.code
-          - com.unity.UnityHub
-          # Hardware
-          - org.freedesktop.Piper # Logitech G502 DPI and buttons (replaces G HUB)
-          - org.openrgb.OpenRGB # motherboard, RAM and SSD lighting (replaces SignalRGB, Aura, Patriot and Corsair tools)
-          - io.missioncenter.MissionCenter # CPU, GPU, memory and temperatures (replaces Task Manager and HWiNFO)
-          - org.rncbc.qpwgraph # route audio between apps (replaces VB-CABLE)
-          - com.usebottles.bottles # run Windows .exe/.msi programs (double-click opens them here)
-          # Installing apps the Windows way (the Store, Bazaar, comes with Bazzite)
-          - it.mijorus.gearlever # double-click an .AppImage to add it to the app menu
-          - io.github.flattool.Warehouse # see and remove installed apps (like Apps & features)
-      - scope: user # adds the Flathub user remote, no user apps
+      - scope: system # adds the Flathub remote so the Store works; installs nothing
+      - scope: user # adds the Flathub user remote; installs nothing
 
   - type: signing # installs the signing policy so signed updates verify
 

@@ -6,7 +6,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 - **Partly**: works with limits.
 - **No**: keep Windows (dual boot or a Windows VM) for it.
 
-"In the image" means SparkOS ships it already. "Check" means I couldn't confirm it, and you should test it before you rely on it.
+"In the image" means SparkOS ships it already: only SparkOS's own apps (Soot, FreeSuite, Spark Snip) and the system itself. "From the Store" means you install it with one click from the Store (Bazaar). "Check" means I couldn't confirm it, and you should test it before you rely on it.
 
 **Installing apps:** a store with an Install button, or double-click what you downloaded (`.exe`, `.AppImage`, `.rpm`). See [installing-apps.md](installing-apps.md).
 
@@ -14,12 +14,12 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 
 | Device | On SparkOS | Notes |
 |---|---|---|
-| Canon TR4700 series (network) printer | **Works** | Printing is driverless (IPP/AirPrint). SparkOS finds the printer on the network by itself. Add or check it in System Settings > Printers (in the image). |
-| Canon TR4700 scanner | **Works** (check) | Open **Skanpage** (in the image). SANE's `pixma` and `airscan` backends are both in the image. Confirm with your printer on the first day. |
+| Canon TR4700 series (network) printer | **Works** | Printing is driverless (IPP/AirPrint). SparkOS finds the printer on the network by itself. Add or check it in System Settings > Printers (from the Store). |
+| Canon TR4700 scanner | **Works** (check) | SANE's `pixma` and `airscan` scanner support is in the image. For a scanning app, install **Skanpage** from the Store. Confirm with your printer on the first day. |
 | Canon fax | **No** (probably) | The Linux printing system has no Canon fax support. Fax from the printer's own panel. |
 | Canon IJ Printer Assistant (nozzle check, cleaning) | **Replaced** | Open the printer's IP address in a browser to reach its own maintenance page (Remote UI). |
-| Logitech G502 HERO | **Works** | Mouse works as is. **Piper** (in the image) sets DPI, buttons and lighting, replacing G HUB. Profiles already saved on the mouse keep working. |
-| Keychron keyboard (VIA) | **Works** | Keyboard works as is. Remapping: usevia.app in **Chrome** (in the image). SparkOS includes the permission rule VIA needs. Soot and Firefox can't do this, because they lack WebHID. |
+| Logitech G502 HERO | **Works** | Mouse works as is. **Piper** (from the Store) sets DPI, buttons and lighting, replacing G HUB. Profiles already saved on the mouse keep working. |
+| Keychron keyboard (VIA) | **Works** | Keyboard works as is. Remapping: usevia.app in **Chrome** (from the Store). SparkOS includes the permission rule VIA needs. Soot and Firefox can't do this, because they lack WebHID. |
 | HyperX QuadCast mic | **Works** | Standard USB audio. |
 | FiiO E10 USB DAC | **Works** | Standard USB audio. |
 | Logitech C920 webcam | **Works** | Standard USB camera. |
@@ -29,21 +29,21 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Realtek 2.5 GbE network | **Works** | |
 | RX 6800 XT | **Works** | Open drivers are built in. **LACT** (Flathub) replaces Adrenalin for fan curves and overclocking. It isn't in the image yet because it needs a system service. |
 | Three monitors, mixed refresh rates | **Works** | KDE Plasma on Wayland handles mixed refresh rates, VRR and HDR. Set them up in System Settings > Display. |
-| RGB: ASUS Aura, Patriot Viper RAM and SSD, Corsair RAM, Holtek RAM (SignalRGB) | **Partly** | **OpenRGB** (in the image) drives most of these. RAM lighting sometimes needs one extra setting to work, so check it on day one. |
-| Steam virtual mic and speakers, VB-CABLE | **Replaced** | PipeWire virtual devices. Route audio with **qpwgraph** (in the image), or run `ujust setup-virtual-channels`. |
+| RGB: ASUS Aura, Patriot Viper RAM and SSD, Corsair RAM, Holtek RAM (SignalRGB) | **Partly** | **OpenRGB** (from the Store) drives most of these. RAM lighting sometimes needs one extra setting to work, so check it on day one. |
+| Steam virtual mic and speakers, VB-CABLE | **Replaced** | PipeWire virtual devices. Route audio with **qpwgraph** (from the Store), or run `ujust setup-virtual-channels`. |
 
 ## Games and launchers
 
 | Item | On SparkOS | Notes |
 |---|---|---|
-| Steam | **Works** | Built in, with Proton for Windows games. |
-| Epic Games | **Works** | Through **Heroic** (in the image). |
-| Battle.net: World of Warcraft, Diablo III | **Works** | Install Battle.net through **Lutris** (in Bazzite). |
+| Steam | **Works** | Install **Steam** from the Store. Proton runs Windows games. |
+| Epic Games | **Works** | Through **Heroic** (from the Store). |
+| Battle.net: World of Warcraft, Diablo III | **Works** | Install **Lutris** from the Store, then Battle.net through it. |
 | EA app | **Partly** | Through Lutris. EA games you own on Steam are easier there. |
 | Rockstar: GTA V Enhanced | **Partly** | Story mode works. **GTA Online doesn't**: its anti-cheat blocks Linux. LSPD First Response depends on script hooks under Proton, so check it. |
 | League of Legends, Teamfight Tactics | **No** | Riot Vanguard is kernel anti-cheat. Keep Windows for these. |
-| Minecraft and CurseForge | **Replaced** | **Prism Launcher** (in the image) signs in with your Microsoft account and imports CurseForge modpacks. |
-| Jagex Launcher and RuneLite | **Replaced** | **Bolt** (in the image) signs in with Jagex accounts. **RuneLite** (in the image) runs natively. |
+| Minecraft and CurseForge | **Replaced** | **Prism Launcher** (from the Store) signs in with your Microsoft account and imports CurseForge modpacks. |
+| Jagex Launcher and RuneLite | **Replaced** | **Bolt** (from the Store) signs in with Jagex accounts. **RuneLite** (from the Store) runs natively. |
 | RSI Launcher (Star Citizen) | **Partly** | Runs through the community LUG Helper. Not supported by CIG. |
 | Crusader Kings III, Valheim, Undertale | **Works** | Native Linux versions on Steam. |
 | Hogwarts Legacy, Palworld, Teardown, TCG Card Shop Simulator, Dawn of War Soulstorm | **Works** (check) | Generally fine under Proton. Check each on ProtonDB. |
@@ -61,24 +61,24 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Outlook | **Replaced** | **FreeSuite Mail** (in the image, default for email links). |
 | Teams, OneNote, Copilot, Amazon Music | **Replaced** | Their web versions, in Soot or Chrome. |
 | PDFgear | **Replaced** | **FreeSuite PDF** (in the image, default for PDFs). |
-| Firefox, Chrome | **Works** | **Soot** is the default browser. **Chrome** is in the image. Firefox is in Bazzite. |
+| Firefox, Chrome | **Works** | **Soot** (in the image) is the default browser. Chrome and Firefox install from the Store. |
 | Google Drive | **Partly** | Add your Google account in System Settings > Online Accounts and Drive appears in Dolphin (in the image). Unlike the Windows client, it doesn't keep offline copies. For that, use rclone or a paid client such as Insync. |
-| Discord, Spotify | **Works** | Both in the image. |
+| Discord, Spotify | **Works** | Both install from the Store. |
 | OBS Studio | **Works** | In the image, with Bazzite's game-capture plugin. |
 | Blender, GIMP, Audacity | **Works** | In the image. Blender renders on the RX 6800 XT through HIP. |
-| Clipchamp | **Replaced** | **Kdenlive** (in the image). |
+| Clipchamp | **Replaced** | **Kdenlive** (from the Store). |
 | Snipping Tool, QuickOCR | **Replaced** | **Spark Snip** (in the image): Print or Meta+Shift+S for a screenshot, Meta+Shift+T to copy text off the screen (OCR, English and French), Meta+Shift+R to start and stop a recording. The keys match Snipping Tool and PowerToys Text Extractor, with Meta for the Windows key. |
-| ShareX | **Replaced** | **Spark Snip** for quick snips, text and recordings, or **Flameshot** (in the image) to annotate and upload. |
-| Notepad++ | **Replaced** | **Kate** (built in). |
+| ShareX | **Replaced** | **Spark Snip** for quick snips, text and recordings, or **Flameshot** (from the Store) to annotate and upload. |
+| Notepad++ | **Replaced** | Text files open in **FreeSuite Writer** (default). For a code-style editor, install **Kate** from the Store. |
 | 7-Zip | **Replaced** | **Ark** (built in). |
-| WinDirStat | **Replaced** | **Filelight** (in Bazzite). |
-| HWiNFO, Task Manager | **Replaced** | **Mission Center** (in the image). |
+| WinDirStat | **Replaced** | **Filelight** from the Store. |
+| HWiNFO, Task Manager | **Replaced** | **Mission Center** (from the Store). |
 | Ryzen Master | **No** | Set PBO and Curve Optimizer in the BIOS instead. They then apply to both systems. |
 | Logitech G HUB, SignalRGB, 8BitDo, Focusrite Control | See Devices above | |
 | Wallpaper Engine | **Partly** | A community KDE plugin plays many Wallpaper Engine scenes. It isn't in the image. |
 | Tailscale | **Works** | In Bazzite. Run `ujust tailscale`. |
 | hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN work in System Settings > Network. |
-| TeamViewer | **Works** | Linux RPM from teamviewer.com. It isn't on Flathub, so it's not in the image. |
+| TeamViewer | **Works** | Download the Linux .rpm from teamviewer.com and double-click it: SparkOS asks, installs it and offers a restart. |
 | PuTTY | **Replaced** | `ssh` in Konsole (built in). |
 | VirtualBox | **Replaced** | Run `ujust setup-virtualization` to get **virt-manager**. It uses KVM and runs VMs much faster than VirtualBox on this PC today. |
 | MuseHub | **No** | Windows and Mac only. |
@@ -90,12 +90,12 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Git | **Works** | Built in. |
 | Node.js, Python 3.13, GitHub CLI, JDK 17 | **Works** | Run `sparkos-dev-setup` once and Homebrew installs all four. The list is in `/usr/share/sparkos/Brewfile`. |
 | VS Code | **Works** | In the image, as a Flatpak. For full access to system tools, open a terminal inside VS Code or use a Distrobox container. |
-| Unity 6 and Unity Hub | **Works** (check) | **Unity Hub** (in the image) is the community Flatpak. Unity also publishes an official Linux Hub. |
+| Unity 6 and Unity Hub | **Works** (check) | **Unity Hub** (from the Store) is the community Flatpak. Unity also publishes an official Linux Hub. |
 | Ollama | **Works** | Use the official Linux install or the **Alpaca** app (Flathub). The RX 6800 XT is supported by ROCm. |
 | Claude Code | **Works** | Open **Claude Code** from the app menu, right-click a folder in Dolphin and choose **Open Claude Code here**, or run `sparkos-claude` in a terminal. The first start installs it with Anthropic's official installer (into `~/.local`, updates itself). Run `sparkos-claude-import` once to bring over your Windows `CLAUDE.md`, skills, agents and commands. See [claude-code.md](claude-code.md). |
 | Claude desktop app (Chat, Cowork, Code tab) | **No** | Its Linux version is a beta for Ubuntu and Debian only. On SparkOS, use Claude Code (above), and claude.ai in the browser for chat. |
 | Antigravity IDE | **Check** | Look for a Linux download. |
-| Inno Setup (Windows installers for your apps) | **Partly** | Runs under Wine or Bottles (in the image). For building and testing Windows releases, a Windows VM in virt-manager is the dependable choice. |
+| Inno Setup (Windows installers for your apps) | **Partly** | Runs under Wine or Bottles (from the Store, or fetched the first time you double-click an .exe). For building and testing Windows releases, a Windows VM in virt-manager is the dependable choice. |
 | Androidbox | **Works** (check) | Not preinstalled. SparkOS has everything it needs, so install it for your user (no admin password): download the latest release's source from github.com/Wolklaw/Androidbox/releases, unpack it, and run `bash packaging/linux/install.sh --user`. It then appears in the app menu. To update, do the same with a newer release. Android needs virtualization (KVM) turned on in the BIOS. The boot test installs and starts it this way on every build, but no Android has been run in it on SparkOS yet. The boss key and other shortcuts that work while another program is in front don't work on Linux. |
 | Your own apps: Nova, BotWatch, Broke'nt, OSRS Toolkit, Upscape, Delta | **Check each** | They're Windows builds. Each needs a Linux build, as Soot and FreeSuite got, or runs in the Windows VM. |
 

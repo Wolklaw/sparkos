@@ -1,11 +1,13 @@
 #!/usr/bin/bash
-# What happens when you double-click a Linux installer package on SparkOS.
+# What happens when you double-click a downloaded installer or program on SparkOS.
 #
-#   .rpm (Fedora/Red Hat installer): asks, installs it into the system, offers to restart.
-#   .deb (Ubuntu/Debian installer): explains it can't install that kind, and offers the Store.
+#   .exe / .msi (Windows)   opens in Bottles; if Bottles isn't installed, offers to get it first
+#   .AppImage               opens in Gear Lever (adds it to the menu); offers to get it first
+#   .rpm (Fedora)           asks, installs it into the system, offers to restart
+#   .deb (Ubuntu/Debian)    explains it can't install that kind, and offers the Store
 #
-# Windows .exe/.msi open in Bottles, .AppImage in Gear Lever and .flatpakref in the Store (Bazaar);
-# those are set in /etc/xdg/mimeapps.list, not here.
+# SparkOS preinstalls no third-party apps, so helpers come from Flathub on first use, for the
+# current user, without an admin password. .flatpakref links open in the Store (Bazaar) directly.
 set -uo pipefail
 
 file="${1:-}"
@@ -22,7 +24,38 @@ open_store() {
   kdialog --sorry "The Store (Bazaar) isn't installed."
 }
 
+have_flatpak() { flatpak info "$1" >/dev/null 2>&1; }
+
+# Offer to install a helper app from Flathub for this user, then open the file with it.
+with_helper() { # app-id "Helper name" "what it does" file
+  local id=$1 label=$2 what=$3 target=$4
+  if ! have_flatpak "$id"; then
+    kdialog --title "Open $name" --yes-label "Get $label" --no-label "Cancel" --yesno \
+"To open <b>$name</b>, SparkOS needs <b>$label</b>, which $what.<br><br>
+It's a free app from the Store (Flathub). It installs for you only, with no admin password,
+and opening this file then takes one click." || return 0
+    status_file=$(mktemp)
+    konsole --nofork -e bash -c '
+      echo "Getting $2 from Flathub..."; echo
+      flatpak install --user -y --noninteractive flathub "$1"; echo $? > "$3"
+      echo; read -rp "Press Enter to close this window. " _' _ "$id" "$label" "$status_file"
+    local status; status=$(cat "$status_file" 2>/dev/null); rm -f "$status_file"
+    if [ "$status" != 0 ]; then
+      kdialog --error "$label couldn't be installed. The window that just closed showed why. Check the internet connection and try again."
+      return 1
+    fi
+  fi
+  flatpak run "$id" "$target" >/dev/null 2>&1 &
+}
+
 case "${name,,}" in
+  *.exe|*.msi)
+    with_helper com.usebottles.bottles "Bottles" \
+      "runs many Windows programs on Linux (for Windows games, add them to Steam or Heroic instead)" "$file"
+    ;;
+  *.appimage)
+    with_helper it.mijorus.gearlever "Gear Lever" "adds AppImages to your app menu and keeps them tidy" "$file"
+    ;;
   *.rpm)
     title=$(rpm -qp --qf '%{NAME} %{VERSION}' "$file" 2>/dev/null) || title=$name
     summary=$(rpm -qp --qf '%{SUMMARY}' "$file" 2>/dev/null) || summary=""
@@ -54,6 +87,6 @@ Search for the app's name there.<br><br>If the app is only offered as a .deb, ch
 Flatpak, AppImage or .rpm download instead." && open_store
     ;;
   *)
-    kdialog --sorry "SparkOS doesn't know how to install $name."
+    kdialog --sorry "SparkOS doesn't know how to open $name."
     ;;
 esac

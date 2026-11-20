@@ -4,18 +4,18 @@ A Linux desktop for gaming and everyday work, built on [Bazzite](https://bazzite
 
 Status: early and personal. Every build is booted in a VM by CI ([boot-test](.github/workflows/boot-test.yml)), which checks the system name, the signed image, the preinstalled apps and the default apps. It hasn't run on real hardware yet. See [PLAN.md](PLAN.md) for the roadmap.
 
-## What it adds to Bazzite
+## What's in it
+
+SparkOS ships only its own apps. Everything else, Steam included, installs from the Store (Bazaar) in a click, or by double-clicking a downloaded `.exe`, `.AppImage` or `.rpm`.
 
 | | |
 |---|---|
-| From Bazzite | KDE Plasma, Steam, Lutris (for Battle.net and others), gamescope, MangoHud, Firefox, current Mesa drivers, CUPS driverless printing with KDE Printers settings, SANE scanning, Bluetooth, KDE Connect, Tailscale |
-| Added by SparkOS | [Soot](https://github.com/Wolklaw/Soot) as the default browser and [FreeSuite](https://github.com/Wolklaw/freesuite-releases) (both always their latest release) for mail, calendar, PDF and every Word, Excel and PowerPoint format, old and new, plus OpenDocument (default for all of them), ONLYOFFICE kept under "Open with" for old files with pictures or charts |
-| | Spark Snip, the screenshot tool: Print for a screenshot, Meta+Shift+T to copy text off the screen (OCR), Meta+Shift+R to record ([source](files/spark-snip)) |
-| | Skanpage for scanning, Piper (Logitech mice), OpenRGB, Mission Center, qpwgraph, VIA keyboard access |
-| | Heroic, Prism Launcher, RuneLite, Bolt, Chrome, Discord, Spotify, OBS, Blender, GIMP, Audacity, Kdenlive, Flameshot, VS Code, Unity Hub, Bottles |
-| | Claude Code one click away (app menu, right-click a folder, `sparkos-claude`), with its sandbox tools and `sparkos-claude-import` for your Windows setup ([docs](docs/claude-code.md)) |
-| | `sparkos-dev-setup` for Node, Python, GitHub CLI and JDK 17, and the SparkOS name |
-| Planned | First-boot setup, SparkOS look (Plasma theme, login screen, boot splash), own installer ISO |
+| SparkOS apps | [Soot](https://github.com/Wolklaw/Soot), the default browser; [FreeSuite](https://github.com/Wolklaw/freesuite-releases) for mail, calendar, PDF and every Word, Excel, PowerPoint and OpenDocument format (both always their latest release); Spark Snip for screenshots, copying text off the screen (OCR) and recording ([source](files/spark-snip)) |
+| Platform (from Bazzite and KDE) | KDE Plasma, Dolphin, Konsole, Spectacle, System Settings and Monitor, Ark, KDE Connect, the Bazaar store, current Mesa drivers and a gaming-tuned kernel, CUPS driverless printing, SANE scanning, Bluetooth, Tailscale |
+| Removed from Bazzite | Steam, Lutris, Waydroid, Firefox and Bazzite's other first-boot apps, Kate/KWrite, Filelight and the Bazzite Portal. All are installable from the Store. |
+| Compatibility SparkOS adds | Double-click installs for `.exe` (Bottles, fetched on first use), `.AppImage` (Gear Lever, fetched on first use), `.rpm` and `.deb`; VIA keyboard access; what Androidbox needs to install for a user; Claude Code one click away ([docs](docs/claude-code.md)); `sparkos-dev-setup` for Node, Python, GitHub CLI and JDK 17 |
+| Identity | The SparkOS name, the bot logo and the zap startup sound |
+| Planned | The SparkOS look from the approved mockup (Phase 3) |
 
 Soot, FreeSuite and Spark Snip's Linux versions are new. The boot test checks them on every build, but none has been used by hand on a SparkOS desktop yet. For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
 
@@ -23,7 +23,7 @@ Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and
 
 ## Install from the SparkOS installer
 
-The [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer) holds a live USB image with every app inside. The apps are copied onto the new system during install, so they're there on the first start, even offline. It's rebuilt every Monday with the latest image and the latest apps from Flathub.
+The [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer) holds a live USB image of SparkOS. It's rebuilt every Monday from the latest image.
 
 1. Download **all** the files in the release. The ISO comes in parts because GitHub limits each release file to 2 GiB.
 2. Run `join-iso.cmd` (Windows) or `join-iso.sh` (Linux). It joins the parts into `SparkOS-installer.iso` and checks its SHA-256.

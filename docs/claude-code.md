@@ -26,7 +26,7 @@ SparkOS is set up so Claude Code is a click away. Claude Code itself comes from 
 
 - **Sandbox tools:** `bubblewrap` and `socat` are in the image, so Claude Code's command sandbox works without installing anything. Check it with `/sandbox` inside Claude Code.
 - **Developer tools:** `git` is built in. `sparkos-dev-setup` adds Node, Python 3.13, GitHub CLI and JDK 17 with Homebrew, which covers the tools your projects use.
-- **The default browser** for sign-in links is Soot. Chrome is also installed.
+- **The default browser** for sign-in links is Soot.
 - **A boot-test check on every build:** the image is booted in a VM, Claude Code is installed with `sparkos-dev-setup --claude`, and `claude --version` has to run.
 
 ## Limits, from Anthropic's docs (checked 2026-11-19)

@@ -19,8 +19,12 @@ mkdir -p "$(realpath /root)"
 # bwrap tries to write /proc/sys/user/max_user_namespaces which is mounted as ro
 mount -o remount,rw /proc/sys
 
-# Apps: install every Flatpak from the list (latest from Flathub), fail if any is missing
-test -s /src/flatpaks || { echo "installer/flatpaks is missing or empty"; exit 1; }
+# Apps: install every Flatpak from the list (latest from Flathub), fail if any is missing.
+# SparkOS preinstalls no third-party apps, so the list is normally empty; it stays supported.
+test -f /src/flatpaks || { echo "installer/flatpaks is missing"; exit 1; }
+if ! grep -q . /src/flatpaks; then
+    echo "No Flatpaks to put in the installer."
+fi
 
 # Flatpak/ostree stage downloads in temporary directories; the SparkOS image may ship
 # without them (image builds empty /var/tmp), which shows up as open(O_TMPFILE): ENOENT.

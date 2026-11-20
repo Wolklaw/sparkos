@@ -2,8 +2,8 @@
 # Default apps for everyone: Soot for the web, FreeSuite for mail, calendar, PDF and every
 # office format it opens (Word, Excel, PowerPoint, old and new, OpenDocument, RTF, CSV).
 # Lines are added to Bazzite's /etc/xdg/mimeapps.list so its own entries stay.
-# Plain text and Markdown stay with Kate. ONLYOFFICE stays installed and can still be
-# picked under "Open with". A user's own choices still win.
+# Plain text and Markdown also open in FreeSuite Writer, since SparkOS ships no other text editor.
+# A user's own choices still win.
 set -oue pipefail
 
 LIST=/etc/xdg/mimeapps.list
@@ -25,17 +25,17 @@ add freesuite-mail.desktop     x-scheme-handler/mailto
 add freesuite-calendar.desktop text/calendar
 add freesuite-pdf.desktop      application/pdf
 
-# Installing apps by double-click, the way Windows users expect:
-add com.usebottles.bottles.desktop \
+# Installing apps by double-click, the way Windows users expect. SparkOS preinstalls no
+# third-party apps, so sparkos-open-package fetches Bottles (.exe/.msi) or Gear Lever (.AppImage)
+# from Flathub on first use, then opens the file; it also guides .rpm installs and explains .deb.
+add sparkos-open-package.desktop \
   application/x-ms-dos-executable application/x-msi application/x-msdownload \
-  application/vnd.microsoft.portable-executable application/x-ms-shortcut   # Windows .exe/.msi run in Bottles
-add it.mijorus.gearlever.desktop \
-  application/vnd.appimage application/x-iso9660-appimage                    # AppImages go into the app menu
+  application/vnd.microsoft.portable-executable application/x-ms-shortcut \
+  application/vnd.appimage application/x-iso9660-appimage \
+  application/x-rpm application/x-redhat-package-manager \
+  application/vnd.debian.binary-package application/x-deb
 add io.github.kolunmi.Bazaar.desktop \
   application/vnd.flatpak.ref application/vnd.flatpak.repo                   # Flatpak links open in the Store
-add sparkos-open-package.desktop \
-  application/x-rpm application/x-redhat-package-manager \
-  application/vnd.debian.binary-package application/x-deb                    # guided .rpm install / .deb advice
 
 add freesuite-writer.desktop \
   application/vnd.openxmlformats-officedocument.wordprocessingml.document \
@@ -45,7 +45,8 @@ add freesuite-writer.desktop \
   application/msword \
   application/vnd.oasis.opendocument.text \
   application/vnd.oasis.opendocument.text-template \
-  application/rtf text/rtf
+  application/rtf text/rtf \
+  text/plain text/markdown
 
 add freesuite-sheets.desktop \
   application/vnd.openxmlformats-officedocument.spreadsheetml.sheet \

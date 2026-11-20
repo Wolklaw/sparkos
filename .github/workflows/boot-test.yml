@@ -166,7 +166,7 @@ jobs:
       - name: Check printing, scanning and devices
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          $SSH 'rpm -q plasma-print-manager skanpage cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
+          $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
           ! grep -q 'not installed' "$WORK/devices.txt"
           $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
@@ -230,36 +230,40 @@ jobs:
           # KVM may not exist inside this test VM, so only report it
           $SSH 'ls -l /dev/kvm 2>&1 || true'
 
-      - name: Wait for preinstalled Flatpaks
+      - name: Check no third-party apps are preinstalled
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          WANT=$(sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | grep '\.')
-          echo "Expecting:"; echo "$WANT"
-          for i in $(seq 1 120); do
-            APPS=$($SSH 'flatpak list --system --app --columns=application' 2>/dev/null || true)
-            MISSING=$(for a in $WANT; do echo "$APPS" | grep -qx "$a" || echo "$a"; done)
-            if [ -z "$MISSING" ]; then echo "All Flatpaks installed after ~$((i*20))s"; echo "$APPS" > "$WORK/flatpaks.txt"; exit 0; fi
+          # SparkOS ships only Soot, FreeSuite and Spark Snip. Give the first-boot Flatpak services
+          # (BlueBuild's and Bazzite's) time to run, then nothing may have been installed.
+          for i in $(seq 1 30); do
+            STATES=$($SSH 'systemctl is-active system-flatpak-setup.service bazzite-flatpak-manager.service' 2>/dev/null || true)
+            echo "$STATES" | grep -q activating || break
             sleep 20
           done
-          echo "$APPS" > "$WORK/flatpaks.txt"
-          echo "Still missing after 40 minutes:"; echo "$MISSING"
-          $SSH 'systemctl status system-flatpak-setup.service --no-pager; journalctl -u system-flatpak-setup.service --no-pager | tail -40'
-          exit 1
+          $SSH 'echo "== system Flatpak apps"; flatpak list --system --app --columns=application
+                echo "== removed packages"; rpm -q steam lutris waydroid kate kwrite filelight 2>&1
+                echo "== Portal autostart"; ls /etc/skel/.config/autostart/ 2>&1' | tee "$WORK/apps.txt"
+          APPS=$(sed -n '/^== system Flatpak apps/,/^== removed packages/p' "$WORK/apps.txt" | grep -v '^==' || true)
+          [ -z "$APPS" ] || { echo "::error::preinstalled Flatpaks found:"; echo "$APPS"; exit 1; }
+          ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
+          ! grep -q 'bazzite-portal' "$WORK/apps.txt"
+          # What stays: the platform SparkOS needs, and the owner's apps
+          $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # Runs after the Flatpak wait: Bottles and Gear Lever are Flatpaks installed on first boot
-          # Double-clicked downloads open in the right app
+          # Double-clicked downloads open in the SparkOS helper, which fetches Bottles or Gear Lever
+          # from Flathub on first use (nothing is preinstalled), or guides .rpm and .deb files
           $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
-          grep -q 'application/x-ms-dos-executable -> com.usebottles.bottles.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/vnd.appimage -> it.mijorus.gearlever.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/x-ms-dos-executable -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
+          grep -q 'application/vnd.appimage -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.flatpak.ref -> io.github.kolunmi.Bazaar.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           # The Store and the guided package installer are there, and what the installer uses exists
           $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
-          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio >/dev/null && echo "package installer ready"'
+          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub reachable for Bottles and Gear Lever"'
 
       - name: Measure boot time and idle load
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

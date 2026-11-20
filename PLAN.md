@@ -28,7 +28,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
    - **FreeSuite: in the image** (`files/scripts/freesuite.sh`, always the latest release, checked against that release's SHA256SUMS). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, PDF and every Office format it opens, including .doc/.xls/.ppt, OpenDocument and RTF.
    - **Spark Snip 1.0.0: in the image**, built from this repo (`files/spark-snip`, installed by `files/scripts/spark-snip.sh`). It's the screenshot, OCR and screen recording tool and takes Print, Meta+Shift+S/T/R from Spectacle, which stays installed because Spark Snip reads the screen through it. It grew out of QuickOCR, whose Windows app is finished.
    - **Androidbox: not in the image, but ready to install.** SparkOS ships what its Linux installer needs: `python3.13`, because Qt for Python has no packages for Fedora 45's Python 3.15, plus the Qt, SDL and emulator libraries. You install it for your user, with no root, from the latest release (see the switching guide). The boot test does exactly that on every build and starts it.
-   - **ONLYOFFICE stays installed but isn't the default.** FreeSuite reads the old binary formats only partly: no pictures or formatting from .doc, only text from .ppt, and no charts or merged cells from .xls. ONLYOFFICE is under "Open with" for those files. Remove it whenever you like.
+   - **App policy (2026-11-20):** SparkOS ships only the owner's own apps: Soot, FreeSuite and Spark Snip. Every other company's or project's app is removed, Bazzite's included (Steam, Lutris, Waydroid, Firefox and its other first-boot apps, Kate/KWrite, Filelight, the Portal), and is installable from the Store. ONLYOFFICE is gone too: old .doc/.xls/.ppt open in FreeSuite, which reads them partly. The platform stays: Plasma, Dolphin, Konsole, Spectacle, System Settings, Ark, KDE Connect and the Store.
    - **Updates:** publish a new release of Soot or FreeSuite, and the next image build (daily, or any push) includes it. The boot test then checks it.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**
    - **Chosen: E:, after its games are uninstalled.** In Phase 5, uninstall the Windows games on E: (Steam, Epic, Battle.net and Xbox app), then shrink E: in Disk Management (run as admin) and install SparkOS into the freed space. Uninstall the Xbox app's games through the Xbox app itself. Their protected `WindowsApps`/`XboxGames` files are what usually block a shrink.
@@ -50,7 +50,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 
 ### Phase 1: Minimal image (one evening)
 - `recipes/recipe.yml`: base Bazzite, with the image name and description set to SparkOS.
-- Add the launchers as Flatpaks: Heroic (Epic + GOG + Amazon), and Battle.net through Lutris (already in Bazzite).
+- Game launchers (Steam, Heroic, Lutris) install from the Store; none are preinstalled.
 - Add the office suite (FreeSuite) and Soot.
 - In the VM: install the stock Bazzite ISO, then `rpm-ostree rebase` onto `ghcr.io/wolklaw/sparkos:latest`.
 - **Done when:** the VM boots SparkOS, `/etc/os-release` reports it, and the apps open.
@@ -87,10 +87,10 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 
 ### Phase 4: Own installer ISO (in progress)
 - `installer/` and `.github/workflows/installer-iso.yml` build a SparkOS live installer, adapted from Bazzite's (Apache-2.0). It runs on demand and every Monday.
-- **Every app is inside:** at ISO build time, Bazzite's first-boot apps and every system Flatpak in the recipe are installed from Flathub at their latest versions. They're copied onto the new system during install, so first start needs no download.
+- The installer carries SparkOS itself. It can carry Flatpaks too (`installer/flatpaks`, copied onto the new system during install), but under the app policy that list is empty.
 - After install, the system follows signed SparkOS updates (`bootc switch --enforce-container-sigpolicy`).
 - **Published** to the `installer` release in parts under 2 GiB (GitHub's limit per file), with `join-iso.cmd` and `join-iso.sh`, which join the parts and check the SHA-256.
-- **CI checks:** every app is in the installer image, and the ISO boots in QEMU (screenshots kept for 7 days).
+- **CI checks:** the installer builds and the ISO boots in QEMU (screenshots kept for 7 days). It carries no third-party apps.
 - **Not yet tested:** a full install from the ISO, in a VM or on hardware.
 - **Done when:** a clean VM installs from the SparkOS ISO and first boots with all apps present.
 
@@ -121,7 +121,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 ## Risks, plainly
 - **Kernel anti-cheat games** won't run, including League of Legends and Teamfight Tactics (Riot Vanguard) and GTA Online. Windows stays for those, on a small partition or as a VM.
 - **Windows-only device tools:** 8BitDo firmware updates and Focusrite's own app. The devices themselves work, and replacements are listed in the switching guide.
-- **Microsoft Office desktop and Adobe apps** don't run. FreeSuite, ONLYOFFICE and the web versions do.
+- **Microsoft Office desktop and Adobe apps** don't run. FreeSuite and the web versions do.
 - **GPU-heavy gaming can't be tested in a VM.** Real performance testing happens in Phase 5.
 - **Dependence on Bazzite and Universal Blue.** That dependence is the point: they do the hard parts. If they stopped, the recipe could be moved to plain Fedora Atomic.
 - **Battle.net** occasionally breaks for a few days after a client update.
