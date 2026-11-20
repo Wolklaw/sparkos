@@ -32,8 +32,8 @@ if default != "reject":
     sys.exit(f"{path}: default is {default!r}, expected 'reject'; tell the owner (Bazzite changed its policy)")
 entry = [{"type": "sigstoreSigned", "keyPath": key, "signedIdentity": {"type": "matchRepository"}}]
 docker = policy.setdefault("transports", {}).get("docker", {})
-# SparkOS's entry last, where it ends up in the BlueBuild image (sparkos-signing-fix.sh re-adds
-# it there), so policy.json is the same file in both images
+# SparkOS's entry last, where BlueBuild's images had it (so policy.json on machines installed
+# from them doesn't change order on their first update)
 policy["transports"]["docker"] = {**{k: v for k, v in docker.items() if k != image}, image: entry}
 with open(path, "w") as f:
     json.dump(policy, f, indent=2)

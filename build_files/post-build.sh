@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# Containerfile step 9: clean up at the end (what BlueBuild's post_build.sh does).
+# Containerfile step 8: clean up at the end (what BlueBuild's post_build.sh does).
 set -euo pipefail
 shopt -s nullglob
 

@@ -48,10 +48,9 @@ jobs:
 
       - name: Make the app list
         run: |
-          # Only the system Flatpaks the SparkOS recipe lists (none today: SparkOS preinstalls no
-          # third-party apps). Bazzite's own first-boot apps are deliberately left out.
-          sed -n '/scope: system/,/scope: user/p' recipes/recipe.yml | sed -n 's/^ *- \([a-zA-Z0-9_.-]*\).*/\1/p' | { grep '\.' || true; } > /tmp/sparkos-flatpaks
-          cp /tmp/sparkos-flatpaks installer/flatpaks
+          # No Flatpaks: SparkOS preinstalls no third-party apps, and Bazzite's own first-boot apps
+          # are deliberately left out. The installer still reads this (empty) list.
+          : > installer/flatpaks
           echo "$(grep -c . installer/flatpaks || true) Flatpaks in the installer"
           cat installer/flatpaks
 
@@ -67,7 +66,7 @@ jobs:
         run: |
           sudo podman run --rm localhost/payload:latest flatpak list --system --app --columns=application,version | tee /tmp/installer-apps.txt
           missing=0
-          for id in $(cat /tmp/sparkos-flatpaks); do grep -q "^$id" /tmp/installer-apps.txt || { echo "::error::missing $id"; missing=1; }; done
+          for id in $(cat installer/flatpaks); do grep -q "^$id" /tmp/installer-apps.txt || { echo "::error::missing $id"; missing=1; }; done
           [ "$missing" = 0 ]
 
       - name: Build the ISO

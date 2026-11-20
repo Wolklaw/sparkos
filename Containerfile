@@ -1,45 +1,62 @@
-# SparkOS, built from its own Containerfile, without BlueBuild.
+# SparkOS: the whole image, built from this file (no BlueBuild since 2026-11-20).
 #
-# Side by side with the real build: this produces the same image as recipes/recipe.yml, step for
-# step, from the same Bazzite base. It's built by .github/workflows/build-containerfile.yml and
-# published only as ghcr.io/wolklaw/sparkos:containerfile. The real image (latest) still comes from
-# BlueBuild until the owner switches. docs/building.md explains each step, how the two images
-# compare, and what's left before switching.
+# Base: Bazzite (KDE Plasma, AMD/Intel GPUs, current Mesa drivers, gaming kernel).
+# Built and signed by .github/workflows/build.yml and published as ghcr.io/wolklaw/sparkos:latest.
+# docs/building.md explains each step.
 #
-# Each RUN below matches one step of what BlueBuild generates for the recipe, in the same order.
-# build_files/check-recipe-sync.py fails the build if the recipe and this file stop matching
-# (packages, scripts, their order), so a change to the recipe can't silently go missing here.
+# App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
+# FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
+# Run, Link, Store and Update). Every other company's or project's app is removed, Bazzite's
+# included; people install what they want from the Store (Spark Store, or Bazaar next to it). What
+# stays is the platform SparkOS needs to work: Plasma, Dolphin, Konsole, System Settings, Ark (zip
+# support), KDE Connect, the Store, drivers, printing and scanning. Where a Spark app does the job,
+# KDE's own is removed too: Spark Monitor replaces Plasma System Monitor (and takes its shortcuts),
+# Spark Snip replaces Spectacle (it captures through KWin itself). Ark and KDE Connect stay until
+# Spark Archive and Spark Link are tried on real hardware. Tailscale, a company's VPN service, is
+# removed too.
 #
-# Build it locally (from the repo root, with podman or buildah):
-#   podman build -t sparkos:local .
+# Build it locally (from the repo root, as root, with about 40 GB free):
+#   sudo podman build -t localhost/sparkos:test .
 
 ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
 FROM ${BASE_IMAGE}
 
 ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
-# Where the scripts find the repo's files/ folder (the scripts read CONFIG_DIRECTORY, as under
-# BlueBuild). It's a bind mount: nothing in files/ is copied into the image except what the
-# steps install.
+# Where the scripts find the repo's files/ folder (they read CONFIG_DIRECTORY). It's a bind mount:
+# nothing in files/ is copied into the image except what the steps install.
 ARG CONFIG_DIRECTORY=/tmp/files
 ARG IMAGE_REGISTRY=ghcr.io/wolklaw
 ARG IMAGE_NAME=sparkos
 
-# 1. The public key that signed updates are checked against (BlueBuild: "Key RUN").
+# 1. The public key that signed updates are checked against.
 COPY cosign.pub /etc/pki/containers/sparkos.pub
 
 # 2. Prepare /opt so packages and scripts that install there land in /usr/lib/opt, which is part
-#    of the image (BlueBuild: pre_build.sh).
+#    of the image.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/pre-build.sh
 
-# 3. files/system/* into the image root (recipe: type files).
+# 3. files/system/* into the image root.
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/copy-files.sh system /
 
-# 4. Packages (recipe: type dnf): remove Bazzite's third-party apps (and the KDE apps a Spark app
-#    replaces), then add what SparkOS needs. The recipe says why each package is there. Same order and options as BlueBuild's dnf
-#    module: makecache, remove (with dependents), install (weak dependencies on).
+# 4. Packages: remove, then install (weak dependencies on).
+#    Removed:
+#    - steam, lutris, waydroid, input-remapper, kate, kwrite, filelight, kfind, krdc, krfb,
+#      kwalletmanager5, kdebugsettings, khelpcenter: other projects' apps that Bazzite ships, all
+#      installable from the Store
+#    - plasma-systemmonitor (Spark Monitor replaces it) and spectacle (Spark Snip captures through
+#      KWin): KDE apps a Spark app replaces; nothing else in the image requires them
+#    - tailscale: a company's VPN service Bazzite preinstalls (docs/switching.md says how to add it)
+#    Installed (printing with CUPS and scanning with SANE pixma/airscan are already in Bazzite):
+#    - bubblewrap, socat: Claude Code's command sandbox (bubblewrap is in Bazzite; listed so it stays)
+#    - kdialog: folder picker for sparkos-claude and the install dialogs
+#    - fuse (in Bazzite; listed so it stays) and fuse-libs (FUSE 2): AppImages mount themselves
+#    - rsms-inter-fonts: Inter, the interface font (Chakra Petch is in files/sparkos-theme/fonts)
+#    - python3.13 through libXtst: so Androidbox installs for the user (install.sh --user) with no
+#      root: a Python that Qt for Python supports (Fedora 45's own is 3.15), and the libraries Qt,
+#      SDL and Google's emulator load. Androidbox itself is not in the image.
 RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
     dnf -y makecache && \
@@ -85,7 +102,16 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
         libXrandr \
         libXtst
 
-# 5. SparkOS's own scripts, in the recipe's order (recipe: first type script).
+# 5. SparkOS's own scripts (files/scripts), in this order:
+#    - sparkos-identity: shows "SparkOS" as the system name
+#    - sparkos-apps: no preinstalled third-party apps (empties Bazzite's first-boot list, drops the Portal)
+#    - soot, freesuite: the browser and the office apps, latest releases
+#    - the Spark apps; spark-update comes after the others (it lists their versions). Bazzite's
+#      uupd still downloads updates; Spark Update adds the window and the notification
+#    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
+#      usage counting
+#    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
+#    - sparkos-theme, last: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
@@ -112,29 +138,21 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         sparkos-defaults.sh \
         sparkos-theme.sh
 
-# 6. Flathub for the system and for each user, so the Store works; installs nothing
-#    (recipe: type default-flatpaks). SparkOS's own shell version of BlueBuild's service.
+# 6. Flathub for the system and for each user, so the Store works; installs no apps.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/flathub.sh
 
-# 7. The signing policy, so updates are only accepted when signed with SparkOS's key
-#    (recipe: type signing).
+# 7. The signing policy, so updates are only accepted when signed with SparkOS's key.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/signing.sh "${IMAGE_REGISTRY}" "${IMAGE_NAME}"
 
-# 8. The recipe's last script step: checks the policy entry is the lowercase image name.
-RUN --mount=type=bind,source=files,target=/tmp/files,rw \
-    --mount=type=bind,source=build_files,target=/tmp/build_files \
-    /tmp/build_files/run-scripts.sh \
-        sparkos-signing-fix.sh
-
-# 9. Clean up: links for anything installed in /opt, empty /tmp and /var, and keep rpm-ostree's
-#    package database in step with what's installed (BlueBuild: post_build.sh).
+# 8. Clean up: links for anything installed in /opt, empty /tmp and /var, and keep rpm-ostree's
+#    package database in step with what's installed.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/post-build.sh
 
 # Labels last, so changing them never rebuilds a layer. The ones not set here (version,
-# containers.bootc, ostree.*) come from Bazzite, as in the BlueBuild image.
+# containers.bootc, ostree.*) come from Bazzite.
 ARG BUILD_DATE=unknown
 ARG REVISION=unknown
 ARG BASE_DIGEST=unknown
