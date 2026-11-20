@@ -63,6 +63,12 @@ jobs:
           # test disk only, through a kernel argument.
           [customizations.kernel]
           append = "systemd.wants=sshd.service"
+
+          # Room for the ~5 GB of first-boot Flatpaks; the default root is too small
+          # (growing the qcow2 afterwards doesn't grow the filesystem inside it).
+          [[customizations.filesystem]]
+          mountpoint = "/"
+          minsize = "60 GiB"
           EOF
           mkdir -p "$WORK/output"
           sudo podman run --rm --privileged --pull=newer \
