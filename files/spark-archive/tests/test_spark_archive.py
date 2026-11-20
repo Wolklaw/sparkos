@@ -93,6 +93,8 @@ class Base(unittest.TestCase):
         os.makedirs(self.dest)
         self.src = os.path.join(self.tmp, 'src')
         os.makedirs(self.src)
+        self.arcs = os.path.join(self.tmp, 'arcs')         # archives (and app folders) here
+        os.makedirs(self.arcs)
 
     def tearDown(self):
         shutil.rmtree(self.tmp, ignore_errors=True)

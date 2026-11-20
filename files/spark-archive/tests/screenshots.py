@@ -49,8 +49,9 @@ def main():
     app = App(arc)
     app.root.geometry('900x600+0+0')
     settle(app.root, 1500)
-    app._expand_iid('holiday-photos/day 01')
-    app.table.item('holiday-photos/day 01', open=True)
+    for iid in ('holiday-photos', 'holiday-photos/day 01'):
+        app._expand_iid(iid)
+        app.table.item(iid, open=True)
     app.table.selection_set(['holiday-photos/day 01/IMG_1001.jpg'])
     app._update_buttons()
     settle(app.root, 300)
