@@ -1,18 +1,21 @@
 name: spark-welcome
-# Spark Welcome is an optional app: it is not in the SparkOS image. Two checks:
-# - fedora: the system-wide install (kept so the owner can move it into the image later), the
-#   self-test, and the unit and UI tests under Xvfb, in a plain Fedora container.
+# Spark Welcome ships in the SparkOS image (files/scripts/spark-welcome.sh). Two checks:
+# - fedora: the image build step (system-wide install with --deps), the self-test, and the
+#   unit and UI tests under Xvfb, in a plain Fedora container. Much faster than the image build.
 # - sparkos-user: inside the published SparkOS image, a normal user installs it with
 #   install.sh --user (no root; /usr is read-only on a real machine), runs --self-test and the
-#   unit tests on the image's Python, then --uninstall, and nothing may be left behind.
+#   unit tests on the image's Python, then --uninstall, and nothing may be left behind. That
+#   mode stays for the future Spark Portal.
 on:
   push:
     paths:
       - "files/spark-welcome/**"
+      - "files/scripts/spark-welcome.sh"
       - ".github/workflows/spark-welcome.yml"
   pull_request:
     paths:
       - "files/spark-welcome/**"
+      - "files/scripts/spark-welcome.sh"
       - ".github/workflows/spark-welcome.yml"
   workflow_dispatch:
 
@@ -24,8 +27,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install (system-wide)
-        run: bash files/spark-welcome/install.sh --deps
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-welcome.sh
 
       - name: Self-test
         run: spark-welcome --self-test

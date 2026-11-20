@@ -11,7 +11,7 @@ add it to the recipe or the image.
 
 | Brief | App | Status |
 |---|---|---|
-| [spark-welcome.md](spark-welcome.md) | Spark Welcome: first-login setup | Built: [files/spark-welcome](../files/spark-welcome), PR open on branch `spark-welcome` |
+| [spark-welcome.md](spark-welcome.md) | Spark Welcome: first-login setup | Built: [files/spark-welcome](../files/spark-welcome), ships in the first build (owner's change); PR open on branch `spark-welcome`, recipe and boot test to be added at merge |
 | [spark-games.md](spark-games.md) | Spark Games: one library for every launcher | Owner has started notes; ask for them first |
 | [spark-monitor.md](spark-monitor.md) | Spark Monitor: task manager (Ctrl+Shift+Esc) | Not started |
 | (no brief yet) | Spark Portal: the hub that lists, installs, updates and removes optional Spark apps | Idea; the owner decides the format first |

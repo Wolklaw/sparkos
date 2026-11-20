@@ -11,7 +11,7 @@
 #            Works on a running SparkOS, where /usr is read-only. Needs only what the SparkOS
 #            image already has (Python 3 with Tk, flatpak, udisksctl, lsblk).
 # --deps     system-wide only: install what it needs with dnf, skipping anything already there.
-#            Kept so the app can move into the image later; it is not in the image today.
+#            The SparkOS image build uses this (files/scripts/spark-welcome.sh).
 # --no-test  skip the self-test at the end.
 # --uninstall removes exactly the files this script installs. Your settings
 #            (~/.config/spark-welcome) and log (~/.local/state/spark-welcome) stay.

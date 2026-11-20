@@ -2,7 +2,7 @@
 
 The first-login helper for SparkOS, aimed at people coming from Windows. It replaces the Bazzite Portal that SparkOS removes. It opens once at a user's first login and then stays in the menu as "Spark Welcome".
 
-**Optional, not in the SparkOS image.** The first SparkOS build ships only Soot, FreeSuite, Spark Snip and Spark Media. Spark Welcome installs for one user with no root (below), and a future Spark Portal is meant to list it. Whether it later goes into the image or becomes the Portal's first-run screen is the owner's call; both work.
+**Ships in the SparkOS image.** The build step is [files/scripts/spark-welcome.sh](../scripts/spark-welcome.sh), which runs `install.sh --deps` and puts the autostart entry in `/etc/xdg/autostart/`, so every new user gets the window once at their first login. It can also install for one user with no root (`install.sh --user`, below), for machines without it and for the future Spark Portal.
 
 Every page can be skipped, nothing installs or copies until you click, and closing the window at any point is fine.
 
@@ -28,7 +28,7 @@ The steps (`catalog.py`, `flatpak.py`, `windows.py`, `checks.py`) have no window
 ```
 bash install.sh --user                   # for you only, no root: ~/.local/lib, ~/.local/bin, ~/.local/share, ~/.config/autostart
 bash install.sh --user --uninstall       # removes exactly those files; settings and log stay
-sudo bash install.sh --deps              # system-wide with Fedora packages, if it ever moves into the image
+sudo bash install.sh --deps              # system-wide with Fedora packages (what the image build runs)
 python3 spark_welcome.py                 # run from here
 python3 spark_welcome.py --page windows  # start on one page
 python3 spark_welcome.py --self-test     # app list, Tk, flatpak, udisksctl, lsblk, autostart entry; no display, no network
@@ -38,14 +38,14 @@ python3 make_icons.py                    # redraw icons/ (the mark, and the Spar
 
 It needs only what the SparkOS image already has: Python 3 with Tk, flatpak, udisks2 and util-linux. The checks also use vulkaninfo, wpctl, lpstat, scanimage, nmcli, bluetoothctl and rpm-ostree when they're there, and say so when one is missing. [spark-app.json](spark-app.json) describes the app for the Portal.
 
-CI ([workflow](../../.github/workflows/spark-welcome.yml)) runs the system-wide install and all tests under Xvfb in a Fedora container, then, inside the published SparkOS image, installs it with `--user` as a normal user, runs `--self-test` and the unit tests on the image's Python, uninstalls it, and fails if any file is left in the home folder ([tests/ci-user-install.sh](tests/ci-user-install.sh)).
+CI ([workflow](../../.github/workflows/spark-welcome.yml)) runs the image build step and all tests under Xvfb in a Fedora container, then, inside the published SparkOS image, installs it with `--user` as a normal user, runs `--self-test` and the unit tests on the image's Python, uninstalls it, and fails if any file is left in the home folder ([tests/ci-user-install.sh](tests/ci-user-install.sh)).
 
 Settings are in `~/.config/spark-welcome/`, the log in `~/.local/state/spark-welcome/`.
 
 ## Known gaps
 
 - Not tried by hand on a SparkOS desktop yet. The pages were checked on Windows with a fake Windows drive; the checks and installs are covered by tests with sample outputs and a fake flatpak, not on real hardware.
-- The "fresh user account gets the window once at first login" part is covered by the `--first-login` tests and the autostart entry, not by a real login in the boot test (the app isn't in the image).
+- The "fresh user account gets the window once at first login" part is covered by the `--first-login` tests and the autostart entry, not by a real login yet. The boot test doesn't cover it until Spark Welcome is added there.
 - English only for now. `strings.py` has an empty French table, and `apps.json` takes `name_fr`/`blurb_fr`.
 - Files from Windows: OneDrive folders that only exist online aren't copied (they aren't on the disk). Windows accounts are copied one at a time. Storage Spaces and dynamic disks aren't detected.
 - No progress for flatpak's download size before an install starts; the bar follows flatpak's own percentage.
