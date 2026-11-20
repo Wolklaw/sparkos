@@ -813,8 +813,8 @@ class UITests(Temp):
         self.assertIsInstance(self.app.view, PhotoView)
         # the RAW opens on its preview, upright, and develops when LibRaw is there
         view.show(view.files.index(dng))
-        self.pump(0.3)
-        self.assertEqual(view.photo.size, (72, 96))
+        self.assertTrue(view.photo.raw)
+        self.assertEqual(view.photo.size, (72, 96))         # the preview, at once
         if raw.libraw() is not None:
             self.assertTrue(self.pump(10, until=lambda: view.photo.developed))
             self.assertEqual(view.photo.size, (144, 192))
