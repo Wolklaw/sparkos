@@ -15,6 +15,8 @@ from urllib.parse import quote, unquote, urlparse
 from PIL import Image, ImageOps, ImageSequence, PngImagePlugin
 
 from . import APP_NAME, APP_SLUG, MUSIC_EXT, PHOTO_EXT, VERSION, VIDEO_EXT
+from . import raw
+from .text import tr
 
 log = logging.getLogger(APP_SLUG)
 
@@ -49,6 +51,11 @@ def config_dir() -> str:
 
 def state_dir() -> str:
     return _xdg_dir('XDG_STATE_HOME', os.path.join('.local', 'state'))
+
+
+def cache_dir() -> str:
+    """~/.cache/spark-media: the music index and album covers."""
+    return _xdg_dir('XDG_CACHE_HOME', '.cache')
 
 
 def thumbnail_root() -> str:
@@ -260,13 +267,13 @@ def move_to_trash(path: str) -> Optional[str]:
 
 def pick_files(kind: Optional[str], start: str) -> List[str]:
     """The desktop's own file dialog (kdialog on Plasma), Tk's as a fallback. Empty if cancelled."""
-    exts = {'photo': PHOTO_EXT, 'video': VIDEO_EXT, 'music': MUSIC_EXT}
+    exts = {'photo': PHOTO_EXT, 'video': VIDEO_EXT, 'music': MUSIC_EXT | {'m3u', 'm3u8'}}
     chosen = [exts[kind]] if kind else list(exts.values())
     pattern = ' '.join(f'*.{e}' for group in chosen for e in sorted(group))
     if shutil.which('kdialog') and os.name != 'nt':
         try:
             result = subprocess.run(
-                ['kdialog', '--getopenfilename', start, f'{pattern}|Media files',
+                ['kdialog', '--getopenfilename', start, f"{pattern}|{tr('dialog.media_files')}",
                  '--multiple', '--separate-output', '--title', APP_NAME],
                 capture_output=True, text=True)
             return [line for line in result.stdout.splitlines() if line.strip()]
@@ -274,7 +281,8 @@ def pick_files(kind: Optional[str], start: str) -> List[str]:
             pass
     from tkinter import filedialog
     names = filedialog.askopenfilenames(title=APP_NAME, initialdir=start,
-                                        filetypes=[("Media files", pattern), ("All files", "*")])
+                                        filetypes=[(tr('dialog.media_files'), pattern),
+                                                   (tr('dialog.all_files'), "*")])
     return list(names)
 
 
@@ -314,23 +322,32 @@ class PhotoError(Exception):
 
 
 class Photo:
-    """One opened photo: the upright full image, its frames if animated, and facts about it."""
+    """One opened photo: the upright full image, its frames if animated, and facts about it.
+    A camera RAW opens on the JPEG the camera stored inside it; needs_decode says whether the
+    sensor data would give a bigger picture (the viewer decodes it in the background)."""
 
     def __init__(self, path: str):
         self.path = path
+        self.exif: Optional[Image.Exif] = None     # kept for saving edits
+        self.icc: Optional[bytes] = None
+        self.raw = False
+        self.needs_decode = False
+        self.developed = False                      # a RAW shown from its sensor data
+        self.camera: Optional[str] = None
+        if raw.is_raw(path):
+            self._open_raw(path)
+            return
         try:
             source = Image.open(path)
             source.load()
         except FileNotFoundError:
-            raise PhotoError("The file is gone.") from None
+            raise PhotoError(tr('photo.gone')) from None
         except Exception as exc:     # noqa: BLE001 - Pillow raises many kinds
             ext = os.path.splitext(path)[1][1:].upper()
             if ext in ('HEIC', 'HEIF', 'AVIF'):
-                raise PhotoError(f"{ext} photos need the pillow-heif plugin, "
-                                 "which isn't installed.") from None
+                raise PhotoError(tr('photo.need_heif', ext=ext)) from None
             log.warning("cannot open %s: %s", path, exc)
-            raise PhotoError("The file is damaged, or isn't a photo format Spark Media "
-                             "reads.") from None
+            raise PhotoError(tr('photo.damaged')) from None
         with source:
             self.format = source.format or os.path.splitext(path)[1][1:].upper()
             self.frames: List[Image.Image] = []
@@ -345,11 +362,50 @@ class Photo:
             else:
                 self.image = _displayable(ImageOps.exif_transpose(source))
             self.taken = _date_taken(source)
+            try:
+                self.exif = source.getexif()
+            except Exception:      # noqa: BLE001
+                self.exif = None
+            self.icc = source.info.get('icc_profile')
+            self.camera = _camera(self.exif)
+        self._finish()
+
+    def _finish(self):
         self.size = self.image.size
         try:
-            self.bytes = os.path.getsize(path)
+            self.bytes = os.path.getsize(self.path)
         except OSError:
             self.bytes = 0
+
+    def _open_raw(self, path: str):
+        if not os.path.exists(path):
+            raise PhotoError(tr('photo.gone'))
+        preview = raw.embedded_preview(path)
+        if preview is None:
+            # no usable preview: straight to the full decode (slower)
+            full = raw.decode(path)
+            if full is None:
+                raise PhotoError(tr('photo.raw_unreadable'))
+            self.image = full
+            self.developed = True
+        else:
+            self.image = raw.upright(preview, raw.orientation(path, preview))
+            self.needs_decode = (raw.libraw() is not None and
+                                 raw.needs_decode(self.image.size, raw.sensor_size(path)))
+        self.raw = True
+        self.format = 'RAW ' + os.path.splitext(path)[1][1:].upper()
+        self.frames, self.durations = [], []
+        self.exif = raw.exif_of(path, preview)
+        self.taken = _date_taken_exif(self.exif)
+        self.camera = _camera(self.exif)
+        self._finish()
+
+    def use_decoded(self, image: Image.Image):
+        """Swap in the full decode of a RAW (from the viewer's worker thread result)."""
+        self.image = image
+        self.needs_decode = False
+        self.developed = True
+        self.size = image.size
 
     @property
     def animated(self) -> bool:
@@ -369,8 +425,29 @@ def _displayable(image: Image.Image) -> Image.Image:
 
 def _date_taken(image: Image.Image) -> Optional[str]:
     try:
-        exif = image.getexif()
-        value = exif.get_ifd(0x8769).get(0x9003) or exif.get(0x0132)    # DateTimeOriginal, DateTime
+        return _date_taken_exif(image.getexif())
+    except Exception:      # noqa: BLE001
+        return None
+
+
+def _camera(exif: Optional[Image.Exif]) -> Optional[str]:
+    """'Canon EOS R6' from Make and Model, without the make said twice."""
+    if not exif:
+        return None
+    make = str(exif.get(0x010F) or '').strip(' \x00')
+    model = str(exif.get(0x0110) or '').strip(' \x00')
+    if model and make and model.lower().startswith(make.split()[0].lower()):
+        return model
+    return ' '.join(x for x in (make, model) if x) or None
+
+
+def _date_taken_exif(exif: Optional[Image.Exif]) -> Optional[str]:
+    if not exif:
+        return None
+    try:
+        sub = exif.get(0x8769)
+        sub = sub if isinstance(sub, dict) else exif.get_ifd(0x8769)
+        value = sub.get(0x9003) or exif.get(0x0132)    # DateTimeOriginal, DateTime
     except Exception:      # noqa: BLE001
         return None
     if isinstance(value, str) and re.match(r'\d{4}:\d\d:\d\d \d\d:\d\d', value):
@@ -469,6 +546,14 @@ def photo_thumbnail(path: str, flavour: str = 'large') -> Optional[Image.Image]:
     if image is not None:
         return image
     size = THUMB_SIZES[flavour]
+    if raw.is_raw(path):
+        preview = raw.embedded_preview(path, max_side=size * 2)
+        if preview is None:
+            return None
+        image = raw.upright(preview, raw.orientation(path, preview))
+        image.thumbnail((size, size), Image.Resampling.LANCZOS)
+        store_thumbnail(path, image, flavour)
+        return image
     try:
         with Image.open(path) as source:
             source.draft('RGB', (size * 2, size * 2))      # JPEG decodes at a fraction of the size

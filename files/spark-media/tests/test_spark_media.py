@@ -17,6 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
 for var in ('XDG_STATE_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'):
     os.environ.setdefault(var, tempfile.mkdtemp(prefix=f'spark-media-{var.lower()}-'))
+os.environ.setdefault('SPARK_LANG', 'en')
 
 from PIL import Image  # noqa: E402
 
@@ -269,7 +270,7 @@ class UITests(unittest.TestCase):
     @unittest.skipUnless(gst.available(), "needs GStreamer")
     def test_music_view_plays(self):
         from sparkmedia.app import App
-        from sparkmedia.playview import PlayerView
+        from sparkmedia.playview import MusicPlayerView
         song = os.path.join(self.dir, 'tone.ogg')
         pipeline = gst.Gst.parse_launch(
             f'audiotestsrc num-buffers=86 ! audioconvert ! vorbisenc ! oggmux ! '
@@ -280,7 +281,7 @@ class UITests(unittest.TestCase):
         app = App([song])
         try:
             self.pump(app, 1.5)
-            self.assertIsInstance(app.view, PlayerView)
+            self.assertIsInstance(app.view, MusicPlayerView)
             self.assertIsNotNone(app.view.player)
             # audio output may not exist on CI; it either plays or reports a clear error
             self.assertTrue(app.view.player.duration or app.view.player.error)

@@ -1,4 +1,5 @@
-"""The start screen: Pictures, Videos and Music as browsable folders, with thumbnails."""
+"""The start screen: Pictures, Videos and Music as browsable folders, with thumbnails. (Music
+opens on the library by artist and album, musicview.py; this is its "by folder" view.)"""
 
 import os
 import queue
@@ -11,51 +12,16 @@ from PIL import Image, ImageTk
 
 from . import player as gst
 from .core import folder_items, log, photo_thumbnail, pick_files, pick_folder, user_dir
+from .listviews import ScrollBar
+from .text import tr
 from .widgets import T, IconButton, Segmented, WolkButton
 
-KIND_WORDS = {'photo': ('PHOTOS', 'photos'), 'video': ('VIDEOS', 'videos'),
-              'music': ('MUSIC', 'music files')}
 MAX_THUMBS = 3000
 
 
-class ScrollBar(tk.Canvas):
-    """A thin flat scrollbar in the house style; drag it or click the track."""
-
-    def __init__(self, parent: tk.Misc, target: tk.Canvas, width: int):
-        super().__init__(parent, width=width, bg=T["bg"], highlightthickness=0, bd=0)
-        self.target, self.first, self.last = target, 0.0, 1.0
-        self._grab: Optional[float] = None
-        self.bind("<Configure>", lambda _e: self.draw())
-        self.bind("<ButtonPress-1>", self._press)
-        self.bind("<B1-Motion>", self._drag)
-        self.bind("<ButtonRelease-1>", lambda _e: setattr(self, '_grab', None))
-
-    def set(self, first, last):
-        self.first, self.last = float(first), float(last)
-        self.draw()
-
-    def draw(self):
-        self.delete("all")
-        if self.last - self.first >= 0.999:
-            return
-        h, w = self.winfo_height(), int(self.cget("width"))
-        y0, y1 = self.first * h, max(self.first * h + 12, self.last * h)
-        self.create_rectangle(1, y0, w - 1, y1, fill=T["line2"], outline="")
-
-    def _press(self, event):
-        h = max(1, self.winfo_height())
-        pos = event.y / h
-        if self.first <= pos <= self.last:
-            self._grab = pos - self.first
-        else:
-            self._grab = (self.last - self.first) / 2
-            self._drag(event)
-
-    def _drag(self, event):
-        if self._grab is None:
-            return
-        h = max(1, self.winfo_height())
-        self.target.yview_moveto(max(0.0, event.y / h - self._grab))
+def kind_words(kind: str) -> Tuple[str, str]:
+    """('PHOTOS', 'photos') in the current language."""
+    return tr(f'kind.{kind}'), tr(f'kind.{kind}.files')
 
 
 class HomeView(tk.Frame):
@@ -71,16 +37,20 @@ class HomeView(tk.Frame):
 
         bar = tk.Frame(self, bg=T["bg"])
         bar.pack(fill="x", padx=px(16), pady=(px(12), px(8)))
-        self.switch = Segmented(bar, [(KIND_WORDS[k][0], k) for k in ('photo', 'video', 'music')],
+        self.switch = Segmented(bar, [(kind_words(k)[0], k) for k in ('photo', 'video', 'music')],
                                 kind, self._switch_kind, font(8))
         self.switch.pack(side="left")
-        WolkButton(bar, "Open folder", self._open_folder, font(8), padx=px(10),
+        WolkButton(bar, tr('btn.open_folder'), self._open_folder, font(8), padx=px(10),
                    pady=px(3)).pack(side="right")
-        WolkButton(bar, "Open files", self._open_files, font(8), padx=px(10),
+        WolkButton(bar, tr('btn.open_files'), self._open_files, font(8), padx=px(10),
                    pady=px(3)).pack(side="right", padx=(0, px(6)))
+        if kind == 'music':
+            WolkButton(bar, tr('btn.library'), self._library, font(8), padx=px(10),
+                       pady=px(3)).pack(side="right", padx=(0, px(6)))
         self.play_all = None
         if kind in ('music', 'photo'):
-            self.play_all = WolkButton(bar, "Play all" if kind == 'music' else "Slideshow",
+            self.play_all = WolkButton(bar, tr('btn.play_all') if kind == 'music'
+                                       else tr('btn.slideshow'),
                                        self._play_all, font(8), variant="primary",
                                        padx=px(10), pady=px(3))
             self.play_all.pack(side="right", padx=(0, px(6)))
@@ -96,6 +66,10 @@ class HomeView(tk.Frame):
         self.count_label.pack(side="right")
 
         tk.Frame(self, bg=T["line"], height=1).pack(fill="x", padx=px(16))
+        self.now_bar = None
+        if kind == 'music':
+            from .musicview import NowPlayingBar
+            self.now_bar = NowPlayingBar(self, app)
         holder = tk.Frame(self, bg=T["bg"])
         holder.pack(fill="both", expand=True, padx=(px(16), px(4)), pady=(px(10), px(8)))
         self.canvas = tk.Canvas(holder, bg=T["bg"], highlightthickness=0, bd=0, takefocus=1)
@@ -120,9 +94,10 @@ class HomeView(tk.Frame):
         self.generation = 0
         self.results: "queue.Queue[Tuple[int, int, Optional[Image.Image]]]" = queue.Queue()
         self.jobs: "queue.Queue[Optional[Tuple[int, int, str, str]]]" = queue.Queue()
+        self.pending = 0                  # thumbnails asked for and not back yet
         self.worker = threading.Thread(target=self._thumb_worker, daemon=True)
         self.worker.start()
-        self._poll_id = self.after(80, self._poll)
+        self._poll_id: Optional[str] = None
         self.load(self.folder)
 
     # ── data ──
@@ -142,14 +117,18 @@ class HomeView(tk.Frame):
         shown = folder.replace(home, '~', 1) if folder.startswith(home) else folder
         self.path_label.config(text=shown)
         self.up.set_enabled(os.path.dirname(folder) != folder)
-        word = KIND_WORDS[self.kind][1]
+        word = kind_words(self.kind)[1]
         self.count_label.config(text=f"{len(files)} {word.upper()}" if files else "")
         if self.play_all is not None:
             self.play_all.set_enabled(bool(files))
+        self.pending = 0
         if self.kind != 'music':
             for i, (kind, path) in enumerate(self.entries[:MAX_THUMBS]):
                 if kind != 'dir':
                     self.jobs.put((self.generation, i, kind, path))
+                    self.pending += 1
+        if self.pending and self._poll_id is None:
+            self._poll_id = self.after(80, self._poll)
         self.canvas.yview_moveto(0)
         self._layout()
         self.app.set_window_title(None)
@@ -175,11 +154,13 @@ class HomeView(tk.Frame):
             self.results.put((generation, index, image))
 
     def _poll(self):
+        self._poll_id = None
         try:
             while True:
                 generation, index, image = self.results.get_nowait()
                 if generation != self.generation:
                     continue
+                self.pending -= 1
                 if image is None:
                     self.no_preview.add(index)
                 else:
@@ -187,15 +168,17 @@ class HomeView(tk.Frame):
                 self._draw_thumb(index)
         except queue.Empty:
             pass
-        self._poll_id = self.after(80, self._poll)
+        if self.pending > 0:                     # nothing runs once every thumbnail is in
+            self._poll_id = self.after(80, self._poll)
 
     def destroy(self):
         self.generation += 1
         self.jobs.put(None)
-        try:
-            self.after_cancel(self._poll_id)
-        except (tk.TclError, ValueError):
-            pass
+        if self._poll_id:
+            try:
+                self.after_cancel(self._poll_id)
+            except (tk.TclError, ValueError):
+                pass
         super().destroy()
 
     # ── layout and drawing ──
@@ -212,11 +195,11 @@ class HomeView(tk.Frame):
         self.boxes = []
         width = max(1, c.winfo_width())
         if not self.entries:
-            what = KIND_WORDS[self.kind][1]
-            c.create_text(width / 2, px(70), text=f"NO {what.upper()} IN THIS FOLDER",
+            what = kind_words(self.kind)[1]
+            c.create_text(width / 2, px(70), text=tr('home.none_here', what=what.upper()),
                           fill=T["muted"], font=self.app.font(10))
             c.create_text(width / 2, px(96), fill=T["dim"], font=self.app.font(8, False),
-                          text="Open another folder, or drop files into this one and reopen it.")
+                          text=tr('home.none_hint'))
             c.configure(scrollregion=(0, 0, width, c.winfo_height()))
             return
         if self.kind == 'music':
@@ -254,7 +237,7 @@ class HomeView(tk.Frame):
             c.create_text(x0 + px(12), mid, text=label, anchor="w", tags=tag,
                           fill=T["text"] if kind != 'dir' else T["accent"],
                           font=self.app.font(9, kind == 'dir'))
-            tagtext = "FOLDER" if kind == 'dir' else os.path.splitext(name)[1][1:].upper()
+            tagtext = tr('home.folder') if kind == 'dir' else os.path.splitext(name)[1][1:].upper()
             c.create_text(x1 - px(10), mid, text=tagtext, anchor="e", fill=T["dim"],
                           font=self.app.font(7), tags=tag)
             return
@@ -276,7 +259,7 @@ class HomeView(tk.Frame):
         elif i in self.thumbs:
             self._place_thumb(i, tag)
         elif i in self.no_preview and kind == 'photo':
-            c.create_text((x0 + x1) / 2, y0 + thumb_h / 2, text="NO PREVIEW", fill=T["dim"],
+            c.create_text((x0 + x1) / 2, y0 + thumb_h / 2, text=tr('home.no_preview'), fill=T["dim"],
                           font=self.app.font(7), tags=tag)
         elif kind == 'video':
             self._play_glyph((x0 + x1) / 2, y0 + thumb_h / 2, px(12), tag)
@@ -425,6 +408,10 @@ class HomeView(tk.Frame):
         folder = pick_folder(self.folder)
         if folder:
             self.load(folder)
+
+    def _library(self):
+        self.app.settings['music_mode'] = 'library'
+        self.app.show_home('music')
 
     def _play_all(self):
         if self.files:

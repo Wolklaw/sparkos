@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from PIL import Image
 
 from .core import file_uri, log, store_thumbnail, cached_thumbnail, subtitle_for, THUMB_SIZES
+from .text import tr
 
 Gst = GstVideo = GstPbutils = None
 GST_ERROR: Optional[str] = None
@@ -304,7 +305,7 @@ class Player:
                 GstPbutils.is_missing_plugin_message(msg):
             what = GstPbutils.missing_plugin_message_get_description(msg)
             log.warning("missing plugin: %s", what)
-            self.error = f"No decoder for {what} is installed."
+            self.error = tr('play.no_decoder', what=what)
         elif t == Gst.MessageType.TAG:
             self._read_tags(msg.parse_tag())
         elif t == Gst.MessageType.ASYNC_DONE:
@@ -359,13 +360,13 @@ def sample_to_image(sample) -> Optional[Image.Image]:
 def friendly_error(message: str, debug: Optional[str]) -> str:
     low = f"{message} {debug or ''}".lower()
     if 'no decoder' in low or 'missing' in low and 'plugin' in low or 'codec' in low and 'not' in low:
-        return "This file uses a format no installed decoder can play."
+        return tr('play.err_format')
     if 'could not open resource' in low or 'not found' in low:
-        return "The file could not be opened. It may have moved."
+        return tr('play.err_open')
     if 'could not determine type' in low:
-        return "This doesn't look like a video or audio file."
+        return tr('play.err_type')
     if 'audio' in low and ('sink' in low or 'device' in low):
-        return "No sound output is available."
+        return tr('play.err_sound')
     return message
 
 

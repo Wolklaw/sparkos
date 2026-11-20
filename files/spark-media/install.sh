@@ -32,11 +32,13 @@ dnf_install() {
 }
 
 if [ "$DEPS" = 1 ]; then
-  # 1. programs and data, by package name
+  # 1. programs and data, by package name. taglib reads music tags and LibRaw develops camera
+  #    RAW photos, both through their C libraries; SparkOS already has them (KDE uses them).
   missing=()
   for pkg in python3 python3-tkinter python3-pillow python3-pillow-tk python3-gobject-base \
              gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good \
-             xrdb xdg-user-dirs xdg-utils glib2 cascadia-mono-fonts; do
+             xrdb xdg-user-dirs xdg-utils glib2 cascadia-mono-fonts \
+             taglib LibRaw; do
     rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
   done
   if [ ${#missing[@]} -gt 0 ]; then
