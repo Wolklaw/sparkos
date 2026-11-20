@@ -135,3 +135,8 @@ jobs:
             --title "Wine $version for Spark Run (build ${tag##*-})" --notes-file notes.md \
             "out/$name.tar.xz" out/sha256sums.txt out/build-info.txt
           echo "Published release $tag: $name.tar.xz, $bytes bytes, sha256 $sha" | tee -a "$GITHUB_STEP_SUMMARY"
+          # --latest=false has not always been honoured: the installer must stay the latest release
+          if [ "$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)" = "$tag" ]; then
+            echo "::error title=Wine release marked latest::$tag became the repository's latest release; mark the installer release latest again (gh release edit installer --latest)"
+            exit 1
+          fi

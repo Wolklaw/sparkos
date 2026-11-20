@@ -22,7 +22,7 @@ set -euo pipefail
 
 WINE_VERSION=11.22
 WINE_SHA256=f172e9c1be73e862057deae1f0e03ce95919986c5df8a18e1c0829c34863c9ee
-BUILD=1
+BUILD=2   # 1 was built without the C++ cross-compilers (no icu.dll, dmsynth.dll); don't use it
 WINE_URL="https://dl.winehq.org/wine/source/${WINE_VERSION%%.*}.x/wine-$WINE_VERSION.tar.xz"
 # Alexandre Julliard, Wine's maintainer, signs every WineHQ source release with this key.
 WINEHQ_KEY=DA23579A74D4AD9AF9D3F945CEFAC8EAAF17519D
@@ -43,7 +43,7 @@ grep -q '^VERSION_ID=45$' /etc/os-release || { echo "expected Fedora 45" >&2; ex
 # libxml2...) instead of needing Fedora's mingw DLLs next to it.
 PACKAGES=(
   gcc make flex bison perl-interpreter xz tar gnupg2 findutils file binutils
-  mingw32-gcc mingw64-gcc
+  mingw32-gcc mingw64-gcc mingw32-gcc-c++ mingw64-gcc-c++
   alsa-lib-devel pulseaudio-libs-devel gstreamer1-devel gstreamer1-plugins-base-devel
   libavcodec-free-devel libavformat-free-devel libavutil-free-devel
   libX11-devel libXext-devel libXrender-devel libXi-devel libXrandr-devel libXcursor-devel
@@ -91,6 +91,10 @@ mkdir build && cd build
 ../"wine-$WINE_VERSION"/configure "${CONFIGURE[@]}" > configure.log 2>&1 || { tail -50 configure.log; exit 1; }
 # What configure turned off (a missing feature is a missing -devel package above)
 sed -n '/^configure: WARNING\|^configure: libs\|^configure: Finished/p' configure.log | sort -u
+# Left out on purpose: OSS (--without-oss) and CAPI (ISDN; Fedora has no capi4linux).
+if grep '^configure: WARNING' configure.log | grep -v -i 'capi\|oss' | grep -q .; then
+  echo "configure left something out (above): add the missing package"; exit 1
+fi
 
 step "make ($(nproc) threads)"
 start=$(date +%s)
