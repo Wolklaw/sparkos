@@ -272,6 +272,13 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(cat.row('creative', exclude=['org.example.Paint']), [])
         self.assertEqual(cat.row('nope'), [])
 
+    def test_categories(self):
+        cat = self.catalog()
+        self.assertEqual([a.id for a in cat.category('graphics')], ['org.example.Paint'])
+        self.assertEqual([a.id for a in cat.category('audio_video')], ['org.example.Tunes'])
+        self.assertEqual([a.id for a in cat.category('internet')], ['com.example.Chat'])
+        self.assertEqual(cat.category('nope'), [])
+
     def test_broken_catalog_is_reported_not_fatal(self):
         with open(self.xml, 'wb') as f:
             f.write(b'not gzip at all')
@@ -822,6 +829,16 @@ class UITests(unittest.TestCase):
         self.assertIn('PROPRIETARY', texts)
         self.assertIn('INSTALLED', texts)              # Chatter
         self.assertIn('5 apps from Flathub, offline', s.status.cget('text'))
+
+    def test_browse_a_category(self):
+        s = self.store
+        self.assertIn('BROWSE', self.texts(s.pages['home'].inner))
+        s.go('category', 'games')
+        texts = self.texts(s.pages['category'].inner)
+        self.assertIn('Falling Blocks', texts)
+        self.assertIn('1 found', texts)
+        s.go_back()
+        self.assertEqual(s.page, 'home')
 
     def test_search_as_you_type_and_enter(self):
         s = self.store

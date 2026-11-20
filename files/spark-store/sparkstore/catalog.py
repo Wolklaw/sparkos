@@ -40,6 +40,19 @@ ROWS: List[Tuple[str, List[str], List[str]]] = [
 ]
 ROW_SIZE = 6
 
+# Browse by category: freedesktop's main categories, the way app menus group apps
+CATEGORIES: List[Tuple[str, List[str]]] = [
+    ('games', ['Game']),
+    ('audio_video', ['AudioVideo', 'Audio', 'Video']),
+    ('graphics', ['Graphics']),
+    ('internet', ['Network']),
+    ('office', ['Office']),
+    ('development', ['Development']),
+    ('education', ['Education', 'Science']),
+    ('utilities', ['Utility']),
+    ('system', ['System', 'Settings']),
+]
+
 
 def cache_path() -> str:
     return os.path.join(cache_dir(), 'catalog.sqlite')
@@ -201,6 +214,13 @@ class Catalog:
                 seen.add(app.id)
                 out.append(app)
         return out[:limit], len(out)
+
+    def category(self, key: str) -> List[App]:
+        """Every app in one of the CATEGORIES, verified ones first, then by name."""
+        wanted = dict(CATEGORIES).get(key, [])
+        found = [a for a in self.order if any(c in wanted for c in a.categories)]
+        found.sort(key=lambda a: (not a.verified, a.hay[0] if a.hay else fold(a.name)))
+        return found
 
     def row(self, key: str, exclude: Sequence[str] = ()) -> List[App]:
         for name, ids, cats in ROWS:

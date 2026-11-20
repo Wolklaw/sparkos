@@ -6,7 +6,7 @@ import tkinter as tk
 
 from . import sparkapps
 from .appstream import App
-from .catalog import ROWS
+from .catalog import CATEGORIES, ROWS
 from .text import t
 from .ui import Card, chip, scrollable
 from .widgets import T, GlitchText, WolkButton
@@ -180,9 +180,15 @@ class HomePage:
                 if apps:
                     section(store, self.inner, t(f'row.{key}'))
                     grid_cards(store, self.inner, apps)
-            tk.Label(self.inner, text=t('home.more', n=len(cat.apps)), font=store.font(8, False),
-                     bg=T["bg"], fg=T["muted"], anchor="w").pack(fill="x", padx=px(16),
-                                                                  pady=(px(14), 0))
+            section(store, self.inner, t('home.browse'), t('home.more', n=len(cat.apps)))
+            browse = tk.Frame(self.inner, bg=T["bg"])
+            browse.pack(anchor="w", padx=px(14))
+            for c in range(5):
+                browse.columnconfigure(c, uniform="browse")
+            for i, (key, _cats) in enumerate(CATEGORIES):
+                WolkButton(browse, t(f'cat.{key}'), lambda k=key: store.go('category', k),
+                           store.font(8), padx=12, pady=5).grid(
+                    row=i // 5, column=i % 5, sticky="ew", padx=(0, px(6)), pady=(0, px(6)))
         tk.Frame(self.inner, bg=T["bg"], height=px(20)).pack()
         if y:
             self.inner.after_idle(lambda: self.canvas.yview_moveto(y))
@@ -223,5 +229,30 @@ class SearchPage:
 
     def first(self) -> Optional[App]:
         return self.results[0] if self.results else None
+
+    def show_category(self, key: str, limit: int = 0):
+        """Every app in a category, LIMIT at a time (Show more adds the next ones)."""
+        store, px = self.store, self.store.px
+        limit = limit or self.LIMIT
+        self.query = None
+        apps = store.catalog.category(key)
+        self.results = apps[:limit]
+        clear(self.inner)
+        section(store, self.inner, t(f'cat.{key}'), t('search.count', n=len(apps)))
+        if not apps:
+            tk.Label(self.inner, text=t('search.no_catalog') if not store.catalog.apps else
+                     t('cat.empty'), font=store.font(9, False), bg=T["bg"], fg=T["muted"],
+                     anchor="w").pack(fill="x", padx=px(16))
+        else:
+            grid_cards(store, self.inner, self.results, columns=2)
+        if len(apps) > limit:
+            WolkButton(self.inner, t('cat.more', n=min(self.LIMIT, len(apps) - limit)),
+                       lambda: self.show_category(key, limit + self.LIMIT), store.font(8)
+                       ).pack(anchor="w", padx=px(16), pady=(px(10), 0))
+            y = self.canvas.yview()[0]
+        else:
+            y = 0
+        tk.Frame(self.inner, bg=T["bg"], height=px(20)).pack()
+        self.inner.after_idle(lambda: self.canvas.yview_moveto(y if limit > self.LIMIT else 0))
 
 

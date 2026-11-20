@@ -150,6 +150,7 @@ class Store:
         from .appview import AppPage
         from .lists import InstalledPage, QueuePage, UpdatesPage
         self.pages = {'home': HomePage(self), 'search': SearchPage(self), 'app': AppPage(self),
+                      'category': SearchPage(self),
                       'installed': InstalledPage(self), 'updates': UpdatesPage(self),
                       'queue': QueuePage(self)}
         first = page if page in TABS else 'home'
@@ -434,6 +435,8 @@ class Store:
         view = self.pages[page]
         if page == 'search':
             view.show(arg or '')
+        elif page == 'category':
+            view.show_category(arg)
         elif page != 'app':
             view.refresh()
         view.frame.pack(fill="both", expand=True)
@@ -463,6 +466,8 @@ class Store:
             view.refresh()
         elif self.page == 'search':
             view.show(view.query or '', force=True)
+        elif self.page == 'category':
+            pass                            # the list stays put; it has no install state
         elif view is not None:
             view.refresh()
         self.tabs.set_count('updates', len(self.updates))
