@@ -987,6 +987,12 @@ class UITests(unittest.TestCase):
         texts = self.texts(s.pages['installed'].inner)
         self.assertIn('Chatter', texts)
         self.assertIn('1 apps, 286.1 MB', texts)
+        self.assertIn('REMOVE UNUSED RUNTIMES', texts)
+        s.remove_unused()
+        self.pump(lambda: not s.queue.busy(), timeout=30)
+        self.assertIn(['--user', 'uninstall', '--unused', '-y', '--noninteractive'],
+                      self.fake.calls())
+        s.clear_finished()
         s.go('updates')
         s.check_updates()
         self.pump(lambda: not s.updates_busy and s.updates)

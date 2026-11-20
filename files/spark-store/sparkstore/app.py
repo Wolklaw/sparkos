@@ -576,6 +576,10 @@ class Store:
         self._enqueue(Job('remote_add', subject.id, subject.name,
                           steps=[flatpak.cmd_add_remote(subject.id, subject.repo.path)]))
 
+    def remove_unused(self):
+        self._enqueue(Job('unused', 'unused-user', t('unused.job'),
+                          steps=[flatpak.cmd_remove_unused('user')]))
+
     def install_addon(self, addon):
         self._enqueue(Job('addon_install', addon.id, addon.name,
                           steps=[flatpak.cmd_install_addon(addon.id, addon.branch)],
@@ -659,7 +663,7 @@ class Store:
                 self.set_status(t(f'failed.{job.kind}', name=name), T["pink"], hold_ms=10000)
                 self.glitch.now(self.title, self.strip, strong=True)
             if job.kind in ('install', 'install_ref', 'remove', 'update', 'update_all',
-                            'addon_install', 'addon_remove'):
+                            'addon_install', 'addon_remove', 'unused'):
                 refresh_installed = True
                 if job.state == DONE and job.kind == 'update':
                     self.updates = [u for u in self.updates

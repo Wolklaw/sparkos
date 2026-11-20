@@ -264,6 +264,10 @@ def cmd_update(app_id: Optional[str], scope: str) -> List[str]:
     return args + ([app_id] if app_id else [])
 
 
+def cmd_remove_unused(scope: str = 'user') -> List[str]:
+    return [f'--{scope}', 'uninstall', '--unused', '-y', '--noninteractive']
+
+
 def cmd_refresh_catalog(scope: str = 'user', remote: str = REMOTE) -> List[str]:
     return [f'--{scope}', 'update', '--appstream', remote]
 

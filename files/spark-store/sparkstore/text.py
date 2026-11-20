@@ -297,6 +297,17 @@ EN = {
     'cat.system': "System",
     'cat.empty': "No apps in this category.",
     'cat.more': "Show {n} more",
+    'unused.title': "Free up space",
+    'unused.note': "Apps share runtimes (sets of libraries). When the last app that needs one is "
+                   "removed, the runtime stays on disk until it's removed here. Only yours: "
+                   "runtimes installed for everyone stay.",
+    'unused.button': "Remove unused runtimes",
+    'unused.job': "unused runtimes",
+    'verb.unused': "Remove",
+    'doing.unused': "Removing",
+    'doing_name.unused': "Removing {name}",
+    'done.unused': "Removed {name}",
+    'failed.unused': "Couldn't remove {name}",
     'doing.install': "Installing",
     'doing.install_ref': "Installing",
     'doing.remove': "Removing",
@@ -607,6 +618,18 @@ FR = {
     'cat.system': "Système",
     'cat.empty': "Aucune application dans cette catégorie.",
     'cat.more': "Afficher {n} de plus",
+    'unused.title': "Libérer de l'espace",
+    'unused.note': "Les applications partagent des runtimes (des ensembles de bibliothèques). "
+                   "Quand la dernière application qui en a besoin est désinstallée, le runtime "
+                   "reste sur le disque jusqu'à ce qu'il soit supprimé ici. Seulement les vôtres "
+                   ": ceux installés pour tous restent.",
+    'unused.button': "Supprimer les runtimes inutilisés",
+    'unused.job': "runtimes inutilisés",
+    'verb.unused': "Supprimer les",
+    'doing.unused': "Suppression",
+    'doing_name.unused': "Suppression des {name}",
+    'done.unused': "Supprimés : {name}",
+    'failed.unused': "Impossible de supprimer les {name}",
     'doing.install': "Installation",
     'doing.install_ref': "Installation",
     'doing.remove': "Désinstallation",

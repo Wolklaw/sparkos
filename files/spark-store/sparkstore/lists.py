@@ -105,9 +105,21 @@ class InstalledPage:
             own_click(WolkButton(card.right, t('btn.open'), lambda i=inst: store.launch_id(i.id),
                                  store.font(8), padx=10, pady=4)).pack(side="right")
             card.wire()
+        if store.flatpak_ok and store.installed_loaded:
+            section(store, self.inner, t('unused.title'))
+            note = tk.Label(self.inner, text=t('unused.note'), font=store.font(8, False),
+                            bg=T["bg"], fg=T["muted"], anchor="w", justify="left")
+            note.pack(fill="x", padx=px(16))
+            wrap_on_resize(self.inner, [note], px(32), slack=px(40))
+            job = store.queue.for_app('unused-user')
+            button = WolkButton(self.inner, t('unused.button'), store.remove_unused,
+                                store.font(8))
+            button.pack(anchor="w", padx=px(14), pady=(px(6), 0))
+            if job is not None and job.state in (RUNNING, WAITING):
+                button.set_enabled(False)
         tk.Frame(self.inner, bg=T["bg"], height=px(20)).pack()
-        self.inner.update_idletasks()
-        self.canvas.yview_moveto(y)
+        if y:
+            self.inner.after_idle(lambda: self.canvas.yview_moveto(y))
 
 
 class UpdatesPage:

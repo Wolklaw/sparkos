@@ -167,6 +167,9 @@ def main(argv):
             'size': '108.3 MB'})
         save(path, state)
         return 0
+    if cmd == 'uninstall' and '--unused' in opts:
+        print("Nothing unused to uninstall")
+        return 0
     if cmd == 'uninstall' and pos[-1].startswith('runtime/'):
         rt_id = pos[-1].split('/')[1]
         before = state.get('runtimes', [])
