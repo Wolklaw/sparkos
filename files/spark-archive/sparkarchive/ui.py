@@ -16,10 +16,11 @@ from tkinter import ttk
 from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, VERSION
 from . import core
 from .core import load_json, log, reduced_motion
-from .jobs import CANCEL, KEEP_BOTH, REPLACE, SKIP, Job, Result
+from .jobs import (CANCEL, FORMATS, KEEP_BOTH, PASSWORD_FORMATS, REPLACE, SEVEN_Z, SKIP,
+                   TAR_ZST, ZIP, Job, Result)
 from .text import t, why
-from .widgets import (MONO_FAMILIES, T, Glitch, GlitchPanel, GlitchText, Mark, Strip, Toggle,
-                      WolkButton, mix)
+from .widgets import (MONO_FAMILIES, T, Glitch, GlitchPanel, GlitchText, Mark, Segmented,
+                      Strip, Toggle, WolkButton, mix)
 
 
 def detect_scale(root: tk.Tk) -> float:
@@ -255,6 +256,86 @@ class Look:
         entry.bind('<Return>', ok)
         top.bind('<Escape>', lambda _e: top.destroy())
         self._show_modal(top, entry)
+        return answer['value']
+
+    def ask_compress(self, n: int, fmt: str = ZIP, with_password: bool = False
+                     ) -> Optional[Tuple[str, Optional[str]]]:
+        """Which format, and a password if wanted: (fmt, password or None), or None for
+        Cancel. A password asks for itself twice; .tar.zst can't have one."""
+        px = self.px
+        top, body, heading = self._dialog(t('button.compress'))
+        tk.Label(body, text=t('compress.as', n=n), bg=T["panel"], fg=T["text"],
+                 font=self.font(9, False)).pack(anchor="w")
+        state = {'fmt': fmt if fmt in FORMATS else ZIP, 'pw': with_password}
+        if with_password and state['fmt'] not in PASSWORD_FORMATS:
+            state['fmt'] = ZIP
+        Segmented(body, [('.ZIP', ZIP), ('.7Z', SEVEN_Z), ('.TAR.ZST', TAR_ZST)], state['fmt'],
+                  lambda v: (state.update(fmt=v), refresh()), self.font(9)).pack(
+            anchor="w", pady=(px(10), 0))
+        Toggle(body, t('compress.with_password'), with_password,
+               lambda on: (state.update(pw=on), refresh()), self.font(8)).pack(
+            anchor="w", pady=(px(12), 0))
+        fields = tk.Frame(body, bg=T["panel"])
+        entries = []
+        for key in ('compress.password', 'compress.again'):
+            tk.Label(fields, text=t(key), bg=T["panel"], fg=T["muted"],
+                     font=self.font(8, False)).pack(anchor="w", pady=(px(8), px(2)))
+            entry = tk.Entry(fields, show='•', bg=T["out_bg"], fg=T["text"],
+                             insertbackground=T["accent"], relief="flat",
+                             font=self.font(10, False), highlightthickness=1,
+                             highlightbackground=T["line2"], highlightcolor=T["accent"],
+                             width=34)
+            entry.pack(fill="x", ipady=px(4))
+            entries.append(entry)
+        note = tk.Label(fields, text='', bg=T["panel"], fg=T["dim"], font=self.font(8, False),
+                        wraplength=px(380), justify="left", anchor="w")
+        note.pack(anchor="w", fill="x", pady=(px(6), 0))
+        message = tk.Label(body, text='', bg=T["panel"], fg=T["pink"], font=self.font(8, False),
+                           wraplength=px(380), justify="left", anchor="w")
+        buttons = tk.Frame(body, bg=T["panel"])
+
+        def refresh() -> None:
+            message.config(text='')
+            message.pack_forget()
+            buttons.pack_forget()
+            if state['pw']:
+                fields.pack(fill="x", pady=(px(4), 0))
+                note.config(text=t('compress.note_7z' if state['fmt'] == SEVEN_Z
+                                   else 'compress.note_zip'))
+            else:
+                fields.pack_forget()
+            message.pack(anchor="w", fill="x", pady=(px(6), 0))
+            buttons.pack(fill="x", pady=(px(10), 0))
+
+        answer: Dict[str, Any] = {'value': None}
+
+        def ok(_e=None) -> None:
+            password = None
+            if state['pw']:
+                problem = None
+                if state['fmt'] not in PASSWORD_FORMATS:
+                    problem = 'compress.no_password'
+                elif not entries[0].get():
+                    problem = 'compress.empty'
+                elif entries[0].get() != entries[1].get():
+                    problem = 'compress.mismatch'
+                if problem:
+                    message.config(text=t(problem))
+                    self.glitch.now(heading, strong=True)
+                    return
+                password = entries[0].get()
+            answer['value'] = (state['fmt'], password)
+            top.destroy()
+
+        go = self.button(buttons, t('button.ok'), ok, "primary")
+        go.pack(side="right")
+        self.button(buttons, t('button.cancel'), top.destroy).pack(side="right",
+                                                                   padx=(0, px(8)))
+        refresh()
+        for entry in entries:
+            entry.bind('<Return>', ok)
+        top.bind('<Escape>', lambda _e: top.destroy())
+        self._show_modal(top, entries[0] if with_password else go.label)
         return answer['value']
 
     def ask_overwrite(self, info: Dict[str, Any]) -> Tuple[str, bool]:

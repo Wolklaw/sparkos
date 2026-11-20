@@ -16,11 +16,11 @@ from . import APP_NAME
 from . import core
 from .core import log, pick_archive, pick_files, pick_folder, show_in_file_manager
 from .formats import describe
-from .jobs import TAR_ZST, ZIP, CompressJob, ExtractJob, Job, Listing, ListJob
+from .jobs import ZIP, CompressJob, ExtractJob, Job, Listing, ListJob
 from .safety import DIR, FILE, HARDLINK, LINK, is_root
 from .text import t
 from .ui import Look, Progress, home_short, middle, result_lines, version_chip
-from .widgets import T, GlitchPanel, Segmented, Strip
+from .widgets import T, GlitchPanel, Strip
 
 
 class Node:
@@ -250,6 +250,8 @@ class App(Look):
         self.table.focus_set()
         summary = t('summary', files=listing.file_count, size=core.size(listing.total_size),
                     fmt=describe(listing.kind))
+        if listing.volumes and len(listing.volumes.parts) > 1:
+            summary += '  ·  ' + t('summary.parts', n=len(listing.volumes.parts))
         if listing.backend != 'python':
             summary += '  ·  ' + t('summary.read_with', backend=listing.backend)
         self.summary.config(text=summary)
@@ -468,38 +470,13 @@ class App(Look):
         paths = pick_files(start)
         if not paths:
             return
-        fmt = self._ask_format(len(paths))
-        if not fmt:
+        choice = self.ask_compress(len(paths), self.settings.get('format') or ZIP)
+        if not choice:
             return
-        job = CompressJob(paths, fmt, asker=self.bridge.ask)
+        fmt, password = choice
+        job = CompressJob(paths, fmt, asker=self.bridge.ask, password=password)
         self.run_job(job, 'compress', t('progress.compress_title',
                                         name=os.path.basename(paths[0]) + f'.{fmt}'))
-
-    def _ask_format(self, n: int) -> Optional[str]:
-        top, body, _heading = self._dialog(t('button.compress'))
-        tk.Label(body, text=t('compress.as', n=n), bg=T["panel"], fg=T["text"],
-                 font=self.font(9, False)).pack(anchor="w")
-        choice = {'fmt': self.settings.get('format') if self.settings.get('format') in
-                  (ZIP, TAR_ZST) else ZIP}
-        seg = Segmented(body, [('.ZIP', ZIP), ('.TAR.ZST', TAR_ZST)], choice['fmt'],
-                        lambda v: choice.update(fmt=v), self.font(9))
-        seg.pack(anchor="w", pady=(self.px(10), 0))
-        answer = {'fmt': None}
-
-        def ok():
-            answer['fmt'] = choice['fmt']
-            top.destroy()
-
-        buttons = tk.Frame(body, bg=T["panel"])
-        buttons.pack(fill="x", pady=(self.px(14), 0))
-        go = self.button(buttons, t('button.ok'), ok, "primary")
-        go.pack(side="right")
-        self.button(buttons, t('button.cancel'), top.destroy).pack(side="right",
-                                                                   padx=(0, self.px(8)))
-        top.bind('<Return>', lambda _e: ok())
-        top.bind('<Escape>', lambda _e: top.destroy())
-        self._show_modal(top, go.label)
-        return answer['fmt']
 
     # ─── closing ──────────────────────────────────────────────
 

@@ -6,7 +6,10 @@ attributes the window reads ten times a second."""
 
 import errno
 import os
+import re
+import shutil
 import stat
+import tempfile
 import threading
 import time
 import zipfile
@@ -14,9 +17,11 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from . import formats
+from . import volumes as vol
 from .core import keep_both_name, log, stem, unique_path
-from .readers import (REFUSED, ArchiveProblem, BadArchive, Entry, NeedPassword,
-                      Unsupported, WrongPassword, candidates, open_reader)
+from .readers import (REFUSED, ArchiveProblem, BadArchive, Entry, MissingPart, NeedPassword,
+                      NeedsTool, SevenZipReader, UnrarReader, Unsupported, WrongPassword,
+                      _run_7z, candidates, open_reader, percent_lines, sevenzip, unrar)
 from .safety import (DIR, FILE, HARDLINK, LINK, OTHER, Blocked, Cancelled, SafeWriter,
                      clean_parts, is_root, link_target_ok)
 
@@ -119,9 +124,20 @@ class Listing:
     """What an archive holds, and how it was read."""
 
     def __init__(self, path: str, kind: str, entries: List[Entry], reader_index: int,
-                 backend: str, password: Optional[str]):
+                 backend: str, password: Optional[str],
+                 volumes: Optional[vol.Volumes] = None):
         self.path, self.kind, self.entries = path, kind, entries
         self.reader_index, self.backend, self.password = reader_index, backend, password
+        self.volumes = volumes          # an archive in several parts: all of them
+
+    @property
+    def style(self) -> Optional[str]:
+        return self.volumes.style if self.volumes else None
+
+    @property
+    def open_path(self) -> str:
+        """What a reader is given: the archive, or for a set of parts the one tools open."""
+        return self.volumes.open_path if self.volumes else self.path
 
     @property
     def encrypted(self) -> bool:
@@ -143,30 +159,60 @@ def ask_password(job: Job, path: str, retry: bool) -> str:
     return answer
 
 
-def read_listing(job: Job, path: str, password: Optional[str] = None) -> Listing:
-    """List an archive, asking for a password if it needs one and trying the next reader
-    when one can't do it. Raises ArchiveProblem or Cancelled."""
-    kind = formats.detect(path)
+def find_archive(path: str) -> Tuple[str, Optional[vol.Volumes]]:
+    """(kind, the set of parts it belongs to or None). Raises BadArchive('missing' or
+    'not_archive') or MissingPart."""
+    volumes = vol.find(path)
+    if volumes and volumes.missing:
+        raise MissingPart(volumes.missing)
+    kind = formats.detect(volumes.first if volumes else path)
     if kind is None:
         if not os.path.exists(path):
             raise BadArchive('missing')
         raise BadArchive('not_archive')
-    order = candidates(kind)
+    return kind, volumes
+
+
+def unique_archives(paths: List[str]) -> List[str]:
+    """The archives among `paths`, a set of parts counted once (Dolphin passes every part
+    that was selected)."""
+    out, seen = [], set()
+    for p in paths:
+        try:
+            found = vol.find(p)
+        except OSError:
+            found = None
+        key = os.path.realpath(found.open_path if found else p)
+        if key not in seen:
+            seen.add(key)
+            out.append(p)
+    return out
+
+
+def read_listing(job: Job, path: str, password: Optional[str] = None) -> Listing:
+    """List an archive, asking for a password if it needs one and trying the next reader
+    when one can't do it. Raises ArchiveProblem or Cancelled."""
+    kind, volumes = find_archive(path)
+    style = volumes.style if volumes else None
+    target = volumes.open_path if volumes else path
+    order = candidates(kind, style)
     skip, first_bad, retry = 0, None, False
+    tool: Optional[NeedsTool] = None
     while skip < len(order):
         try:
-            reader = open_reader(path, kind, password, skip)
+            reader = open_reader(target, kind, password, skip, volumes)
         except Unsupported as exc:
-            if first_bad:
-                raise first_bad
-            raise exc
+            raise first_bad or tool or exc
         index = order.index(type(reader))
+        tool = tool or skipped_tool(order[skip:index])
         try:
             entries = reader.list(job.cancelled)
-            return Listing(path, kind, entries, index, reader.backend, password)
+            return Listing(path, kind, entries, index, reader.backend, password, volumes)
         except (NeedPassword, WrongPassword) as exc:
             password = ask_password(job, path, retry=isinstance(exc, WrongPassword) or retry)
             retry = True
+        except MissingPart:
+            raise
         except Unsupported:
             skip = index + 1
         except BadArchive as exc:
@@ -174,7 +220,18 @@ def read_listing(job: Job, path: str, password: Optional[str] = None) -> Listing
             skip = index + 1
         finally:
             reader.close()
-    raise first_bad or Unsupported("no reader for this archive")
+    raise first_bad or tool or Unsupported("no reader for this archive")
+
+
+def skipped_tool(classes: List[type]) -> Optional[NeedsTool]:
+    """Readers open_reader passed over because their command isn't installed: the first, as
+    the thing to tell people (password-protected RAR needs unrar)."""
+    for cls in classes:
+        if cls is UnrarReader and not unrar():
+            return NeedsTool('unrar')
+        if cls is SevenZipReader and not sevenzip():
+            return NeedsTool('7z')
+    return None
 
 
 class ListJob(Job):
@@ -199,6 +256,10 @@ def problem_result(exc: Exception) -> Result:
     msg = str(exc)
     if isinstance(exc, BadArchive) and msg in ('missing', 'not_archive'):
         return Result(error=msg)
+    if isinstance(exc, MissingPart):
+        return Result(error='missing_part', detail=msg)
+    if isinstance(exc, NeedsTool):
+        return Result(error='needs_' + exc.tool.replace('7z', 'sevenzip'), detail=exc.tool)
     if isinstance(exc, Unsupported):
         return Result(error='unsupported', detail=msg)
     if isinstance(exc, (NeedPassword, WrongPassword)):
@@ -274,6 +335,7 @@ class ExtractJob(Job):
         listing.entries = [e for e in listing.entries
                            if not (e.kind == DIR and is_root(e.name))]
         chosen = [e for e in listing.entries if e.parts and self.wanted(e.parts)]
+        self.chosen = chosen
         self.total_files = sum(1 for e in chosen if e.kind in (FILE, LINK, HARDLINK))
         self.total_bytes = sum(e.size for e in chosen if e.kind == FILE and e.size > 0)
         try:
@@ -348,16 +410,22 @@ class ExtractJob(Job):
         return res
 
     def _extract(self, writer: SafeWriter, listing: Listing) -> None:
-        order = candidates(listing.kind)
+        order = candidates(listing.kind, listing.style)
         skip = listing.reader_index
         done: Set[str] = set()
         retry = False
+        first_bad: Optional[ArchiveProblem] = None
+        tool: Optional[NeedsTool] = None
+        # what an outside command (7z, unrar) is asked to unpack: only what was picked
+        names = None if self.selection is None else [e.name for e in self.chosen]
         while True:
             try:
-                reader = open_reader(self.archive, listing.kind, self.password, skip)
+                reader = open_reader(listing.open_path, listing.kind, self.password, skip,
+                                     listing.volumes)
             except Unsupported as exc:
-                raise Unsupported(str(exc)) from None
+                raise first_bad or tool or exc
             index = order.index(type(reader))
+            tool = tool or skipped_tool(order[skip:index])
             base_bytes = self.done_bytes
 
             def staged_progress(fraction: float, base=base_bytes) -> None:
@@ -366,7 +434,7 @@ class ExtractJob(Job):
 
             try:
                 for e, data in reader.items(self.cancelled, workdir=writer.root,
-                                            on_progress=staged_progress):
+                                            on_progress=staged_progress, names=names):
                     key = e.path or e.name
                     if key in done:
                         continue
@@ -378,14 +446,32 @@ class ExtractJob(Job):
                     self.current = key
                     self._place(writer, e, parts, data)
                     done.add(key)
+                if reader.used_names and any(
+                        e.kind == FILE and e.path not in done for e in self.chosen):
+                    # the command named some member differently than the listing did:
+                    # unpack everything this time (what's already in place is skipped)
+                    log.info("%s missed some picked names; unpacking all", reader.backend)
+                    names = None
+                    continue
                 return
             except (NeedPassword, WrongPassword) as exc:
                 self.password = ask_password(self, self.archive,
                                              retry=retry or isinstance(exc, WrongPassword))
                 retry = True
-            except Unsupported:
+            except MissingPart:
+                raise
+            except (Unsupported, BadArchive) as exc:
+                # the next reader may manage; for a set of parts even when this one called
+                # it damaged (one reader may not follow every kind of volume). If none does,
+                # the first real problem is the one to tell.
+                if isinstance(exc, BadArchive):
+                    if tool:
+                        raise tool          # the reader for this isn't installed: say that
+                    if not listing.volumes:
+                        raise
+                    first_bad = first_bad or exc
                 if index + 1 >= len(order):
-                    raise
+                    raise first_bad or tool or exc
                 skip = index + 1
             finally:
                 reader.close()
@@ -498,7 +584,9 @@ class ExtractJob(Job):
 
 # ─── compressing ──────────────────────────────────────────────
 
-ZIP, TAR_ZST = 'zip', 'tar.zst'
+ZIP, SEVEN_Z, TAR_ZST = 'zip', '7z', 'tar.zst'
+FORMATS = (ZIP, SEVEN_Z, TAR_ZST)
+PASSWORD_FORMATS = (ZIP, SEVEN_Z)          # zip: AES-256; 7z: AES-256, names encrypted too
 # already compressed: storing is as small and much faster than deflating again
 STORE_EXT = {'.zip', '.7z', '.rar', '.gz', '.tgz', '.bz2', '.xz', '.zst', '.lz', '.lzma',
              '.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.heic', '.jxl', '.mp3', '.ogg',
@@ -537,14 +625,25 @@ class _Counting:
 
 
 class CompressJob(Job):
+    """Make one archive of `sources`. zip without a password and tar.zst are written here
+    with Python; 7z, and zip with a password (AES-256), by the 7z command, with the password
+    on its stdin. A 7z with a password has its file names encrypted too."""
+
     def __init__(self, sources: List[str], fmt: str = ZIP, output: Optional[str] = None,
-                 asker: Asker = no_questions):
+                 asker: Asker = no_questions, password: Optional[str] = None):
         super().__init__(asker)
-        if fmt not in (ZIP, TAR_ZST):
+        if fmt not in FORMATS:
             raise ValueError(fmt)
+        if password and fmt not in PASSWORD_FORMATS:
+            raise ValueError(f"{fmt} can't have a password")
         self.sources = [os.path.abspath(s).rstrip('/') or '/' for s in sources]
         self.fmt = fmt
         self.output = output
+        self.password = password or None
+
+    @property
+    def with_7z(self) -> bool:
+        return self.fmt == SEVEN_Z or self.password is not None
 
     def _walk(self, out_tmp: str, res: Result) -> List[Tuple[str, str, os.stat_result]]:
         items = []
@@ -580,6 +679,8 @@ class CompressJob(Job):
         res = Result()
         out = self.output or default_output(self.sources, self.fmt)
         folder = os.path.dirname(out)
+        if self.with_7z and not sevenzip():
+            return Result(error='needs_sevenzip', detail='7z')
         tmp = os.path.join(folder, f'.{os.path.basename(out)}.spark-part-{os.getpid()}')
         try:
             items = self._walk(tmp, res)
@@ -590,13 +691,28 @@ class CompressJob(Job):
         self.total_files = sum(1 for _p, _a, st in items if not stat.S_ISDIR(st.st_mode))
         self.total_bytes = sum(st.st_size for _p, _a, st in items if stat.S_ISREG(st.st_mode))
         self.phase = 'writing'
+        private = None
         try:
-            fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
-            os.close(fd)
+            if self.with_7z:
+                # 7z won't write over a file that is already there, even an empty one: it
+                # makes the archive in a private folder next to where it goes
+                private = tempfile.mkdtemp(prefix='.spark-archive-', dir=folder)
+                tmp = os.path.join(private, 'new.' + self.fmt)
+            else:
+                fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o644)
+                os.close(fd)
         except OSError as exc:
             return Result(error='cant_write', detail=f"{folder}: {exc.strerror}")
+
+        def clean() -> None:
+            _unlink(tmp)
+            if private:
+                shutil.rmtree(private, ignore_errors=True)
+
         try:
-            if self.fmt == ZIP:
+            if self.with_7z:
+                self._seven(tmp, items, res)
+            elif self.fmt == ZIP:
                 self._zip(tmp, items, res)
             else:
                 self._tar_zst(tmp, items, res)
@@ -608,19 +724,83 @@ class CompressJob(Job):
                 os.unlink(tmp)
             except OSError:
                 os.rename(tmp, final)
+            clean()
         except Cancelled:
-            _unlink(tmp)
+            clean()
             return Result(cancelled=True)
+        except NeedsTool as exc:
+            clean()
+            return problem_result(exc)
         except OSError as exc:
-            _unlink(tmp)
+            clean()
             key = 'no_space' if exc.errno in (errno.ENOSPC, errno.EDQUOT) else 'write_failed'
             return Result(error=key, detail=exc.strerror or str(exc), problems=res.problems)
         except BaseException:
-            _unlink(tmp)
+            clean()
             raise
         res.output = final
         res.ok = True
         return res
+
+    def _seven(self, tmp: str, items, res: Result) -> None:
+        """7z and password-protected zip, with the 7z command, run once per source folder
+        (Dolphin's selection is one folder; a search result can span several)."""
+        leave_out = []
+        for path, arc, st in items:
+            mode = st.st_mode
+            if not (stat.S_ISDIR(mode) or stat.S_ISREG(mode) or stat.S_ISLNK(mode)):
+                res.problems.append((path, SPECIAL))      # 7z would wait on a pipe forever
+                leave_out.append(arc)
+            elif stat.S_ISREG(mode) and not os.access(path, os.R_OK):
+                res.problems.append((path, UNREADABLE + ':' + os.strerror(errno.EACCES)))
+                leave_out.append(arc)
+            elif stat.S_ISDIR(mode):
+                res.folders += 1
+            elif stat.S_ISLNK(mode):
+                res.links += 1
+            else:
+                res.files += 1
+        args = ['a', '-y', '-bsp1', '-bb0', '-snl', '-sccUTF-8', '-scsUTF-8', '-spd', '-mx=5']
+        if self.fmt == SEVEN_Z:
+            args += ['-t7z'] + (['-p', '-mhe=on'] if self.password else [])
+        else:
+            args += ['-tzip'] + (['-p', '-mem=AES256'] if self.password else [])
+        if leave_out:
+            listfile = os.path.join(os.path.dirname(tmp), 'leave-out.txt')
+            with open(listfile, 'w', encoding='utf-8', errors='surrogateescape') as f:
+                f.write('\n'.join(leave_out) + '\n')
+            args.append('-x@' + listfile)
+        groups: Dict[str, List[str]] = {}
+        for src in self.sources:
+            groups.setdefault(os.path.dirname(src) or '/', []).append(os.path.basename(src))
+
+        def progress(fraction: float) -> None:
+            self.done_bytes = int(self.total_bytes * fraction)
+
+        for cwd, names in groups.items():
+            if self.cancelled():
+                raise Cancelled()
+            self.current = names[0]
+            # -p with no value: 7z asks, and reads the answer from stdin (it may ask again
+            # to confirm, or when adding to the archive the first folder made)
+            rc, out, err = _run_7z(args + ['--', tmp] + names, self.password, self.cancelled,
+                                   percent_lines(progress), asks=3, cwd=cwd)
+            if rc == 1:                                    # warnings: some files unread
+                for line in err.splitlines():
+                    m = re.match(r'^(.*\S) : (.+)$', line.strip())
+                    if m and not line.startswith(('WARNING', 'ERROR')):
+                        item = (os.path.join(cwd, m.group(1)), UNREADABLE + ':' + m.group(2))
+                        if item not in res.problems:
+                            res.problems.append(item)
+            elif rc != 0:
+                text = (err + '\n' + out).strip()
+                log.warning("7z a stopped with code %s: %s", rc, text[-2000:])
+                if re.search(r'no space|errno=28|disk full', text, re.I):
+                    raise OSError(errno.ENOSPC, os.strerror(errno.ENOSPC))
+                lines = [ln for ln in err.splitlines() if ln.strip()] or [f"7z code {rc}"]
+                raise OSError(errno.EIO, lines[-1].strip())
+        self.done_bytes = self.total_bytes
+        self.done_files = self.total_files
 
     def _zip(self, tmp: str, items, res: Result) -> None:
         with zipfile.ZipFile(tmp, 'w', allowZip64=True) as zf:

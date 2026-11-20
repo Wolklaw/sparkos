@@ -1,7 +1,6 @@
 """Settings, log, numbers and names for people, and the desktop's file dialogs."""
 
 import json
-import locale
 import logging
 import os
 import re
@@ -78,16 +77,18 @@ def reduced_motion() -> bool:
         return False
 
 
-def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']"""
-    lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
-    if not lang:
-        try:
-            lang = locale.getlocale()[0] or ''
-        except ValueError:
-            lang = ''
-    lang = lang.split('.')[0].split('@')[0]
-    return [lang, lang.split('_')[0]] if '_' in lang else ([lang] if lang else [])
+def language() -> str:
+    """'fr' or 'en'. SPARK_LANG=en|fr decides if set; otherwise the first of LC_ALL,
+    LC_MESSAGES and LANG that is set: French if it starts with 'fr' (fr_CA.UTF-8, fr_FR...),
+    English for anything else. The same rule as the other Spark apps."""
+    forced = os.environ.get('SPARK_LANG', '').strip().lower()
+    if forced in ('en', 'fr'):
+        return forced
+    for var in ('LC_ALL', 'LC_MESSAGES', 'LANG'):
+        value = os.environ.get(var, '')
+        if value:
+            return 'fr' if value.lower().startswith('fr') else 'en'
+    return 'en'
 
 
 # ─── Numbers and names for people ─────────────────────────────
@@ -121,8 +122,13 @@ ARCHIVE_SUFFIXES = ('.tar.gz', '.tar.bz2', '.tar.xz', '.tar.zst', '.tar.zstd', '
 
 
 def stem(path: str) -> str:
-    """photos.tar.gz -> photos. Falls back to the name without its last extension."""
+    """photos.tar.gz -> photos; a part of a set (photos.part2.rar, photos.7z.001, photos.r00,
+    photos.z01) -> photos. Falls back to the name without its last extension."""
     name = os.path.basename(path.rstrip('/'))
+    from .volumes import stem_of
+    of_set = stem_of(name)
+    if of_set:
+        return of_set
     low = name.lower()
     for suffix in ARCHIVE_SUFFIXES:
         if low.endswith(suffix) and len(name) > len(suffix):
@@ -158,18 +164,21 @@ def keep_both_name(name: str, taken) -> str:
 
 def pick_archive(start: str) -> Optional[str]:
     """The desktop's own file dialog (kdialog on Plasma), Tk's as a fallback."""
-    pattern = ' '.join(f'*{s}' for s in ARCHIVE_SUFFIXES)
+    from .text import t
+    # first parts of multi-part sets too: photos.7z.001, photos.r00, photos.z01
+    pattern = ' '.join(f'*{s}' for s in ARCHIVE_SUFFIXES + ('.001', '.r00', '.z01'))
     if shutil.which('kdialog') and os.name != 'nt':
         try:
             result = subprocess.run(['kdialog', '--getopenfilename', start,
-                                     f'{pattern}|Archives', '--title', APP_NAME],
+                                     f"{pattern}|{t('dialog.archives')}", '--title', APP_NAME],
                                     capture_output=True, text=True)
             return result.stdout.strip() or None
         except OSError:
             pass
     from tkinter import filedialog
     return filedialog.askopenfilename(title=APP_NAME, initialdir=start,
-                                      filetypes=[("Archives", pattern), ("All files", "*")]) or None
+                                      filetypes=[(t('dialog.archives'), pattern),
+                                                 (t('dialog.all_files'), "*")]) or None
 
 
 def pick_files(start: str) -> List[str]:

@@ -1,7 +1,8 @@
 """The small window Dolphin's right-click menu opens: Extract here, Extract to folder,
-Compress to .zip, Compress to .tar.zst. It shows progress and Cancel, asks for a password
-or before overwriting, and closes by itself when everything went through cleanly. A job
-that finishes within a third of a second never shows a window at all."""
+Compress to .zip, .7z or .tar.zst, and Compress with a password. It shows progress and
+Cancel, asks for a password or before overwriting, and closes by itself when everything went
+through cleanly. A job that finishes within a third of a second never shows a window at all.
+Selecting every part of a multi-part archive extracts it once."""
 
 import os
 from typing import List, Optional
@@ -10,7 +11,7 @@ import tkinter as tk
 
 from . import APP_NAME
 from .core import show_in_file_manager
-from .jobs import CompressJob, ExtractJob, Job, Result
+from .jobs import ZIP, CompressJob, ExtractJob, Job, Result, unique_archives
 from .text import t
 from .ui import Look, Progress, home_short, middle, result_lines, version_chip
 from .widgets import T, Strip
@@ -22,7 +23,8 @@ CLOSE_AFTER_MS = 900
 class JobWindow(Look):
     def __init__(self, action: str, paths: List[str]):
         super().__init__()
-        self.action, self.paths = action, paths
+        self.action = action
+        self.paths = unique_archives(paths) if action.startswith('extract') else paths
         self.results: List[Result] = []
         self.job: Optional[Job] = None
         self.index = -1
@@ -35,7 +37,8 @@ class JobWindow(Look):
         px, bg, root = self.px, T["bg"], self.root
         root.protocol("WM_DELETE_WINDOW", self._close_request)
         root.resizable(True, False)
-        word = 'EXTRACTING' if self.action.startswith('extract') else 'COMPRESSING'
+        word = t('status.extracting' if self.action.startswith('extract')
+                 else 'status.compressing')
         frame = tk.Frame(root, bg=bg)
         frame.pack(fill="both", expand=True)
         self.mark, self.title, self.status, head = self.header(frame, word, size=12)
@@ -65,8 +68,16 @@ class JobWindow(Look):
         if self.action.startswith('compress'):
             if self.index > 0:
                 return self._finished()
-            fmt = 'zip' if self.action == 'compress-zip' else 'tar.zst'
-            self.job = CompressJob(self.paths, fmt, asker=self.bridge.ask)
+            password = None
+            fmt = self.action[len('compress-'):]
+            if fmt == 'password':
+                choice = self.ask_compress(len(self.paths), ZIP, with_password=True)
+                if not choice:
+                    self.exit_code = 2
+                    self.root.destroy()
+                    return
+                fmt, password = choice
+            self.job = CompressJob(self.paths, fmt, asker=self.bridge.ask, password=password)
             self.what = os.path.basename(self.paths[0]) if len(self.paths) == 1 else \
                 os.path.basename(os.path.dirname(os.path.abspath(self.paths[0])))
         else:
