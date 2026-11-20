@@ -4,7 +4,7 @@
 Every sample is synthesised here from sine waves and seeded noise, so the sound is
 original work with no recording in it. Re-running this script gives the identical file.
 
-    python3 tools/make-startup-sound.py [out.wav] [--variant cave|bright|heavy|forge]   (default: cave)
+    python3 tools/make-startup-sound.py [out.wav] [--variant arc|zap|cave|bright|heavy|forge]   (default: arc)
 
 A real anvil "TING" is high and bright: a sharp metallic attack, then a long ring made of
 several partials that are not in a musical ratio. The forge rhythm comes from the hammer
@@ -21,7 +21,7 @@ SEED = 2026
 
 args = [a for a in sys.argv[1:] if not a.startswith("--")]
 OUT = args[0] if args else "files/system/usr/share/sounds/sparkos/startup.wav"
-VARIANT = "cave"  # the approved startup sound (2026-11-20)
+VARIANT = "arc"  # the approved startup sound (2026-11-20): electric zaps only
 if "--variant" in sys.argv:
     VARIANT = sys.argv[sys.argv.index("--variant") + 1]
 
@@ -55,6 +55,12 @@ VARIANTS = {
                    echo=[(0.26, 0.34), (0.52, 0.17), (0.78, 0.08)],
                    blows=[(0.00, 0.80, True), (1.15, 0.76, True), (2.30, 0.84, True), (3.60, 1.00, False)]),
 }
+# The same cave forge, with electric "bzzzt"s: every blow throws sparks that crackle, and the
+# final blow lets out a long, sizzling arc. zaps: (time s, length s, level).
+VARIANTS["zap"] = dict(VARIANTS["cave"], length=6.8,
+                       zaps=[(0.03, 0.30, 0.55), (1.18, 0.32, 0.55), (2.33, 0.34, 0.6), (3.63, 1.30, 0.95)])
+# Electric arcs only, on the same beat: no anvil.
+VARIANTS["arc"] = dict(VARIANTS["zap"], blows=[], room=0.22)
 V = VARIANTS[VARIANT]
 
 
@@ -107,6 +113,38 @@ def ting(base_hz, force, dur=3.4):
     return out
 
 
+def bzzt(length, level):
+    """An electric arc: a harsh buzz that wobbles in pitch, chopped into crackles, with
+    pops of static on top. Bright and loud at first, sizzling away at the end."""
+    n = int(length * RATE)
+    t = np.arange(n) / RATE
+    # buzz: a square-ish wave around 110-140 Hz whose pitch wanders, plus its 3rd harmonic
+    f = 118 + 14 * np.sin(2 * np.pi * 7.5 * t) + 6 * rng.normal(0, 1, n).cumsum() / np.sqrt(np.arange(1, n + 1))
+    phase = 2 * np.pi * np.cumsum(f) / RATE
+    buzz = np.tanh(4 * np.sin(phase)) + 0.35 * np.tanh(3 * np.sin(3.01 * phase))
+    # chop it on and off at random, 25-60 times a second: that's what makes it crackle
+    gate = np.zeros(n)
+    i = 0
+    while i < n:
+        on = int(rng.uniform(0.006, 0.030) * RATE)
+        off = int(rng.uniform(0.002, 0.012) * RATE)
+        gate[i:i + on] = rng.uniform(0.55, 1.0)
+        i += on + off
+    gate = one_pole_lowpass(gate, 900)
+    # static pops: sparse, very bright clicks, thickest at the start
+    pops = np.zeros(n)
+    count = int(140 * length)
+    where = (rng.power(0.6, count) * n).astype(int)  # bunched towards the start
+    pops[np.clip(where, 0, n - 1)] = rng.uniform(-1, 1, count)
+    pops = one_pole_highpass(pops, 3000)
+    hiss = one_pole_highpass(rng.normal(0, 1, n), 4500)
+    env = np.exp(-t / (0.35 * length)) * np.minimum(1, t / 0.004)
+    sig = (0.55 * buzz * gate + 2.2 * pops + 0.12 * hiss * gate) * env
+    fade = int(min(0.15, length / 3) * RATE)
+    sig[-fade:] *= np.linspace(1, 0, fade) ** 2
+    return level * sig / (np.max(np.abs(sig)) + 1e-9)
+
+
 def room(rt60):
     """A small stone room: a couple of quick reflections and a short, slightly dark tail."""
     n = int(rt60 * 1.1 * RATE)
@@ -149,6 +187,9 @@ for at, force, bounce in V["blows"]:
     if bounce:
         # the hammer rebounds and taps the face again, lighter and a touch higher
         place(ting(hz * 1.01, force * V["bounce"]), at + rng.uniform(0.085, 0.11))
+
+for at, length, level in V.get("zaps", []):
+    place(bzzt(length, level), at)
 
 
 def rms(v):
