@@ -108,7 +108,7 @@ jobs:
             ls -l /etc/systemd/system/timers.target.wants/ | grep -E "uupd|spark" || true
             test -e /etc/systemd/user/timers.target.wants/spark-update-user.timer
             if [ "$SPARK_UPDATE_ENGINE" = uupd ]; then
-              # updates must never stop: Bazzite's timer untouched, ours off, no drop-ins
+              # updates must never stop: the Bazzite timer untouched, ours off, no drop-ins
               test -e /etc/systemd/system/timers.target.wants/uupd.timer
               test ! -e /etc/systemd/system/timers.target.wants/spark-update.timer
               test ! -e /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
