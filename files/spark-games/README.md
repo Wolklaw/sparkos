@@ -2,7 +2,7 @@
 
 One library for every game installed on the computer, whatever launcher it came from. Spark Games reads what Steam, Heroic (Epic, GOG, Amazon) and Lutris have installed, adds the programs you add yourself, and starts each game through the launcher that owns it. It never changes the launchers' files, and it is not a store: buying, downloading, updates, cloud saves and friends stay in each launcher.
 
-It is an optional SparkOS app. It is not in the image; the future Spark Portal will list it. Until then it installs for one user with no root (see below).
+It ships in SparkOS (the image build runs [files/scripts/spark-games.sh](../scripts/spark-games.sh), which runs `install.sh --deps`). It can also install for one user with no root, which the future Spark Portal can use (see below).
 
 - **Library:** covers or a list, most recently played first (or A–Z), search as you type, a filter per store. Each game shows its cover, store and playtime.
 - **Game page:** big cover, launcher, playtime, last played, install folder (opens in Dolphin), and Play.
@@ -50,9 +50,9 @@ Settings in `~/.config/spark-games/` (`config.json`, `games.json`), playtime in 
 ## Install, run, test
 
 ```
+sudo bash install.sh --deps                # system-wide with Fedora packages (what the image build runs)
 bash install.sh --user                     # for you only, no root: ~/.local/lib/spark-games, ~/.local/bin/spark-games, menu entry, icons
 bash install.sh --user --uninstall         # remove exactly what that installed (settings and playtime stay)
-sudo bash install.sh --deps                # system-wide with Fedora packages, if it ever moves into the image
 python3 spark_games.py                     # run from this folder
 python3 spark_games.py --self-test         # parsers against the bundled fixtures, Pillow, xdg-open; no display, no network
 SPARK_GAMES_HOME=/some/fake/home python3 spark_games.py    # scan another folder instead of your home (for testing)
@@ -62,7 +62,7 @@ python3 make_icons.py                      # redraw icons/ after changing the ma
 
 On SparkOS, `--user` needs nothing extra: Python 3, Tk and Pillow are in the image. `spark-app.json` describes the app for the future Spark Portal (ID, version, size, what it needs and reads).
 
-The tests use the fixtures in `tests/fixtures/`: a fake home with a Flatpak Steam (two library folders, Proton, a redistributable, a tool found by its `toolmanifest.vdf`, a game still downloading, a hand-written manifest with escaped quotes), a Flatpak Heroic with one game per store and a DLC, and a regular Lutris (`pga.db` is built from `pga.sql`). Covers are drawn by the tests, so no art is copied in. CI ([workflow](../../.github/workflows/spark-games.yml)) runs everything under Xvfb in Fedora, then installs it with `--user` as a normal user inside the published SparkOS image, runs `--self-test` and uninstalls it.
+The tests use the fixtures in `tests/fixtures/`: a fake home with a Flatpak Steam (two library folders, Proton, a redistributable, a tool found by its `toolmanifest.vdf`, a game still downloading, a hand-written manifest with escaped quotes), a Flatpak Heroic with one game per store and a DLC, and a regular Lutris (`pga.db` is built from `pga.sql`). Covers are drawn by the tests, so no art is copied in. CI ([workflow](../../.github/workflows/spark-games.yml)) runs everything under Xvfb in Fedora. Inside the published SparkOS image it runs the image build step as root followed by `--self-test`, then installs it with `--user` as a normal user, runs `--self-test` and uninstalls it.
 
 ## Known gaps
 

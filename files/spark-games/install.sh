@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Install Spark Games. It is an optional SparkOS app (the future Spark Portal will list it), so
-# the usual way is for one user, with no root:
+# Install Spark Games. The SparkOS image build installs it system-wide
+# (files/scripts/spark-games.sh runs --deps). It also installs for one user, with no root, for
+# other systems and the future Spark Portal:
 #
 #   bash files/spark-games/install.sh --user              install to ~/.local
 #   bash files/spark-games/install.sh --user --uninstall  remove exactly what that installed
 #
-# System-wide, as root (kept so the app can move into the image later, like Spark Media):
+# System-wide, as root (what the image build runs):
 #
 #   bash files/spark-games/install.sh [--deps] [--prefix /usr/lib/spark-games] [--no-test]
 #   bash files/spark-games/install.sh --uninstall

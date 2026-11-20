@@ -1,18 +1,21 @@
 name: spark-games
-# Spark Games is optional (the future Spark Portal will list it); it is not in the image.
+# Spark Games ships in SparkOS (files/scripts/spark-games.sh, the image build step).
 #
 # fedora:  installs it system-wide in a plain Fedora container, runs the self-test and the unit
 #          and UI tests under Xvfb, then installs and removes it for a normal user.
-# sparkos: inside the published SparkOS image, as a normal user with no root: install.sh --user,
-#          --self-test, then --uninstall, and checks nothing is left behind.
+# sparkos: inside the published SparkOS image: the image build step as root and --self-test (what
+#          the boot test runs), then as a normal user with no root and no network:
+#          install.sh --user, --self-test, --uninstall, and checks nothing is left behind.
 on:
   push:
     paths:
       - "files/spark-games/**"
+      - "files/scripts/spark-games.sh"
       - ".github/workflows/spark-games.yml"
   pull_request:
     paths:
       - "files/spark-games/**"
+      - "files/scripts/spark-games.sh"
       - ".github/workflows/spark-games.yml"
   workflow_dispatch:
 
@@ -74,11 +77,16 @@ jobs:
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
 
+      - name: Image build step and self-test (root)
+        run: |
+          sudo podman run --rm -v "$PWD/files:/tmp/files:ro" -e CONFIG_DIRECTORY=/tmp/files "$IMAGE" bash -euxc '
+            bash /tmp/files/scripts/spark-games.sh
+            spark-games --self-test | tee /tmp/self-test.txt
+            grep -q "^self-test passed" /tmp/self-test.txt'
+
       - name: Install, self-test and uninstall as a normal user (no root, no network)
         run: |
           sudo podman run --rm --network=none -v "$PWD/files/spark-games:/src:ro" "$IMAGE" bash -euxc '
-            # it must not be in the image: it is optional
-            test ! -e /usr/bin/spark-games
             useradd -m tester
             runuser -u tester -- bash -euxc "
               cp -r /src ~/spark-games-src
