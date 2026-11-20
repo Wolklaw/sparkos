@@ -1439,7 +1439,7 @@ class TestText(unittest.TestCase):
         for name in os.listdir(here):
             if name.endswith('.py'):
                 with open(os.path.join(here, name), encoding='utf-8') as f:
-                    for key in re.findall(r"\bt\('([a-z_]+\.[a-z_.]+)'", f.read()):
+                    for key in re.findall(r"\bt\('([a-z_]+\.[a-z_.0-9]+)'\s*[,)]", f.read()):
                         self.assertIn(key, EN, f"{name}: {key}")
         for err in ('missing_part', 'needs_unrar', 'needs_sevenzip', 'damaged', 'password'):
             self.assertIn('error.' + err, EN)
