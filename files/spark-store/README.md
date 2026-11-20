@@ -2,17 +2,18 @@
 
 SparkOS's own app store. It lists the Spark apps first, then every app on Flathub, and installs them for you with one click. It is meant to replace Bazaar, the store SparkOS uses today, and to be the "Spark Portal" for optional Spark apps.
 
-It isn't wired into the image yet. The build step exists ([files/scripts/spark-store.sh](../scripts/spark-store.sh)), but the recipe, the taskbar and the defaults for `.flatpakref` files still point at Bazaar until the owner decides to switch. It also installs for one user without root (`install.sh --user`).
+It goes into the first SparkOS release next to Bazaar, which stays the default store (taskbar, `.flatpakref` and `.flatpakrepo` files, `appstream://` links) until the owner decides to switch. The image build step is [files/scripts/spark-store.sh](../scripts/spark-store.sh). It also installs for one user without root (`install.sh --user`).
 
 ## What it does
 
-- **Home:** the Spark apps (read from each app's `spark-app.json`; installed ones marked, optional ones installable), then rows of well-known apps: Games, Chat, Music, Creative, Office. Each row is a short list of known apps ([sparkstore/catalog.py](sparkstore/catalog.py)), filled from the matching Flathub categories when some are missing.
+- **Home:** the Spark apps (read from each app's `spark-app.json`; installed ones marked, optional ones installable), then rows of well-known apps: Games, Chat, Music, Creative, Office. Each row is a short list of known apps ([sparkstore/catalog.py](sparkstore/catalog.py)), filled from the matching Flathub categories when some are missing. At the bottom, **Browse** opens every app in a category (Games, Music & video, Graphics & photos, Internet & chat, Office, Development, Education & science, Utilities, System), verified apps first, 60 at a time.
 - **Search as you type,** across names, keywords, summaries and who makes the app. Every word has to match somewhere; a match in the name counts most. Accents don't matter ("edition" finds "Édition"). Enter opens the first result.
 - **App pages:** icon, name, who makes it ("Verified" when Flathub has confirmed the developer, and a note when it hasn't), summary, screenshots, description, size, licence, version, and **what it can use**, in plain words, grouped as files, devices, network and other. Lines that reach outside the sandbox (every file in your home folder, all devices, the X11 display, your saved passwords...) are marked. Proprietary apps say so at the top, in a box of their own: the code isn't public, so only the maker can check what it does.
+- **Add-ons** (Flatpak extensions: OBS plugins, Steam's compatibility tools, GIMP plugins...) are listed on their app's page and install or remove for you through the same queue, once the app is installed.
 - **Install / Open / Remove.** Installs use `flatpak install --user`: no password, only for you. Removing asks first, keeps the app's settings in `~/.var/app/<id>` unless you pick "Remove with its data", and warns when an app is installed for everyone (then SparkOS may ask for a password).
 - **One queue.** Installs, updates and removals run one at a time in a background thread. A bar at the bottom shows what's running and its progress; the Queue page lists everything, lets you cancel, and shows flatpak's own error with **Retry** when something fails. Closing the window while something installs hides it until the queue is done.
-- **Installed** lists the Spark apps and the Flatpak apps (for you, or for everyone) with their size. **Updates** lists apps with an update, with **Update all**; it checks Flathub when you ask, and by itself at most every 6 hours.
-- **Links:** opening a `.flatpakref` file or an `appstream://` link (or `spark-store <app id>`) lands on that app's page. A `.flatpakref` from somewhere other than Flathub gets its own page that names the source and says SparkOS doesn't check it. If the Store is already open, the open window takes the link.
+- **Installed** lists the Spark apps and the Flatpak apps (for you, or for everyone) with their size, and can remove runtimes no app uses any more (`flatpak uninstall --user --unused`). **Updates** lists apps with an update, with **Update all**; it checks Flathub when you ask, and by itself at most every 6 hours.
+- **Links:** opening a `.flatpakref` file or an `appstream://` link (or `spark-store <app id>`) lands on that app's page. A `.flatpakref` from somewhere other than Flathub gets its own page that names the source and says SparkOS doesn't check it. A `.flatpakrepo` file (a whole app source) gets a page that names it and its address, says SparkOS doesn't check it, and adds it for you only (`flatpak remote-add --user --from`); its apps are then installed from that source's own links, since the Store's catalog lists Flathub only. If the Store is already open, the open window takes the link.
 
 ## Where the data comes from
 
@@ -72,7 +73,8 @@ Keys: Ctrl+F search, Enter open the first result, Esc clear the search or go bac
 
 ## Not done yet
 
-- Not tried by hand on a SparkOS desktop: CI covers the window under Xvfb with a fake flatpak, and the real catalog without a display.
-- `.flatpakrepo` files (adding a whole new app source) still open in Bazaar.
-- Runtimes and add-ons (extensions such as OBS plugins) aren't listed; `Update all` does update runtimes.
+- Not tried by hand on a SparkOS desktop. CI covers the window under Xvfb (with a fake flatpak for most tests, and one real Flathub app installed and removed through the window), and the real queue inside the SparkOS image.
+- Apps from sources other than Flathub aren't in the catalog: they install from their own `.flatpakref` links.
+- Installs are always for you only; apps installed for everyone can be updated and removed (with a password), not installed.
 - No ratings or download counts: those need Flathub's web API, which the brief rules out.
+- No update notifications: the Store shows updates while it's open.

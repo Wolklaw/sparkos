@@ -116,6 +116,8 @@ jobs:
             useradd -m tester
             # an image ships /var empty; a booted SparkOS has /var/tmp, which flatpak needs
             mkdir -p /var/tmp && chmod 1777 /var/tmp
+            # and a machine ID, which flatpak uninstall needs for its D-Bus session
+            [ -s /etc/machine-id ] || systemd-machine-id-setup || dbus-uuidgen --ensure=/etc/machine-id
             home=$(getent passwd tester | cut -d: -f6)
             mkdir "$home/files"
             for d in /src/spark-*; do cp -r "$d" "$home/files/"; done
