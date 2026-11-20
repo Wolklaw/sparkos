@@ -174,6 +174,14 @@ class KWin:
             raise RuntimeError(f"KWin's window script failed: {answer['error']}")
         return answer
 
+    def wake(self):
+        """As if someone moved the mouse: the screen comes back on and the idle time restarts."""
+        try:
+            self.call('org.freedesktop.ScreenSaver', '/ScreenSaver', 'org.freedesktop.ScreenSaver',
+                      'SimulateUserActivity')
+        except GLib.Error:
+            pass
+
     def screenshot(self, dest):
         """The whole screen through ScreenShot2.CaptureWorkspace -> PNG. Returns (w, h, colours)."""
         read_end, write_end = os.pipe()
@@ -609,6 +617,10 @@ def run_app(kwin, app, launcher, session_env, lang, out_dir, number, screenshots
                 shot = os.path.join(out_dir, tag + '.png')
                 try:
                     width, height, colours = kwin.screenshot(shot)
+                    if colours < 4:                 # screen off? wake it and take it again
+                        kwin.wake()
+                        time.sleep(2)
+                        width, height, colours = kwin.screenshot(shot)
                     result['screenshot'] = os.path.basename(shot)
                     if colours < 4:
                         result['notes'].append('the screenshot is nearly one colour')
@@ -671,6 +683,7 @@ def diagnose(kwin, app, session_env, out_dir, number):
         pass
     for n, (label, flags) in enumerate(ELECTRON_TRIES, 1):
         tag = f'diag-{number:02d}-{slug(app)}-{n}'
+        kwin.wake()
         before = {w['id'] for w in kwin.script()['windows']}
         before_pids = set(processes(app['patterns']))
         t0 = time.monotonic()
@@ -719,6 +732,25 @@ def main():
     log(f'French locales installed: {", ".join(l for l in locales if l.lower().startswith("fr")) or "none"}')
 
     kwin = KWin()
+    # No screen lock or screen off while the apps open: nobody touches the VM, and Plasma
+    # locks after 5 idle minutes. The inhibit lasts as long as this program's connection.
+    try:
+        cookie = kwin.call('org.freedesktop.ScreenSaver', '/ScreenSaver',
+                           'org.freedesktop.ScreenSaver', 'Inhibit',
+                           GLib.Variant('(ss)', ('desktop-smoke', 'boot test opening apps')),
+                           '(u)')[0]
+        log(f'screen lock and power saving held off (cookie {cookie})')
+    except GLib.Error as exc:
+        log(f'could not hold off the screen lock: {exc}')
+    kwin.wake()
+    try:
+        locked = kwin.call('org.freedesktop.ScreenSaver', '/ScreenSaver',
+                           'org.freedesktop.ScreenSaver', 'GetActive', None, '(b)')[0]
+    except GLib.Error:
+        locked = None
+    if locked:
+        log('FAIL: the session is locked, so the apps would open behind the lock screen')
+        return 2
     first = kwin.script()
     log(f"KWin: screen {first['screen']['w']}x{first['screen']['h']}, "
         f"{len(first['windows'])} window(s) before the test")
@@ -750,6 +782,7 @@ def main():
         log(f'== pass "{lang}": {len(group)} apps')
         for number, app in enumerate(group, 1):
             log(f'-- {app["name"]} ({app["id"]}: Exec={app["exec"]})')
+            kwin.wake()
             try:
                 result = run_app(kwin, app, chosen, session_env, lang, args.out, number, True)
             except Exception as exc:                # noqa: BLE001 - one app must not stop the rest
