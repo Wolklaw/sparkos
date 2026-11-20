@@ -115,7 +115,11 @@ class FakeFlatpak:
         self.write(state)
 
     def calls(self):
-        return self.read().get('log', [])
+        try:
+            with open(self.path + '.log', encoding='utf-8') as f:
+                return [json.loads(line) for line in f if line.strip()]
+        except OSError:
+            return []
 
 
 # ─── The catalog ──────────────────────────────────────────────

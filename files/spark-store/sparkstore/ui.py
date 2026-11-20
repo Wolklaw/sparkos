@@ -86,7 +86,8 @@ class SearchBox(tk.Frame):
                               highlightthickness=0)
         self.lens.pack(side="left", padx=(px(8), 0))
         k = px(18) / 18
-        self.lens.create_oval(3 * k, 3 * k, 12 * k, 12 * k, outline=T["muted"], width=max(1, k * 1.6))
+        self.lens.create_oval(3 * k, 3 * k, 12 * k, 12 * k, outline=T["muted"],
+                              width=max(1, k * 1.6))
         self.lens.create_line(11 * k, 11 * k, 16 * k, 16 * k, fill=T["muted"],
                               width=max(1, k * 1.8))
         self.entry = tk.Entry(inner, textvariable=self.var, font=font, width=width,

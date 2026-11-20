@@ -357,15 +357,29 @@ class Store:
     # — installed apps and updates —
     def refresh_installed(self):
         def done(apps):
+            first = not self.installed_loaded
             self.installed = apps
             self.installed_loaded = True
             self.installed_stamp += 1
+            if first:
+                self.restore_updates()
+            self.updates = [u for u in self.updates if u.id in apps]
             self.redraw()
-            if not self.updates_checked and not self.offline:
-                last = float(self.settings.get('updates_checked') or 0)
-                if time.time() - last > UPDATE_CHECK_EVERY or self.settings.get('updates_ids'):
-                    self.root.after(1500, self.check_updates)
         self.bg(flatpak.installed, done)
+
+    def restore_updates(self):
+        """The last check's answer, if it is recent; else check now (it asks Flathub)."""
+        try:
+            last = float(self.settings.get('updates_checked') or 0)
+            saved = [flatpak.Update(*map(str, row[:4])) for row in
+                     self.settings.get('updates') or [] if isinstance(row, list) and len(row) >= 4]
+        except (TypeError, ValueError):
+            last, saved = 0.0, []
+        if 0 < time.time() - last < UPDATE_CHECK_EVERY:
+            self.updates, self.updates_checked = saved, last
+            self.updates_stamp += 1
+        elif not self.offline:
+            self.root.after(1500, self.check_updates)
 
     def check_updates(self):
         if self.updates_busy or not self.flatpak_ok or self.closed:
@@ -381,7 +395,7 @@ class Store:
             self.updates_checked = time.time()
             self.updates_stamp += 1
             self.settings['updates_checked'] = self.updates_checked
-            self.settings['updates_ids'] = [u.id for u in apps]
+            self.settings['updates'] = [[u.id, u.scope, u.version, u.branch] for u in apps]
             self.redraw()
 
         self.bg(flatpak.updates, done)
@@ -807,6 +821,9 @@ class Store:
         if self.root.state() == 'normal' and not self.hidden_until_idle:
             self.settings["geometry"] = self.root.geometry()
         self.settings["version"] = VERSION
+        if self.updates_checked:            # what is left after this session's updates
+            self.settings['updates'] = [[u.id, u.scope, u.version, u.branch]
+                                        for u in self.updates]
         save_json('config.json', self.settings)
         self.listener.close()
         log.info("--- shutting down ---")

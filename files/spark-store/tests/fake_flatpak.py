@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """A fake `flatpak` for the tests: it answers the commands Spark Store runs from a JSON state
-file ($FAKE_FLATPAK_STATE) and records every call. Installs print progress the way flatpak
+file ($FAKE_FLATPAK_STATE) and records every call ($FAKE_FLATPAK_STATE.log). Installs print progress the way flatpak
 does (percentages on one line), wait $delay seconds, and fail for IDs listed in "fail".
 
     SPARK_STORE_FLATPAK='["python3", "tests/fake_flatpak.py"]'
@@ -53,9 +53,10 @@ def main(argv):
     state.setdefault('remotes', {'user': ['flathub'], 'system': ['flathub']})
     state.setdefault('updates', [])
     state.setdefault('fail', [])
-    state.setdefault('log', [])
-    state['log'].append(argv)
-    save(path, state)
+    # every call goes to its own log, one JSON line each; the state file is only rewritten
+    # by commands that change something, so a test's edits are never lost to a read
+    with open(path + '.log', 'a', encoding='utf-8') as f:
+        f.write(json.dumps(argv) + '\n')
     scope = 'system'
     args = []
     for a in argv:
@@ -152,7 +153,7 @@ def main(argv):
                 return 1
         out.write("\nInstallation complete.\n")
         state = load(path)
-        state['installed'].append({'id': app_id, 'name': state.get('names', {}).get(
+        state.setdefault('installed', []).append({'id': app_id, 'name': state.get('names', {}).get(
             app_id, app_id.rsplit('.', 1)[-1]), 'version': '2.0', 'installation': scope,
             'size': '108.3 MB'})
         save(path, state)
