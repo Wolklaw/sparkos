@@ -63,12 +63,6 @@ jobs:
           # test disk only, through a kernel argument.
           [customizations.kernel]
           append = "systemd.wants=sshd.service"
-
-          # Room for the ~5 GB of first-boot Flatpaks; the default root is too small
-          # (growing the qcow2 afterwards doesn't grow the filesystem inside it).
-          [[customizations.filesystem]]
-          mountpoint = "/"
-          minsize = "60 GiB"
           EOF
           mkdir -p "$WORK/output"
           sudo podman run --rm --privileged --pull=newer \
@@ -82,7 +76,19 @@ jobs:
           sudo chown -R "$USER" "$WORK/output"
           DISK=$(find "$WORK/output" -name '*.qcow2' | head -1)
           test -n "$DISK" || { echo "no qcow2 produced"; find "$WORK/output"; exit 1; }
-          qemu-img resize "$DISK" 80G
+          # Room for the ~5 GB of first-boot Flatpaks. image-builder can't size the root of a
+          # bootc qcow2, and growing the file alone leaves the filesystem small, so copy it
+          # onto an 80 GB disk with virt-resize, which grows the root partition and its btrfs.
+          sudo apt-get install -y -qq libguestfs-tools >/dev/null
+          sudo chmod 0644 /boot/vmlinuz-* || true   # libguestfs needs to read the host kernel
+          ROOT=$(sudo virt-filesystems -a "$DISK" --partitions --long --csv | tail -n +2 | sort -t, -k4 -n | tail -1 | cut -d, -f1)
+          echo "growing root partition $ROOT"
+          qemu-img create -f qcow2 "$WORK/disk80.qcow2" 80G
+          sudo virt-resize --expand "$ROOT" "$DISK" "$WORK/disk80.qcow2"
+          sudo chown "$USER" "$WORK/disk80.qcow2"
+          rm -f "$DISK"
+          DISK="$WORK/disk80.qcow2"
+          sudo virt-filesystems -a "$DISK" --all --long -h
           echo "DISK=$DISK" >> "$GITHUB_ENV"
           ls -lh "$DISK"
 
