@@ -43,7 +43,7 @@ from PIL import Image  # noqa: E402
 
 APPS_DIR = '/usr/share/applications'
 OTHER_ENTRIES = ['freesuite.desktop']           # named in the Containerfile (freesuite.sh)
-WINDOW_TIMEOUT = 45                             # seconds for the first window
+WINDOW_TIMEOUT = {'spark': 45, 'other': 90}     # seconds for the first window
 SETTLE = {'spark': 3.0, 'other': 8.0}           # let the window draw before the screenshot
 CLOSE_TIMEOUT = 8
 SERVICE = 'dev.wolklaw.DesktopSmoke'
@@ -358,6 +358,18 @@ def journal_since(since):
     return entries
 
 
+def app_journal(app, since, app_pids):
+    """The app's own lines in the journal (KIO starts apps as systemd units app-<id>@...,
+    whose output goes there): -> text."""
+    lines = []
+    for entry in journal_since(since):
+        unit = entry.get('_SYSTEMD_USER_UNIT', '') + entry.get('_SYSTEMD_UNIT', '')
+        pid = entry.get('_PID', '')
+        if f'app-{app["id"]}@' in unit or (pid.isdigit() and int(pid) in app_pids):
+            lines.append(f"{entry.get('SYSLOG_IDENTIFIER', '?')}[{pid}]: {entry['MESSAGE']}")
+    return '\n'.join(lines)
+
+
 def tracebacks(app, since, log_text, app_pids):
     """(the app's tracebacks, other tracebacks in the journal meanwhile)."""
     mine, others = [], []
@@ -528,10 +540,13 @@ def run_app(kwin, app, launcher, session_env, lang, out_dir, number, screenshots
     t0 = time.monotonic()
     proc = start(make(app), env, log_path)
     window, how, others = None, None, []
-    while time.monotonic() - t0 < WINDOW_TIMEOUT:
+    timeout = WINDOW_TIMEOUT['spark' if app['spark'] else 'other']
+    every_new = []
+    while time.monotonic() - t0 < timeout:
         state = kwin.script()
         pids = set(processes(app['patterns'])) - before_pids
-        new = [w for w in state['windows'] if w['id'] not in before and (w['normal'] or w['dialog'])]
+        every_new = [w for w in state['windows'] if w['id'] not in before]
+        new = [w for w in every_new if w['normal'] or w['dialog']]
         for w in new:
             how = matches(app, w, pids)
             if how:
@@ -548,10 +563,22 @@ def run_app(kwin, app, launcher, session_env, lang, out_dir, number, screenshots
         except subprocess.TimeoutExpired:
             pass
     if not window:
-        result['reason'] = f'no window within {WINDOW_TIMEOUT} s'
-        if others:
-            result['reason'] += '; other new windows: ' + ', '.join(
-                f'"{w["caption"]}" ({w["cls"]})' for w in others)
+        result['reason'] = f'no window within {timeout} s'
+        if every_new:
+            result['reason'] += '; new windows (none matched or none a normal window): ' + \
+                ', '.join(f'"{w["caption"]}" ({w["cls"]}, {w["desktop"]}, pid {w["pid"]}, '
+                          f'normal={w["normal"]}, {w["w"]}x{w["h"]})' for w in every_new)
+        running = processes(app['patterns'])
+        result['notes'].append(f'{len(set(running) - before_pids)} of its processes running: ' +
+                               '; '.join(c[:120] for p, c in sorted(running.items())
+                                         if p not in before_pids)[:600])
+        if screenshots:
+            shot = os.path.join(out_dir, tag + '-no-window.png')
+            try:
+                kwin.screenshot(shot)
+                result['screenshot'] = os.path.basename(shot)
+            except (RuntimeError, GLib.Error) as exc:
+                result['notes'].append(f'screenshot failed: {exc}')
         if proc.returncode not in (None, 0):
             result['reason'] += f'; the launcher exited {proc.returncode}'
     else:
@@ -595,9 +622,14 @@ def run_app(kwin, app, launcher, session_env, lang, out_dir, number, screenshots
     pids = set(processes(app['patterns'])) - before_pids
     ids = [w['id'] for w in kwin.script()['windows']
            if w['id'] not in before and matches(app, w, pids)]
+    app_pids = pids | ({window['pid']} if window else set())
+    journal = app_journal(app, since, app_pids)
+    if journal:
+        with open(log_path, 'a') as f:
+            f.write('\n== its lines in the journal ==\n' + journal + '\n')
     with open(log_path, errors='replace') as f:
         log_text = f.read()
-    mine, others_tb = tracebacks(app, since, log_text, pids | ({window['pid']} if window else set()))
+    mine, others_tb = tracebacks(app, since, log_text, app_pids)
     if mine:
         result['ok'] = False
         result['reason'] = (result['reason'] + '; ' if result['reason'] else '') + \
