@@ -70,7 +70,7 @@ if [ "$ENGINE" = uupd ]; then
 else
   if [ -f /usr/lib/systemd/system/uupd.service ]; then
     systemctl disable uupd.timer 2>/dev/null || true
-    rm -f /etc/systemd/system/timers.target.wants/uupd.timer
+    rm -f /etc/systemd/system/timers.target.wants/uupd.timer /usr/lib/systemd/system/timers.target.wants/uupd.timer
     for unit in uupd.service uupd-manual.service; do
       install -d "/usr/lib/systemd/system/$unit.d"
       cat > "/usr/lib/systemd/system/$unit.d/50-sparkos.conf" <<'EOF'
@@ -90,6 +90,8 @@ EOF
     done
     echo "--- uupd.timer disabled; uupd.service and uupd-manual.service run Spark Update"
   else
+    # Removing the uupd package leaves its enable link behind, pointing at nothing
+    rm -f /etc/systemd/system/timers.target.wants/uupd.timer /usr/lib/systemd/system/timers.target.wants/uupd.timer
     # uupd isn't in the image (SparkOS removes the package). `ujust update` still runs
     # /usr/libexec/uupd-update: point it at Spark Update's Check now, which active local users
     # may start without a password (50-spark-update.rules).
@@ -176,7 +178,7 @@ else
 fi
 test -f /usr/share/polkit-1/actions/dev.wolklaw.SparkUpdate.policy
 test -f /usr/share/applications/dev.wolklaw.SparkUpdate.desktop
-report=$(/usr/bin/spark-update --self-test)
+report=$(/usr/bin/spark-update --self-test) || { echo "$report"; echo "Spark Update's self-test failed"; exit 1; }
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
 grep -q '^others:    no other automatic updater is on' <<<"$report"
