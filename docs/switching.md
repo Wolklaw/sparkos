@@ -73,7 +73,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Notepad++ | **Replaced** | Text files open in **FreeSuite Writer** (default). For a code-style editor, install **Kate** from the Store. |
 | 7-Zip | **Replaced** | **Ark** (built in). |
 | WinDirStat | **Replaced** | **Filelight** from the Store. |
-| HWiNFO, Task Manager | **Replaced** | **Mission Center** (from the Store). |
+| HWiNFO, Task Manager | **Replaced** | **Spark Monitor** (in the image): Ctrl+Shift+Esc, as on Windows (Meta+Esc and Ctrl+Esc work too). For detailed sensor readings like HWiNFO, **Mission Center** is in the Store. |
 | Ryzen Master | **No** | Set PBO and Curve Optimizer in the BIOS instead. They then apply to both systems. |
 | Logitech G HUB, SignalRGB, 8BitDo, Focusrite Control | See Devices above | |
 | Wallpaper Engine | **Partly** | A community KDE plugin plays many Wallpaper Engine scenes. It isn't in the image. |

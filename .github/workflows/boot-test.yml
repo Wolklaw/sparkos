@@ -247,6 +247,17 @@ jobs:
           $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
 
+      - name: Check the Release 2 cleanup
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Spark Monitor replaces Plasma System Monitor and takes its keys (Meta+Esc, Ctrl+Esc)
+          $SSH 'rpm -q plasma-systemmonitor 2>&1; grep -H "^X-KDE-Shortcuts=" /usr/share/kglobalaccel/*.desktop' | tee "$WORK/cleanup-monitor.txt"
+          grep -q 'package plasma-systemmonitor is not installed' "$WORK/cleanup-monitor.txt" || { echo "::error::plasma-systemmonitor is installed"; exit 1; }
+          grep -q 'dev.wolklaw.SparkMonitor.desktop:X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc$' "$WORK/cleanup-monitor.txt"
+          if grep -v 'SparkMonitor' "$WORK/cleanup-monitor.txt" | grep -E 'X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)(,|$)'; then
+            echo "::error::another app claims Spark Monitor's keys"; exit 1
+          fi
+
       - name: Check no third-party apps are preinstalled
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
