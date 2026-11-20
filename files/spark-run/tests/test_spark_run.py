@@ -572,7 +572,12 @@ class WindowTests(FlowTests):
     def window(self, **kw):
         w = self.ui.Window(**kw)
         w.root.report_callback_exception = lambda *exc: self.errors.append(exc)
-        self.addCleanup(lambda: w.root.winfo_exists() and w.root.destroy())
+        def close():
+            try:
+                w.root.destroy()
+            except Exception:    # noqa: BLE001 - the test closed it already
+                pass
+        self.addCleanup(close)
         self.pump(w)
         return w
 

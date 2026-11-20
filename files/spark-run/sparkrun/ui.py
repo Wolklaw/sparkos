@@ -108,18 +108,23 @@ def pick_file(parent: tk.Misc, callback: Callable[[Optional[str]], None]) -> Non
     if not os.path.isdir(start):
         start = os.path.expanduser('~')
     if shutil.which('kdialog'):
-        def worker():
-            try:
-                out = subprocess.run(
-                    ['kdialog', '--title', t('pick.file'), '--getopenfilename', start,
-                     f"*.exe *.msi *.EXE *.MSI|{t('pick.filter')}"],
-                    capture_output=True, text=True)
-                path = out.stdout.strip() if out.returncode == 0 else None
-            except OSError:
-                path = None
-            parent.after(0, lambda: callback(path or None))
-        threading.Thread(target=worker, daemon=True).start()
-        return
+        try:
+            proc = subprocess.Popen(
+                ['kdialog', '--title', t('pick.file'), '--getopenfilename', start,
+                 f"*.exe *.msi *.EXE *.MSI|{t('pick.filter')}"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
+        except OSError:
+            proc = None
+        if proc is not None:
+            def poll():                       # the window stays responsive meanwhile
+                if proc.poll() is None:
+                    parent.after(150, poll)
+                    return
+                path = proc.stdout.read().strip() if proc.returncode == 0 else ''
+                proc.stdout.close()
+                callback(path or None)
+            parent.after(150, poll)
+            return
     from tkinter import filedialog
     path = filedialog.askopenfilename(parent=parent, title=t('pick.file'), initialdir=start,
                                       filetypes=[(t('pick.filter'), '*.exe *.msi *.EXE *.MSI')])
@@ -684,16 +689,29 @@ class Window:
         return t('apps.meta', windows=windows, size=size(used), added=app.added or '?')
 
     def _measure_sizes(self):
+        """Folder sizes in a thread (a big prefix takes a moment); only Tk's own thread
+        touches the window, by polling the results while the thread runs."""
         found = list(self.apps)
+        results: 'queue.Queue[tuple]' = queue.Queue()
 
         def work():
             for app in found:
-                used = apps.disk_use(app)
+                results.put((app, apps.disk_use(app)))
+        thread = threading.Thread(target=work, daemon=True)
+        thread.start()
+
+        def poll():
+            try:
+                while True:
+                    self._set_size(*results.get_nowait())
+            except queue.Empty:
+                pass
+            if thread.is_alive() or not results.empty():
                 try:
-                    self.root.after(0, lambda a=app, u=used: self._set_size(a, u))
-                except (tk.TclError, RuntimeError):
-                    return
-        threading.Thread(target=work, daemon=True).start()
+                    self.root.after(100, poll)
+                except tk.TclError:
+                    pass
+        self.root.after(100, poll)
 
     def _set_size(self, app: apps.App, used: int):
         app.used = used

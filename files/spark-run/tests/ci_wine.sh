@@ -15,6 +15,7 @@ data=${XDG_DATA_HOME:-$HOME/.local/share}/spark-run
 apps=${XDG_DATA_HOME:-$HOME/.local/share}/applications
 pass() { echo "PASS: $*"; }
 fail() { echo "FAIL: $*"; exit 1; }
+got() { tr -d '\r' < "$1"; }      # what Spark Hello wrote, without Windows line endings
 winpath() { printf 'Z:%s' "$(printf '%s' "$1" | tr / '\\')"; }
 t0=$(date +%s)
 since() { echo $(( $(date +%s) - $1 )); }
@@ -49,9 +50,10 @@ t=$(date +%s)
 $SR --run-once "$fx/hello32.exe" --wait --no-window
 row "run once, 32-bit (prefix already there)" "$(since "$t") s"
 cat "$out/once.txt"
-grep -q '^hello from Spark Hello, 64-bit, Windows 10.0, args: \[first arg\] \[second\]$' \
-  "$out/once.txt" || fail "64-bit run once"
-grep -q '^hello from Spark Hello, 32-bit, Windows 10.0, args:$' "$out/once.txt" \
+got "$out/once.txt" | grep -q \
+  '^hello from Spark Hello, 64-bit, Windows 10.0, args: \[first arg\] \[second\]$' \
+  || fail "64-bit run once"
+got "$out/once.txt" | grep -q '^hello from Spark Hello, 32-bit, Windows 10.0, args:$' \
   || fail "32-bit run once (wow64)"
 pass "run once, 64 and 32-bit"
 row "run-once prefix on disk" "$(du -sh --one-file-system "$data/run-once" | cut -f1)"
@@ -102,14 +104,14 @@ t=$(date +%s)
 $SR --open spark-hello "$out/doc one.txt" --wait --no-window
 row "open the installed app" "$(since "$t") s"
 cat "$out/app.txt"
-grep -qF "64-bit, Windows 10.0, args: [$(winpath "$out/doc one.txt")]" "$out/app.txt" \
+got "$out/app.txt" | grep -qF "64-bit, Windows 10.0, args: [$(winpath "$out/doc one.txt")]" \
   || fail "open with a file"
 pass "opens, with the file as a Windows path"
 
 echo "--- options: Windows 7, then DXVK (downloaded and checked)"
 $SR --set spark-hello --windows win7 >/dev/null
 $SR --open spark-hello --wait --no-window
-grep -q 'Windows 6.1, args:$' "$out/app.txt" || fail "Windows version 7"
+got "$out/app.txt" | grep -q 'Windows 6.1, args:$' || fail "Windows version 7"
 t=$(date +%s)
 $SR --set spark-hello --dxvk on >/dev/null
 row "DXVK on (download + check)" "$(since "$t") s"
