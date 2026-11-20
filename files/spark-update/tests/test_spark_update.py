@@ -285,6 +285,11 @@ class ReleaseTests(unittest.TestCase):
         self.assertFalse(prev['from_file'])
         self.assertIsNone(release.load(os.path.join(root, 'nowhere')))
 
+    def test_rpm_version(self):
+        self.assertEqual(release.rpm_version('26.2.7\n26.2.7\n'), '26.2.7')    # x86_64 + i686
+        self.assertEqual(release.rpm_version('1.19.0^really1.18.4\n'), '1.18.4')
+        self.assertEqual(release.rpm_version(''), '')
+
     def test_diff(self):
         old = manifest(A_VER, '0.2.0', '1.0.0', '6.17.7')
         new = manifest(B_VER, '0.3.0', '1.0.0', '6.17.8',

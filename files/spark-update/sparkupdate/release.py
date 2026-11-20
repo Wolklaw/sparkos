@@ -83,14 +83,24 @@ def _rpm_versions(root: str, packages: Dict[str, str]) -> Dict[str, str]:
     out: Dict[str, str] = {}
     for key, package in packages.items():
         try:
-            proc = subprocess.run(['rpm', '--dbpath', dbpath, '-q', '--qf', '%{VERSION}',
+            proc = subprocess.run(['rpm', '--dbpath', dbpath, '-q', '--qf', '%{VERSION}\n',
                                    package], capture_output=True, text=True, timeout=30,
                                   stdin=subprocess.DEVNULL)
         except (OSError, subprocess.SubprocessError):
             return out
-        if proc.returncode == 0 and proc.stdout.strip():
-            out[key] = proc.stdout.strip()
+        version = rpm_version(proc.stdout) if proc.returncode == 0 else ''
+        if version:
+            out[key] = version
     return out
+
+
+def rpm_version(stdout: str) -> str:
+    """One version from `rpm -q --qf '%{VERSION}\n'`: the 64- and 32-bit packages print one
+    line each; Fedora's '1.19.0^really1.18.4' means 1.18.4."""
+    lines = [ln.strip() for ln in stdout.splitlines() if ln.strip()]
+    if not lines:
+        return ''
+    return lines[0].split('^really', 1)[-1]
 
 
 def _kernel(root: str) -> str:

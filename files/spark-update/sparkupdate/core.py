@@ -106,11 +106,9 @@ def setup_logging(system: bool = False, env: Optional[Env] = None) -> str:
 
 def run(cmd: Sequence[str], timeout: float = 3600, quiet: bool = False,
         env: Optional[Dict[str, str]] = None) -> Tuple[int, str, str]:
-    """Run a command and log it, its exit code and the end of its output.
-    Returns (code, stdout, stderr); code 127 when it can't start, 124 on timeout."""
-    shown = ' '.join(cmd)
-    if not quiet:
-        log.info("$ %s", shown)
+    """Run a command and log it, its exit code and the end of its output (every command
+    Spark Update runs is in its log). Returns (code, stdout, stderr); code 127 when it can't start, 124 on timeout."""
+    log.info("$ %s", ' '.join(cmd))
     try:
         proc = subprocess.run(list(cmd), capture_output=True, text=True, timeout=timeout,
                               env=env, stdin=subprocess.DEVNULL)
@@ -123,9 +121,10 @@ def run(cmd: Sequence[str], timeout: float = 3600, quiet: bool = False,
         err = f"stopped after {int(timeout)} s"
     except OSError as exc:
         code, out, err = 126, '', str(exc)
-    if not quiet or code != 0:
-        tail = [line for line in (out + '\n' + err).strip().splitlines() if line.strip()][-12:]
-        log.info("  exit %s%s", code, ''.join(f"\n  | {line}" for line in tail))
+    # quiet: the command and its exit code only, unless it failed
+    lines = [line for line in (out + '\n' + err).strip().splitlines() if line.strip()]
+    tail = [] if quiet and code == 0 else lines[-12:]
+    log.info("  exit %s%s", code, ''.join(f"\n  | {line}" for line in tail))
     return code, out, err
 
 

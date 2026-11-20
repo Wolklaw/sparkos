@@ -124,7 +124,11 @@ jobs:
           for want in ("soot", "freesuite", "spark-monitor", "spark-update"):
               assert want in names, want
           assert r["image"] == "ghcr.io/wolklaw/sparkos"
-          assert {p["id"] for p in r["platform"]} >= {"kernel", "mesa", "plasma"}, r["platform"]
+          plat = {p["id"]: p["version"] for p in r["platform"]}
+          assert set(plat) >= {"kernel", "mesa", "plasma"}, plat
+          import re
+          for key, version in plat.items():
+              assert re.fullmatch(r"[0-9][0-9A-Za-z.~+_-]*", version), (key, version)
           EOF
 
             echo "--- self-test (root)"
