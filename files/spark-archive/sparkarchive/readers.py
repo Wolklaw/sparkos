@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Iterator, List, Optional, Tuple
 
 from . import formats
+from .core import log
 from . import libarchive as la
 from .safety import DIR, FILE, HARDLINK, LINK, OTHER, Cancelled, Parts, clean_parts
 
@@ -436,19 +437,23 @@ def _7z_problem(rc: int, out: str, err: str, password: Optional[str]) -> Archive
 
 
 def _refused_links(err: str, staging: str) -> Optional[List[str]]:
-    """The links 7z said it couldn't make, if those are its only errors; else None."""
-    errors = [ln.strip() for ln in err.splitlines() if ln.strip().startswith('ERROR')]
+    """What 7z refused to make because it would lead out (links, dangerous paths), if those are
+    its only errors: their names, for the list of what was left out. None if any other error."""
+    errors = []
+    for raw in err.splitlines():
+        line = re.sub(r'[\x00-\x1f]', '', raw).strip()
+        if 'ERROR:' in line:
+            errors.append(line[line.index('ERROR:'):])
     if not errors:
         return None
+    root = staging.rstrip('/') + '/'
     names = []
     for line in errors:
-        if not re.search(r'Cannot create (hard |symbolic )?link|Dangerous .*link', line, re.I):
+        if not re.search(r'link|dangerous|unsafe', line, re.I):
             return None
-        for piece in line.split(' : '):
-            piece = piece.strip()
-            if piece.startswith(staging.rstrip('/') + '/'):
-                names.append(os.path.relpath(piece, staging))
-                break
+        pieces = [p.strip() for p in line.split(' : ')]
+        inside = [p for p in pieces if p.startswith(root)]
+        names.append(os.path.relpath(inside[0], staging) if inside else pieces[-1])
     return names
 
 
@@ -517,6 +522,7 @@ class SevenZipReader(Reader):
                                     '--', self.path], self.password, cancelled, line)
             refused = _refused_links(err, staging)
             if rc not in (0, 1) and not (rc == 2 and refused):
+                log.warning("7z stopped with code %s: %s", rc, err.strip()[-2000:])
                 raise _7z_problem(rc, out, err, self.password)
             for name in refused or ():
                 # 7z wouldn't make these links (they lead out); report them like any other

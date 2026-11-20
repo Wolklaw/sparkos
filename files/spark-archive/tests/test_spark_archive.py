@@ -581,7 +581,11 @@ class TestEscapes(Base):
         listing = Listing(arc, 'tar', entries, candidates('tar').index(SevenZipReader), '7z',
                           None)
         res = ExtractJob(arc, self.dest, listing=listing).run_here()
-        self.assertTrue(res.ok, res)
+        if not res.ok:                                   # show what 7z itself said
+            from sparkarchive.readers import _run_7z
+            probe = os.path.join(self.arcs, 'probe')
+            rc, out, err = _run_7z(['x', '-y', '-o' + probe, '--', arc], None, lambda: False)
+            self.fail(f"{res}\n7z rc={rc}\nstderr={err!r}\nstdout={out[-1500:]!r}")
         self.assert_contained()
         got = tree(self.dest)
         self.assertIn('ok.txt', got)
