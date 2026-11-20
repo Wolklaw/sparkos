@@ -81,10 +81,11 @@ installed) or the Store.
   playtime recording.
 - UI under Xvfb: the grid renders 500 fake games and scrolls; search filters; the empty state shows.
 - `--self-test`: parsers load the bundled fixtures, Pillow works, `xdg-open` exists. No network.
-- Boot test: run `--self-test` in the real image.
+- CI, inside the SparkOS image: `install.sh --user`, `--self-test`, `--uninstall` as a normal user.
 
 ## Done when
 
-The image builds with Spark Games, CI and the boot test pass, the app finds games from Steam and
-Heroic test fixtures, and the PR is open for the owner. The owner will test it on real hardware
-with their real libraries in Phase 5.
+CI passes in Fedora and inside the SparkOS image, the app installs and uninstalls for one user with no
+root, it finds games from the Steam, Heroic and Lutris test fixtures, and the PR is open for the owner.
+It is optional (future Spark Portal), so it is not added to the recipe. The owner will test it on real
+hardware with their real libraries in Phase 5.

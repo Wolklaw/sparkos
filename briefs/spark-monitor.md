@@ -42,7 +42,9 @@ Read everything from `/proc` and `/sys` directly. No `ps`, `top` or other tools 
 ## The shortcut
 
 Give the desktop entry `X-KDE-Shortcuts=Ctrl+Shift+Esc` and check Plasma registers it (kglobalaccel),
-on a fresh user. Ctrl+Esc opens Plasma's own System Monitor today; leave that alone. If Ctrl+Shift+Esc
+on a fresh user, for both a `--user` install (`~/.local/share/applications/`) and a system-wide one.
+If Plasma doesn't pick it up from the user's folder, register it on install and remove it on
+`--uninstall`. Ctrl+Esc opens Plasma's own System Monitor today; leave that alone. If Ctrl+Shift+Esc
 is taken by something else in Plasma 6.8, report it to the owner rather than silently stealing it.
 
 Plasma System Monitor stays in the image for now (the recipe keeps it as part of the platform).
@@ -66,10 +68,10 @@ This app watches the PC, so it must not be what slows it down.
 - UI under Xvfb: every tab renders; sorting works; End task on a test process removes its row.
 - `--self-test`: reads the live `/proc` and `/sys`, prints what it found (CPU threads, memory, GPU and
   which sensors are readable). No display needed.
-- Boot test: run `--self-test` in the real image and check the desktop entry has the shortcut.
+- CI, inside the SparkOS image: `install.sh --user`, `--self-test`, `--uninstall` as a normal user.
 
 ## Done when
 
-The image builds with Spark Monitor, CI and the boot test pass, Ctrl+Shift+Esc opens it on a fresh
-user in the boot-test VM (or the owner confirms on hardware), the speed targets are measured, and the
-PR is open for the owner.
+CI passes in Fedora and inside the SparkOS image, the app installs and uninstalls for one user with no
+root, the speed targets are measured, and the PR is open for the owner. The owner confirms
+Ctrl+Shift+Esc on hardware. It is optional (future Spark Portal), so it is not added to the recipe.

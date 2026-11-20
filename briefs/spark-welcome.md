@@ -56,8 +56,16 @@ remote exists (`flatpak remotes --user`; add it if missing).
 
 ## How it starts
 
-- `/etc/xdg/autostart/dev.wolklaw.SparkWelcome.desktop` runs `spark-welcome --first-login`. That mode
-  exits at once if `~/.config/spark-welcome/done` exists, so later logins cost nothing.
+Not in the first SparkOS build. Spark Welcome may later ship in the image (it matters most at the very
+first login) or become the Spark Portal's first-run screen; that's the owner's call. Build it so either
+works:
+
+- `spark-welcome --first-login` exits at once if `~/.config/spark-welcome/done` exists, so later
+  logins cost nothing.
+- Installed with `install.sh --user`, it adds `~/.config/autostart/dev.wolklaw.SparkWelcome.desktop`
+  (removed by `--uninstall`). Installed system-wide, the same entry goes in `/etc/xdg/autostart/`.
+- Keep the steps (games, apps, files from Windows, checks) as separate modules with no window code
+  in them, so the Portal can reuse them.
 - Don't run in the installer's live session (user `liveuser`, or `/run/livesys` exists). The ISO has
   its own welcome dialog (`installer/system_files`).
 - Write `done` when the user reaches the last page or closes the window.
@@ -71,10 +79,10 @@ remote exists (`flatpak remotes --user`; add it if missing).
   immediately when `done` exists.
 - `--self-test`: the app list parses, `flatpak`, `udisksctl` and `lsblk` exist, the autostart entry
   is installed. No network, nothing installed.
-- Boot test: run `--self-test` and check the autostart entry is present. The boot test must still
-  show that no third-party app is preinstalled, since Welcome installs nothing on its own.
+- CI, inside the SparkOS image: `install.sh --user`, `--self-test`, `--uninstall` as a normal user.
 
 ## Done when
 
-The image builds with Spark Welcome, CI and the boot test pass, a fresh user account gets the window
-once at first login, and the PR is open for the owner.
+CI passes in Fedora and inside the SparkOS image, the app installs and uninstalls for one user with
+no root, a fresh user account gets the window once at first login, and the PR is open for the owner.
+It is not added to the recipe.
