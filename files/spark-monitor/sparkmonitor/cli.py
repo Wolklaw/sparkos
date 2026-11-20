@@ -9,7 +9,7 @@ from typing import List, Optional
 
 T0 = time.monotonic()
 
-from . import APP_NAME, APP_SLUG, SHORTCUT, VERSION  # noqa: E402
+from . import APP_ID, APP_NAME, APP_SLUG, SHORTCUT, VERSION  # noqa: E402
 from .source import Source, read_line  # noqa: E402
 
 
@@ -48,6 +48,52 @@ def shortcut_owner(src: Source) -> Optional[str]:
         if any(_norm_keys(k) == want for k in active.split('\t') if k and k != 'none'):
             return f"{group} {key}"
     return None
+
+
+def _kglobalaccel_dirs(src: Source) -> List[str]:
+    return [os.path.join(d, 'kglobalaccel') for d in [src.data_home] + src.data_dirs]
+
+
+def _shortcuts_in(path: str) -> List[str]:
+    try:
+        with open(path, encoding='utf-8', errors='replace') as f:
+            for line in f:
+                if line.startswith('X-KDE-Shortcuts='):
+                    return [k for k in line.split('=', 1)[1].strip().split(',') if k]
+    except OSError:
+        pass
+    return []
+
+
+def shortcut_entry(src: Source) -> Optional[str]:
+    """The desktop entry through which Plasma's kglobalaccel registers Ctrl+Shift+Esc for
+    Spark Monitor (installed by install.sh in kglobalaccel/), or None."""
+    want = _norm_keys(SHORTCUT)
+    for folder in _kglobalaccel_dirs(src):
+        path = os.path.join(folder, f'{APP_ID}.desktop')
+        if any(_norm_keys(k) == want for k in _shortcuts_in(path)):
+            return path
+    return None
+
+
+def shortcut_claimants(src: Source) -> List[str]:
+    """Other installed desktop entries whose X-KDE-Shortcuts include Ctrl+Shift+Esc."""
+    want = _norm_keys(SHORTCUT)
+    found = []
+    for base in [src.data_home] + src.data_dirs:
+        for sub in ('kglobalaccel', 'applications'):
+            folder = os.path.join(base, sub)
+            try:
+                names = sorted(os.listdir(folder))
+            except OSError:
+                continue
+            for name in names:
+                if not name.endswith('.desktop') or name == f'{APP_ID}.desktop':
+                    continue
+                path = os.path.join(folder, name)
+                if any(_norm_keys(k) == want for k in _shortcuts_in(path)):
+                    found.append(path)
+    return found
 
 
 def _norm_keys(combo: str) -> frozenset:
@@ -127,6 +173,14 @@ def self_test(src: Source) -> int:
     items = startup.all_items(src, [])
     print(f"startup:   {sum(1 for i in items if i.kind == startup.AUTOSTART)} autostart "
           f"entries, {sum(1 for i in items if i.kind == startup.SERVICE)} services")
+    entry = shortcut_entry(src)
+    if entry:
+        print(f"shortcut:  {SHORTCUT} registered for Plasma by {entry}")
+    else:
+        print(f"shortcut:  not registered (no kglobalaccel/{APP_ID}.desktop with "
+              f"X-KDE-Shortcuts={SHORTCUT}); running from source?")
+    for other in shortcut_claimants(src):
+        print(f"shortcut:  {SHORTCUT} also claimed by {other} - tell the owner")
     owner = shortcut_owner(src)
     if owner:
         print(f"shortcut:  {SHORTCUT} is already used by {owner} - tell the owner")

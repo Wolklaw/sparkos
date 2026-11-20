@@ -549,6 +549,24 @@ class MiscTests(FixtureCase):
             f.write('[org.example.other]\nOpen Thing=Shift+Ctrl+Escape\tMeta+T,none,Open\n')
         self.assertIn('org.example.other', shortcut_owner(self.src))
 
+    def test_shortcut_registration_check(self):
+        from sparkmonitor.cli import shortcut_claimants, shortcut_entry
+        self.assertIsNone(shortcut_entry(self.src))
+        self.assertEqual(shortcut_claimants(self.src), [])     # Konsole's Ctrl+Alt+T isn't it
+        folder = os.path.join(self.root, 'usr/share/kglobalaccel')
+        os.makedirs(folder)
+        shutil.copy(os.path.join(APP_DIR, f'{APP_ID}.desktop'), folder)
+        self.assertTrue(shortcut_entry(self.src).endswith(f'kglobalaccel{os.sep}{APP_ID}.desktop'))
+        with open(os.path.join(self.root, 'usr/share/applications/other.desktop'), 'w') as f:
+            f.write('[Desktop Entry]\nName=Other\nX-KDE-Shortcuts=Meta+X,Shift+Ctrl+Escape\n')
+        self.assertEqual([os.path.basename(p) for p in shortcut_claimants(self.src)],
+                         ['other.desktop'])
+        out = io.StringIO()
+        with redirect_stdout(out):
+            self_test(self.src)
+        self.assertIn('registered for Plasma by', out.getvalue())
+        self.assertIn('also claimed by', out.getvalue())
+
     def test_metadata(self):
         with open(os.path.join(APP_DIR, 'spark-app.json'), encoding='utf-8') as f:
             meta = json.load(f)
