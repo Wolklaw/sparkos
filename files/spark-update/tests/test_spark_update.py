@@ -694,6 +694,13 @@ class CliTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn('pkexec', proc.stderr)
 
+    def test_json_log_lines(self):
+        import logging
+        line = core.JsonLines('%(message)s').format(logging.LogRecord(
+            'x', logging.INFO, __file__, 1, "SparkOS %s is staged", ('45.1',), None))
+        self.assertEqual(json.loads(line), {'level': 'info',
+                                            'description': 'SparkOS 45.1 is staged'})
+
     def test_units_never_restart(self):
         for name in os.listdir(os.path.join(APP_DIR, 'systemd')):
             with open(os.path.join(APP_DIR, 'systemd', name), encoding='utf-8') as f:

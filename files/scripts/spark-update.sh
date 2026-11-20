@@ -49,6 +49,8 @@ if [ -f /usr/lib/systemd/system/uupd.service ]; then
 ExecStart=
 ExecStart=/usr/bin/spark-update --system-run --now stage
 Restart=no
+# `ujust update` shows this unit's journal through jq, which keeps only JSON lines
+Environment=SPARK_UPDATE_LOG_JSON=1
 StateDirectory=spark-update
 StateDirectoryMode=0755
 LogsDirectory=spark-update
