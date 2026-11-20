@@ -93,17 +93,24 @@ def language() -> str:
 
 # ─── Numbers and names for people ─────────────────────────────
 
+SIZE_UNITS = {'en': ("B", "KB", "MB", "GB", "TB"), 'fr': ("o", "Ko", "Mo", "Go", "To")}
+
+
 def size(n: Optional[float], digits: int = 1) -> str:
-    """Bytes, in the units Windows and Dolphin use (1 KB = 1024 bytes)."""
+    """Bytes, in the units Windows and Dolphin use (1 KB = 1024 bytes); in French
+    '392,6 Ko'."""
     if n is None or n < 0:
         return "—"
-    for unit in ("B", "KB", "MB", "GB", "TB"):
-        if abs(n) < 1024 or unit == "TB":
-            if unit == "B":
-                return f"{int(n)} B"
-            return f"{n:.{digits}f} {unit}"
+    lang = language()
+    units = SIZE_UNITS[lang]
+    for unit in units:
+        if abs(n) < 1024 or unit == units[-1]:
+            if unit == units[0]:
+                return f"{int(n)} {unit}"
+            text = f"{n:.{digits}f} {unit}"
+            return text.replace('.', ',') if lang == 'fr' else text
         n /= 1024
-    return f"{n:.1f} TB"
+    return "—"
 
 
 def when(ts: Optional[float]) -> str:

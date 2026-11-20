@@ -1403,6 +1403,16 @@ class TestText(unittest.TestCase):
             with mock.patch.dict(os.environ, env, clear=True):
                 self.assertEqual(language(), want, env)
 
+    def test_sizes(self):
+        from sparkarchive.core import size
+        with mock.patch.dict(os.environ, {'SPARK_LANG': 'en'}):
+            self.assertEqual(size(402022), '392.6 KB')
+            self.assertEqual(size(12), '12 B')
+        with mock.patch.dict(os.environ, {'SPARK_LANG': 'fr'}):
+            self.assertEqual(size(402022), '392,6 Ko')
+            self.assertEqual(size(3 << 30), '3,0 Go')
+            self.assertEqual(size(12), '12 o')
+
     def test_french_in_a_real_run(self):
         """A process with LANG=fr_CA.UTF-8 speaks French."""
         env = {k: v for k, v in os.environ.items() if k not in ('SPARK_LANG', 'LC_ALL',
