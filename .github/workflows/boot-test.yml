@@ -312,6 +312,11 @@ jobs:
           grep -q "LookAndFeelPackage=dev.wolklaw.sparkos.desktop" "$WORK/look.txt"
           grep -qx "Chakra Petch" "$WORK/look.txt"
           grep -qx "Inter" "$WORK/look.txt"
+          # Chakra Petch is the copy kept in this repo (files/sparkos-theme/fonts), not a build-time download
+          (cd files/sparkos-theme/fonts && sha256sum ChakraPetch-*.ttf OFL.txt) | tee "$WORK/fonts-repo.txt"
+          $SSH 'cd /usr/share/fonts/chakra-petch && sha256sum ChakraPetch-*.ttf OFL.txt' > "$WORK/fonts-image.txt"
+          diff "$WORK/fonts-repo.txt" "$WORK/fonts-image.txt" || { echo "::error::the image's Chakra Petch differs from the repo's"; exit 1; }
+          if grep -nwE 'curl|wget' files/scripts/sparkos-theme.sh; then echo "::error::sparkos-theme.sh downloads something"; exit 1; fi
           grep -q "Theme=sparkos" "$WORK/look.txt"
           grep -q "Name=SparkOS" "$WORK/look.txt"
           # Sign in once automatically as the test user, to see the real desktop
