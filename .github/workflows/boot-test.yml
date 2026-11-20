@@ -19,6 +19,10 @@ on:
         description: Run every check, not just the quick set
         type: boolean
         default: true
+      image_tag:
+        description: Image tag to test (a branch build is br-<branch>-<Fedora version>)
+        type: string
+        default: latest
 
 concurrency:
   group: boot-test
@@ -33,7 +37,7 @@ jobs:
       contents: read
       packages: read
     env:
-      IMAGE: ghcr.io/wolklaw/sparkos:latest
+      IMAGE: ghcr.io/wolklaw/sparkos:${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
       WORK: /mnt/boot-test
       FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
