@@ -261,6 +261,18 @@ jobs:
           $SSH 'rpm -q tailscale 2>&1; ls /etc/yum.repos.d/; echo "== units"; systemctl list-unit-files --no-legend "tailscale*"' | tee "$WORK/cleanup-tailscale.txt"
           grep -q 'package tailscale is not installed' "$WORK/cleanup-tailscale.txt" || { echo "::error::tailscale is installed"; exit 1; }
           if grep -i 'tailscale' "$WORK/cleanup-tailscale.txt" | grep -v 'is not installed'; then echo "::error::Tailscale leftovers"; exit 1; fi
+          # No calling home: usage counting off (timer and DNF), KDE's Get New Stuff hidden.
+          # The connectivity check is printed only: it stays until the owner decides.
+          $SSH 'echo "countme timer: $(systemctl is-enabled rpm-ostree-countme.timer 2>&1)"
+                echo "countme last run: $(systemctl show -P LastTriggerUSec rpm-ostree-countme.timer)"
+                echo "dnf countme on: $(grep -l "^countme=1" /usr/share/dnf5/repos.d/*.repo /etc/yum.repos.d/*.repo 2>/dev/null | wc -l)"
+                echo "ghns: $(kreadconfig6 --file kdeglobals --group "KDE Action Restrictions" --key ghns)"
+                echo "== connectivity check"; grep -h "^uri=" /usr/lib/NetworkManager/conf.d/*.conf /etc/NetworkManager/conf.d/*.conf 2>/dev/null; nmcli networking connectivity
+                echo "== enabled timers"; systemctl list-unit-files --type=timer --state=enabled --no-legend --no-pager
+                echo "== active timers"; systemctl list-timers --no-pager' | tee "$WORK/cleanup-calls.txt"
+          grep -qx 'countme timer: disabled' "$WORK/cleanup-calls.txt" || { echo "::error::rpm-ostree-countme.timer is not disabled"; exit 1; }
+          grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
+          grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
 
       - name: Check SparkOS's own AppImage handling
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
