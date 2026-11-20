@@ -110,6 +110,6 @@ Honest answer: for most of what you do, it should be at least as fast, but some 
 ## The switch, step by step
 
 1. Check the **Check** items above, especially the games you play most.
-2. Install SparkOS alongside Windows (Phase 5 in PLAN.md). Windows stays until SparkOS has covered a normal week of work and games.
+2. Install SparkOS alongside Windows: step by step in [install.md](install.md) (Phase 5 in PLAN.md). Windows stays until SparkOS has covered a normal week of work and games.
 3. On SparkOS: sign in to Steam, Heroic, Bolt and Prism. Add your Google account. Run `sparkos-dev-setup`. Print and scan one page.
 4. Keep Windows (on a smaller partition, or as a VM) for anything marked **No** that you still need.
