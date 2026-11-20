@@ -22,6 +22,10 @@ on:
       - "files/scripts/spark-archive.sh"
       - ".github/workflows/spark-archive.yml"
   workflow_dispatch:
+concurrency:
+  # a newer push replaces a run still going; runners are shared with the other Spark apps
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   fedora:
@@ -34,7 +38,7 @@ jobs:
       - name: What SparkOS has (Python with Tk, libarchive, 7z, zstd), and Xvfb
         run: |
           dnf -y install --setopt=install_weak_deps=False python3 python3-tkinter libarchive \
-            7zip zstd cpio xorg-x11-server-Xvfb xorg-x11-xauth
+            7zip zstd cpio lz4 lzip ncompress xorg-x11-server-Xvfb xorg-x11-xauth
 
       - name: Tests (Xvfb)
         run: |

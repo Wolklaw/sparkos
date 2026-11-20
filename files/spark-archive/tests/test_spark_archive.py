@@ -383,6 +383,33 @@ class TestFormats(Base):
         self.assertTrue(res.ok, res)
         self.assertEqual(read(os.path.join(self.dest, 'c', 'x.txt')), b'cpio')
 
+    @unittest.skipUnless(HAS_LA, "libarchive is not installed")
+    def test_older_tar_compressions_through_libarchive(self):
+        """tar.lzma (Python can make it), and tar.lz4, tar.lz, tar.Z where those commands exist:
+        types Ark opens today."""
+        plain = io.BytesIO()
+        with tarfile.open(fileobj=plain, mode='w') as tf:
+            ti = tarfile.TarInfo('old/x.txt')
+            ti.size = 3
+            tf.addfile(ti, io.BytesIO(b'old'))
+        packers = [('tar.lzma', lambda d: lzma.compress(d, format=lzma.FORMAT_ALONE))]
+        for cmd, ext in (('lz4', 'tar.lz4'), ('lzip', 'tar.lz'), ('compress', 'tar.Z')):
+            if shutil.which(cmd):
+                packers.append((ext, lambda d, c=cmd: subprocess.run(
+                    [c, '-c'], input=d, stdout=subprocess.PIPE, check=True).stdout))
+        for ext, pack in packers:
+            with self.subTest(ext):
+                arc = self.arc('a.' + ext)
+                with open(arc, 'wb') as f:
+                    f.write(pack(plain.getvalue()))
+                self.assertEqual(formats.detect(arc), 'other')
+                out = os.path.join(self.dest, ext)
+                os.mkdir(out)
+                res = self.extract(arc, dest=out)
+                self.assertTrue(res.ok, res)
+                self.assertEqual(read(os.path.join(out, 'old', 'x.txt')), b'old')
+        print(f"\nthrough libarchive: {', '.join(e for e, _p in packers)}")
+
     def test_damaged(self):
         arc = self.arc('cut.tar.gz')
         with tarfile.open(arc, 'w:gz') as tf:

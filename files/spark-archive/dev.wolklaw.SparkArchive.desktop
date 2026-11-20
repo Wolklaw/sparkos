@@ -11,5 +11,5 @@ Terminal=false
 Categories=Utility;Archiving;Compression;
 Keywords=zip;unzip;tar;7z;7-zip;rar;iso;gz;xz;zst;archive;extract;compress;decompress;archive;extraire;compresser;décompresser;
 Keywords[fr]=zip;décompresser;compresser;extraire;archive;tar;7z;rar;iso;
-MimeType=application/zip;application/x-zip-compressed;application/x-tar;application/x-compressed-tar;application/x-bzip-compressed-tar;application/x-bzip2-compressed-tar;application/x-xz-compressed-tar;application/x-zstd-compressed-tar;application/x-7z-compressed;application/vnd.rar;application/x-rar;application/x-cd-image;application/x-iso9660-image;application/gzip;application/x-bzip;application/x-bzip2;application/x-xz;application/zstd;
+MimeType=application/zip;application/x-zip-compressed;application/x-tar;application/x-compressed-tar;application/x-bzip-compressed-tar;application/x-bzip2-compressed-tar;application/x-xz-compressed-tar;application/x-zstd-compressed-tar;application/x-lzma-compressed-tar;application/x-lz4-compressed-tar;application/x-lzip-compressed-tar;application/x-tarz;application/x-7z-compressed;application/vnd.rar;application/x-rar;application/x-cd-image;application/x-iso9660-image;application/gzip;application/x-bzip;application/x-bzip2;application/x-xz;application/zstd;
 StartupWMClass=SparkArchive
