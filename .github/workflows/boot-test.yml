@@ -265,6 +265,40 @@ jobs:
           $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
 
+      - name: Check the other Spark apps
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Edit, Calc, Archive, Scan, Run, Link and Store: installed system-wide, each self-test passes
+          for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store; do
+            echo "== $app"
+            $SSH "$app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
+            grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
+          done
+          # Extract/Compress in Dolphin's right-click menu; Send to phone too
+          $SSH 'ls /usr/share/kio/servicemenus/ | grep -i -E "spark"' | tee "$WORK/servicemenus.txt"
+          grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"
+          grep -q 'dev.wolklaw.SparkArchive.compress.desktop' "$WORK/servicemenus.txt"
+          # Text and code open in Spark Edit, archives in Spark Archive
+          $SSH 'for m in text/plain text/markdown application/json text/x-python application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/edit-archive-defaults.txt"
+          for m in text/plain text/markdown application/json text/x-python; do
+            grep -qx "$m -> dev.wolklaw.SparkEdit.desktop" "$WORK/edit-archive-defaults.txt" || { echo "::error::$m doesn't open in Spark Edit"; exit 1; }
+          done
+          for m in application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do
+            grep -qx "$m -> dev.wolklaw.SparkArchive.desktop" "$WORK/edit-archive-defaults.txt" || { echo "::error::$m doesn't open in Spark Archive"; exit 1; }
+          done
+
+      - name: Check Spark Update
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # updates never stop: exactly one updater on (uupd for now) and the notification timer on
+          $SSH 'spark-update --version; systemctl is-enabled uupd.timer; systemctl is-active uupd.timer; ! systemctl is-enabled spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
+          $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"
+          grep -q "^updater:   Universal Blue's uupd" "$WORK/spark-update-self-test.txt"
+          grep -q '^image:     ghcr.io/wolklaw/sparkos (from rpm-ostree status)' "$WORK/spark-update-self-test.txt"
+          grep -q '^others:    no other automatic updater is on' "$WORK/spark-update-self-test.txt"
+          $SSH 'spark-update --status'
+
       - name: Check the Release 2 cleanup
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
@@ -403,13 +437,13 @@ jobs:
           ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
           ! grep -q 'bazzite-portal' "$WORK/apps.txt"
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && echo "platform and SparkOS apps present"'
+          $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          # Double-clicked downloads open in the SparkOS helper, which fetches Bottles from Flathub
-          # on first use (nothing is preinstalled), adds AppImages itself, or guides .rpm and .deb files
+          # Double-clicked downloads open in the SparkOS helper, which hands .exe/.msi to Spark Run,
+          # adds AppImages itself, or guides .rpm and .deb files
           $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
           grep -q 'application/x-ms-dos-executable -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.appimage -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
@@ -418,7 +452,8 @@ jobs:
           grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           # The Store and the guided package installer are there, and what the installer uses exists
           $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
-          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub reachable for Bottles"'
+          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub set up for the Store"'
+          $SSH 'grep -A2 "\*.exe|\*.msi)" /usr/bin/sparkos-open-package | grep -q "exec spark-run" && command -v spark-run && echo ".exe and .msi open in Spark Run"'
 
       - name: Measure boot time and idle load
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -477,6 +512,14 @@ jobs:
           grep -q "org.kde.plasma.icontasks" "$WORK/desktop-layout.txt"
           grep -q "menuLabel=SPARKOS" "$WORK/desktop-layout.txt" || { echo "::error::the SparkOS layout was not used"; exit 1; }
           grep -E "^launchers=" "$WORK/desktop-layout.txt" || true
+          # Spark Snip captures through KWin in a real Plasma session (Spectacle only as a fallback).
+          # Reported, not required yet: Spectacle leaves the image once this passes.
+          if $SSH 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u) spark-snip --capture-test /tmp/snip.png' 2>&1 | tee "$WORK/spark-snip-capture.txt"; then
+            echo "Spark Snip captured the desktop through KWin"
+            $SSH 'cat /tmp/snip.png' > "$WORK/shots/4-spark-snip-capture.png" || true
+          else
+            echo "::warning::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"
+          fi
 
       - name: Screenshot at the end
         if: always()

@@ -1,13 +1,13 @@
 #!/usr/bin/bash
 # What happens when you double-click a downloaded installer or program on SparkOS.
 #
-#   .exe / .msi (Windows)   opens in Bottles; if Bottles isn't installed, offers to get it first
+#   .exe / .msi (Windows)   opens in Spark Run: run once, or install as an app (Wine on first use)
 #   .AppImage               asks once: add it to the app menu (moves it to ~/Applications) or run it
 #   .rpm (Fedora)           asks, installs it into the system, offers to restart
 #   .deb (Ubuntu/Debian)    explains it can't install that kind, and offers the Store
 #
-# SparkOS preinstalls no third-party apps, so Bottles comes from Flathub on first use, for the
-# current user, without an admin password. AppImages need no helper app: SparkOS handles them.
+# Spark Run downloads Wine for the current user the first time, without an admin password.
+# AppImages need no helper app: SparkOS handles them.
 # .flatpakref links open in the Store (Bazaar) directly.
 #
 # Without dialogs (for scripts and the boot test):
@@ -195,34 +195,9 @@ open_store() {
   kdialog --sorry "The Store (Bazaar) isn't installed."
 }
 
-have_flatpak() { flatpak info "$1" >/dev/null 2>&1; }
-
-# Offer to install a helper app from Flathub for this user, then open the file with it.
-with_helper() { # app-id "Helper name" "what it does" file
-  local id=$1 label=$2 what=$3 target=$4
-  if ! have_flatpak "$id"; then
-    kdialog --title "Open $name" --yes-label "Get $label" --no-label "Cancel" --yesno \
-"To open <b>$name</b>, SparkOS needs <b>$label</b>, which $what.<br><br>
-It's a free app from the Store (Flathub). It installs for you only, with no admin password,
-and opening this file then takes one click." || return 0
-    status_file=$(mktemp)
-    konsole --nofork -e bash -c '
-      echo "Getting $2 from Flathub..."; echo
-      flatpak install --user -y --noninteractive flathub "$1"; echo $? > "$3"
-      echo; read -rp "Press Enter to close this window. " _' _ "$id" "$label" "$status_file"
-    local status; status=$(cat "$status_file" 2>/dev/null); rm -f "$status_file"
-    if [ "$status" != 0 ]; then
-      kdialog --error "$label couldn't be installed. The window that just closed showed why. Check the internet connection and try again."
-      return 1
-    fi
-  fi
-  flatpak run "$id" "$target" >/dev/null 2>&1 &
-}
-
 case "${name,,}" in
   *.exe|*.msi)
-    with_helper com.usebottles.bottles "Bottles" \
-      "runs many Windows programs on Linux (for Windows games, add them to Steam or Heroic instead)" "$file"
+    exec spark-run "$file"
     ;;
   *.appimage)
     open_appimage
