@@ -8,12 +8,16 @@ at the launchers' files (their modification times) decides whether to scan again
 import os
 from typing import Dict, List, Optional, Set, Tuple
 
-from . import heroic, lutris, owngames, steam
+from . import bottles, heroic, itch, lutris, minecraft, owngames, steam
 from .core import Game, cache_dir, home, log, mtime, now, read_json, write_json
 
 CACHE_VERSION = 1
 SCANNERS = (('steam', steam.scan), ('heroic', heroic.scan), ('lutris', lutris.scan),
+            ('itch', itch.scan), ('bottles', bottles.scan), ('minecraft', minecraft.scan),
             ('own', owngames.scan))
+# a launcher counts as found when its folder is there, even with no games in it
+ROOTS = {'steam': steam.roots, 'heroic': heroic.roots, 'lutris': lutris.roots,
+         'itch': itch.roots, 'bottles': bottles.roots, 'minecraft': minecraft.roots}
 
 
 class Scan:
@@ -24,8 +28,11 @@ class Scan:
 
 def candidate_roots(base: str) -> List[str]:
     """Folders whose appearance means a launcher was installed since the last scan."""
-    return [os.path.join(base, '.var', 'app'), os.path.join(base, '.local', 'share', 'Steam'),
-            os.path.join(base, '.config', 'heroic'), os.path.join(base, '.local', 'share', 'lutris')]
+    share = os.path.join(base, '.local', 'share')
+    return [os.path.join(base, '.var', 'app'), os.path.join(share, 'Steam'),
+            os.path.join(base, '.config', 'heroic'), os.path.join(share, 'lutris'),
+            os.path.join(base, '.config', 'itch'), os.path.join(share, 'bottles'),
+            os.path.join(base, '.minecraft'), os.path.join(share, 'PrismLauncher')]
 
 
 def scan_all(base: Optional[str] = None) -> Scan:
@@ -41,8 +48,7 @@ def scan_all(base: Optional[str] = None) -> Scan:
             log.warning("%s: skipped, its files could not be read: %s", name, exc)
             problems.append(name)
             continue
-        if name == 'steam' and steam.roots(base) or name == 'heroic' and heroic.roots(base) \
-                or name == 'lutris' and lutris.roots(base):
+        if name in ROOTS and ROOTS[name](base):
             launchers.add(name)
         games.extend(found)
     seen, unique = set(), []

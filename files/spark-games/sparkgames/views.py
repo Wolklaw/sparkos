@@ -30,6 +30,8 @@ def launcher_line(game: Game) -> str:
     name = tr(f'launcher_{game.launcher}')
     if game.launcher == 'heroic':
         name = f"{name} ({tr(f'store_{game.source}')})"
+    elif (game.launch or {}).get('shortcut'):
+        name = f"{name} ({tr('shortcut')})"
     return f"{name}, {tr('flatpak')}" if game.flatpak else name
 
 
@@ -180,6 +182,17 @@ class LibraryView(tk.Frame):
         self.source = source
         self.refilter()
         self.app.glitch.now(self.app.title)
+
+    def cycle_source(self, delta: int):
+        """LB / RB on a controller: the previous or next store filter."""
+        if len(self._filter_sources) < 2:
+            return
+        order = ('all',) + self._filter_sources
+        i = order.index(self.source) if self.source in order else 0
+        self.set_source(order[(i + delta) % len(order)])
+        for child in self.filters.winfo_children():
+            if isinstance(child, Segmented):
+                child.set(self.source)
 
     def set_sort(self, sort: str):
         self.sort = sort
@@ -374,7 +387,7 @@ class LibraryView(tk.Frame):
             self._placeholder(game, x0, y0, x1, cy1)
         if game.anticheat:
             c.create_rectangle(x0, y0, x0 + px(84), y0 + px(16), fill=T["pink"], outline="")
-            c.create_text(x0 + px(5), y0 + px(8), text="ANTI-CHEAT", anchor="w",
+            c.create_text(x0 + px(5), y0 + px(8), text=tr('anticheat_badge'), anchor="w",
                           fill=T["on_accent"], font=self.app.font(7))
         sel, hov = i == self.selected, i == self.hover
         if sel or hov:
@@ -408,7 +421,7 @@ class LibraryView(tk.Frame):
         mid = (y0 + y1) / 2
         c.create_text(left, mid - px(8), text=self._fit(game.title, title_w, 10), anchor="w",
                       fill=T["text"], font=self.app.font(10))
-        sub = source_word(game) + ("   ANTI-CHEAT" if game.anticheat else "")
+        sub = source_word(game) + (f"   {tr('anticheat_badge')}" if game.anticheat else "")
         c.create_text(left, mid + px(10), text=sub, anchor="w",
                       fill=T["pink"] if game.anticheat else T["dim"], font=self.app.font(7))
         c.create_text(col_play, mid, text=playtime(game.playtime), anchor="w", fill=T["muted"],
@@ -663,9 +676,7 @@ class GamePage(tk.Frame):
             toggles.pack(anchor="w")
             self.mangohud.pack(side="left")
             self.gamemode.pack(side="left", padx=(px(8), 0))
-        note = {'own': 'perf_own', 'steam': 'perf_steam', 'heroic': 'perf_heroic',
-                'lutris': 'perf_lutris'}[game.launcher]
-        tk.Label(perf, text=tr(note), bg=T["bg"], fg=T["muted"], font=font(8, False),
+        tk.Label(perf, text=tr(f'perf_{game.launcher}'), bg=T["bg"], fg=T["muted"], font=font(8, False),
                  justify="left", anchor="w", wraplength=px(560)).pack(anchor="w",
                                                                       pady=(px(8), 0))
         if game.source == 'steam':
@@ -835,6 +846,19 @@ class SettingsView(tk.Frame):
                      width=18, anchor="w").pack(side="left")
             tk.Label(row, text=path, bg=T["bg"], fg=T["muted"], font=font(8, False),
                      anchor="w").pack(side="left")
+
+        section(col, app, tr('set_pads'))
+        pads = app.pads.names()
+        for name in pads:
+            tk.Label(col, text=f"● {name}", bg=T["bg"], fg=T["accent"], font=font(8),
+                     anchor="w").pack(anchor="w")
+        if not pads:
+            tk.Label(col, text=tr('set_pads_none'), bg=T["bg"], fg=T["muted"],
+                     font=font(8, False)).pack(anchor="w")
+        tk.Label(col, text=tr('set_pads_note'), bg=T["bg"], fg=T["muted"], font=font(8, False),
+                 justify="left", wraplength=px(620)).pack(anchor="w", pady=(px(6), 0))
+        WolkButton(col, tr('set_big'), app.enter_big, font(8), padx=px(10),
+                   pady=px(3)).pack(anchor="w", pady=(px(8), 0))
         tk.Label(col, text=tr('set_files', config=config_dir(), data=data_dir(),
                               cache=cache_dir()),
                  bg=T["bg"], fg=T["dim"], font=font(7, False), justify="left",

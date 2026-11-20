@@ -1,0 +1,2 @@
+# Steam writes shortcuts.vdf as binary KeyValues; keep git from touching its bytes
+shortcuts.vdf binary

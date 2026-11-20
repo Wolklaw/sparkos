@@ -21,6 +21,7 @@ APP_DIR = os.path.dirname(HERE)
 sys.path.insert(0, APP_DIR)
 for var in ('XDG_STATE_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME', 'XDG_DATA_HOME'):
     os.environ[var] = tempfile.mkdtemp(prefix=f'spark-games-{var.lower()}-')
+os.environ['SPARK_LANG'] = 'en'          # the words below are checked in English
 
 from sparkgames import (VERSION, anticheat, covers, fixtures, heroic, launch,  # noqa: E402
                         library, lutris, owngames, steam, strings, vdf)
@@ -94,8 +95,9 @@ class SteamTests(FixtureHome):
 
     def test_games_tools_and_stats(self):
         games = self.by_key(steam.scan(self.home, []))
-        self.assertEqual(sorted(games), ['steam:1086940', 'steam:1145360', 'steam:413150',
-                                         'steam:620', 'steam:999990'])
+        self.assertEqual(sorted(k for k in games if k.startswith('steam:')),
+                         ['steam:1086940', 'steam:1145360', 'steam:413150', 'steam:620',
+                          'steam:999990'])
         # Proton (known appid and name), the redistributables, a tool found by its
         # toolmanifest.vdf, and a game still downloading are all left out
         for skipped in ('1493710', '228980', '3000010', '999001'):
@@ -121,7 +123,7 @@ class SteamTests(FixtureHome):
         portal = self.by_key(games)['steam:620']
         self.assertFalse(portal.flatpak)
         # the second library is listed by its absolute path, so it is found here too
-        self.assertEqual(len(games), 5)
+        self.assertEqual(len(games), fixtures.EXPECTED['steam'])
 
     def test_broken_manifest_is_skipped(self):
         bad = os.path.join(self.home, fixtures.STEAM, 'steamapps', 'appmanifest_1.acf')
@@ -129,7 +131,7 @@ class SteamTests(FixtureHome):
             f.write('"AppState" { "appid" ')
         watch = []
         games = steam.scan(self.home, watch)
-        self.assertEqual(len(games), 5)
+        self.assertEqual(len(games), fixtures.EXPECTED['steam'])
         self.assertTrue(any(w.endswith('libraryfolders.vdf') for w in watch))
 
     def test_old_libraryfolders_format(self):
@@ -222,7 +224,8 @@ class LibraryTests(FixtureHome):
         for g in result.games:
             counts[g.source] = counts.get(g.source, 0) + 1
         self.assertEqual(counts, fixtures.EXPECTED)
-        self.assertEqual(result.launchers, {'steam', 'heroic', 'lutris'})
+        self.assertEqual(result.launchers, {'steam', 'heroic', 'lutris', 'itch', 'bottles',
+                                            'minecraft'})
         self.assertEqual(result.problems, [])
 
     def test_no_launchers(self):
@@ -675,7 +678,7 @@ class UITests(unittest.TestCase):
         app.show_settings()
         self.pump(0.2)
         self.assertEqual(type(app.view).__name__, 'SettingsView')
-        self.assertEqual(len(app.launchers_found()), 3)
+        self.assertEqual(len(app.launchers_found()), 7)
         app.show_add()
         self.pump(0.2)
         self.assertEqual(type(app.view).__name__, 'AddGameView')

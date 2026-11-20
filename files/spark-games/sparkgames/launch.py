@@ -7,6 +7,13 @@ Every game starts through the program that owns it:
   Heroic   xdg-open heroic://launch/<runner>/<appName>      (runner: legendary, gog, nile)
   Lutris   lutris lutris:rungameid/<id>
            flatpak run net.lutris.Lutris lutris:rungameid/<id>
+  itch     ~/.itch/itch-setup --appname itch --run-game <game id>   (no prompt)
+           xdg-open itch://install?game_id=<game id>&launch         (the app asks first)
+  Bottles  bottles-cli run -b <bottle> -p <program>
+           flatpak run --command=bottles-cli com.usebottles.bottles run -b <bottle> -p <program>
+  Minecraft  minecraft-launcher, or flatpak run com.mojang.Minecraft
+  Prism    prismlauncher --launch <instance>
+           flatpak run org.prismlauncher.PrismLauncher --launch <instance>
   Own      the program itself; a Windows .exe through umu-run (Proton), with MangoHud and
            GameMode when the game's options ask for them
 
@@ -25,7 +32,8 @@ from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 from urllib.parse import quote
 
-from . import LUTRIS_FLATPAK, STEAM_FLATPAK
+from . import (BOTTLES_FLATPAK, LUTRIS_FLATPAK, MINECRAFT_FLATPAK, PRISM_FLATPAK,
+               STEAM_FLATPAK)
 from .core import Game, data_dir, log, read_json, write_json
 
 try:
@@ -103,6 +111,41 @@ def plan(game: Game, options: Optional[Dict[str, Any]] = None,
             argv = ['xdg-open', url]
         else:
             raise LaunchError('missing_program', 'lutris')
+        return Plan(argv, watch_dir=game.install_dir)
+
+    if game.source == 'itch':
+        setup = str(info.get('setup') or '')
+        if setup and os.access(setup, os.X_OK):
+            return Plan([setup, '--appname', 'itch', '--run-game', str(info.get('game_id'))],
+                        watch_dir=game.install_dir)
+        if not which('xdg-open'):
+            raise LaunchError('missing_program', 'xdg-open')
+        url = f'itch://install?game_id={quote(str(info.get("game_id", "")), safe="")}&launch'
+        return Plan(['xdg-open', url], watch_dir=game.install_dir)
+
+    if game.source == 'bottles':
+        run = ['run', '-b', str(info.get('bottle', '')), '-p', str(info.get('program', ''))]
+        if info.get('flatpak'):
+            if not which('flatpak'):
+                raise LaunchError('missing_program', 'flatpak')
+            argv = flatpak_cmd + ['--command=bottles-cli', BOTTLES_FLATPAK] + run
+        elif which('bottles-cli'):
+            argv = ['bottles-cli'] + run
+        else:
+            raise LaunchError('missing_program', 'bottles-cli')
+        return Plan(argv, watch_dir=game.install_dir)
+
+    if game.source in ('minecraft', 'prism'):
+        flatpak_id, command = (MINECRAFT_FLATPAK, 'minecraft-launcher')             if game.source == 'minecraft' else (PRISM_FLATPAK, 'prismlauncher')
+        args = [] if game.source == 'minecraft' else ['--launch', str(info.get('instance', ''))]
+        if info.get('flatpak'):
+            if not which('flatpak'):
+                raise LaunchError('missing_program', 'flatpak')
+            argv = flatpak_cmd + [flatpak_id] + args
+        elif which(command):
+            argv = [command] + args
+        else:
+            raise LaunchError('missing_program', command)
         return Plan(argv, watch_dir=game.install_dir)
 
     if game.source == 'own':
