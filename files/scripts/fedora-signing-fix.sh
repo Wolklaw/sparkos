@@ -38,3 +38,15 @@ KEY=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["transport
 test -s "$KEY"
 echo "key: $KEY"
 grep -rq "$IMAGE:" /etc/containers/registries.d/
+
+# Install signed. Bazzite does this with /usr/lib/bootc/install/20-bazzite.toml: an installer
+# (bootc install, image-builder, Anaconda) then deploys "ostree-image-signed:docker://..." and
+# checks the signature, instead of "ostree-unverified-registry:" which never checks it.
+mkdir -p /usr/lib/bootc/install
+cat > /usr/lib/bootc/install/20-sparkos.toml <<'TOML'
+[install]
+root-fs-type = "btrfs"
+# Deploy as ostree-image-signed, so every update is checked against /etc/pki/containers
+enforce-container-sigpolicy = true
+TOML
+cat /usr/lib/bootc/install/20-sparkos.toml

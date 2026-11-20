@@ -33,6 +33,17 @@ echo "steam-devices $COMMIT" > "$DOC/SOURCE"
 mkdir -p /usr/lib/modules-load.d
 echo uinput > /usr/lib/modules-load.d/sparkos-uinput.conf
 
+# Kernel settings for games. Bazzite sets these in /usr/lib/sysctl.d (60-kernel.conf,
+# 70-gaming.conf, 80-inotify.conf); Fedora's defaults are max_map_count 1048576 and split-lock
+# mitigation on, which slows some Windows games under Proton.
+cat > /usr/lib/sysctl.d/70-sparkos-gaming.conf <<'EOS'
+# SparkOS gaming defaults (same values as Bazzite)
+kernel.split_lock_mitigate = 0
+vm.max_map_count = 2147483642
+fs.inotify.max_user_instances = 8192
+fs.inotify.max_user_watches = 524288
+EOS
+
 # Fail the build if the gaming layer is incomplete
 for bin in gamescope mangohud gamemoded; do
   command -v "$bin" >/dev/null || { echo "missing $bin"; exit 1; }
@@ -44,6 +55,6 @@ test -s "$RULES/60-steam-input.rules"
   echo "kernel: $(rpm -q kernel-core --qf '%{VERSION}-%{RELEASE} (%{VENDOR})\n' | tail -1)"
   rpm -q mesa-dri-drivers mesa-vulkan-drivers mesa-va-drivers gamescope mangohud gamemode \
     linux-firmware amd-gpu-firmware amd-ucode-firmware --qf '%{NAME} %{VERSION}-%{RELEASE} (%{VENDOR})\n' 2>&1 || true
-  echo "vm.max_map_count default: $(grep -rhs '^vm.max_map_count' /usr/lib/sysctl.d/ | tail -1)"
+  echo "sysctl: $(grep -hv '^#' /usr/lib/sysctl.d/70-sparkos-gaming.conf | paste -sd ' ')"
 } | tee /usr/share/sparkos/fedora-base/gaming-layer.txt
 echo "Gaming layer ready."
