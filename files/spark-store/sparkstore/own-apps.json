@@ -1,0 +1,41 @@
+[
+  {
+    "id": "dev.wolklaw.Soot",
+    "slug": "soot",
+    "name": "Soot",
+    "summary": "The SparkOS web browser, on Firefox's engine.",
+    "summary_fr": "Le navigateur web de SparkOS, sur le moteur de Firefox.",
+    "in_image": true,
+    "source": "https://github.com/Wolklaw/Soot"
+  },
+  {
+    "id": "freesuite",
+    "slug": "freesuite",
+    "name": "FreeSuite",
+    "summary": "Mail, calendar, PDF, and Word, Excel and PowerPoint files.",
+    "summary_fr": "Courriel, calendrier, PDF, et fichiers Word, Excel et PowerPoint.",
+    "desktop": "freesuite.desktop",
+    "in_image": true,
+    "source": "https://github.com/Wolklaw/freesuite-releases"
+  },
+  {
+    "id": "dev.wolklaw.SparkSnip",
+    "slug": "spark-snip",
+    "name": "Spark Snip",
+    "summary": "Snip an area of the screen to copy its text or image, or record it.",
+    "summary_fr": "Découper une zone de l'écran pour copier son texte ou son image, ou l'enregistrer.",
+    "in_image": true,
+    "license": "Apache-2.0",
+    "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-snip"
+  },
+  {
+    "id": "dev.wolklaw.SparkMedia",
+    "slug": "spark-media",
+    "name": "Spark Media",
+    "summary": "View photos, watch videos and play music.",
+    "summary_fr": "Voir des photos, regarder des vidéos et écouter de la musique.",
+    "in_image": true,
+    "license": "Apache-2.0",
+    "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-media"
+  }
+]
