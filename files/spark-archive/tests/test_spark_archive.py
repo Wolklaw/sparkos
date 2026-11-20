@@ -1356,6 +1356,58 @@ class TestCompressPassword(Base):
         self.assertTrue(res.cancelled, res)
         self.assertEqual(sorted(os.listdir(self.src)), ['album'])     # nothing left behind
 
+    def test_zipcrypto_opens_anywhere(self):
+        """The zip that opens on any PC: ZipCrypto, which Python's zipfile (like Windows'
+        own zip tool) reads, and which it can't do for AES."""
+        res = CompressJob([self.make()], 'zip', password='spark-zip',
+                          zip_encryption='zipcrypto').run_here()
+        self.assertTrue(res.ok, res)
+        with zipfile.ZipFile(res.output) as zf:
+            info = zf.getinfo('album/notes été.txt')
+            self.assertTrue(info.flag_bits & 0x1)                     # encrypted
+            self.assertNotEqual(info.compress_type, 99)               # not WinZip AES
+            self.assertEqual(zf.read(info, pwd=b'spark-zip'), b'liner notes\n')
+            self.assertEqual(zf.read('album/sub/song.flac', pwd=b'spark-zip'), BIG * 20)
+            with self.assertRaises((RuntimeError, zipfile.BadZipFile)):
+                zf.read(info, pwd=b'wrong-one')
+            with self.assertRaises(RuntimeError):                     # no password at all
+                zf.read(info)
+        answers = Answers(password=['wrong-one', 'spark-zip'])
+        got = self.extract(res.output, answers)
+        self.assertTrue(got.ok, got)
+        self.assertEqual([i['retry'] for q, i in answers.asked if q == 'password'],
+                         [False, True])
+        self.check_album(os.path.join(self.dest, 'album'))
+
+    def test_aes_is_not_zipcrypto(self):
+        res = CompressJob([self.make()], 'zip', password='spark-zip').run_here()
+        with zipfile.ZipFile(res.output) as zf:
+            info = zf.getinfo('album/notes été.txt')
+            self.assertEqual(info.compress_type, 99)
+            with self.assertRaises(NotImplementedError):              # zipfile can't do AES
+                zf.read(info, pwd=b'spark-zip')
+
+    def test_cli_compress_with_password(self):
+        folder = self.make()
+        cmd = [sys.executable, os.path.join(os.path.dirname(HERE), 'spark_archive.py')]
+        out = subprocess.run(cmd + ['--compress', 'zip', '--password-stdin',
+                                    '--zip-encryption', 'zipcrypto', folder],
+                             input='spark-zip\n', capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), self.path('album.zip'))
+        with zipfile.ZipFile(self.path('album.zip')) as zf:
+            self.assertEqual(zf.read('album/notes été.txt', pwd=b'spark-zip'),
+                             b'liner notes\n')
+        out = subprocess.run(cmd + ['--compress', '7z', '--password-stdin', folder],
+                             input='spark\n', capture_output=True, text=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertTrue(ListJob(self.path('album.7z'),
+                                asker=Answers(password=[])).run_here().cancelled)
+        out = subprocess.run(cmd + ['--compress', 'tar.zst', '--password-stdin', folder],
+                             input='spark\n', capture_output=True, text=True)
+        self.assertEqual(out.returncode, 2)
+        self.assertFalse(os.path.exists(self.path('album.tar.zst')))
+
     def test_tar_zst_has_no_password(self):
         with self.assertRaises(ValueError):
             CompressJob([self.make()], 'tar.zst', password='spark')
@@ -1387,10 +1439,21 @@ class TestText(unittest.TestCase):
         for name in os.listdir(here):
             if name.endswith('.py'):
                 with open(os.path.join(here, name), encoding='utf-8') as f:
-                    for key in re.findall(r"\bt\('([a-z_]+\.[a-z_.]+)'", f.read()):
+                    for key in re.findall(r"\bt\('([a-z_]+\.[a-z_.0-9]+)'\s*[,)]", f.read()):
                         self.assertIn(key, EN, f"{name}: {key}")
         for err in ('missing_part', 'needs_unrar', 'needs_sevenzip', 'damaged', 'password'):
             self.assertIn('error.' + err, EN)
+
+    def test_password_kinds_named_in_both_languages(self):
+        from sparkarchive.jobs import PASSWORD_KINDS
+        from sparkarchive.text import EN, FR
+        for kind, _fmt, _enc in PASSWORD_KINDS:
+            for prefix in ('compress.kind_', 'compress.note_'):
+                key = prefix + kind.replace('-', '_')
+                self.assertIn(key, EN)
+                self.assertIn(key, FR)
+        self.assertIn('ZipCrypto', EN['compress.note_zip_any'])
+        self.assertIn('7-Zip', EN['compress.note_zip_strong'])
 
     def test_language(self):
         from sparkarchive.core import language
@@ -1560,13 +1623,28 @@ class TestWindows(Base):
         for ms in (5000, 10000, 15000):
             app.root.after(ms, close_all)
         try:
+            # first time: a strong zip
             app.root.after(300, fill('spark', 'spark'))
-            self.assertEqual(app.ask_compress(2, '7z', with_password=True), ('7z', 'spark'))
+            self.assertEqual(app.ask_compress(2, 'zip', with_password=True),
+                             ('zip', 'spark', 'aes'))
+            app.root.after(300, fill('spark', 'spark'))
+            self.assertEqual(app.ask_compress(2, '7z', with_password=True),
+                             ('7z', 'spark', None))
+            app.root.after(300, fill('spark', 'spark'))
+            self.assertEqual(app.ask_compress(2, 'zip', with_password=True, kind='zip-any'),
+                             ('zip', 'spark', 'zipcrypto'))
+            # the kind picked last is remembered
+            app.root.after(300, fill('spark', 'spark'))
+            self.assertEqual(app.ask_compress(2, 'zip', with_password=True),
+                             ('zip', 'spark', 'zipcrypto'))
             app.root.after(300, fill('spark', 'sparks'))
             self.assertIsNone(app.ask_compress(2, 'zip', with_password=True))
-            app.root.after(300, lambda: [w.destroy() for w in app.root.winfo_children()
-                                         if isinstance(w, tkinter.Toplevel)])
-            self.assertIsNone(app.ask_compress(2, 'tar.zst'))
+
+            def plain():
+                top = [w for w in app.root.winfo_children() if isinstance(w, tkinter.Toplevel)]
+                top[0].spark_ok()
+            app.root.after(300, plain)
+            self.assertEqual(app.ask_compress(2, 'tar.zst'), ('tar.zst', None, None))
         finally:
             app.root.destroy()
 

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  File types for the later parts of multi-part archives, which have none of their own, so
+  Dolphin can offer Extract on them and open them with Spark Archive (which finds the rest of
+  the set from any part). The first parts already have types: photos.rar and photos.part1.rar
+  are application/vnd.rar, photos.7z.001 is application/x-7z-compressed, photos.zip is
+  application/zip.
+
+  A RAR part (.r00...) is a RAR volume and starts with RAR's signature, so it is a sub-class
+  of application/vnd.rar: what sniffs the content and what reads the name agree. The others
+  (.z01..., .7z.002...) are only pieces of an archive, which other archive apps can't open on
+  their own, so they stay plain application/octet-stream.
+
+  Globs have weight 40, below the default 50, so where another type already claims one of
+  these names (a Nintendo 64 ROM is *.z64, for example) that type keeps it.
+-->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-spark-rar-part">
+    <comment>RAR archive part</comment>
+    <comment xml:lang="fr">Partie d'archive RAR</comment>
+    <sub-class-of type="application/vnd.rar"/>
+    <generic-icon name="package-x-generic"/>
+    <glob pattern="*.r[0-9][0-9]" weight="40"/>
+    <glob pattern="*.s[0-9][0-9]" weight="40"/>
+  </mime-type>
+  <mime-type type="application/x-spark-zip-part">
+    <comment>Split zip archive part</comment>
+    <comment xml:lang="fr">Partie d'archive zip divisée</comment>
+    <generic-icon name="package-x-generic"/>
+    <glob pattern="*.z[0-9][0-9]" weight="40"/>
+  </mime-type>
+  <mime-type type="application/x-spark-split-part">
+    <comment>Archive part</comment>
+    <comment xml:lang="fr">Partie d'archive</comment>
+    <generic-icon name="package-x-generic"/>
+    <glob pattern="*.7z.[0-9][0-9][0-9]" weight="40"/>
+    <glob pattern="*.zip.[0-9][0-9][0-9]" weight="40"/>
+    <glob pattern="*.tar.[0-9][0-9][0-9]" weight="40"/>
+  </mime-type>
+</mime-info>

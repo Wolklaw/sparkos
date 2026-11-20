@@ -64,6 +64,23 @@ def load_json(name: str) -> Dict[str, Any]:
     return {}
 
 
+def save_json(name: str, data: Dict[str, Any]) -> None:
+    """Write a settings file whole (a temporary file moved into place); failures are logged,
+    never raised: a setting not saved is not worth an error."""
+    path = os.path.join(config_dir(), name)
+    tmp = f"{path}.{os.getpid()}.tmp"
+    try:
+        with open(tmp, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+        os.replace(tmp, path)
+    except OSError as exc:
+        log.warning("could not save %s: %s", name, exc)
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+
+
 def reduced_motion() -> bool:
     """True when the desktop asks for no animation (Plasma: animation speed set to instant)."""
     if os.environ.get('SPARK_ARCHIVE_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):

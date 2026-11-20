@@ -473,8 +473,9 @@ class App(Look):
         choice = self.ask_compress(len(paths), self.settings.get('format') or ZIP)
         if not choice:
             return
-        fmt, password = choice
-        job = CompressJob(paths, fmt, asker=self.bridge.ask, password=password)
+        fmt, password, encryption = choice
+        job = CompressJob(paths, fmt, asker=self.bridge.ask, password=password,
+                          zip_encryption=encryption or 'aes')
         self.run_job(job, 'compress', t('progress.compress_title',
                                         name=os.path.basename(paths[0]) + f'.{fmt}'))
 

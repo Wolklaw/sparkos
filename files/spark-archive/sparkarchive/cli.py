@@ -7,6 +7,10 @@
   spark-archive --compress 7z F...         Dolphin: make F.7z (needs the 7z command)
   spark-archive --compress tar.zst F...    Dolphin: make F.tar.zst
   spark-archive --compress-password F...   Dolphin: ask zip or 7z and a password, then make it
+  spark-archive --compress zip --password-stdin [--zip-encryption zipcrypto|aes] F...
+                                           the same without a window: the password is the
+                                           first line of stdin; zip is AES-256 unless
+                                           --zip-encryption zipcrypto (opens anywhere, weak)
   spark-archive --list ARCHIVE             print what's inside, no window
   spark-archive --self-test                check what it needs, with a round trip, no window
 """
@@ -52,6 +56,19 @@ def _print_listing(path: str, password: Optional[str]) -> int:
             shown += "   (left out: outside the folder)"
         size = '' if e.kind != 'file' else (str(e.size) if e.size >= 0 else '?')
         print(f"{mark}{e.kind:8} {size:>12}  {core.when(e.mtime):16}  {shown}")
+    return 0
+
+
+def _compress_quietly(paths: List[str], fmt: str, password: str, encryption: str) -> int:
+    from .jobs import CompressJob
+    from .text import t, why
+    res = CompressJob(paths, fmt, password=password, zip_encryption=encryption).run_here()
+    for name, reason in res.problems:
+        print(f"left out: {name}: {why(reason)}", file=sys.stderr)
+    if not res.ok:
+        print(t('error.' + (res.error or 'bug'), detail=res.detail), file=sys.stderr)
+        return 1
+    print(res.output)
     return 0
 
 
@@ -229,7 +246,13 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="open the window (and the archive), print the time to first "
                              "paint and to the listing, close")
     parser.add_argument('--password-stdin', action='store_true',
-                        help="with --list: read the password from the first line of stdin")
+                        help="with --list: read the password from the first line of stdin; "
+                             "with --compress zip or 7z: make it with that password, without "
+                             "a window")
+    parser.add_argument('--zip-encryption', choices=('aes', 'zipcrypto'), default='aes',
+                        help="with --compress zip --password-stdin: aes (AES-256, strong; "
+                             "Windows needs 7-Zip or WinRAR) or zipcrypto (opens on any PC, "
+                             "weak)")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")
     args = parser.parse_args(argv)
 
@@ -243,6 +266,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     if (args.extract_here or args.extract_folder or args.compress or args.compress_password) \
             and not args.paths:
         parser.error("give the files to work on")
+    if args.compress and args.password_stdin:
+        if args.compress == 'tar.zst':
+            parser.error("a .tar.zst can't have a password: use zip or 7z")
+        password = sys.stdin.readline().rstrip('\n')
+        if not password:
+            parser.error("the first line of stdin is empty: no password")
+        return _compress_quietly(args.paths, args.compress, password, args.zip_encryption)
 
     try:
         import tkinter as tk

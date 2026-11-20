@@ -54,10 +54,14 @@ EN = {
     'compress.with_password': "Protect with a password",
     'compress.password': "Password",
     'compress.again': "Same password again",
-    'compress.note_zip': "AES-256. 7-Zip and most archive apps open it; some built-in zip "
-                         "tools can't.",
-    'compress.note_7z': "AES-256, and the file names are hidden too.",
-    'compress.no_password': "A .tar.zst can't have a password. Pick .zip or .7z.",
+    'compress.kind_zip_any': "Zip that opens on any PC",
+    'compress.kind_zip_strong': "Zip, strong protection",
+    'compress.kind_7z': "7z, strong protection, names hidden",
+    'compress.note_zip_any': "Weak protection (ZipCrypto): it can be cracked. Opens on any PC, "
+                             "Windows included.",
+    'compress.note_zip_strong': "AES-256. Windows needs 7-Zip or WinRAR to open it.",
+    'compress.note_7z': "AES-256, and the file names are hidden too. Windows needs 7-Zip or "
+                        "WinRAR to open it.",
     'compress.empty': "Type a password.",
     'compress.mismatch': "The two passwords aren't the same.",
 
@@ -170,11 +174,14 @@ FR = {
     'compress.with_password': "Protéger avec un mot de passe",
     'compress.password': "Mot de passe",
     'compress.again': "Retapez le mot de passe",
-    'compress.note_zip': "AES-256. 7-Zip et la plupart des logiciels d'archives l'ouvrent; "
-                         "certains outils zip intégrés, non.",
-    'compress.note_7z': "AES-256, et les noms de fichiers sont cachés aussi.",
-    'compress.no_password': "Un .tar.zst ne peut pas avoir de mot de passe. Choisissez .zip "
-                            "ou .7z.",
+    'compress.kind_zip_any': "Zip qui s'ouvre sur n'importe quel PC",
+    'compress.kind_zip_strong': "Zip, protection forte",
+    'compress.kind_7z': "7z, protection forte, noms cachés",
+    'compress.note_zip_any': "Protection faible (ZipCrypto) : elle peut être cassée. S'ouvre sur "
+                             "n'importe quel PC, Windows compris.",
+    'compress.note_zip_strong': "AES-256. Sur Windows, il faut 7-Zip ou WinRAR pour l'ouvrir.",
+    'compress.note_7z': "AES-256, et les noms de fichiers sont cachés aussi. Sur Windows, il "
+                        "faut 7-Zip ou WinRAR pour l'ouvrir.",
     'compress.empty': "Tapez un mot de passe.",
     'compress.mismatch': "Les deux mots de passe ne sont pas pareils.",
 

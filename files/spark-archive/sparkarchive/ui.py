@@ -15,9 +15,9 @@ from tkinter import ttk
 
 from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, VERSION
 from . import core
-from .core import load_json, log, reduced_motion
-from .jobs import (CANCEL, FORMATS, KEEP_BOTH, PASSWORD_FORMATS, REPLACE, SEVEN_Z, SKIP,
-                   TAR_ZST, ZIP, Job, Result)
+from .core import load_json, log, reduced_motion, save_json
+from .jobs import (CANCEL, DEFAULT_PASSWORD_KIND, FORMATS, KEEP_BOTH, PASSWORD_KINDS,
+                   REPLACE, SEVEN_Z, SKIP, TAR_ZST, ZIP, Job, Result)
 from .text import t, why
 from .widgets import (MONO_FAMILIES, T, Glitch, GlitchPanel, GlitchText, Mark, Segmented,
                       Strip, Toggle, WolkButton, mix)
@@ -258,24 +258,50 @@ class Look:
         self._show_modal(top, entry)
         return answer['value']
 
-    def ask_compress(self, n: int, fmt: str = ZIP, with_password: bool = False
-                     ) -> Optional[Tuple[str, Optional[str]]]:
-        """Which format, and a password if wanted: (fmt, password or None), or None for
-        Cancel. A password asks for itself twice; .tar.zst can't have one."""
+    def ask_compress(self, n: int, fmt: str = ZIP, with_password: bool = False,
+                     kind: Optional[str] = None
+                     ) -> Optional[Tuple[str, Optional[str], Optional[str]]]:
+        """Which format, and a password if wanted: (fmt, password or None, zip encryption or
+        None), or None for Cancel. With a password there are three kinds to pick from: a zip
+        that opens on any PC (ZipCrypto, weak), a zip with strong protection (AES-256), a 7z
+        with strong protection and hidden names. The last kind picked is remembered. The
+        password is asked twice; .tar.zst can't have one."""
         px = self.px
         top, body, heading = self._dialog(t('button.compress'))
         tk.Label(body, text=t('compress.as', n=n), bg=T["panel"], fg=T["text"],
                  font=self.font(9, False)).pack(anchor="w")
-        state = {'fmt': fmt if fmt in FORMATS else ZIP, 'pw': with_password}
-        if with_password and state['fmt'] not in PASSWORD_FORMATS:
-            state['fmt'] = ZIP
-        Segmented(body, [('.ZIP', ZIP), ('.7Z', SEVEN_Z), ('.TAR.ZST', TAR_ZST)], state['fmt'],
-                  lambda v: (state.update(fmt=v), refresh()), self.font(9)).pack(
-            anchor="w", pady=(px(10), 0))
-        Toggle(body, t('compress.with_password'), with_password,
-               lambda on: (state.update(pw=on), refresh()), self.font(8)).pack(
-            anchor="w", pady=(px(12), 0))
-        fields = tk.Frame(body, bg=T["panel"])
+        kinds = {k: (f, enc) for k, f, enc in PASSWORD_KINDS}
+        remembered = self.settings.get('password_kind')
+        if kind not in kinds:
+            kind = SEVEN_Z if fmt == SEVEN_Z else (
+                remembered if remembered in kinds else DEFAULT_PASSWORD_KIND)
+        state = {'fmt': fmt if fmt in FORMATS else ZIP, 'pw': with_password, 'kind': kind}
+        formats = tk.Frame(body, bg=T["panel"])               # shown without a password
+        formats.pack(anchor="w", fill="x")
+        seg = Segmented(formats, [('.ZIP', ZIP), ('.7Z', SEVEN_Z), ('.TAR.ZST', TAR_ZST)],
+                        state['fmt'], lambda v: state.update(fmt=v), self.font(9))
+        seg.pack(anchor="w", pady=(px(10), 0))
+
+        def password_on(on: bool) -> None:
+            state['pw'] = on
+            if on:
+                pick(SEVEN_Z if state['fmt'] == SEVEN_Z else state['kind'])
+            else:
+                state['fmt'] = kinds[state['kind']][0]
+                seg.set(state['fmt'])
+            refresh()
+
+        Toggle(body, t('compress.with_password'), with_password, password_on,
+               self.font(8)).pack(anchor="w", pady=(px(12), 0))
+        fields = tk.Frame(body, bg=T["panel"])                # shown with a password
+        radios = {}
+        for k, _f, _enc in PASSWORD_KINDS:
+            radios[k] = Toggle(fields, t('compress.kind_' + k.replace('-', '_')),
+                               k == state['kind'], lambda _on, k=k: pick(k), self.font(8))
+            radios[k].pack(anchor="w", pady=(px(8) if k == PASSWORD_KINDS[0][0] else px(4), 0))
+        note = tk.Label(fields, text='', bg=T["panel"], fg=T["dim"], font=self.font(8, False),
+                        wraplength=px(380), justify="left", anchor="w")
+        note.pack(anchor="w", fill="x", pady=(px(6), 0))
         entries = []
         for key in ('compress.password', 'compress.again'):
             tk.Label(fields, text=t(key), bg=T["panel"], fg=T["muted"],
@@ -287,52 +313,63 @@ class Look:
                              width=34)
             entry.pack(fill="x", ipady=px(4))
             entries.append(entry)
-        note = tk.Label(fields, text='', bg=T["panel"], fg=T["dim"], font=self.font(8, False),
-                        wraplength=px(380), justify="left", anchor="w")
-        note.pack(anchor="w", fill="x", pady=(px(6), 0))
         message = tk.Label(body, text='', bg=T["panel"], fg=T["pink"], font=self.font(8, False),
                            wraplength=px(380), justify="left", anchor="w")
         buttons = tk.Frame(body, bg=T["panel"])
+
+        def pick(k: str) -> None:
+            state['kind'] = k
+            for other, radio in radios.items():
+                radio.set(other == k)
+            note.config(text=t('compress.note_' + k.replace('-', '_')),
+                        fg=T["gold"] if k == 'zip-any' else T["dim"])
 
         def refresh() -> None:
             message.config(text='')
             message.pack_forget()
             buttons.pack_forget()
             if state['pw']:
+                formats.pack_forget()
                 fields.pack(fill="x", pady=(px(4), 0))
-                note.config(text=t('compress.note_7z' if state['fmt'] == SEVEN_Z
-                                   else 'compress.note_zip'))
             else:
                 fields.pack_forget()
+                formats.pack(anchor="w", fill="x", after=first)
             message.pack(anchor="w", fill="x", pady=(px(6), 0))
             buttons.pack(fill="x", pady=(px(10), 0))
 
+        first = body.winfo_children()[0]                      # the "Compress n items as" line
         answer: Dict[str, Any] = {'value': None}
 
         def ok(_e=None) -> None:
-            password = None
-            if state['pw']:
-                problem = None
-                if state['fmt'] not in PASSWORD_FORMATS:
-                    problem = 'compress.no_password'
-                elif not entries[0].get():
-                    problem = 'compress.empty'
-                elif entries[0].get() != entries[1].get():
-                    problem = 'compress.mismatch'
-                if problem:
-                    message.config(text=t(problem))
-                    self.glitch.now(heading, strong=True)
-                    return
-                password = entries[0].get()
-            answer['value'] = (state['fmt'], password)
+            if not state['pw']:
+                answer['value'] = (state['fmt'], None, None)
+                top.destroy()
+                return
+            problem = None
+            if not entries[0].get():
+                problem = 'compress.empty'
+            elif entries[0].get() != entries[1].get():
+                problem = 'compress.mismatch'
+            if problem:
+                message.config(text=t(problem))
+                self.glitch.now(heading, strong=True)
+                return
+            chosen_fmt, encryption = kinds[state['kind']]
+            if self.settings.get('password_kind') != state['kind']:
+                self.settings['password_kind'] = state['kind']
+                save_json('config.json', self.settings)
+            answer['value'] = (chosen_fmt, entries[0].get(),
+                               encryption if chosen_fmt == ZIP else None)
             top.destroy()
 
         go = self.button(buttons, t('button.ok'), ok, "primary")
         go.pack(side="right")
         self.button(buttons, t('button.cancel'), top.destroy).pack(side="right",
                                                                    padx=(0, px(8)))
+        pick(state['kind'])
         refresh()
         top.spark_ok = ok                       # for the tests
+        top.spark_pick = pick
         for entry in entries:
             entry.bind('<Return>', ok)
         top.bind('<Escape>', lambda _e: top.destroy())
