@@ -10,6 +10,7 @@ from typing import Callable, List, Optional
 from PIL import Image
 
 from . import PREVIEW_DPI
+from .adjust import apply, auto_levels, detect_skew
 from .core import log
 from .document import Page
 from .scanner import Caps, Job, Request, ScanError, command, finish_page
@@ -135,4 +136,38 @@ def view_image(page: Page) -> Image.Image:
         return im.convert('RGB') if im.mode not in ('L', 'RGB') else im.copy()
 
 
-__all__ = ['Session', 'ScanError', 'make_view', 'view_image', 'THUMB_SIZE']
+def edited_view(page: Page) -> Image.Image:
+    """The screen-sized copy with the page's edits, for thumbnails."""
+    return apply(view_image(page), page.edits, fast=True)
+
+
+def straighten(page: Page, on: bool = True) -> Optional[float]:
+    """Straightening on or off. The angle is measured the first time (on the screen-sized
+    copy, which is plenty: about 0.1° on a page of text) and kept. Returns the angle, or
+    None when the page has no lines to go by and is left as it is."""
+    if on and not page.measured:
+        page.skew = detect_skew(view_image(page))
+        page.measured = True
+        log.info("straighten %s: %s", os.path.basename(page.path),
+                 'nothing to go by' if page.skew is None else f"{page.skew:+.1f} degrees")
+    page.edits.straighten = on and page.skew is not None
+    page.edits.angle = page.skew or 0.0
+    return page.skew
+
+
+def whiten(page: Page, on: bool = True) -> None:
+    """Auto on or off: levels that make the paper white and the ink dark, from the
+    screen-sized copy. Black and white pages have none."""
+    page.edits.levels = auto_levels(view_image(page)) if on and page.mode != 'bw' else None
+
+
+def prepare(page: Page, straighten_on: bool, whiten_on: bool) -> None:
+    """What a new page gets when Straighten or Whiten paper was left on."""
+    if straighten_on:
+        straighten(page, True)
+    if whiten_on:
+        whiten(page, True)
+
+
+__all__ = ['Session', 'ScanError', 'make_view', 'view_image', 'edited_view', 'straighten',
+           'whiten', 'prepare', 'THUMB_SIZE']

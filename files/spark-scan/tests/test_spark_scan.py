@@ -11,6 +11,7 @@
 - WindowTests need a display (CI: xvfb-run).
 """
 
+import gc
 import os
 import re
 import shutil
@@ -35,7 +36,8 @@ os.environ.pop('SPARK_SCAN_SCANIMAGE', None)
 from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 
 from sparkscan import VERSION  # noqa: E402
-from sparkscan import core, document, scanner, text  # noqa: E402
+from sparkscan import adjust, core, document, scanner, text, work  # noqa: E402
+from sparkscan.adjust import Edits  # noqa: E402
 from sparkscan.document import Page, PdfWriter, save_images, save_pdf  # noqa: E402
 from sparkscan.scanner import (Caps, Request, ScanError, area_args, classify_error,  # noqa: E402
                                command, parse_devices, parse_options)
@@ -147,6 +149,40 @@ def make_page(folder, name, image, dpi, mode):
     path = os.path.join(folder, name + ('.png' if image.mode == '1' else '.pnm'))
     image.save(path)
     return Page(path, image.width, image.height, dpi, mode)
+
+
+WORDS = ("the quick brown fox jumps over the lazy dog spark scan straightens pages "
+         "scanned at a slant before saving them").split()
+
+
+def text_page(skew=0.0, mode='gray', size=(2480, 3508), paper=236, seed=1, font_size=42,
+              spacing=70, words=None):
+    """An A4 page at 300 dpi with lines of text, tilted by skew degrees (counter-clockwise,
+    as PIL's rotate), on slightly grey paper, as a scanner might return it."""
+    import random
+    rnd = random.Random(seed)
+    image = Image.new('L', size, paper)
+    draw = ImageDraw.Draw(image)
+    font = ImageFont.load_default(size=font_size)
+    y = int(size[1] * 0.08)
+    lines = list(words) if words else None
+    while y < size[1] * 0.9:
+        if lines is not None:
+            if not lines:
+                break
+            line = lines.pop(0)
+        else:
+            line = ' '.join(rnd.choice(WORDS) for _ in range(rnd.randint(6, 11)))
+        draw.text((int(size[0] * 0.1), y), line, fill=25, font=font)
+        y += spacing
+    if skew:
+        image = image.rotate(skew, resample=Image.Resampling.BICUBIC, fillcolor=paper)
+    if mode == 'color':
+        # yellowish paper, dark blue ink
+        image = Image.merge('RGB', (image, image, image.point(lambda v: int(v * 0.86))))
+    elif mode == 'bw':
+        image = image.point(lambda v: 255 if v > 128 else 0, mode='1')
+    return image
 
 
 # ─── Parsing what scanimage prints ────────────────────────────
@@ -311,9 +347,6 @@ class FileTests(unittest.TestCase):
         self.assertEqual(set(text.EN), set(text.FR), set(text.EN) ^ set(text.FR))
         for key, en in text.EN.items():
             self.assertEqual(fields(en), fields(text.FR[key]), key)
-        self.assertIs(text.pick_table(['fr_CA', 'fr']), text.FR)
-        self.assertIs(text.pick_table(['de_DE', 'de']), text.EN)
-        self.assertIs(text.pick_table([]), text.EN)
 
     def test_pdf_writer(self):
         colour = Image.new('RGB', (850, 1100), '#3de8c8')
@@ -541,6 +574,40 @@ class SaneTestBackendTests(unittest.TestCase):
             self.assertEqual(im.mode, '1')
         self.assertAlmostEqual(bw.width, 60 / 25.4 * 300, delta=3)
 
+    def test_turn_and_straighten_a_scan(self):
+        """A page from the test scanner's Grid picture: already straight; tilted by a known
+        angle it is measured within 0.5 degrees; turned, it saves turned."""
+        req = Request('test:0', 150, 'gray', (0, 0, .5, .6), 'glass',
+                      extra=['--test-picture=Grid'])
+        page = self.session.scan(self.caps, req)[0]
+        self.assertEqual(work.straighten(page), 0.0)
+        with page.open() as im:
+            lo, hi = im.getextrema()
+            self.assertLess(lo, hi)                              # lines on it
+            tilted = im.rotate(-4.5, resample=Image.Resampling.BICUBIC, fillcolor=255)
+        self.assertAlmostEqual(adjust.detect_skew(tilted), 4.5, delta=0.5)
+        page.edits.turn = 1
+        out = os.path.join(self.session.folder, 'test-scanner-turned.png')
+        save_images([page], [out], 'png')
+        with Image.open(out) as im:
+            self.assertEqual(im.size, (page.height, page.width))
+
+    def test_cli_turn_straighten_whiten(self):
+        out = os.path.join(self.session.folder, 'cli-turned.pdf')
+        res = subprocess.run([sys.executable, os.path.join(APP_DIR, 'spark_scan.py'),
+                              '--scan-to', out, '--device', 'test:0', '--dpi', '150',
+                              '--mode', 'color', '--area', '0,0,0.5,0.25', '--rotate', '90',
+                              '--straighten', '--whiten', '--sane-option',
+                              'test-picture=Grid'], capture_output=True, text=True,
+                             timeout=120)
+        self.assertEqual(res.returncode, 0, res.stderr)
+        self.assertIn('turned 90', res.stdout)
+        self.assertIn('already straight', res.stdout)       # the Grid is square on
+        check_pdf(self, out, 1)
+        (w, h), = pdf_page_sizes(out)
+        self.assertGreater(h, w)            # 100 x 50 mm, turned: 50 wide, 100 tall
+        self.assertAlmostEqual(w, 50 / 25.4 * 72, delta=2)
+
     def test_600_dpi(self):
         page = self.session.scan(self.caps, Request('test:0', 600, 'color',
                                                     (0, 0, .2, .2)))[0]
@@ -616,6 +683,248 @@ class SaneTestBackendTests(unittest.TestCase):
             'gray, color', 'color, gray'))
 
 
+# ─── Changing pages after the scan ────────────────────────────
+
+class AdjustTests(unittest.TestCase):
+    """Turning, straightening, brightness, contrast and Whiten paper (adjust.py, work.py)."""
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp(prefix='spark-scan-adjust-')
+
+    def tearDown(self):
+        shutil.rmtree(self.folder, ignore_errors=True)
+
+    def test_straighten_known_angles(self):
+        """Generated pages tilted by a known angle are measured within 0.5 degrees."""
+        level = text_page()
+        for skew in (-9.6, -6.0, -3.3, -1.2, -0.6, 0.8, 2.5, 4.4, 7.7, 10.0):
+            tilted = level.rotate(skew, resample=Image.Resampling.BICUBIC, fillcolor=236)
+            got = adjust.detect_skew(tilted)
+            self.assertIsNotNone(got, skew)
+            self.assertAlmostEqual(got, -skew, delta=0.5, msg=f"tilted {skew}")
+        self.assertEqual(adjust.detect_skew(level), 0.0)
+
+    def test_straighten_every_mode_and_sideways(self):
+        for mode, skew in (('color', 5.2), ('gray', -3.7), ('bw', 2.1)):
+            got = adjust.detect_skew(text_page(skew, mode, seed=4))
+            self.assertAlmostEqual(got, -skew, delta=0.5, msg=mode)
+        # scanned sideways: the lines run down the page; the angle is the same
+        sideways = text_page(-4.0, seed=5).transpose(Image.Transpose.ROTATE_90)
+        self.assertAlmostEqual(adjust.detect_skew(sideways), 4.0, delta=0.5)
+        # fewer, wider-spaced lines (a letter, not a dense page)
+        sparse = text_page(6.0, spacing=200, seed=6)
+        self.assertAlmostEqual(adjust.detect_skew(sparse), -6.0, delta=0.5)
+
+    def test_straighten_page_through_its_view(self):
+        """What the window does: measure on the screen-sized copy, apply to the full page,
+        and the saved page measures straight."""
+        page = make_page(self.folder, 'tilted', text_page(-6.4, 'color', seed=7), 300, 'color')
+        work.make_view(page)
+        angle = work.straighten(page)
+        self.assertAlmostEqual(angle, 6.4, delta=0.5)
+        self.assertTrue(page.edits.straighten)
+        with page.open() as saved:
+            self.assertEqual(saved.size, (2480, 3508))      # same size; corners white
+            self.assertEqual(saved.getpixel((0, 0)), (255, 255, 255))
+            self.assertAlmostEqual(adjust.detect_skew(saved) or 0.0, 0.0, delta=0.5)
+        work.straighten(page, False)
+        self.assertFalse(page.edits.any())
+        with page.open() as raw:
+            self.assertAlmostEqual(adjust.detect_skew(raw), 6.4, delta=0.5)
+
+    def test_straighten_a_grid(self):
+        """SANE's test scanner draws a 10 mm checkerboard. Row by row its ink is the same at
+        every angle, so straightening goes by its edges."""
+        for dpi in (75, 150, 300):
+            square = 10 / 25.4 * dpi
+            grid = Image.new('L', (round(100 / 25.4 * dpi), round(120 / 25.4 * dpi)), 255)
+            draw = ImageDraw.Draw(grid)
+            for row in range(12):
+                for col in range(10):
+                    if (row + col) % 2 == 0:
+                        draw.rectangle((col * square, row * square, (col + 1) * square - 1,
+                                        (row + 1) * square - 1), fill=0)
+            self.assertEqual(adjust.detect_skew(grid), 0.0, dpi)
+            tilted = grid.rotate(4.5, resample=Image.Resampling.BICUBIC, fillcolor=255)
+            self.assertAlmostEqual(adjust.detect_skew(tilted), -4.5, delta=0.5, msg=dpi)
+
+    def test_nothing_to_straighten_by(self):
+        blank = Image.new('L', (1240, 1754), 240)
+        self.assertIsNone(adjust.detect_skew(blank))
+        self.assertIsNone(adjust.detect_skew(Image.effect_noise((1240, 1754), 60)))
+        page = make_page(self.folder, 'blank', blank, 150, 'gray')
+        self.assertIsNone(work.straighten(page))
+        self.assertTrue(page.measured)
+        self.assertFalse(page.edits.any())          # left as it is
+
+    def test_turns(self):
+        image = Image.new('RGB', (300, 200), 'white')
+        image.paste((0, 0, 0), (0, 0, 30, 30))       # a mark in the top-left corner
+        page = make_page(self.folder, 'mark', image, 100, 'color')
+        for turn, corner in ((1, (195, 5)), (2, (294, 194)), (3, (5, 294))):
+            page.edits = Edits(turn=turn)
+            with page.open() as turned:
+                self.assertEqual(turned.size, (200, 300) if turn % 2 else (300, 200))
+                self.assertEqual(page.size, turned.size)
+                self.assertEqual(turned.getpixel(corner), (0, 0, 0), f"turn {turn}")
+        page.edits = Edits(turn=1)           # right: the top-left corner goes top-right
+        with page.open() as turned:
+            self.assertEqual(turned.getpixel((195, 5)), (0, 0, 0))
+            self.assertEqual(turned.getpixel((5, 5)), (255, 255, 255))
+        w_mm, h_mm = page.size_mm
+        self.assertGreater(h_mm, w_mm)
+        # black and white pages turn and straighten and stay black and white
+        bw = make_page(self.folder, 'bw', text_page(3.0, 'bw', (1240, 1754), font_size=21,
+                                                    spacing=35), 150, 'bw')
+        work.straighten(bw)
+        bw.edits.turn = 2
+        with bw.open() as im:
+            self.assertEqual(im.mode, '1')
+            self.assertEqual(im.size, (1240, 1754))
+
+    def test_unchanged_page_is_the_scan(self):
+        image = text_page(size=(620, 877), font_size=11, spacing=18)
+        page = make_page(self.folder, 'plain', image, 75, 'gray')
+        with page.open() as im:
+            self.assertEqual(im.tobytes(), image.tobytes())
+
+    def test_brightness_contrast_whiten(self):
+        image = text_page(0, 'color', (1240, 1754), font_size=21, spacing=35)
+        page = make_page(self.folder, 'tone', image, 150, 'color')
+        paper = image.getpixel((5, 5))
+        self.assertLess(paper[2], 210)                       # yellowish
+        page.edits = Edits(brightness=40)
+        with page.open() as im:
+            self.assertGreater(im.convert('L').getpixel((600, 2)), 236)
+        page.edits = Edits(brightness=-40)
+        with page.open() as im:
+            self.assertLess(im.convert('L').getpixel((5, 5)), 200)
+        page.edits = Edits(contrast=60)
+        with page.open() as im:
+            lo, hi = im.convert('L').getextrema()
+            self.assertEqual((lo, hi), (0, 255))
+        page.edits = Edits()
+        work.make_view(page)
+        work.whiten(page)
+        self.assertIsNotNone(page.edits.levels)
+        with page.open() as im:
+            self.assertEqual(im.getpixel((5, 5)), (255, 255, 255))   # paper white
+            ink = im.convert('L').getextrema()[0]
+            self.assertLess(ink, 20)                                 # ink dark
+        work.whiten(page, False)
+        self.assertFalse(page.edits.any())
+        # black and white pages have no tone
+        bw = make_page(self.folder, 'bwt', Image.new('1', (100, 100), 1), 100, 'bw')
+        work.whiten(bw)
+        self.assertIsNone(bw.edits.levels)
+
+    def test_live_view_under_100_ms(self):
+        """Moving a slider, or turning or straightening a 300 dpi A4 page, redraws the view
+        from its screen-sized copy in under 100 ms."""
+        page = make_page(self.folder, 'a4', text_page(4.0, 'color'), 300, 'color')
+        work.make_view(page)
+        view = work.view_image(page)
+        work.straighten(page)
+        work.whiten(page)
+        page.edits.turn, page.edits.brightness, page.edits.contrast = 1, 15, 20
+        box = (900, 900)
+        times = []
+        for _ in range(5):
+            started = time.perf_counter()
+            shown = adjust.preview(view, page.edits, box)
+            times.append(time.perf_counter() - started)
+        fitted = adjust.fit(adjust.apply_geometry(view, page.edits, fast=True), box)
+        tones = []
+        for value in range(-50, 51, 20):
+            page.edits.brightness = value
+            started = time.perf_counter()
+            adjust.apply_tone(fitted, page.edits)
+            tones.append(time.perf_counter() - started)
+        full_started = time.perf_counter()
+        with page.open():
+            pass
+        full = time.perf_counter() - full_started
+        print(f"\n  view redraw {min(times) * 1000:.0f}-{max(times) * 1000:.0f} ms, slider "
+              f"{max(tones) * 1000:.1f} ms, whole page for saving {full * 1000:.0f} ms",
+              file=sys.stderr)
+        self.assertEqual(max(shown.size), 900)
+        self.assertLess(sorted(times)[2], 0.100)
+        self.assertLess(max(tones), 0.100)
+
+    def test_saved_with_edits(self):
+        tall = make_page(self.folder, 'tall', Image.new('RGB', (850, 1100), '#d8d2c0'), 100,
+                         'color')
+        wide = make_page(self.folder, 'wide', Image.new('L', (850, 1100), 200), 100, 'gray')
+        wide.edits.turn = 3
+        out = os.path.join(self.folder, 'edited.pdf')
+        save_pdf([tall, wide], out)
+        check_pdf(self, out, 2)
+        self.assertEqual(pdf_page_sizes(out), [(612.0, 792.0), (792.0, 612.0)])
+        paths = [os.path.join(self.folder, f'edited-{i}.png') for i in (1, 2)]
+        save_images([tall, wide], paths, 'png')
+        with Image.open(paths[1]) as im:
+            self.assertEqual(im.size, (1100, 850))
+        save_images([wide], [os.path.join(self.folder, 'edited.jpg')], 'jpg')
+        with Image.open(os.path.join(self.folder, 'edited.jpg')) as im:
+            self.assertEqual(im.size, (1100, 850))
+
+
+class LanguageTests(unittest.TestCase):
+    """French for a French desktop, SPARK_LANG to choose."""
+
+    def run_t(self, env, key):
+        clean = {k: v for k, v in os.environ.items()
+                 if k not in ('LC_ALL', 'LC_MESSAGES', 'LANG', 'LANGUAGE', 'SPARK_LANG')}
+        clean.update(env)
+        out = subprocess.run([sys.executable, '-c', 'import sys; from sparkscan.text import t;'
+                              f' sys.stdout.buffer.write(t({key!r}).encode("utf-8"))'],
+                             cwd=APP_DIR, env=clean, capture_output=True)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        return out.stdout.decode('utf-8')
+
+    def test_language(self):
+        saved = {k: os.environ.get(k) for k in ('LC_ALL', 'LC_MESSAGES', 'LANG', 'SPARK_LANG')}
+        try:
+            for env, want in (({'LANG': 'fr_CA.UTF-8'}, 'fr'), ({'LANG': 'fr_FR'}, 'fr'),
+                              ({'LANG': 'fr'}, 'fr'), ({'LANG': 'en_CA.UTF-8'}, 'en'),
+                              ({'LANG': 'de_DE.UTF-8'}, 'en'), ({}, 'en'),
+                              ({'LC_ALL': 'C', 'LANG': 'fr_CA.UTF-8'}, 'en'),
+                              ({'LC_MESSAGES': 'fr_CA.UTF-8', 'LANG': 'en_US'}, 'fr'),
+                              ({'LANG': 'fr_CA.UTF-8', 'SPARK_LANG': 'en'}, 'en'),
+                              ({'LANG': 'en_US.UTF-8', 'SPARK_LANG': 'fr'}, 'fr'),
+                              ({'LANG': 'fr_CA.UTF-8', 'SPARK_LANG': 'xx'}, 'fr')):
+                for k in saved:
+                    os.environ.pop(k, None)
+                os.environ.update(env)
+                self.assertEqual(text.language(), want, env)
+        finally:
+            for k, v in saved.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+    def test_window_text_follows_the_desktop(self):
+        self.assertEqual(self.run_t({'LANG': 'fr_CA.UTF-8'}, 'edit.straighten'), "Redresser")
+        self.assertEqual(self.run_t({'LANG': 'fr_CA.UTF-8', 'SPARK_LANG': 'en'},
+                                    'edit.straighten'), "Straighten")
+        self.assertEqual(self.run_t({'LANG': 'C.UTF-8', 'SPARK_LANG': 'fr'}, 'edit.whiten'),
+                         "Blanchir le fond")
+
+    def test_french_is_complete(self):
+        """Every sentence has its French, with the same blanks; only words that are the
+        same in both languages are left alone. Quebec usage: numériseur, not scanner; vous."""
+        same = {'label.source', 'label.pages', 'area.part', 'pages.count', 'pages.one',
+                'scanner.usb', 'file.page'}
+        for key, en in text.EN.items():
+            fr = text.FR[key]
+            if key not in same:
+                self.assertNotEqual(fr, en, f"{key} is not translated")
+            self.assertNotRegex(fr.lower(), r'\bscanner\b', key)
+            self.assertNotRegex(fr.lower(), r'\b(tu|ton|ta|tes)\b', key)
+        self.assertEqual(text.decimal(3.25), '3.2' if text._T is text.EN else '3,2')
+
+
 # ─── Searchable PDF ───────────────────────────────────────────
 
 def ocr_ready():
@@ -649,6 +958,31 @@ class OcrTests(unittest.TestCase):
             self.assertIn('SPARK SCAN WORKS', found)
             self.assertIn('SECOND PAGE', found)
             self.assertEqual([n for n in os.listdir(folder) if n.startswith('ocr-')], [])
+        finally:
+            shutil.rmtree(folder, ignore_errors=True)
+
+    def test_straightened_page_is_read(self):
+        """A page scanned 7 degrees off and straightened: tesseract gets the straightened
+        page, and reads it."""
+        folder = tempfile.mkdtemp(prefix='spark-scan-ocr-')
+        try:
+            lines = ["INVOICE NUMBER 4471", "PAID IN FULL ON NOVEMBER 20",
+                     "SPARK SCAN STRAIGHTENS PAGES"] * 4
+            image = text_page(7.0, 'color', font_size=80, spacing=180, words=lines)
+            page = make_page(folder, 'tilted', image, 300, 'color')
+            work.make_view(page)
+            self.assertAlmostEqual(work.straighten(page), -7.0, delta=0.5)
+            work.whiten(page)
+            with page.open() as fed:
+                self.assertAlmostEqual(adjust.detect_skew(fed) or 0.0, 0.0, delta=0.5)
+            out = os.path.join(folder, 'straightened.pdf')
+            tess = core.Tesseract()
+            document.save_ocr_pdf([page], out, 'eng', tess, folder)
+            found = subprocess.run(['pdftotext', out, '-'], capture_output=True,
+                                   text=True).stdout
+            self.assertIn('INVOICE NUMBER 4471', found)
+            self.assertIn('PAID IN FULL', found)
+            self.assertIn('STRAIGHTENS PAGES', found)
         finally:
             shutil.rmtree(folder, ignore_errors=True)
 
@@ -689,6 +1023,8 @@ class WindowTests(unittest.TestCase):
             self.app.close()
         except Exception:      # noqa: BLE001 - already closed
             pass
+        # collect the closed window here, on the Tk thread, not in some later worker thread
+        gc.collect()
         os.environ.pop('SPARK_SCAN_SCANIMAGE', None)
 
     def wait(self, cond, timeout=30.0):
@@ -772,6 +1108,82 @@ class WindowTests(unittest.TestCase):
         self.wait(lambda: not app.busy and app.last_saved)
         self.assertEqual(len([n for n in os.listdir(OUTPUT) if n.endswith('.png')]), 3)
 
+    def test_page_edits(self):
+        """Turn, straighten, whiten, brightness and contrast on a scanned page, rotate all,
+        then save: the PDF has the edits."""
+        app = self.app
+        self.ready()
+        app._set_dpi('150')
+        app.start_scan()
+        self.wait(lambda: len(app.pages) == 1 and not app.busy)
+        page = app.pages[0]
+        self.assertTrue(app.edit_bar.winfo_ismapped())
+        w, h = page.size
+        thumb = app.thumbs[page.path]
+        app.turn(1)
+        self.assertEqual(page.size, (h, w))
+        self.assertIsNot(app.thumbs[page.path], thumb)          # thumbnail redrawn
+        self.assertIn(f"{round(page.size_mm[0])} ×", app.caption.cget('text'))
+        app.turn(-1)
+        app.turn(2)
+        self.assertEqual(page.edits.turn, 2)
+
+        # brightness: the view follows the slider in well under 100 ms
+        slider = app.sliders['brightness']
+        before = app._scaled.convert('L').getpixel((app._scaled.width // 2, 2))
+        times = []
+        for value in (10, 25, 40, -20, 30):
+            started = time.perf_counter()
+            slider.set(value, fire=True)
+            app.root.update_idletasks()
+            times.append(time.perf_counter() - started)
+        print(f"\n  slider redraw: {max(times) * 1000:.1f} ms at most", file=sys.stderr)
+        self.assertLess(max(times), 0.100)
+        self.assertEqual(page.edits.brightness, 30)
+        self.assertGreaterEqual(app._scaled.convert('L').getpixel((app._scaled.width // 2, 2)),
+                                before)
+        app.sliders['contrast'].set(20, fire=True)
+        self.assertEqual(page.edits.contrast, 20)
+
+        app.whiten_toggle.set(True, fire=True)
+        self.assertIsNotNone(page.edits.levels)
+        app.straighten_toggle.set(True, fire=True)
+        self.wait(lambda: page.measured and not app._measuring)
+        self.assertTrue(app.straighten_new and app.whiten_new)
+        self.assertNotEqual(app.edit_note.cget('text'), text.t('edit.measuring'))
+
+        # new pages get Straighten and Whiten paper too
+        app.start_scan()
+        self.wait(lambda: len(app.pages) == 2 and not app.busy)
+        second = app.pages[1]
+        self.assertTrue(second.measured)
+        self.assertIsNotNone(second.edits.levels)
+        self.assertTrue(app.whiten_toggle.value)
+
+        # reset brings the shown page back to the scan
+        app.reset_edits()
+        self.assertFalse(second.edits.any())
+        app.whiten_toggle.set(False, fire=True)
+        app.straighten_toggle.set(False, fire=True)
+
+        # rotate all: every page a quarter turn right
+        app.turn_all()
+        self.assertEqual([p.edits.turn for p in app.pages], [3, 1])
+        self.assertIn(text.pages_word(2), app.message.cget('text'))
+
+        app._set_format('pdf')
+        app.start_save()
+        self.wait(lambda: not app.busy and app.last_saved)
+        check_pdf(self, app.last_saved, 2)
+        sizes = pdf_page_sizes(app.last_saved)
+        self.assertTrue(all(ph > pw for pw, ph in sizes) or all(pw > ph for pw, ph in sizes),
+                        sizes)
+        self.assertEqual(sizes[0], sizes[1])
+        self.assertAlmostEqual(sizes[0][0], page.size[0] / page.dpi * 72, delta=1)
+        self.assertAlmostEqual(sizes[1][1], second.size[1] / second.dpi * 72, delta=1)
+        # the settings remember the toggles
+        self.assertIs(app._settings()['straighten'], False)
+
     def test_error_and_cancel(self):
         app = self.app
         self.ready()
@@ -793,6 +1205,7 @@ class WindowTests(unittest.TestCase):
     def test_no_scanner(self):
         self.app.dirty = False
         self.app.close()
+        gc.collect()          # see tearDown
         os.environ['FAKE_SCANNERS'] = '0'
         from sparkscan import core as c
         c.save_config({})

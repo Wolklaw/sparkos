@@ -4,11 +4,13 @@ name: spark-scan
 #
 # fedora:  runs the image build step (files/scripts/spark-scan.sh) in a plain Fedora
 #          container, then the unit tests, the SANE test-scanner tests (scan, crop, 150/300/
-#          600 dpi, colour/grey/B&W, the feeder, scanner errors, Cancel, multi-page PDF), the
-#          searchable-PDF test with tesseract, and the window tests under Xvfb.
+#          600 dpi, colour/grey/B&W, the feeder, scanner errors, Cancel, multi-page PDF, a
+#          scan turned and measured for straightening), the page edits on generated tilted
+#          pages, the searchable-PDF tests with tesseract (one on a straightened page), and
+#          the window tests under Xvfb; then --scan-to with --rotate, --straighten, --whiten.
 # sparkos: inside the published SparkOS image, installs it for a normal user with
 #          install.sh --user (no root), runs the self-test, scans with the test scanner to a
-#          searchable PDF, runs the tests on the image's own Python and SANE, uninstalls it,
+#          searchable PDF and to a turned, straightened, whitened one, runs the tests on the image's own Python and SANE, uninstalls it,
 #          and checks nothing is left behind and /usr is untouched.
 on:
   push:
@@ -60,6 +62,12 @@ jobs:
           spark-scan --scan-to /tmp/feeder.pdf --device test:0 --source feeder --dpi 150 \
             --mode bw --sane-option test-picture=Grid
           pdfinfo /tmp/feeder.pdf | grep -q '^Pages: *10$'
+          # page edits: 100 x 50 mm turned a quarter comes out 50 wide, 100 tall (141.6 x 283.2 pt)
+          spark-scan --scan-to /tmp/turned.pdf --device test:0 --dpi 150 --mode color \
+            --area 0,0,0.5,0.25 --rotate 90 --straighten --whiten \
+            --sane-option test-picture=Grid | tee /tmp/turned.log
+          grep -q 'turned 90, already straight, paper whitened' /tmp/turned.log
+          pdfinfo /tmp/turned.pdf | grep -Eq '^Page size: +14[0-9](\.[0-9]+)? x 28[0-9]'
           { echo '### Spark Scan with SANE'"'"'s test scanner'; echo '```'; pdfinfo /tmp/two-pages.pdf; \
             ls -l /tmp/two-pages.pdf /tmp/feeder.pdf; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
@@ -119,6 +127,11 @@ jobs:
             as "mkdir -p ~/out && ~/.local/bin/spark-scan --scan-to ~/out/scan.pdf --device test:0 \
                 --pages 2 --dpi 150 --area 0,0,0.5,0.5 --ocr --sane-option test-picture=Grid"
             as "pdfinfo ~/out/scan.pdf | grep -q \"^Pages: *2$\""
+            as "~/.local/bin/spark-scan --scan-to ~/out/turned.pdf --device test:0 --dpi 150 \
+                --area 0,0,0.5,0.25 --rotate 90 --straighten --whiten \
+                --sane-option test-picture=Grid > ~/turned.log"
+            as "grep -q \"turned 90, already straight, paper whitened\" ~/turned.log"
+            as "pdfinfo ~/out/turned.pdf | grep -Eq \"^Page size: +14[0-9](\.[0-9]+)? x 28[0-9]\""
             as "cd ~/spark-scan && python3 -m unittest discover -s tests -v 2>&1 | tee ~/tests.log; grep -q ^OK ~/tests.log"
             as "! grep -E \"skipped .needs (scanimage|tesseract)\" ~/tests.log"
             unset SANE

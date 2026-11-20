@@ -2,7 +2,6 @@
 file names, and the tesseract program."""
 
 import json
-import locale
 import logging
 import os
 import re
@@ -118,19 +117,6 @@ def reduced_motion() -> bool:
         return bool(match) and float(match.group(1)) == 0
     except (OSError, ValueError):
         return False
-
-
-def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']"""
-    lang = (os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES')
-            or os.environ.get('LANG') or '')
-    if not lang:
-        try:
-            lang = locale.getlocale()[0] or ''
-        except ValueError:
-            lang = ''
-    lang = lang.split('.')[0].split('@')[0]
-    return [lang, lang.split('_')[0]] if '_' in lang else ([lang] if lang else [])
 
 
 def open_folder(path: str) -> Optional[str]:
