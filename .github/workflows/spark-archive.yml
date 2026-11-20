@@ -1,0 +1,54 @@
+name: spark-archive
+on:
+  push:
+    paths:
+      - "files/spark-archive/**"
+      - "files/scripts/spark-archive.sh"
+      - ".github/workflows/spark-archive.yml"
+  workflow_dispatch:
+
+jobs:
+  probe-fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    steps:
+      - name: Probe
+        run: |
+          cat /etc/os-release | head -3
+          python3 -c 'import sys; print(sys.version)'
+          python3 -c 'import compression.zstd as z; print("zstd ok", z.zstd_version_info)' || true
+          python3 -c 'import tkinter' && echo tk ok || echo no tk
+          ls -l /usr/lib64/libarchive.so* || true
+          rpm -q libarchive bsdtar 7zip p7zip p7zip-plugins unrar zstd || true
+          dnf -q repoquery --whatprovides '/usr/bin/7z' '/usr/bin/7zz' '/usr/bin/bsdtar' '/usr/bin/unrar' 2>/dev/null || true
+          dnf -q info 7zip libarchive bsdtar 2>/dev/null | grep -E '^(Name|Version|Size|Repository)' || true
+  probe-sparkos:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    steps:
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          df -h /
+      - name: Probe
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          sudo podman pull -q ghcr.io/wolklaw/sparkos:latest
+          sudo podman run --rm ghcr.io/wolklaw/sparkos:latest bash -c '
+            head -3 /etc/os-release
+            python3 -c "import sys; print(sys.version)"
+            python3 -c "import compression.zstd as z; print(\"zstd ok\", z.zstd_version_info)" || true
+            python3 -c "import tkinter; print(\"tk\", tkinter.TkVersion)" || true
+            python3 -c "import PIL; print(\"PIL\", PIL.__version__)" || true
+            ls -l /usr/lib64/libarchive.so* || true
+            rpm -q libarchive bsdtar 7zip p7zip p7zip-plugins unrar zstd ark kio-extras || true
+            for c in 7z 7zz 7za bsdtar unrar unzip zstd xz bzip2 gzip lsar unar; do printf "%s: " $c; command -v $c || echo no; done
+            rpm -q --whatrequires libarchive | head -20
+            rpm -q --whatrequires "libarchive.so.13()(64bit)" | head -20
+            ls /usr/share/kio/servicemenus/ 2>/dev/null; ls /usr/share/kservices6/ServiceMenus/ 2>/dev/null | head
+            grep -l -i "zip\|archive" /usr/share/applications/*.desktop | head
+            xdg-mime query default application/zip 2>/dev/null || true
+            grep -ri "zip\|x-7z\|rar\|iso9660\|x-tar" /usr/share/applications/mimeapps.list /etc/xdg/mimeapps.list 2>/dev/null | head
+          '
