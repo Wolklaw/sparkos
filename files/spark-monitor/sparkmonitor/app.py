@@ -415,6 +415,11 @@ class App:
                     pass
         self._tick_id = self._status_id = self.glitch._loop = None
         self.visible = False
+        try:                                # glitch frames and other short timers still queued
+            for job in self.root.tk.splitlist(self.root.tk.call('after', 'info')):
+                self.root.after_cancel(job)
+        except tk.TclError:
+            pass
         if self.root.state() == 'normal':
             self.settings["geometry"] = self.root.geometry()
         self.settings["version"] = VERSION

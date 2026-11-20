@@ -727,8 +727,8 @@ class UITests(unittest.TestCase):
         self.assertTrue(self.wait_for(app, lambda: view.tree.exists(str(child.pid))))
         self.assertTrue(view.select_pid(child.pid))
         view.end(tree=False)
-        self.assertTrue(self.wait_for(app, lambda: not view.tree.exists(str(child.pid))))
-        self.assertIsNone(app.ending)
+        self.assertTrue(self.wait_for(app, lambda: not view.tree.exists(str(child.pid))
+                                      and app.ending is None))
         self.assertIn('ENDED', app.status.cget('text'))
 
     @unittest.skipUnless(LINUX, "needs Linux")
@@ -749,7 +749,9 @@ class UITests(unittest.TestCase):
         self.pump(app, 0.2)
         self.assertTrue(apps.end_button.enabled)
         apps.end_task()
-        self.assertTrue(self.wait_for(app, lambda: not apps.tree.exists(row)))
+        self.assertTrue(self.wait_for(app, lambda: not apps.tree.exists(row)
+                                      and app.ending is None))
+        self.assertIn('ENDED', app.status.cget('text'))
         self.assertIsNotNone(child.poll())
 
 
