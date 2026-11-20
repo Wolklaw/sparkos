@@ -66,6 +66,21 @@ def last_error_line(stderr: str) -> str:
     return lines[-1] if lines else ''
 
 
+def exit_reason(code: int, stderr: str) -> str:
+    """Why scanimage stopped, in one line: its own 'scanimage: …' message if it gave one,
+    else the first thing it printed (a crash in a backend prints its cause first)."""
+    lines = [ln.strip() for ln in stderr.splitlines() if ln.strip()]
+    own = [ln for ln in lines if ln.startswith('scanimage:')]
+    why = own[-1] if own else (lines[0] if lines else '')
+    if code < 0:
+        try:
+            name = signal.Signals(-code).name
+        except ValueError:
+            name = f"signal {-code}"
+        return f"scanimage crashed ({name})" + (f": {why}" if why else '')
+    return why or f"scanimage exited with {code}"
+
+
 def scanimage() -> Optional[List[str]]:
     """The scanimage command. SPARK_SCAN_SCANIMAGE replaces it (the tests' fake scanner)."""
     forced = os.environ.get('SPARK_SCAN_SCANIMAGE')
@@ -142,8 +157,7 @@ def list_devices(timeout: float = LIST_TIMEOUT) -> List[Device]:
     if not devices and out.returncode != 0:
         # e.g. a backend that needs D-Bus crashing scanimage; say so rather than "none found"
         log.warning("scanimage -f exited %s: %s", out.returncode, out.stderr[-600:])
-        raise ScanError('list_failed', last_error_line(out.stderr) or
-                        f"scanimage exited with {out.returncode}")
+        raise ScanError('list_failed', exit_reason(out.returncode, out.stderr))
     log.info("scanners: %s", ', '.join(d.name for d in devices) or 'none')
     return devices
 

@@ -654,8 +654,8 @@ class App:
             return
         if self.ocr_lang not in self.ocr_choices:
             self.ocr_lang = self.ocr_choices[0]
-        if not self.ocr_toggle.winfo_ismapped():
-            self.ocr_toggle.pack(side="left")
+        if not self.ocr_toggle.winfo_manager():
+            self.ocr_toggle.pack(side="left", before=self.ocr_lang_box)
         if self.fmt != 'pdf':
             self.ocr_toggle.set(False)
             self.ocr_note.config(text=t('ocr.pdf_only'))

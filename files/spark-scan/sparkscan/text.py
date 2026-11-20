@@ -152,7 +152,7 @@ FR = {
     'mode.bw': "N&B",
     'button.preview': "Aperçu",
     'button.scan': "Numériser",
-    'button.scan_feeder': "Numériser le chargeur",
+    'button.scan_feeder': "Tout numériser",
     'button.cancel': "Annuler",
     'button.save': "Enregistrer",
     'button.save_n': "Enregistrer {n} pages",
@@ -192,8 +192,8 @@ FR = {
     'view.preview': "APERÇU · GLISSEZ POUR CHOISIR LA PARTIE À NUMÉRISER",
     'view.preview_crop': "APERÇU · SEULE LA PARTIE MARQUÉE SERA NUMÉRISÉE",
     'view.page': "PAGE {n} DE {count} · {dpi} PPP · {w} × {h} MM",
-    'view.feeder': "Mettez les pages dans le chargeur, puis appuyez sur Numériser le "
-                   "chargeur.\nL'aperçu fonctionne sur la vitre seulement.",
+    'view.feeder': "Mettez les pages dans le chargeur, puis appuyez sur Tout numériser.\n"
+                   "L'aperçu fonctionne sur la vitre seulement.",
     'area.whole': "Toute la vitre",
     'area.part': "{w} × {h} mm",
     'area.feeder': "Page entière (chargeur)",

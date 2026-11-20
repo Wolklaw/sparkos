@@ -129,7 +129,7 @@ def check_pdf(testcase, path, pages):
     if shutil.which('pdfinfo'):
         out = subprocess.run(['pdfinfo', path], capture_output=True, text=True)
         testcase.assertEqual(out.returncode, 0, out.stderr)
-        testcase.assertIn(f"Pages:          {pages}", out.stdout)
+        testcase.assertRegex(out.stdout, rf'(?m)^Pages:\s+{pages}$')
         testcase.assertEqual(out.stderr.strip(), '', out.stderr)
     if shutil.which('qpdf'):
         out = subprocess.run(['qpdf', '--check', path], capture_output=True, text=True)
@@ -252,6 +252,11 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(classify_error(
             "scanimage: open of device x failed: Invalid argument"), 'open_failed')
         self.assertEqual(classify_error("something else"), 'failed')
+        reason = scanner.exit_reason(-6, "dbus[44]: arguments to dbus_connection_send() were "
+                                         "incorrect\n\n  D-Bus not built with -rdynamic\n")
+        self.assertRegex(reason, r'^scanimage crashed \((SIGABRT|signal 6)\): dbus\[44\]')
+        self.assertEqual(scanner.exit_reason(1, "x\nscanimage: open of device y failed\n"),
+                         "scanimage: open of device y failed")
         self.assertEqual(scanner.last_error_line(
             "Progress: 50.0%\rProgress: 60.0%\nscanimage: sane_read: Error during device I/O\n"),
             "scanimage: sane_read: Error during device I/O")
@@ -596,8 +601,7 @@ class SaneTestBackendTests(unittest.TestCase):
         os.makedirs(out, exist_ok=True)
         res = subprocess.run([sys.executable, os.path.join(APP_DIR, 'spark_scan.py'),
                               '--scan-to', out, '--device', 'test:0', '--source', 'feeder',
-                              '--dpi', '150', '--mode', 'bw', '--format', 'png',
-                              '--sane-option', 'resolution=50'],
+                              '--dpi', '150', '--mode', 'bw', '--format', 'png'],
                              capture_output=True, text=True, timeout=300)
         self.assertEqual(res.returncode, 0, res.stdout + res.stderr)
         self.assertEqual(len([n for n in os.listdir(out) if n.endswith('.png')]), 10)
@@ -639,7 +643,7 @@ class OcrTests(unittest.TestCase):
             document.save_ocr_pdf(pages, out, lang, tess, folder)
             self.assertTrue(os.path.isfile(out))
             info = subprocess.run(['pdfinfo', out], capture_output=True, text=True).stdout
-            self.assertIn('Pages:          2', info)
+            self.assertRegex(info, r'(?m)^Pages:\s+2$')
             found = subprocess.run(['pdftotext', out, '-'], capture_output=True,
                                    text=True).stdout
             self.assertIn('SPARK SCAN WORKS', found)
