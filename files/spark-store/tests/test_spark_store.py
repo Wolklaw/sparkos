@@ -674,6 +674,19 @@ class QueueTests(unittest.TestCase):
         self.assertTrue(q.wait())
         self.assertEqual((ok.state, bad.state, bad.error), (DONE, FAILED, 'no manifest'))
 
+    def test_progress_over_several_steps(self):
+        q = JobQueue()
+        job = Job('install', 'a.b.C', 'C')
+        for line in ('Looking for matches…', 'Installing 1/2… ███  50%  2.0 MB/s',
+                     'Installing 1/2… 100%', 'Installing 2/2… 0%', 'Installing 2/2… 50%'):
+            q._line(job, line)
+        self.assertEqual(job.step_text, '2/2')
+        self.assertAlmostEqual(job.progress, 0.75)
+        lone = Job('remove', 'a.b.C', 'C')
+        for line in ('Uninstalling… 30%', 'Uninstalling… 10%'):
+            q._line(lone, line)
+        self.assertAlmostEqual(lone.progress, 0.10)
+
     def test_error_text(self):
         self.assertEqual(error_text(['Installing… 50%  1 MB/serror: disk full']),
                          'error: disk full')

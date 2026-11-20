@@ -208,9 +208,9 @@ def remote_info(app_id: str, branch: str = 'stable', scope: str = 'user',
         for line in out.splitlines():
             key, _, value = line.strip().partition(':')
             key = key.strip().lower()
-            if key == 'download':
+            if key in ('download', 'download size'):      # flatpak 1.18 says "Size"
                 info.download = parse_size(value)
-            elif key == 'installed':
+            elif key in ('installed', 'installed size'):
                 info.installed = parse_size(value)
             elif key == 'version':
                 info.version = value.strip()

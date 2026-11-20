@@ -112,7 +112,7 @@ jobs:
 
       - name: Install, self-test, a real app, uninstall as a normal user
         run: |
-          sudo podman run --rm --privileged -e APPS -v "$PWD/files:/src:ro" "$IMAGE" bash -euo pipefail -c '
+          sudo podman run --rm --privileged -e APPS="$APPS" -v "$PWD/files:/src:ro" "$IMAGE" bash -euo pipefail -c '
             useradd -m tester
             # an image ships /var empty; a booted SparkOS has /var/tmp, which flatpak needs
             mkdir -p /var/tmp && chmod 1777 /var/tmp

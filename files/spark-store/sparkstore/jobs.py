@@ -336,16 +336,22 @@ class JobQueue:
         if not text:
             return
         changed = False
+        step = STEP.search(text)
+        if step and 0 < int(step.group(1)) <= int(step.group(2)) <= 50 and \
+                step.group(0) != job.step_text:
+            job.step_text = step.group(0)
+            changed = True
         percents = PERCENT.findall(text)
         if percents:
             value = min(100, int(percents[-1])) / 100
+            if job.step_text:
+                # "Installing 2/3… 40%": a runtime first, then the app; one bar for all
+                done, total = (int(x) for x in job.step_text.split('/'))
+                value = ((done - 1) + value) / total
+            value = max(value, job.progress or 0.0) if job.step_text else value
             if value != job.progress:
                 job.progress = value
                 changed = True
-        step = STEP.search(text)
-        if step and int(step.group(2)) <= 50 and step.group(0) != job.step_text:
-            job.step_text = step.group(0)
-            changed = True
         # progress redraws repeat the same line with a new number: keep one copy
         stem = PERCENT.sub('', text)
         if job.output and PERCENT.sub('', job.output[-1]) == stem:
