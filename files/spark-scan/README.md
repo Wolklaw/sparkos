@@ -54,4 +54,4 @@ The tests ([tests/test_spark_scan.py](tests/test_spark_scan.py)) cover the parse
 - **One feeder side setting:** "Both sides" appears only if the backend offers a duplex source; the TR4700's feeder is one-sided.
 - **No rotation, deskew, brightness or contrast.** Rotate in Spark Media or another editor for now.
 - **Scanner search on SparkOS:** some of the image's SANE backends need D-Bus; in a desktop session that is always there. In a container or over SSH without one, `scanimage -L` can crash, and Spark Scan then says "Looking for scanners failed" rather than "No scanner found".
-- **First paint** was 280-300 ms on a Windows development PC with the fake scanner (Python and Tk start-up included); not yet measured on SparkOS.
+- **Opening speed:** building and drawing the window took 47 ms in CI (Fedora, Xvfb) and about 300 ms on a Windows development PC, Python's own start-up not included; the scanner search starts after the window is up. Not yet timed on the owner's PC.

@@ -529,7 +529,7 @@ class SaneTestBackendTests(unittest.TestCase):
         self.assertAlmostEqual(page.height, 50 / 25.4 * 150, delta=3)
         with page.open() as im:
             self.assertEqual(im.mode, 'RGB')
-            self.assertGreater(len(set(im.resize((40, 20)).getdata())), 3)  # a pattern
+            self.assertGreater(len(im.resize((40, 20)).getcolors(800)), 3)   # a pattern
         self.assertTrue(progress and max(progress) >= 0.99, progress[-5:])
 
     def test_scan_grey_and_bw(self):

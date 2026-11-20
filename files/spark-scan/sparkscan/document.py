@@ -280,6 +280,7 @@ def save_ocr_pdf(pages: Sequence[Page], path: str, lang: str, tesseract: Tessera
             code = proc.wait()
         finally:
             stop.set()
+            proc.stderr.close()
         _check(cancel)
         made = base + '.pdf'
         if code != 0 or not os.path.isfile(made):

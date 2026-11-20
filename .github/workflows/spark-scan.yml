@@ -126,7 +126,8 @@ jobs:
 
             echo "--- uninstall"
             as "bash ~/spark-scan/install.sh --user --uninstall"
-            left=$(as "find ~/.local -iname \"*spark*scan*\" -o -iname \"*SparkScan*\"" || true)
+            # the log in ~/.local/state stays, like settings and scans (see install.sh)
+            left=$(as "find ~/.local -path ~/.local/state -prune -o \( -iname \"*spark*scan*\" -o -iname \"*SparkScan*\" \) -print" || true)
             if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
             usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
             [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
