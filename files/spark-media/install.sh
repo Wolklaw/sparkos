@@ -33,13 +33,15 @@ dnf_install() {
 
 if [ "$DEPS" = 1 ]; then
   # 1. programs and data, by package name. taglib reads music tags, LibRaw develops camera
-  #    RAW photos and libheif opens HEIC (with libde265, the HEVC decoder) and AVIF, all
-  #    through their C libraries; SparkOS already has them (KDE uses them).
+  #    RAW photos and libheif opens HEIC and AVIF, all through their C libraries; SparkOS
+  #    already has them (KDE uses them). HEIC also needs libheif's HEVC decoder (libde265):
+  #    SparkOS has it from its Bazzite base; plain Fedora doesn't ship one, so there only
+  #    AVIF opens and HEIC says what's missing.
   missing=()
   for pkg in python3 python3-tkinter python3-pillow python3-pillow-tk python3-gobject-base \
              gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good \
              xrdb xdg-user-dirs xdg-utils glib2 cascadia-mono-fonts \
-             taglib LibRaw libheif libde265; do
+             taglib LibRaw libheif; do
     rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
   done
   if [ ${#missing[@]} -gt 0 ]; then
