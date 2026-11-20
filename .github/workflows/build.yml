@@ -27,7 +27,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref || github.run_id }}
+  # Pull requests queue by their branch, so a PR check never cancels or delays main's build
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || github.ref }}
   cancel-in-progress: true
 
 env:
