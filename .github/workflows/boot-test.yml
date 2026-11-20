@@ -19,6 +19,10 @@ on:
         description: Run every check, not just the quick set
         type: boolean
         default: true
+      image_tag:
+        description: Image tag to test (a branch build is br-<branch>-<Fedora version>)
+        type: string
+        default: latest
 
 concurrency:
   group: boot-test
@@ -33,7 +37,7 @@ jobs:
       contents: read
       packages: read
     env:
-      IMAGE: ghcr.io/wolklaw/sparkos:latest
+      IMAGE: ghcr.io/wolklaw/sparkos:${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
       WORK: /mnt/boot-test
       FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
@@ -106,8 +110,22 @@ jobs:
             -monitor unix:"$WORK/qmon",server,nowait \
             -daemonize -pidfile "$WORK/qemu.pid"
           echo "QEMU started"
-          # Try to catch the boot splash (firmware and boot menu take the first seconds)
           mkdir -p "$WORK/shots"
+          # The first boot restarts once (Bazzite's hardware setup adds a kernel argument), and
+          # the splash of that second boot never fit the screenshots below. Watch the serial log
+          # for GRUB's second "Booting `SparkOS" and photograph the next 15 s, once a second.
+          # Not a check: the pictures are for looking at the splash. Runs in the background.
+          nohup bash -c '
+            booted() { [ "$(grep -ac "Booting .SparkOS" "$WORK/serial.log" 2>/dev/null)" -ge 2 ]; }
+            for i in $(seq 1 1800); do booted && break; sleep 0.5; done
+            booted || { echo "no second boot within 15 minutes"; exit 0; }
+            echo "second boot seen at $(date +%T)"
+            for n in $(seq 1 15); do
+              sleep 1
+              echo "screendump $WORK/shots/0b-boot2-${n}s.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+            done
+            echo "done at $(date +%T)"' > "$WORK/boot2-shots.txt" 2>&1 &
+          # Try to catch the first boot's splash (firmware and boot menu take the first seconds)
           for t in $(seq 2 2 30); do
             sleep 2
             echo "screendump $WORK/shots/0-boot-${t}s.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
@@ -201,13 +219,11 @@ jobs:
       - name: Check Spark Snip
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          # Installed, shortcuts registered, Spectacle gave up Print and Meta+Shift+R
+          # Installed, shortcuts registered, Spectacle gone (Spark Snip captures through KWin)
           $SSH 'spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
-          $SSH 'grep "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop /usr/share/applications/org.kde.spectacle.desktop' | tee "$WORK/shortcuts.txt"
+          $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop' | tee "$WORK/shortcuts.txt"
           grep -q 'SparkSnip.desktop:X-KDE-Shortcuts=Print,Meta+Shift+S' "$WORK/shortcuts.txt"
-          if grep -E 'spectacle.desktop:X-KDE-Shortcuts=(.*,)?(Print|Meta\+Shift\+R)(,|$)' "$WORK/shortcuts.txt"; then
-            echo "Spectacle still claims Print or Meta+Shift+R"; exit 1
-          fi
+          if $SSH 'rpm -q spectacle'; then echo "::error::Spectacle is back in the image"; exit 1; fi
           # OCR in English and French, and a test video through each installed encoder
           $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
 
@@ -247,6 +263,166 @@ jobs:
           $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
 
+      - name: Check the other Spark apps
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Edit, Calc, Archive, Scan, Run, Link and Store: installed system-wide, each self-test passes
+          for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store; do
+            echo "== $app"
+            $SSH "$app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
+            grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
+          done
+          # Extract/Compress in Dolphin's right-click menu; Send to phone too
+          $SSH 'ls /usr/share/kio/servicemenus/ | grep -i -E "spark"' | tee "$WORK/servicemenus.txt"
+          grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"
+          grep -q 'dev.wolklaw.SparkArchive.compress.desktop' "$WORK/servicemenus.txt"
+          # Text and code open in Spark Edit, archives in Spark Archive
+          $SSH 'for m in text/plain text/markdown application/json text/x-python application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/edit-archive-defaults.txt"
+          for m in text/plain text/markdown application/json text/x-python; do
+            grep -qx "$m -> dev.wolklaw.SparkEdit.desktop" "$WORK/edit-archive-defaults.txt" || { echo "::error::$m doesn't open in Spark Edit"; exit 1; }
+          done
+          for m in application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do
+            grep -qx "$m -> dev.wolklaw.SparkArchive.desktop" "$WORK/edit-archive-defaults.txt" || { echo "::error::$m doesn't open in Spark Archive"; exit 1; }
+          done
+
+      - name: Check Spark Update
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # updates never stop: exactly one updater on (uupd for now) and the notification timer on
+          $SSH 'spark-update --version; systemctl is-enabled uupd.timer; systemctl is-active uupd.timer; ! systemctl is-enabled spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
+          $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"
+          grep -q "^updater:   Universal Blue's uupd" "$WORK/spark-update-self-test.txt"
+          grep -q '^image:     ghcr.io/wolklaw/sparkos (from rpm-ostree status)' "$WORK/spark-update-self-test.txt"
+          grep -q '^others:    no other automatic updater is on' "$WORK/spark-update-self-test.txt"
+          $SSH 'spark-update --status'
+
+      - name: Check the Release 2 cleanup
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Spark Monitor replaces Plasma System Monitor and takes its keys (Meta+Esc, Ctrl+Esc)
+          $SSH 'rpm -q plasma-systemmonitor 2>&1; grep -H "^X-KDE-Shortcuts=" /usr/share/kglobalaccel/*.desktop' | tee "$WORK/cleanup-monitor.txt"
+          grep -q 'package plasma-systemmonitor is not installed' "$WORK/cleanup-monitor.txt" || { echo "::error::plasma-systemmonitor is installed"; exit 1; }
+          grep -q 'dev.wolklaw.SparkMonitor.desktop:X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc$' "$WORK/cleanup-monitor.txt"
+          if grep -v 'SparkMonitor' "$WORK/cleanup-monitor.txt" | grep -E 'X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)(,|$)'; then
+            echo "::error::another app claims Spark Monitor's keys"; exit 1
+          fi
+          # No Tailscale: no package, no repository, no units
+          $SSH 'rpm -q tailscale 2>&1; ls /etc/yum.repos.d/; echo "== units"; systemctl list-unit-files --no-legend "tailscale*"' | tee "$WORK/cleanup-tailscale.txt"
+          grep -q 'package tailscale is not installed' "$WORK/cleanup-tailscale.txt" || { echo "::error::tailscale is installed"; exit 1; }
+          if grep -i 'tailscale' "$WORK/cleanup-tailscale.txt" | grep -v 'is not installed'; then echo "::error::Tailscale leftovers"; exit 1; fi
+          # No calling home: usage counting off (timer and DNF), KDE's Get New Stuff hidden.
+          # The connectivity check is printed only: it stays until the owner decides.
+          $SSH 'echo "countme timer: $(systemctl is-enabled rpm-ostree-countme.timer 2>&1)"
+                echo "countme last run: $(systemctl show -P LastTriggerUSec rpm-ostree-countme.timer)"
+                echo "dnf countme on: $(grep -l "^countme=1" /usr/share/dnf5/repos.d/*.repo /etc/yum.repos.d/*.repo 2>/dev/null | wc -l)"
+                echo "ghns: $(kreadconfig6 --file kdeglobals --group "KDE Action Restrictions" --key ghns)"
+                echo "== connectivity check"; grep -h "^uri=" /usr/lib/NetworkManager/conf.d/*.conf /etc/NetworkManager/conf.d/*.conf 2>/dev/null; nmcli networking connectivity
+                echo "== enabled timers"; systemctl list-unit-files --type=timer --state=enabled --no-legend --no-pager
+                echo "== active timers"; systemctl list-timers --no-pager' | tee "$WORK/cleanup-calls.txt"
+          grep -qx 'countme timer: disabled' "$WORK/cleanup-calls.txt" || { echo "::error::rpm-ostree-countme.timer is not disabled"; exit 1; }
+          grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
+          grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
+
+      - name: Check SparkOS's own AppImage handling
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # .AppImage opens in sparkos-open-package, which adds it to the menu itself (no Gear Lever)
+          $SSH 'xdg-mime query default application/vnd.appimage; rpm -q fuse fuse-libs; grep -ci gearlever /usr/bin/sparkos-open-package || true' | tee "$WORK/appimage.txt"
+          grep -qx 'sparkos-open-package.desktop' "$WORK/appimage.txt"
+          ! grep -q 'not installed' "$WORK/appimage.txt"
+          tail -1 "$WORK/appimage.txt" | grep -qx 0 || { echo "::error::sparkos-open-package still mentions Gear Lever"; exit 1; }
+          # A real AppImage with the FUSE 2 runtime (AppImageKit 12's appimagetool, pinned by checksum):
+          # add it to the menu, run it (through FUSE), then remove it
+          curl -fsSL --retry 5 -o "$WORK/appimagetool-x86_64.AppImage" \
+            https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage
+          echo "d918b4df547b388ef253f3c9e7f6529ca81a885395c31f619d9aaf7030499a13  $WORK/appimagetool-x86_64.AppImage" | sha256sum -c -
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
+            "$WORK/appimagetool-x86_64.AppImage" spark@127.0.0.1:/tmp/appimagetool-x86_64.AppImage
+          $SSH 'set -e
+            mkdir -p ~/Downloads && mv /tmp/appimagetool-x86_64.AppImage ~/Downloads/
+            entry=$(sparkos-open-package --add-appimage ~/Downloads/appimagetool-x86_64.AppImage)
+            echo "== entry $entry"; cat "$entry"
+            desktop-file-validate "$entry" && echo "entry valid"
+            test ! -e ~/Downloads/appimagetool-x86_64.AppImage && test -x ~/Applications/appimagetool-x86_64.AppImage && echo "moved to ~/Applications"
+            icon=$(sed -n "s/^Icon=//p" "$entry" | head -1); test -s "$icon" && echo "icon $icon"
+            echo "== run (FUSE)"; ~/Applications/appimagetool-x86_64.AppImage --version 2>&1 | tail -2
+            echo "== remove"; sparkos-open-package --remove-appimage "$entry" --yes
+            test ! -e "$entry" && test ! -e ~/Applications/appimagetool-x86_64.AppImage && test ! -e "$icon" && echo "all removed"' 2>&1 | tee "$WORK/appimage-run.txt"
+          grep -q 'Name=appimagetool' "$WORK/appimage-run.txt"
+          grep -q '^entry valid' "$WORK/appimage-run.txt"
+          grep -q '^moved to ~/Applications' "$WORK/appimage-run.txt"
+          grep -q '^icon ' "$WORK/appimage-run.txt"
+          grep -q '^appimagetool, ' "$WORK/appimage-run.txt" || { echo "::error::the AppImage didn't run"; exit 1; }
+          grep -q '^all removed' "$WORK/appimage-run.txt"
+          # The double-click path itself, with a stand-in kdialog that gives set answers (exit 0 is
+          # the first button, 1 the second, 2 Cancel) and stand-in AppImages that leave a mark when run
+          cat > "$WORK/appimage-dialogs.sh" <<'EOF'
+          #!/bin/bash
+          set -u
+          fail=0
+          check() { if eval "$2"; then echo "ok: $1"; else echo "FAIL: $1"; fail=1; fi; }
+          mkdir -p /tmp/fakebin ~/Downloads
+          cat > /tmp/fakebin/kdialog <<'K'
+          #!/bin/sh
+          echo "kdialog $*" >> /tmp/kdialog.log
+          code=$(head -1 /tmp/answers); sed -i 1d /tmp/answers
+          exit "${code:-2}"
+          K
+          chmod +x /tmp/fakebin/kdialog
+          make_app() { # like a fresh download: not executable
+          cat > "$1" <<'A'
+          #!/bin/sh
+          if [ "$1" = --appimage-extract ]; then
+            mkdir -p squashfs-root
+            case "$2" in
+              '*.desktop') printf '[Desktop Entry]\nType=Application\nName=Dialog Test\nIcon=dialogtest\nCategories=Utility;\n' > squashfs-root/dialogtest.desktop ;;
+              dialogtest.png) cp /usr/share/icons/hicolor/48x48/apps/sparkos.png squashfs-root/dialogtest.png ;;
+            esac
+            exit 0
+          fi
+          echo "ran $0" >> /tmp/appimage-ran
+          A
+          chmod -x "$1"
+          }
+          open() { printf '%s\n' "$@" > /tmp/answers; PATH=/tmp/fakebin:$PATH sparkos-open-package "$F"; sleep 2; }
+          entry=~/.local/share/applications/sparkos-appimage-Dialog_Test.desktop
+          rm -f /tmp/appimage-ran /tmp/kdialog.log
+
+          echo "== Add to the app menu, then Open it now"
+          F=~/Downloads/Dialog_Test.AppImage; make_app "$F"; open 0 0
+          check "moved to ~/Applications, executable" '[ ! -e "$F" ] && [ -x ~/Applications/Dialog_Test.AppImage ]'
+          check "menu entry named from inside" 'grep -qx "Name=Dialog Test" "$entry"'
+          check "icon from inside" '[ -s ~/.local/share/sparkos/appimage-icons/Dialog_Test.png ]'
+          check "opened after adding" 'grep -q "^ran .*/Applications/Dialog_Test.AppImage$" /tmp/appimage-ran'
+
+          echo "== Opened again from ~/Applications: runs with no question"
+          n=$(wc -l < /tmp/kdialog.log); F=~/Applications/Dialog_Test.AppImage; open
+          check "no new question" '[ "$(wc -l < /tmp/kdialog.log)" = "$n" ]'
+          check "ran again" '[ "$(grep -c Dialog_Test /tmp/appimage-ran)" = 2 ]'
+
+          echo "== Remove from this PC (the menu entry's action), answered Remove"
+          act=$(sed -n '/^\[Desktop Action SparkOSRemove\]/,$s/^Exec=//p' "$entry")
+          printf '0\n' > /tmp/answers; PATH=/tmp/fakebin:$PATH eval "$act"
+          check "file, icon and entry deleted" '[ ! -e ~/Applications/Dialog_Test.AppImage ] && [ ! -e "$entry" ] && [ -z "$(ls -A ~/.local/share/sparkos/appimage-icons)" ]'
+
+          echo "== Run once"
+          F=~/Downloads/Once.AppImage; make_app "$F"; open 1
+          check "ran where it is" 'grep -q "^ran .*/Downloads/Once.AppImage$" /tmp/appimage-ran'
+          check "not added" '[ -e "$F" ] && [ ! -e ~/.local/share/applications/sparkos-appimage-Once.desktop ]'
+
+          echo "== Cancel"
+          F=~/Downloads/Cancel.AppImage; make_app "$F"; open 2
+          check "nothing ran or moved" '! grep -q Cancel /tmp/appimage-ran && [ -e "$F" ] && [ ! -x "$F" ]'
+
+          echo "== questions asked"; cat /tmp/kdialog.log
+          [ "$fail" = 0 ] && echo "ALL PASSED"
+          EOF
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
+            "$WORK/appimage-dialogs.sh" spark@127.0.0.1:/tmp/appimage-dialogs.sh
+          $SSH 'bash /tmp/appimage-dialogs.sh' 2>&1 | tee "$WORK/appimage-dialogs.txt"
+          grep -qx 'ALL PASSED' "$WORK/appimage-dialogs.txt" || { echo "::error::the AppImage double-click path failed"; exit 1; }
+
       - name: Check no third-party apps are preinstalled
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
@@ -259,13 +435,13 @@ jobs:
           ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
           ! grep -q 'bazzite-portal' "$WORK/apps.txt"
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && echo "platform and SparkOS apps present"'
+          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          # Double-clicked downloads open in the SparkOS helper, which fetches Bottles or Gear Lever
-          # from Flathub on first use (nothing is preinstalled), or guides .rpm and .deb files
+          # Double-clicked downloads open in the SparkOS helper, which hands .exe/.msi to Spark Run,
+          # adds AppImages itself, or guides .rpm and .deb files
           $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
           grep -q 'application/x-ms-dos-executable -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.appimage -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
@@ -274,7 +450,8 @@ jobs:
           grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           # The Store and the guided package installer are there, and what the installer uses exists
           $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
-          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub reachable for Bottles and Gear Lever"'
+          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub set up for the Store"'
+          $SSH 'grep -A2 "\*.exe|\*.msi)" /usr/bin/sparkos-open-package | grep -q "exec spark-run" && command -v spark-run && echo ".exe and .msi open in Spark Run"'
 
       - name: Measure boot time and idle load
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -312,6 +489,11 @@ jobs:
           grep -q "LookAndFeelPackage=dev.wolklaw.sparkos.desktop" "$WORK/look.txt"
           grep -qx "Chakra Petch" "$WORK/look.txt"
           grep -qx "Inter" "$WORK/look.txt"
+          # Chakra Petch is the copy kept in this repo (files/sparkos-theme/fonts), not a build-time download
+          (cd files/sparkos-theme/fonts && sha256sum ChakraPetch-*.ttf OFL.txt) | tee "$WORK/fonts-repo.txt"
+          $SSH 'cd /usr/share/fonts/chakra-petch && sha256sum ChakraPetch-*.ttf OFL.txt' > "$WORK/fonts-image.txt"
+          diff "$WORK/fonts-repo.txt" "$WORK/fonts-image.txt" || { echo "::error::the image's Chakra Petch differs from the repo's"; exit 1; }
+          if grep -nwE 'curl|wget' files/scripts/sparkos-theme.sh; then echo "::error::sparkos-theme.sh downloads something"; exit 1; fi
           grep -q "Theme=sparkos" "$WORK/look.txt"
           grep -q "Name=SparkOS" "$WORK/look.txt"
           # Sign in once automatically as the test user, to see the real desktop
@@ -328,6 +510,14 @@ jobs:
           grep -q "org.kde.plasma.icontasks" "$WORK/desktop-layout.txt"
           grep -q "menuLabel=SPARKOS" "$WORK/desktop-layout.txt" || { echo "::error::the SparkOS layout was not used"; exit 1; }
           grep -E "^launchers=" "$WORK/desktop-layout.txt" || true
+          # Spark Snip captures through KWin in a real Plasma session.
+          # Required: Spectacle is gone, so this is how Print works.
+          if $SSH 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u) spark-snip --capture-test /tmp/snip.png' 2>&1 | tee "$WORK/spark-snip-capture.txt"; then
+            echo "Spark Snip captured the desktop through KWin"
+            $SSH 'cat /tmp/snip.png' > "$WORK/shots/4-spark-snip-capture.png" || true
+          else
+            echo "::error::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"; exit 1
+          fi
 
       - name: Screenshot at the end
         if: always()

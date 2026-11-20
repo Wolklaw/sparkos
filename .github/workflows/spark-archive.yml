@@ -1,0 +1,166 @@
+name: spark-archive
+# Spark Archive: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, with Dolphin's Extract and
+# Compress menu. Build step files/scripts/spark-archive.sh; also installs per user without
+# root, the way optional Spark apps will through the future Spark Portal.
+#
+# fedora:  in a plain Fedora container (as root), the unit tests (every format, every
+#          path-escape case) and the window tests under Xvfb, then the image build step, then
+#          times opening the window and a 20 000-file archive.
+# sparkos: inside the published SparkOS image, as a normal user (setpriv: su and runuser need
+#          PAM, which a container doesn't have), the unit tests on the image's own Python,
+#          libarchive and 7z, then install.sh --user, the self-test, uninstall, and a check
+#          that nothing is left behind.
+on:
+  push:
+    paths:
+      - "files/spark-archive/**"
+      - "files/scripts/spark-archive.sh"
+      - ".github/workflows/spark-archive.yml"
+  pull_request:
+    paths:
+      - "files/spark-archive/**"
+      - "files/scripts/spark-archive.sh"
+      - ".github/workflows/spark-archive.yml"
+  workflow_dispatch:
+concurrency:
+  # a newer push replaces a run still going; runners are shared with the other Spark apps
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: What SparkOS has (Python with Tk, libarchive, 7z, zstd), and Xvfb
+        run: |
+          dnf -y install --setopt=install_weak_deps=False python3 python3-tkinter libarchive \
+            7zip zstd cpio lz4 lzip ncompress xorg-x11-server-Xvfb xorg-x11-xauth
+
+      - name: Tests (Xvfb)
+        shell: bash
+        run: |
+          cd files/spark-archive
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v 2>&1 \
+            | tee /tmp/tests.txt
+          rc=${PIPESTATUS[0]}
+          # failures on the run page itself, readable without signing in
+          { echo "### Tests in Fedora (root): $(tail -n 1 /tmp/tests.txt)"
+            if [ "$rc" != 0 ]; then echo '```'; sed -n '/^=====/,$p' /tmp/tests.txt | head -400; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
+      - name: Screenshots (Xvfb, invented files)
+        if: success() || failure()
+        run: |
+          dnf -y install --setopt=install_weak_deps=False python3-pillow cascadia-mono-fonts
+          cd files/spark-archive
+          xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/screenshots.py /tmp/screenshots
+
+      - uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: spark-archive-screenshots
+          path: /tmp/screenshots
+
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-archive.sh
+
+      - name: Speed (window, and a 20 000-file archive)
+        run: |
+          python3 -c "
+          import zipfile
+          with zipfile.ZipFile('/tmp/many.zip', 'w') as zf:
+              for i in range(20000):
+                  zf.writestr(f'folder{i // 500}/file{i}.txt', 'x' * 100)
+          "
+          xvfb-run -a -s "-screen 0 1920x1080x24" spark-archive --bench 20 | tee bench.txt
+          xvfb-run -a -s "-screen 0 1920x1080x24" spark-archive --bench 20 /tmp/many.zip | tee -a bench.txt
+          { echo '### Spark Archive speed (GitHub runner, Xvfb)'; echo '```'; cat bench.txt; echo '```'; } \
+            >> "$GITHUB_STEP_SUMMARY"
+
+  sparkos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: What the image has for archives (for the PR)
+        run: |
+          sudo podman run --rm -v "$PWD/files/spark-archive/tests:/t:ro" "$IMAGE" bash /t/image_report.sh \
+            | tee /tmp/image.txt
+          { echo '<details><summary>What the SparkOS image has for archives</summary>'; echo
+            echo '```'; cat /tmp/image.txt; echo '```'; echo '</details>'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Install, self-test, uninstall as a normal user
+        run: |
+          mkdir -p /tmp/out && chmod 777 /tmp/out
+          set +e
+          sudo podman run --rm -v "$PWD/files/spark-archive:/src:ro" -v /tmp/out:/out "$IMAGE" bash -euo pipefail -c '
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            cp -r /src "$home/spark-archive"
+            chown -R tester: "$home/spark-archive"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester \
+                    LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+            usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+
+            echo "--- unit tests on the image Python, libarchive and 7z"
+            as "cd ~/spark-archive && python3 -m unittest discover -s tests -v 2>&1 | tee /out/tests.txt; exit \${PIPESTATUS[0]}"
+
+            echo "--- install --user"
+            as "bash ~/spark-archive/install.sh --user"
+            as "test -x ~/.local/bin/spark-archive"
+            as "grep -q \"^Exec=$home/.local/bin/spark-archive %f$\" ~/.local/share/applications/dev.wolklaw.SparkArchive.desktop"
+            as "test -x ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.extract.desktop"
+            as "grep -q \"^Exec=$home/.local/bin/spark-archive --compress zip %F$\" ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.compress.desktop"
+            as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkArchive.png"
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
+
+            echo "--- the installed command"
+            as "~/.local/bin/spark-archive --version"
+            as "~/.local/bin/spark-archive --self-test | tee /out/self-test.txt; exit \${PIPESTATUS[0]}"
+            as "~/.local/bin/spark-archive --list ~/spark-archive/tests/fixtures/plain.7z"
+
+            echo "--- uninstall"
+            as "bash ~/spark-archive/install.sh --user --uninstall"
+            left=$(as "find ~/.local -iname \"*spark*archive*\" -o -iname \"*SparkArchive*\"" || true)
+            if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
+            usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+            [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
+            echo "installed, tested and removed without root"
+          '
+          rc=$?
+          { echo "### In the SparkOS image, as a normal user: $( [ "$rc" = 0 ] && echo passed || echo FAILED)"
+            if [ -f /tmp/out/tests.txt ]; then
+              echo "Unit tests: $(tail -n 1 /tmp/out/tests.txt)"
+              if grep -q '^=====' /tmp/out/tests.txt; then
+                echo '```'; sed -n '/^=====/,$p' /tmp/out/tests.txt | head -400; echo '```'
+              fi
+            fi
+            if [ -f /tmp/out/self-test.txt ]; then echo '```'; cat /tmp/out/self-test.txt; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"

@@ -169,7 +169,11 @@ class WelcomePage(Page):
         self.micro(t('welcome.onboard'))
         for name, what in (('Soot', t('welcome.soot')), ('FreeSuite', t('welcome.freesuite')),
                            ('Spark Snip', t('welcome.snip')), ('Spark Media', t('welcome.media')),
-                           ('Spark Games', t('welcome.games')), ('Spark Monitor', t('welcome.monitor'))):
+                           ('Spark Games', t('welcome.games')), ('Spark Monitor', t('welcome.monitor')),
+                           ('Spark Edit', t('welcome.edit')), ('Spark Calc', t('welcome.calc')),
+                           ('Spark Archive', t('welcome.archive')), ('Spark Scan', t('welcome.scan')),
+                           ('Spark Run', t('welcome.run')), ('Spark Link', t('welcome.link')),
+                           ('Spark Store', t('welcome.store')), ('Spark Update', t('welcome.update'))):
             box = self.panel(pady=(0, 6))
             line = tk.Frame(box.inner, bg=T["panel"])
             line.pack(fill="x", padx=px(12), pady=px(8))

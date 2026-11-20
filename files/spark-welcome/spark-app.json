@@ -3,7 +3,7 @@
   "slug": "spark-welcome",
   "name": "Spark Welcome",
   "description": "First-login setup: game launchers and apps from Flathub, your files from Windows, and a check of this PC.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "size_kb": 200,
   "needs": {
     "python": ">=3.9",

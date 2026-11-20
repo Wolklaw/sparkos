@@ -14,7 +14,7 @@ Everything runs on the computer. Nothing is uploaded.
 
 ## How it works
 
-- **Screenshots:** on Plasma, Spectacle reads the screen in the background (KWin only lets trusted programs do that). grim and gnome-screenshot are used on other Wayland desktops, and Pillow on X11. Spark Snip then shows that frozen frame full screen, so what you pick is exactly what you saw.
+- **Screenshots:** on Plasma, Spark Snip asks KWin for the whole desktop over D-Bus (`org.kde.KWin.ScreenShot2`, `CaptureWorkspace`, at the screens' native resolution). KWin writes the pixels into a pipe; there is no helper program and no file on disk. If KWin refuses or isn't there, it uses Spectacle while Spectacle is still installed, then asks the XDG Desktop Portal for a screenshot. grim and gnome-screenshot are used on other Wayland desktops, and Pillow on X11. Spark Snip then shows that frozen frame full screen, so what you pick is exactly what you saw. Spark Snip never needs Spectacle.
 - **Text:** Tesseract, with the same preprocessing as QuickOCR: three variants, and the most confident read wins.
 - **Recording:** the desktop's ScreenCast portal shares one monitor as a PipeWire stream, and GStreamer crops it to the area and encodes it. It tries the GPU (VA-API H.264) first, then x264, OpenH264, and finally VP8 in WebM. The first recording on each monitor shows Plasma's share dialog. The answer is remembered after that. System sound is on by default and the microphone is off. Switch them in the main window, or with M and S in the overlay.
 - **Interface:** Tk, in the Wolklaw app style: BotWatch palette, mono type, sharp corners, and the magenta/cyan channel slip.
@@ -24,17 +24,20 @@ Everything runs on the computer. Nothing is uploaded.
 ```
 python3 spark_snip.py                 # the window
 python3 spark_snip.py text            # straight to a capture: text, image or video
-python3 spark_snip.py --self-test     # OCR samples and a test encode, no display needed
+python3 spark_snip.py --self-test     # OCR samples, capture setup, a test encode; no display needed
+python3 spark_snip.py --capture-test /tmp/snip.png  # in a Plasma session: one screenshot through KWin only; exit 1 if it fails
+python3 spark_snip.py --capture-check # on a desktop: try every capture path, save the results
 sudo bash install.sh --deps           # system-wide, with Fedora packages (what the image build runs)
 python3 -m unittest discover -s tests -v
 python3 make_icons.py                 # redraw icons/ after changing the mark
 ```
 
-The tests that open windows need a display. CI runs them under Xvfb in a Fedora container ([workflow](../../.github/workflows/spark-snip.yml)), and the SparkOS image build runs `--self-test` inside the real image.
+The tests that open windows need a display. The D-Bus capture tests need `dbus-daemon` and run the real client against a stand-in KWin and portal ([tests/fake_desktop.py](tests/fake_desktop.py)) on a private bus. CI runs everything under Xvfb in a Fedora container and again inside the published SparkOS image with Spectacle removed ([workflow](../../.github/workflows/spark-snip.yml)), and the SparkOS image build runs `--self-test` inside the real image.
 
 ## Known gaps
 
-- Not tried by hand on a SparkOS desktop yet. CI covers install, OCR, encoding and the overlay under X11. The Plasma Wayland paths (Spectacle capture, the share portal, global shortcuts, scaling) have only been checked against their documentation.
+- Not tried by hand on a SparkOS desktop yet. CI covers install, OCR, encoding, the overlay under X11, and the KWin and portal screenshot client against stand-ins. The real KWin and portal on Plasma Wayland, the share portal for recording, global shortcuts and scaling have only been checked against KWin's source and the portal documentation. `spark-snip --capture-check` on a Plasma session tries each capture path and saves what it got to `~/.cache/spark-snip/capture-check/`.
+- KWin's screenshot interface answers any program from Plasma 6.8 on (SparkOS has 6.8). Older Plasma only answers programs whose desktop entry declares it, matched by the running executable, which for Spark Snip is Python, so there it will likely fall back to the portal.
 - A selection stays on one monitor. Mixed scaling across monitors may misplace the recorded area.
-- On an existing install, Plasma keeps the shortcuts it already has saved. If Print still opens Spectacle, set it in System Settings > Shortcuts > Spark Snip.
+- On an existing install, Plasma keeps the shortcuts it already has saved. If Print does nothing or opens something else, set it in System Settings > Shortcuts > Spark Snip.
 - No annotation or upload. Flameshot is in the image for that.

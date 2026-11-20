@@ -5,7 +5,7 @@
 #   System and fastfetch.
 # Static files (colour scheme, look-and-feel package, Plymouth theme, /etc/xdg defaults) come
 # from files/system. This script renders the images from the SparkOS bot (files/sparkos-theme,
-# a copy of branding/sparkos-bot.svg), installs the fonts, and rebuilds the initramfs so the
+# a copy of branding/sparkos-bot.svg), installs the fonts from files/sparkos-theme/fonts, and rebuilds the initramfs so the
 # boot splash is in it.
 set -oue pipefail
 
@@ -18,13 +18,13 @@ WORK=$(mktemp -d)
 dnf -y install --setopt=install_weak_deps=False librsvg2-tools
 render() { rsvg-convert -w "$2" -h "$2" -o "$3" "$1"; }
 
-# --- fonts: Inter (Fedora package, from the recipe) and Chakra Petch (Google Fonts, pinned)
-FONTS_COMMIT=e774067705989f0bcb5e32eb0e8f76c24d679f92
-FONTS_URL="https://raw.githubusercontent.com/google/fonts/$FONTS_COMMIT/ofl/chakrapetch"
+# --- fonts: Inter (Fedora package, from the recipe) and Chakra Petch, kept in this repo at
+# files/sparkos-theme/fonts (SIL Open Font License, OFL.txt next to it; from google/fonts commit
+# e774067705989f0bcb5e32eb0e8f76c24d679f92). No download: the checksums catch a damaged copy.
 FDIR=/usr/share/fonts/chakra-petch
 mkdir -p "$FDIR"
 while read -r sum name; do
-  curl -fsSL --retry 5 -o "$FDIR/$name" "$FONTS_URL/$name"
+  install -m 0644 "$SRC/fonts/$name" "$FDIR/$name"
   echo "$sum  $FDIR/$name" | sha256sum -c -
 done <<'EOF'
 d480f4f97405fac3600652e2e14fd0b14339031c0af4da11582994878f04d919 ChakraPetch-Medium.ttf

@@ -3,16 +3,14 @@
 # screen recording. Its source lives in this repo at files/spark-snip.
 #
 # It becomes the default for the screenshot keys: Print and Meta+Shift+S take a screenshot,
-# Meta+Shift+T copies text, Meta+Shift+R starts and stops a recording. Spectacle stays
-# installed, because Spark Snip uses it to read the screen on Plasma, but it gives up
-# Print and Meta+Shift+R. Its other shortcuts (Meta+Print and so on) are untouched.
+# Meta+Shift+T copies text, Meta+Shift+R starts and stops a recording. Spark Snip reads the
+# screen through KWin itself (the boot test proves it in a real Plasma session), so Spectacle
+# is removed in the recipe. If Spectacle is ever back in the image, it gives up those keys.
+# Its other shortcuts (Meta+Print and so on) are untouched.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-snip"
 test -f "$SRC/install.sh" || { echo "Spark Snip source not found at $SRC"; exit 1; }
-
-# Spark Snip reads the screen through Spectacle on Plasma
-rpm -q spectacle >/dev/null || dnf -y install --setopt=install_weak_deps=False spectacle
 
 bash "$SRC/install.sh" --deps
 
@@ -45,7 +43,7 @@ test -x /usr/bin/spark-snip
 test -f /usr/share/applications/dev.wolklaw.SparkSnip.desktop
 test -L /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop
 grep -q '^X-KDE-Shortcuts=Print,Meta+Shift+S$' /usr/share/applications/dev.wolklaw.SparkSnip.desktop
-if grep -E '^X-KDE-Shortcuts=(.*,)?(Print|Meta\+Shift\+R)(,|$)' /usr/share/applications/org.kde.spectacle.desktop; then
+if [ -f /usr/share/applications/org.kde.spectacle.desktop ] && grep -E '^X-KDE-Shortcuts=(.*,)?(Print|Meta\+Shift\+R)(,|$)' /usr/share/applications/org.kde.spectacle.desktop; then
   echo "Spectacle still claims Print or Meta+Shift+R"; exit 1
 fi
 

@@ -7,10 +7,15 @@ description: SparkOS, a desktop for gaming and everyday work, built on Bazzite.
 # Base: Bazzite (KDE Plasma, AMD/Intel GPUs, current Mesa drivers, gaming kernel).
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
-# FreeSuite, Spark Snip, Spark Media, Spark Welcome, Spark Games, Spark Monitor). Every other company's or project's app is removed, Bazzite's
-# included; people install what they want from the Store (Bazaar). What stays is the platform
-# SparkOS needs to work: Plasma, Dolphin, Konsole, Spectacle (Spark Snip uses it), System
-# Settings and Monitor, Ark (zip support), KDE Connect, the Store, drivers, printing and scanning.
+# FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
+# Run, Link, Store and Update). Every other company's or project's app is removed, Bazzite's
+# included; people install what they want from the Store (Spark Store, or Bazaar next to it). What stays is the platform
+# SparkOS needs to work: Plasma, Dolphin, Konsole, System
+# Settings, Ark (zip support), KDE Connect, the Store, drivers, printing and scanning.
+# Where a Spark app does the job, KDE's own is removed too: Spark Monitor replaces Plasma System
+# Monitor (and takes its shortcuts), Spark Snip replaces Spectacle (it captures through KWin
+# itself). Ark and KDE Connect stay until Spark Archive and Spark Link
+# are tried on real hardware. Tailscale, a company's VPN service, is removed too.
 base-image: ghcr.io/ublue-os/bazzite
 image-version: stable
 
@@ -28,7 +33,9 @@ modules:
         - bubblewrap # Claude Code's command sandbox (already in Bazzite for Flatpak; listed so it stays)
         - socat # Claude Code's command sandbox
         - kdialog # folder picker for sparkos-claude and the install dialogs
-        - rsms-inter-fonts # Inter, the SparkOS interface font (Chakra Petch comes from sparkos-theme.sh)
+        - fuse # AppImages mount themselves with FUSE (fusermount); already in Bazzite, listed so it stays
+        - fuse-libs # FUSE 2, which most AppImages' runtime needs
+        - rsms-inter-fonts # Inter, the SparkOS interface font (Chakra Petch is in files/sparkos-theme/fonts)
         # So Androidbox installs for your user (bash packaging/linux/install.sh --user) with no root:
         # a Python that Qt for Python supports (Fedora 45's own is 3.15), and the libraries Qt, SDL
         # and Google's emulator load. Androidbox itself is not in the image.
@@ -65,6 +72,11 @@ modules:
         - kwalletmanager5
         - kdebugsettings
         - khelpcenter
+        # KDE's own apps that a Spark app replaces (nothing else in the image requires them)
+        - plasma-systemmonitor # Spark Monitor
+        - spectacle # Spark Snip (captures through KWin; nothing else in the image requires Spectacle)
+        # Third-party services Bazzite preinstalls (installable by anyone who wants them; see docs/switching.md)
+        - tailscale
 
   - type: script
     scripts:
@@ -77,6 +89,15 @@ modules:
       - spark-welcome.sh # Spark Welcome: first-login setup (launchers and apps on click, files from Windows, PC check)
       - spark-games.sh # Spark Games: one library for every installed game
       - spark-monitor.sh # Spark Monitor: task manager (Ctrl+Shift+Esc)
+      - spark-edit.sh # Spark Edit: text and code editor
+      - spark-calc.sh # Spark Calc: calculator (standard, scientific, programmer)
+      - spark-archive.sh # Spark Archive: zip, tar, 7z, rar, iso; Extract/Compress in Dolphin
+      - spark-scan.sh # Spark Scan: scanning with preview, crop, multi-page PDF and OCR
+      - spark-run.sh # Spark Run: Windows programs on Wine (Wine is downloaded on first use)
+      - spark-link.sh # Spark Link: phone link (PC side; phone side in Soot)
+      - spark-store.sh # Spark Store, next to Bazaar
+      - spark-update.sh # Spark Update: updater window and notification; Bazzite's uupd still downloads (after the app scripts: it lists their versions)
+      - sparkos-cleanup.sh # fewer outside products: Spark Monitor takes Plasma System Monitor's keys; no Tailscale repo; no usage counting
       - sparkos-defaults.sh # Soot, FreeSuite and Spark Media as default apps; downloaded installers open the SparkOS way
       - sparkos-theme.sh # the SparkOS look: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
 

@@ -10,6 +10,6 @@ APP_NAME = "Spark Welcome"
 APP_SLUG = "spark-welcome"       # command, folders, log names
 APP_CLASS = "SparkWelcome"       # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkWelcome"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 PAGES = ("welcome", "games", "apps", "windows", "checks", "done")
