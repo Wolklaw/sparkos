@@ -174,7 +174,7 @@ class WelcomePage(Page):
             line = tk.Frame(box.inner, bg=T["panel"])
             line.pack(fill="x", padx=px(12), pady=px(8))
             tk.Label(line, text=name.upper(), bg=T["panel"], fg=T["accent"], font=self.app.font(9),
-                     width=13, anchor="w").pack(side="left")
+                     width=15, anchor="w").pack(side="left")
             tk.Label(line, text=what, bg=T["panel"], fg=T["text"], font=self.app.font(9, False),
                      anchor="w", justify="left", wraplength=px(480)).pack(side="left", fill="x")
         self.micro(t('welcome.how'))
