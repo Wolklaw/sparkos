@@ -176,7 +176,7 @@ jobs:
                 "docker://$IMAGE_REPO@$DIGEST" "docker://$IMAGE_REPO:$tag" && break
               echo "copy to $tag failed, retry $i"; sleep $((i*15))
             done
-            GOT=$(skopeo inspect --format '{{.Digest}}' "docker://$IMAGE_REPO:$tag")
+            GOT=$(skopeo inspect --creds "${{ github.actor }}:${{ github.token }}" --format '{{.Digest}}' "docker://$IMAGE_REPO:$tag")
             [ "$GOT" = "$DIGEST" ] || { echo "$tag is $GOT, expected $DIGEST"; exit 1; }
             echo "$tag -> $DIGEST"
           done
