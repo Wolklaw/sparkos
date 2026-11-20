@@ -257,6 +257,10 @@ jobs:
           if grep -v 'SparkMonitor' "$WORK/cleanup-monitor.txt" | grep -E 'X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)(,|$)'; then
             echo "::error::another app claims Spark Monitor's keys"; exit 1
           fi
+          # No Tailscale: no package, no repository, no units
+          $SSH 'rpm -q tailscale 2>&1; ls /etc/yum.repos.d/; echo "== units"; systemctl list-unit-files --no-legend "tailscale*"' | tee "$WORK/cleanup-tailscale.txt"
+          grep -q 'package tailscale is not installed' "$WORK/cleanup-tailscale.txt" || { echo "::error::tailscale is installed"; exit 1; }
+          if grep -i 'tailscale' "$WORK/cleanup-tailscale.txt" | grep -v 'is not installed'; then echo "::error::Tailscale leftovers"; exit 1; fi
 
       - name: Check SparkOS's own AppImage handling
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

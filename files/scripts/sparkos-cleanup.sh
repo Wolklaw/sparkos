@@ -17,4 +17,10 @@ others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)
   | grep -v 'dev.wolklaw.SparkMonitor.desktop$' || true)
 [ -z "$others" ] || { echo "these also claim Spark Monitor's keys:"; echo "$others"; exit 1; }
 
+# --- Tailscale (removed in the recipe): its package repository and any unit left enabled
+if rpm -q tailscale >/dev/null 2>&1; then echo "tailscale is still installed"; exit 1; fi
+rm -fv /etc/yum.repos.d/tailscale.repo
+find /etc/systemd /usr/lib/systemd -name 'tailscale*' -print -delete
+if systemctl list-unit-files --no-legend 'tailscale*' | grep -q .; then echo "a Tailscale unit is still there"; exit 1; fi
+
 echo "Release 2 cleanup done."

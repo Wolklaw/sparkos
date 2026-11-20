@@ -77,7 +77,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Ryzen Master | **No** | Set PBO and Curve Optimizer in the BIOS instead. They then apply to both systems. |
 | Logitech G HUB, SignalRGB, 8BitDo, Focusrite Control | See Devices above | |
 | Wallpaper Engine | **Partly** | A community KDE plugin plays many Wallpaper Engine scenes. It isn't in the image. |
-| Tailscale | **Works** | In Bazzite. Run `ujust tailscale`. |
+| Tailscale | **Works** | Not in the image (it's a company's service, and Bazzite's `ujust tailscale` no longer applies). To add it, run `sudo curl -fsSLo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo`, then `rpm-ostree install tailscale` and restart. Then `sudo systemctl enable --now tailscaled` and `sudo tailscale up` to sign in. It updates with SparkOS from then on. |
 | hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN work in System Settings > Network. |
 | TeamViewer | **Works** | Download the Linux .rpm from teamviewer.com and double-click it: SparkOS asks, installs it and offers a restart. |
 | PuTTY | **Replaced** | `ssh` in Konsole (built in). |
