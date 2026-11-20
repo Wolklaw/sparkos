@@ -200,6 +200,7 @@ jobs:
 
       - name: Check Androidbox installs for a user
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        timeout-minutes: 20
         run: |
           # Androidbox isn't in the image; SparkOS ships what it needs so a user can install it.
           # Do exactly what a user would: latest release, its installer with --user, no root.
@@ -207,7 +208,9 @@ jobs:
                 tag=$(curl -fsSI https://github.com/Wolklaw/Androidbox/releases/latest | tr -d "\r" | sed -n "s|^[Ll]ocation: .*/releases/tag/||p" | tail -1)
                 echo "Androidbox latest release: $tag"
                 mkdir -p /tmp/abx && curl -fsSL "https://github.com/Wolklaw/Androidbox/archive/refs/tags/$tag.tar.gz" | tar -xz -C /tmp/abx
-                bash /tmp/abx/*/packaging/linux/install.sh --user' 2>&1 | tee "$WORK/androidbox-install.txt"
+                # --no-test: its own end-of-install start check waits on a screen this VM lacks;
+                # the timed start check below does that job
+                timeout 900 bash /tmp/abx/*/packaging/linux/install.sh --user --no-test' 2>&1 | tee "$WORK/androidbox-install.txt"
           $SSH 'QT_QPA_PLATFORM=offscreen ~/.local/bin/androidbox --version' | tee "$WORK/androidbox-version.txt"
           grep -q '^Androidbox [0-9]' "$WORK/androidbox-version.txt"
           $SSH 'test -f ~/.local/share/applications/dev.wolklaw.Androidbox.desktop && echo "menu entry present"'
