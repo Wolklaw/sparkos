@@ -62,7 +62,15 @@ jobs:
           dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
             desktop-file-utils util-linux procps-ng
           cd files/spark-run
-          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+          status=0
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v \
+            > /tmp/unit.log 2>&1 || status=$?
+          cat /tmp/unit.log
+          if [ $status != 0 ]; then
+            { echo '### Unit tests failed (Fedora)'; echo '```'
+              grep -E -A40 '^(FAIL|ERROR):' /tmp/unit.log | head -300; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $status
 
       - uses: actions/download-artifact@v4
         with:
@@ -82,8 +90,16 @@ jobs:
           setpriv --reuid=tester --regid=tester --init-groups env -i HOME="$home" USER=tester \
             LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 DISPLAY=:99 \
             GITHUB_STEP_SUMMARY=/tmp/summary.md \
-            bash -c 'cd ~ && bash ci_wine.sh ~/fixtures /usr/bin/spark-run'
+            bash -c 'cd ~ && bash ci_wine.sh ~/fixtures /usr/bin/spark-run' > /tmp/wine.log 2>&1 \
+            || status=$?
+          cat /tmp/wine.log
           cat /tmp/summary.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "${status:-0}" != 0 ]; then
+            { echo '### Real Wine failed (Fedora), last lines'; echo '```'; tail -80 /tmp/wine.log
+              echo '```'; echo 'Spark Run logs:'; echo '```'
+              tail -n 40 "$home"/.local/state/spark-run/*.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "${status:-0}"
 
       - name: Screenshots of the window
         if: always()
@@ -148,11 +164,14 @@ jobs:
         run: |
           mkdir -p "$RUNNER_TEMP/out"
           chmod 777 "$RUNNER_TEMP/out"
+          set +e
           sudo podman run --rm -v "$PWD/files/spark-run:/src:ro" -v "$PWD/fixtures:/fixtures:ro" \
             -v "$RUNNER_TEMP/out:/out" "$IMAGE" bash -euo pipefail -c '
             mkdir -p /var/home
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)
+            # keep Spark Run'"'"'s logs for the summary if anything fails
+            trap "cp -r $home/.local/state/spark-run /out/state 2>/dev/null; chmod -R a+rX /out" EXIT
             cp -r /src "$home/spark-run"
             cp -r /fixtures "$home/fixtures"
             chown -R tester: "$home"
@@ -186,5 +205,12 @@ jobs:
             usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
             [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
             echo "installed, tested on real Wine and removed without root"
-          '
+          ' 2>&1 | tee "$RUNNER_TEMP/sparkos.log"
+          status=${PIPESTATUS[0]}
           cat "$RUNNER_TEMP/out/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" != 0 ]; then
+            { echo '### SparkOS job failed, last lines'; echo '```'; tail -120 "$RUNNER_TEMP/sparkos.log"
+              echo '```'; echo 'Spark Run logs:'; echo '```'
+              tail -n 40 "$RUNNER_TEMP"/out/state/*.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$status"
