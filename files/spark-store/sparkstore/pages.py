@@ -34,16 +34,37 @@ def section(store: 'Store', parent: tk.Misc, title: str, note: str = '') -> Glit
     return text
 
 
-def wrap_on_resize(container: tk.Misc, labels: List[tk.Label], pad: int) -> None:
+def wrap_on_resize(container: tk.Misc, labels: List[tk.Label], pad: int,
+                   slack: int = 0) -> None:
+    """Wrap the labels' text at the container's width. With slack, text that already wraps
+    a little early is left alone (each change lays out the page again)."""
     def fit(event):
         width = max(80, event.width - pad)
         for label in labels:
-            if label.winfo_exists() and int(label.cget("wraplength") or 0) != width:
+            if not label.winfo_exists():
+                continue
+            now = int(label.cget("wraplength") or 0)
+            if now != width and not (0 < now <= width <= now + slack):
                 label.config(wraplength=width)
     container.bind("<Configure>", fit, add="+")
 
 
-def app_card(store: 'Store', parent: tk.Misc, app: App, compact: bool = False) -> Card:
+def card_wrap(store: 'Store', columns: int, icon: int) -> int:
+    """How wide a card's text will be, worked out before the cards exist, so the page is
+    laid out once instead of once per card."""
+    px = store.px
+    width = store.body.winfo_width()
+    if width < px(300):
+        width = store.root.winfo_width()
+    if width < px(300):
+        width = px(1120)
+    width -= px(28) + px(18)                    # page margins and the scrollbar
+    column = width // columns - px(4)
+    return max(px(120), column - icon - px(20) - px(10) - px(8))
+
+
+def app_card(store: 'Store', parent: tk.Misc, app: App, compact: bool = False,
+             wrap: int = 0) -> Card:
     """One app: icon, name, who makes it, summary, and chips."""
     px = store.px
     card = Card(parent, command=lambda: store.open_app(app))
@@ -60,16 +81,16 @@ def app_card(store: 'Store', parent: tk.Misc, app: App, compact: bool = False) -
     col = tk.Frame(inner, bg=bg)
     col.pack(side="left", fill="both", expand=True, pady=px(8), padx=(0, px(10)))
     name = tk.Label(col, text=app.name, font=store.font(10), bg=bg, fg=T["text"], anchor="w",
-                    justify="left")
+                    justify="left", wraplength=wrap)
     name.pack(fill="x")
     who = app.developer or app.id
     dev = tk.Label(col, text=who, font=store.font(8, False), bg=bg, fg=T["muted"], anchor="w",
-                   justify="left")
+                   justify="left", wraplength=wrap)
     dev.pack(fill="x")
     labels = [name, dev]
     if app.summary:
         summary = tk.Label(col, text=app.summary, font=store.font(9, False), bg=bg,
-                           fg=T["text"], anchor="w", justify="left")
+                           fg=T["text"], anchor="w", justify="left", wraplength=wrap)
         summary.pack(fill="x", pady=(px(3), 0))
         labels.append(summary)
     chips = tk.Frame(col, bg=bg)
@@ -77,7 +98,7 @@ def app_card(store: 'Store', parent: tk.Misc, app: App, compact: bool = False) -
         chip(chips, text, store.font(7), colour, filled, px).pack(side="left", padx=(0, px(4)))
     if chips.winfo_children():
         chips.pack(fill="x", pady=(px(5), 0))
-    wrap_on_resize(col, labels, px(4))
+    wrap_on_resize(col, labels, px(4), slack=px(40))
     card.wire()
     return card
 
@@ -89,8 +110,9 @@ def grid_cards(store: 'Store', parent: tk.Misc, apps: List[App], columns: int = 
     grid.pack(fill="x", padx=px(14))
     for c in range(columns):
         grid.columnconfigure(c, weight=1, uniform="cards")
+    wrap = card_wrap(store, columns, px(40) if compact else px(48))
     for i, app in enumerate(apps):
-        card = app_card(store, grid, app, compact)
+        card = app_card(store, grid, app, compact, wrap)
         card.grid(row=i // columns, column=i % columns, sticky="nsew", padx=px(2), pady=px(2))
     return grid
 
@@ -162,8 +184,8 @@ class HomePage:
                      bg=T["bg"], fg=T["muted"], anchor="w").pack(fill="x", padx=px(16),
                                                                   pady=(px(14), 0))
         tk.Frame(self.inner, bg=T["bg"], height=px(20)).pack()
-        self.inner.update_idletasks()
-        self.canvas.yview_moveto(y)
+        if y:
+            self.inner.after_idle(lambda: self.canvas.yview_moveto(y))
 
 
 class SearchPage:

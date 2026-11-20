@@ -4,8 +4,10 @@ background thread that exists only while there is work. The window reads each jo
 
 A failed job keeps flatpak's own error message, and can be retried."""
 
+import os
 import queue
 import re
+import signal
 import subprocess
 import threading
 import time
@@ -110,11 +112,7 @@ class JobQueue:
                 job.state, job.ended = CANCELLED, time.time()
             elif job.state == RUNNING:
                 job.cancel_asked = True
-                if job.proc is not None and job.proc.poll() is None:
-                    try:
-                        job.proc.terminate()
-                    except OSError:
-                        pass
+                self._stop(job)
         self.changes.put(job)
 
     def clear_finished(self) -> None:
@@ -222,27 +220,62 @@ class JobQueue:
         try:      # in the user's language: its errors are shown as they are
             proc = subprocess.Popen(base + argv, stdout=subprocess.PIPE,
                                     stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                    close_fds=True)
+                                    close_fds=True, start_new_session=os.name == 'posix')
         except OSError as exc:
             job.output.append(f"error: {exc}")
             return 127
         job.proc = proc
+        # A reader thread hands over what it prints; the step ends when the process does,
+        # even if something it started (a D-Bus daemon, say) keeps the pipe open.
+        chunks: 'queue.Queue[bytes]' = queue.Queue()
+        stream = proc.stdout
+        assert stream is not None
+
+        def read():
+            while True:
+                try:
+                    chunk = stream.read1(4096)
+                except (OSError, ValueError):
+                    chunk = b''
+                chunks.put(chunk)
+                if not chunk:
+                    return
+
+        threading.Thread(target=read, daemon=True, name='spark-store-output').start()
         pending = b''
-        assert proc.stdout is not None
+        ended_at: Optional[float] = None
         while True:
-            chunk = proc.stdout.read1(4096) if hasattr(proc.stdout, 'read1') else \
-                proc.stdout.read(4096)
-            if not chunk:
-                break
-            pending += chunk
-            parts = re.split(rb'[\r\n]', pending)
-            pending = parts.pop()
-            for raw in parts:
-                self._line(job, raw.decode('utf-8', errors='replace'))
+            try:
+                chunk = chunks.get(timeout=0.2)
+            except queue.Empty:
+                chunk = None
+            if chunk == b'':
+                break                               # end of output
+            if chunk:
+                pending += chunk
+                parts = re.split(rb'[\r\n]', pending)
+                pending = parts.pop()
+                for raw in parts:
+                    self._line(job, raw.decode('utf-8', errors='replace'))
+            if proc.poll() is not None:
+                ended_at = ended_at or time.monotonic()
+                if chunk is None and time.monotonic() - ended_at > 0.5:
+                    break                           # it ended; someone else holds the pipe
         if pending:
             self._line(job, pending.decode('utf-8', errors='replace'))
-        proc.stdout.close()
         return proc.wait()
+
+    def _stop(self, job: Job) -> None:
+        proc = job.proc
+        if proc is None or proc.poll() is not None:
+            return
+        try:
+            if os.name == 'posix':
+                os.killpg(proc.pid, signal.SIGTERM)   # flatpak and what it started
+            else:
+                proc.terminate()
+        except (OSError, ProcessLookupError):
+            pass
 
     def _line(self, job: Job, text: str) -> None:
         text = text.strip()

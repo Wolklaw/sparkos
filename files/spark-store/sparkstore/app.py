@@ -8,6 +8,7 @@ import queue
 import re
 import shutil
 import subprocess
+import sys
 import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -169,8 +170,10 @@ class Store:
     def px(self, value: float) -> int:
         return int(round(value * self.scale))
 
-    def font(self, size: int, bold: bool = True) -> Tuple[str, int, str]:
-        return (self.mono, size, "bold" if bold else "normal")
+    def font(self, size: int, bold: bool = True) -> tkfont.Font:
+        """A named font shared by every widget that uses it: Tk then makes each font once,
+        not once per label (that alone halves the time to build a page)."""
+        return self.tkfont(size, bold)
 
     def tkfont(self, size: int, bold: bool = True) -> tkfont.Font:
         key = (size, bold)
@@ -838,8 +841,13 @@ class Store:
 def bench(seconds: float) -> int:
     """Open the window, report the time to first paint and until the catalog is on screen,
     then the CPU used while idle for `seconds`."""
+    import faulthandler
     from .cli import T0, process_age
+    # if anything hangs, say where (every thread's stack) instead of waiting forever
+    faulthandler.dump_traceback_later(seconds + 60, exit=True)
+    print(f"{APP_NAME} {VERSION} bench: opening", file=sys.stderr, flush=True)
     store = Store(offline=True)
+    print("bench: window built", file=sys.stderr, flush=True)
     deadline = time.monotonic() + 30
     while (store.first_paint is None or store.catalog_ready_at is None) and \
             time.monotonic() < deadline:
@@ -859,8 +867,10 @@ def bench(seconds: float) -> int:
         results['used'] = sum(os.times()[:2]) - results['cpu']
         store.close()
 
+    print("bench: catalog on screen, measuring", file=sys.stderr, flush=True)
     store.root.after(2000, start)
     store.run()
+    print("bench: window closed", file=sys.stderr, flush=True)
     cat = store.catalog
     print(f"{APP_NAME} {VERSION} bench")
     if store.first_paint is not None:
@@ -875,5 +885,6 @@ def bench(seconds: float) -> int:
     if 'wall' in results:
         print(f"idle cpu:     {100 * results['used'] / results['wall']:.2f}% of one core over "
               f"{results['wall']:.0f} s")
+    faulthandler.cancel_dump_traceback_later()
     return 0
 

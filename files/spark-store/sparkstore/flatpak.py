@@ -10,7 +10,9 @@ import os
 import re
 import shlex
 import shutil
+import signal
 import subprocess
+import tempfile
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 from urllib.parse import unquote, urlparse
@@ -44,13 +46,39 @@ def run(args: List[str], timeout: float = 30, env: Optional[Dict[str, str]] = No
         return 127, '', 'flatpak is not installed'
     full_env = dict(os.environ, LC_ALL='C.UTF-8', LANG='C.UTF-8')
     full_env.update(env or {})
+    # Output goes to files, not pipes: a helper flatpak starts (a D-Bus session daemon, say)
+    # may keep a pipe open long after flatpak itself has finished. Its own process group, so
+    # a timeout ends everything it started.
+    with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err:
+        try:
+            proc = subprocess.Popen(base + args, stdout=out, stderr=err,
+                                    stdin=subprocess.DEVNULL, env=full_env, close_fds=True,
+                                    start_new_session=os.name == 'posix')
+        except OSError as exc:
+            return 1, '', str(exc)
+        try:
+            code = proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            _kill(proc)
+            return 124, '', f'flatpak took longer than {timeout:.0f} s'
+        out.seek(0)
+        err.seek(0)
+        return (code, out.read().decode('utf-8', errors='replace'),
+                err.read().decode('utf-8', errors='replace'))
+
+
+def _kill(proc: subprocess.Popen) -> None:
     try:
-        proc = subprocess.run(base + args, capture_output=True, text=True, timeout=timeout,
-                              env=full_env, stdin=subprocess.DEVNULL,
-                              encoding='utf-8', errors='replace')
-    except (OSError, subprocess.SubprocessError) as exc:
-        return 1, '', str(exc)
-    return proc.returncode, proc.stdout, proc.stderr
+        if os.name == 'posix':
+            os.killpg(proc.pid, signal.SIGKILL)
+        else:
+            proc.kill()
+    except (OSError, ProcessLookupError):
+        pass
+    try:
+        proc.wait(timeout=5)
+    except subprocess.TimeoutExpired:
+        pass
 
 
 def version() -> str:

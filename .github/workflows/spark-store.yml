@@ -52,10 +52,11 @@ jobs:
 
       - name: Speed (first paint, catalog on screen, idle CPU)
         run: |
+          set -o pipefail
           nproc; grep -m1 'model name' /proc/cpuinfo || true
           rm -rf ~/.cache/spark-store
-          xvfb-run -a -s "-screen 0 1920x1080x24" spark-store --bench 10 | tee bench-cold.txt
-          xvfb-run -a -s "-screen 0 1920x1080x24" spark-store --bench 10 | tee bench-cached.txt
+          timeout 180 xvfb-run -a -s "-screen 0 1920x1080x24" spark-store --bench 10 | tee bench-cold.txt
+          timeout 180 xvfb-run -a -s "-screen 0 1920x1080x24" spark-store --bench 10 | tee bench-cached.txt
           { echo '### Spark Store speed (GitHub runner, Xvfb, real Flathub catalog)'
             echo 'First run (index built):'; echo '```'; cat bench-cold.txt; echo '```'
             echo 'Every run after:'; echo '```'; cat bench-cached.txt; echo '```'; } \
@@ -89,6 +90,8 @@ jobs:
         run: |
           sudo podman run --rm -v "$PWD/files:/src:ro" "$IMAGE" bash -euo pipefail -c '
             useradd -m tester
+            # an image ships /var empty; a booted SparkOS has /var/tmp, which flatpak needs
+            mkdir -p /var/tmp && chmod 1777 /var/tmp
             home=$(getent passwd tester | cut -d: -f6)
             mkdir "$home/files"
             for d in /src/spark-*; do cp -r "$d" "$home/files/"; done
