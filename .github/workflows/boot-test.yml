@@ -261,6 +261,27 @@ jobs:
           $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
           $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog konsole gio >/dev/null && echo "package installer ready"'
 
+      - name: Measure boot time and idle load
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Not this PC's real numbers (nested VM, no GPU), but a change that makes boot or idle
+          # heavier shows up here between builds. Measured after first-boot work has finished.
+          sleep 30
+          $SSH 'echo "== boot"; systemd-analyze; echo; echo "== slowest services"; systemd-analyze blame --no-pager | head -12
+                echo; echo "== memory"; free -m
+                echo; echo "== load"; uptime
+                echo; echo "== busiest processes"; ps -eo pcpu,pmem,rss,comm --sort=-pcpu --no-headers | head -12
+                echo; echo "== running services"; systemctl list-units --type=service --state=running --no-legend --no-pager | wc -l' | tee "$WORK/performance.txt"
+          {
+            echo "### Boot and idle (test VM)"
+            echo '```'
+            grep -A1 "== boot" "$WORK/performance.txt" | tail -1
+            grep -A2 "== memory" "$WORK/performance.txt" | tail -2
+            grep -A1 "== load" "$WORK/performance.txt" | tail -1
+            echo "running services: $(tail -1 "$WORK/performance.txt")"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Screenshot at the end
         if: always()
         run: |
