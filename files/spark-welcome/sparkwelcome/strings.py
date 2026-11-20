@@ -48,6 +48,14 @@ EN: Dict[str, str] = {
     'welcome.media': "photos, videos and music",
     'welcome.games': "all your games from every launcher, in one library",
     'welcome.monitor': "task manager: what's running, End task, live graphs (Ctrl+Shift+Esc)",
+    'welcome.edit': "text and code editor",
+    'welcome.calc': "calculator: standard, scientific and programmer",
+    'welcome.archive': "zip, 7z, tar, rar and iso; Extract and Compress in the file manager",
+    'welcome.scan': "scanning to PDF, with searchable text",
+    'welcome.run': "Windows programs (.exe and .msi)",
+    'welcome.link': "your phone and this PC, through Soot's phone app",
+    'welcome.store': "apps from Flathub, next to Bazaar",
+    'welcome.update': "updates and going back to the previous version",
     'welcome.how': "How this works",
     'welcome.skip': "Each page can be skipped. Nothing is installed or copied until you click "
                     "a button, and you can close this window at any time. Spark Welcome stays "
