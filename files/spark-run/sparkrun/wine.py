@@ -9,11 +9,12 @@ import ctypes
 import os
 import shutil
 import subprocess
+import tempfile
 import threading
 from typing import Dict, List, Optional
 
 from . import sources
-from .core import ensure, log, runtime_dir, state_dir, write_text
+from .core import data_dir, ensure, log, runtime_dir, state_dir, write_text
 from .fetch import Progress, fetch
 
 READY_MARK = '.spark-run-ready'
@@ -98,15 +99,60 @@ class Wine:
         return os.path.isfile(os.path.join(prefix, READY_MARK)) and \
             os.path.isdir(os.path.join(prefix, 'drive_c'))
 
+    @property
+    def template(self) -> str:
+        """A fresh prefix that every new one is copied from (one per Wine version)."""
+        return os.path.join(data_dir(), 'template', self.version)
+
     def create_prefix(self, prefix: str, windows: str = DEFAULT_WINDOWS,
                       log_path: Optional[str] = None) -> None:
-        """Make a new prefix (about a minute the first time on a slow disk)."""
+        """Make a new prefix: a copy of the template prefix, which is made with wineboot the
+        first time (about 20 seconds). `cp --reflink=auto` makes the copy share the
+        template's disk space on btrfs, where SparkOS keeps /home, and takes a second;
+        elsewhere it is a plain copy."""
+        if not self.prefix_ready(self.template):
+            self._make_template(log_path)
+        parent = ensure(os.path.dirname(prefix))
+        tmp = tempfile.mkdtemp(prefix='.new-', dir=parent)
+        try:
+            log.info("copying the template prefix to %s", prefix)
+            done = subprocess.run(['cp', '-a', '--reflink=auto', self.template + '/.', tmp],
+                                  capture_output=True, text=True, errors='replace')
+            if done.returncode != 0:
+                raise WineError('prefix', f"copying the template failed: {done.stderr[-500:]}")
+            os.replace(tmp, prefix)
+        except BaseException:
+            shutil.rmtree(tmp, ignore_errors=True)
+            raise
+        if windows != DEFAULT_WINDOWS:
+            self.set_windows_version(prefix, windows)
+
+    def _make_template(self, log_path: Optional[str] = None) -> None:
+        """wineboot a new prefix into a temporary folder, then rename it into place, so a
+        half-made template is never copied (and two Spark Runs can't make it at once)."""
+        parent = ensure(os.path.dirname(self.template))
+        tmp = tempfile.mkdtemp(prefix='.new-', dir=parent)
+        try:
+            self._wineboot(tmp, DEFAULT_WINDOWS, log_path)
+            try:
+                os.rename(tmp, self.template)
+            except OSError:
+                if not self.prefix_ready(self.template):
+                    raise
+        finally:
+            shutil.rmtree(tmp, ignore_errors=True)
+        for name in os.listdir(parent):               # templates of older Wines
+            path = os.path.join(parent, name)
+            if name != self.version and not name.startswith('.') and os.path.isdir(path):
+                shutil.rmtree(path, ignore_errors=True)
+
+    def _wineboot(self, prefix: str, windows: str, log_path: Optional[str] = None) -> None:
         ensure(prefix)
         out = _log_file(log_path)
         try:
             # winegstreamer off only while the prefix is made: a GStreamer bug can hang it
             env = self.env(prefix, {'winegstreamer': ''})
-            log.info("creating prefix %s", prefix)
+            log.info("making a prefix with wineboot in %s", prefix)
             code = subprocess.call([self.wine, 'wineboot', '--init'], env=env, stdout=out,
                                    stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
                                    cwd=prefix)

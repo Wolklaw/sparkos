@@ -45,7 +45,7 @@ echo "--- run once: 64-bit, then 32-bit (the first one makes the run-once prefix
 export SPARK_HELLO_OUT; SPARK_HELLO_OUT=$(winpath "$out/once.txt")
 t=$(date +%s)
 $SR --run-once "$fx/hello64.exe" "first arg" second --wait --no-window
-row "run once, 64-bit (makes the run-once prefix)" "$(since "$t") s"
+row "run once, 64-bit (makes the template prefix with wineboot, copies it)" "$(since "$t") s"
 t=$(date +%s)
 $SR --run-once "$fx/hello32.exe" --wait --no-window
 row "run once, 32-bit (prefix already there)" "$(since "$t") s"
@@ -73,7 +73,7 @@ pass "missing DLL explained in one sentence"
 echo "--- install the NSIS installer as an app"
 t=$(date +%s)
 $SR --install "$fx/spark-hello-setup.exe" --no-window | tee "$out/nsis.json"
-row "install (NSIS installer, new prefix)" "$(since "$t") s"
+row "install (NSIS installer, prefix copied from the template)" "$(since "$t") s"
 python3 - "$out/nsis.json" <<'PY'
 import json, sys
 text = open(sys.argv[1]).read()
@@ -95,7 +95,12 @@ from PIL import Image; im = Image.open('$icon'); print('icon', im.size, im.mode)
 assert im.size == (256, 256), im.size" || fail "icon read from the .exe"
 command -v desktop-file-validate >/dev/null && desktop-file-validate "$entry"
 pass "installed with its menu entry and its own icon"
-row "app prefix on disk" "$(du -sh --one-file-system "$data/prefixes/spark-hello" | cut -f1)"
+pfx="$data/prefixes/spark-hello"
+row "app prefix on disk (du, counts shared btrfs extents in full)" \
+  "$(du -sh --one-file-system "$pfx" | cut -f1): system32 $(du -sh "$pfx/drive_c/windows/system32" | cut -f1), syswow64 $(du -sh "$pfx/drive_c/windows/syswow64" | cut -f1)"
+row "filesystem of the home folder" "$(stat -f -c %T "$data")"
+[ -f "$data/template/11.22/.spark-run-ready" ] || fail "no template prefix"
+[ "$(stat -c %i "$data/template/11.22")" != "$(stat -c %i "$pfx")" ] || fail "template reused in place"
 
 echo "--- open it from the menu entry's command, with a file"
 SPARK_HELLO_OUT=$(winpath "$out/app.txt")

@@ -230,3 +230,51 @@ jobs:
               bash files/spark-run/tests/ci_annotate.sh "Spark Run logs (SparkOS)"
           fi
           exit "$status"
+
+      - name: On btrfs (where SparkOS keeps /home), app prefixes share the template's disk space
+        run: |
+          set +e
+          sudo podman run --rm --privileged -v "$PWD/files/spark-run:/src:ro" \
+            -v "$PWD/fixtures:/fixtures:ro" "$IMAGE" bash -euo pipefail -c '
+            command -v mkfs.btrfs >/dev/null || { echo "no mkfs.btrfs in the image"; exit 3; }
+            mkdir -p /var/home
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            share="$home/.local/share"
+            truncate -s 8G /btrfs.img
+            mkfs.btrfs -q /btrfs.img
+            mkdir -p "$share"
+            mount -o loop /btrfs.img "$share"
+            cp -r /src "$home/spark-run"
+            cp -r /fixtures "$home/fixtures"
+            chown -R tester: "$home"
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester LOGNAME=tester \
+                    PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+            used() { sync; btrfs filesystem sync "$share" >/dev/null; sleep 2
+                     df -B1M --output=used "$share" | tail -1 | tr -d " "; }
+            echo "home data on: $(stat -f -c %T "$share")"
+            as "bash ~/spark-run/install.sh --user --no-test" >/dev/null
+            as "~/.local/bin/spark-run --setup --quiet"
+            u0=$(used)
+            as "~/.local/bin/spark-run --install ~/fixtures/spark-hello-setup.exe --no-window --quiet" >/dev/null
+            u1=$(used)
+            as "~/.local/bin/spark-run --install ~/fixtures/spark-hello-msi.msi --silent --no-window --quiet" >/dev/null
+            u2=$(used)
+            as "~/.local/bin/spark-run --install ~/fixtures/hello64.exe --portable --no-window --quiet" >/dev/null
+            u3=$(used)
+            btrfs filesystem du -s "$share/spark-run/template/"* "$share/spark-run/prefixes/"*
+            echo "disk used, first app (makes the template too): $((u1 - u0)) MB"
+            echo "disk used, second app: $((u2 - u1)) MB"
+            echo "disk used, third app: $((u3 - u2)) MB"
+            [ $((u3 - u2)) -lt 150 ] && [ $((u2 - u1)) -lt 150 ] || {
+              echo "app prefixes are not sharing the template on btrfs"; exit 1; }
+            as "~/.local/bin/spark-run --list"
+            echo "prefixes share the template on btrfs"
+          ' 2>&1 | tee "$RUNNER_TEMP/btrfs.log"
+          status=${PIPESTATUS[0]}
+          { echo '### Prefixes on btrfs'; echo '```'; grep -E "^(home data|disk used|prefixes share|app prefixes)|Total|Exclusive|/" "$RUNNER_TEMP/btrfs.log" | tail -20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then
+            tail -40 "$RUNNER_TEMP/btrfs.log" | bash files/spark-run/tests/ci_annotate.sh "btrfs step"
+          fi
+          exit "$status"
