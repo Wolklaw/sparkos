@@ -49,6 +49,8 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 #    - plasma-systemmonitor (Spark Monitor replaces it) and spectacle (Spark Snip captures through
 #      KWin): KDE apps a Spark app replaces; nothing else in the image requires them
 #    - tailscale: a company's VPN service Bazzite preinstalls (docs/switching.md says how to add it)
+#    - uupd and bazzite-updater: Universal Blue's updater and its window. Spark Update downloads
+#      and stages updates itself (SPARK_UPDATE_ENGINE=spark, step 5)
 #    Installed (printing with CUPS and scanning with SANE pixma/airscan are already in Bazzite):
 #    - bubblewrap, socat: Claude Code's command sandbox (bubblewrap is in Bazzite; listed so it stays)
 #    - kdialog: folder picker for sparkos-claude and the install dialogs
@@ -76,7 +78,9 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
         khelpcenter \
         plasma-systemmonitor \
         spectacle \
-        tailscale && \
+        tailscale \
+        uupd \
+        bazzite-updater && \
     dnf -y --setopt=install_weak_deps=True install \
         bubblewrap \
         socat \
@@ -106,12 +110,14 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
 #    - sparkos-identity: shows "SparkOS" as the system name
 #    - sparkos-apps: no preinstalled third-party apps (empties Bazzite's first-boot list, drops the Portal)
 #    - soot, freesuite: the browser and the office apps, latest releases
-#    - the Spark apps; spark-update comes after the others (it lists their versions). Bazzite's
-#      uupd still downloads updates; Spark Update adds the window and the notification
+#    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
+#      Update is the one updater: its timer downloads and stages updates daily (engine "spark";
+#      until 2026-11-20 Universal Blue's uupd did the downloading)
 #    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
 #      usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
 #    - sparkos-theme, last: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
+ARG SPARK_UPDATE_ENGINE=spark
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
