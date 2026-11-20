@@ -4,9 +4,11 @@ Nothing here is fetched unless someone runs a Windows program (Wine, Wine Mono) 
 on for one app. A file whose SHA-256 differs from the one written here is deleted, not used,
 whatever the server says: the fingerprints below are the trust, reviewed in this repository.
 
-To move to a newer Wine: change the version, URL, size and SHA-256 together (compare the
-SHA-256 with the release's sha256sums.txt and GitHub's asset digest), set MONO to the version
-that Wine's dlls/appwiz.cpl/addons.c names in MONO_VERSION, and let CI run the test programs.
+To move to a newer Wine: build it first (files/spark-run/wine-build/build.sh: WINE_VERSION,
+WINE_SHA256, BUILD; the wine-build workflow builds it twice and publishes the release), then
+change the version, URL, size, SHA-256 and folder below together (compare the SHA-256 with the
+release's sha256sums.txt and GitHub's asset digest), set MONO to the version that Wine's
+dlls/appwiz.cpl/addons.c names in MONO_VERSION, and let CI run the test programs.
 """
 
 from dataclasses import dataclass
@@ -30,19 +32,21 @@ class Download:
         return self.url.rsplit('/', 1)[-1]
 
 
-# Vanilla Wine (the WineHQ source, no extra patches), built by Kron4ek on GitHub. The "wow64"
+# Vanilla Wine (the WineHQ source, no patches), built by SparkOS itself: this repository's
+# wine-build workflow builds it from WineHQ's signed source tarball in a pinned Fedora 45
+# container, twice, and publishes it only if both builds are byte for byte the same. The "wow64"
 # build runs 32-bit and 64-bit Windows programs without any 32-bit Linux libraries.
 WINE = Download(
     key='wine',
     name="Wine 11.22",
     version="11.22",
-    url="https://github.com/Kron4ek/Wine-Builds/releases/download/11.22/"
-        "wine-11.22-amd64-wow64.tar.xz",
-    sha256="e2967393d203121195cba94159efe9b575a6fa8fad2815c557036e69285093d8",
-    size=98200812,
-    whose="WineHQ's source, built by Kron4ek (github.com/Kron4ek/Wine-Builds)",
-    page="https://github.com/Kron4ek/Wine-Builds/releases/tag/11.22",
-    folder="wine-11.22-amd64-wow64",
+    url="https://github.com/Wolklaw/sparkos/releases/download/wine-11.22-2/"
+        "wine-11.22-2-amd64-wow64.tar.xz",
+    sha256="f45dd527f528160c7d35ddb7bb3ebe402c65194c29d81bf60ef38eb81976007c",
+    size=77024200,
+    whose="WineHQ's source, built by SparkOS (github.com/Wolklaw/sparkos)",
+    page="https://github.com/Wolklaw/sparkos/releases/tag/wine-11.22-2",
+    folder="wine-11.22-2-amd64-wow64",
 )
 
 # Wine Mono: Wine's own .NET Framework replacement, from WineHQ. Unpacked once next to Wine and

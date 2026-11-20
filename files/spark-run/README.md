@@ -12,15 +12,27 @@ So the first time someone runs a Windows program, Spark Run downloads into `~/.l
 
 | What | From | Download | Why this one |
 |---|---|---|---|
-| Wine 11.22, vanilla, `amd64-wow64` | [Kron4ek/Wine-Builds](https://github.com/Kron4ek/Wine-Builds/releases/tag/11.22) on GitHub | 94 MB | WineHQ's own source with no extra patches, built on GitHub Actions. The `wow64` build runs 32 and 64-bit Windows programs without any 32-bit Linux libraries. 11.22 is the development series Fedora itself ships (Fedora 45 has 11.21). |
+| Wine 11.22, vanilla, `amd64-wow64` | [SparkOS's own build](https://github.com/Wolklaw/sparkos/releases/tag/wine-11.22-2), a release of this repository | 73 MB | WineHQ's own source with no patches, built by this repository's CI (see [How Wine is built](#how-wine-is-built)). The `wow64` build runs 32 and 64-bit Windows programs without any 32-bit Linux libraries. 11.22 is the development series Fedora itself ships (Fedora 45 has 11.21). |
 | Wine Mono 11.3.0 | [dl.winehq.org](https://dl.winehq.org/wine/wine-mono/11.3.0/) (WineHQ) | 38 MB | Wine's own .NET Framework replacement; 11.3.0 is the version Wine 11.22 asks for. Unpacked once next to Wine and shared by every app. |
 | DXVK 3.1.1, only if turned on for an app | [doitsujin/dxvk](https://github.com/doitsujin/dxvk/releases/tag/v3.1.1) | 17 MB | Direct3D 9-11 on Vulkan, for the few non-game programs that need it. |
 
 **How each download is checked:** the SHA-256 of each file is written in [sparkrun/sources.py](sparkrun/sources.py), in this repository, along with its exact size. A file that doesn't match is deleted and never unpacked, whatever the server says. The pinned values were compared with the release's own `sha256sums.txt` and with GitHub's asset digest when they were written. Nothing is unpacked outside its own folder, and a half-unpacked Wine is never used (it is unpacked to a temporary folder and renamed when complete). The window says what will be downloaded, from where, and how big it is, before it starts.
 
-Moving to a newer Wine is one edit to `sources.py` (and `spark-app.json`, which the tests compare): URL, size and SHA-256, plus the Wine Mono version that Wine names in `dlls/appwiz.cpl/addons.c`. CI then runs the test programs on it. Older downloaded Wines are deleted when a new one is unpacked; existing apps keep working (Wine updates a prefix the first time it runs in it).
+Moving to a newer Wine takes two steps: build it (change `WINE_VERSION` and `WINE_SHA256` in [wine-build/build.sh](wine-build/build.sh) and let the workflow publish it), then one edit to `sources.py` (and `spark-app.json`, which the tests compare): URL, size, SHA-256 and folder, plus the Wine Mono version that Wine names in `dlls/appwiz.cpl/addons.c`. CI then runs the test programs on it. Older downloaded Wines are deleted when a new one is unpacked; existing apps keep working (Wine updates a prefix the first time it runs in it).
 
-On disk, Wine with Wine Mono takes 1.1 GB, once. A Wine 11 prefix is 633 MB (its DLLs are copied in: system32 294 MB, syswow64 277 MB), so Spark Run makes one **template prefix** per Wine version with `wineboot` (about 15 s) and makes every new prefix as `cp --reflink=auto` of it (about 1 s). On btrfs, where SparkOS keeps `/home`, the copies share the template's disk space: CI measured 638 MB for the first app (template included), then 5 MB and 3 MB for the next two. On other filesystems each prefix is a full 633 MB copy. Disk use shown in the window counts shared space in full.
+On disk, Wine with Wine Mono takes 836 MB, once. A Wine 11 prefix is 602 MB (its DLLs are copied in: system32 280 MB, syswow64 262 MB), so Spark Run makes one **template prefix** per Wine version with `wineboot` (about 15 s) and makes every new prefix as `cp --reflink=auto` of it (about 1 s). On btrfs, where SparkOS keeps `/home`, the copies share the template's disk space: CI measured 606 MB for the first app (template included), then 2 MB and 6 MB for the next two. On other filesystems each prefix is a full 602 MB copy. Disk use shown in the window counts shared space in full.
+
+## How Wine is built
+
+Spark Run's Wine is built here, not taken from someone else's build. [wine-build/build.sh](wine-build/build.sh), run by [.github/workflows/wine-build.yml](../../.github/workflows/wine-build.yml):
+
+- downloads WineHQ's source tarball for the pinned version, checks it against Alexandre Julliard's WineHQ release signature (key `DA23579A74D4AD9AF9D3F945CEFAC8EAAF17519D`) and a SHA-256 written in the script, and applies no patches;
+- builds in `registry.fedoraproject.org/fedora:45`, pinned by digest, with packages only from Fedora 45's release repository (frozen since release day; the container is first synced down to it), with `--enable-archs=i386,x86_64` (wow64), no OSS and no tests, and fails if configure leaves anything else out;
+- installs the runtime only (`make install-lib`: no headers or compilers), strips the Linux libraries, and packs it with fixed timestamps (the source's own), owners and file order;
+- runs the result from another folder, with no display, to prove it is relocatable: `wineboot`, then 64 and 32-bit `cmd.exe`;
+- builds twice, in parallel, and publishes only if both archives are byte for byte the same. The release (tag `wine-<version>-<build>`) has the archive, `sha256sums.txt` and `build-info.txt` (configure options, the Linux libraries each module links to, every package in the build container). A later run that rebuilds an existing release checks it gets the published file exactly, and never replaces it.
+
+Build 2 of Wine 11.22 took 28 to 39 minutes of `make` on GitHub's 4-core runners (32 to 44 minutes per job), and the archive is 77.0 MB (73 MiB), against 98.2 MB for Kron4ek's build of the same Wine, which Spark Run used before. It is smaller because it has no headers or development tools. It also links its media module (`winedmo`) to Fedora 45's FFmpeg, where Kron4ek's links to an older FFmpeg that Fedora no longer ships. Build 1 (`wine-11.22-1`) was missing `icu.dll` and `dmsynth.dll` (no C++ cross-compiler) and is not used.
 
 ## What it does
 
@@ -81,7 +93,8 @@ Spark Run doesn't change `sparkos-open-package`, the recipe or the boot test. To
 
 - **Not tried on a SparkOS desktop yet.** CI runs real Wine in a container, with Xvfb in Fedora and with no display in the SparkOS image, using console test programs and silent installers. Nobody has double-clicked a real installer with a wizard on Plasma 6.8 yet.
 - **Wine itself is the limit.** Programs that need anti-cheat, kernel drivers, the Microsoft Store, .NET Framework features Wine Mono lacks, or newer DirectX than Wine and DXVK offer won't run. The switching guide lists the owner's programs and what to use instead.
-- **Builds from one person.** The Wine build comes from Kron4ek's GitHub, built from WineHQ's source on GitHub Actions. The pinned SHA-256 protects against the file changing later, not against a bad build at the time it was pinned. Building Wine from WineHQ's source in this repository's own CI and publishing it as a SparkOS release would remove that tie; it's a bigger job (about an hour of CI per Wine release) and isn't done.
+- **The Wine build trusts GitHub and Fedora.** Wine is built by GitHub's runners from Fedora 45's compilers and libraries; the build is reproducible, so anyone can rebuild it and compare the SHA-256, but nobody outside this repository has done so yet. Wine Mono comes from WineHQ and DXVK from the DXVK project's own releases, as before.
+- **No CAPI (ISDN)**: Fedora has no `capi4linux`, so `capi2032.dll` isn't built. Nothing a desktop needs.
 - **One Wine for everything.** Apps can't choose an older Wine; after a Wine update, a program that regressed can't be kept on the old one.
 - **No Wine Gecko**, so in-program HTML views stay blank.
 - **Run once shares one prefix** across everything run that way; what one program saves there, the next sees. Install as an app to keep a program apart.
