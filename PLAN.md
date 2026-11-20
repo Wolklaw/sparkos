@@ -144,10 +144,13 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 | Today | SparkOS's own | Status |
 |---|---|---|
 | Bazaar, the store | **Spark Store**: SparkOS's own store over Flathub, with the Spark apps in it (the Spark Portal idea) | Brief: [spark-store](briefs/spark-store.md) |
-| Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Later: after Release 2, one change at a time |
-| BlueBuild | A plain Containerfile and SparkOS's scripts | Later, with the base move |
-| Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | Later |
-| Ark, KDE Connect | Spark Archive, Spark Link | Later |
+| Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Prototype on a separate image: [sparkos-on-fedora](briefs/sparkos-on-fedora.md) |
+| BlueBuild | A plain Containerfile and SparkOS's scripts | Side-by-side build: [build-without-bluebuild](briefs/build-without-bluebuild.md) |
+| Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | Brief: [spark-run](briefs/spark-run.md) |
+| Ark | Spark Archive | Brief: [spark-archive](briefs/spark-archive.md) |
+| KDE Connect | Spark Link: the PC side in SparkOS, the phone side in Soot's Android app, no outside service | Briefs: [spark-link](briefs/spark-link.md), [protocol](docs/spark-link-protocol.md) |
+
+**New Spark tools for gaps (no app at all today):** Spark Edit, a light text and code editor ([brief](briefs/spark-edit.md)); Spark Calc ([brief](briefs/spark-calc.md)); Spark Scan, for the Canon scanner ([brief](briefs/spark-scan.md)).
 
 **Kept on purpose:** the Linux kernel, Mesa, KDE Plasma, Wine/Proton, Soot's Firefox engine and FreeSuite's Chromium/Electron, Flathub as the source of other people's apps, Dolphin and Konsole, Sigstore signing and LVFS firmware updates. GitHub and GHCR stay for code, builds and downloads; a mirror on SparkOS's own server is the cheap insurance later.
 

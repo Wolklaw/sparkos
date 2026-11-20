@@ -140,8 +140,11 @@ def _draw_element(draw, el, style, k, dx):
         if el.get(key) is not None:
             style[key] = el.get(key)
     if tag == 'g':
+        # Groups may shift sideways (the spark sprays use translate(x 0))
+        match = re.search(r'translate\(\s*(-?[\d.]+)', el.get('transform', ''))
+        gdx = dx + (float(match.group(1)) if match else 0.0)
         for child in el:
-            _draw_element(draw, child, style, k, dx)
+            _draw_element(draw, child, style, k, gdx)
         return
     fill = style.get('fill', '#000000')
     stroke = style.get('stroke', 'none')
