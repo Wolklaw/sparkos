@@ -593,7 +593,9 @@ class App:
             buf.set_language(syntax.detect(path, text[:200].split('\n', 1)[0]))
         buf.load(text, fmt, cursor)
         core.add_recent(path)
-        if len(text) > BIG_FILE:
+        if buf.huge_lines:
+            self.on_huge(buf)
+        elif len(text) > BIG_FILE:
             self.status(t('status.big', name=buf.title, size=core.size_text(st.st_size)))
         elif fmt.mixed:
             self.status(t('status.mixed', name=buf.title, nl=fmt.newline_label()), T["gold"])
@@ -1036,6 +1038,10 @@ class App:
             self.update_status()
             self.update_title()
 
+    def on_huge(self, buf: Buffer) -> None:
+        self.status(t('status.huge', name=buf.title), T["gold"])
+        self.update_status()
+
     def on_refresh(self, buf: Buffer, first: int, last: int) -> None:
         if buf is self.current:
             self.findbar.paint(buf, first, last)
@@ -1191,8 +1197,10 @@ class App:
         buf = self.current
         if buf is None:
             return
-        buf.set_wrap(not buf.wrap)
-        self.settings['wrap'] = buf.wrap
+        if not buf.set_wrap(not buf.wrap):
+            self.status(t('status.huge', name=buf.title), T["gold"])
+        else:
+            self.settings['wrap'] = buf.wrap
         self.update_status()
 
     def zoom(self, step: int) -> None:

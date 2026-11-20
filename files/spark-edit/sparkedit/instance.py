@@ -72,7 +72,8 @@ class Listener:
             os.chmod(self.path, 0o600)
             self.sock.listen(4)
             self.sock.setblocking(False)
-            root.tk.createfilehandler(self.sock, 1, self._ready)     # 1 = READABLE
+            import tkinter
+            root.tk.createfilehandler(self.sock, tkinter.READABLE, self._ready)
         except (OSError, AttributeError):
             self.close()
 

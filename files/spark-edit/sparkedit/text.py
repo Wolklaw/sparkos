@@ -83,6 +83,8 @@ EN = {
     'status.restored_changed': "{name} changed on disk since your unsaved edits; saving "
                                "overwrites it",
     'status.big': "{name} is {size}: word wrap is off for it",
+    'status.huge': "{name} has lines over 20,000 characters: they show up to the window's edge "
+                   "only. Find, Replace and Save still work on all of them",
     'status.mixed': "{name} mixed line endings; it will be saved with {nl}",
     'status.encoding_set': "{name} will be saved as {enc}",
     'status.newline_set': "{name} will be saved with {nl} line endings",

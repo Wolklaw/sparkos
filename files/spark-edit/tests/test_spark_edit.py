@@ -545,7 +545,8 @@ class Desktop(unittest.TestCase):
             mime = by_ext.get(ext, (0, '-'))[1]
             mark = 'listed' if mime in listed else ('-' if mime == '-' else 'NOT LISTED')
             print(f"  {ext:<16} {mime:<40} {mark}")
-            if ext in MUST_OPEN and mime not in listed:
+            # '-': no glob, so the desktop looks at the content and finds text/plain
+            if ext in MUST_OPEN and mime != '-' and mime not in listed:
                 missing.append(f"{ext} ({mime})")
         self.assertEqual(missing, [])
 
@@ -690,6 +691,35 @@ class Window(TempDir):
         self.assertEqual(buf.cursor(), (1, 0))
         buf.text.insert('1.0', 'y')
         self.assertTrue(buf.dirty)
+
+    def test_huge_line_stays_responsive(self):
+        """Minified files: one line of 600,000 characters. Tk's own see and sideways
+        scrolling take minutes on that; the buffer must keep every step quick."""
+        data = ('{"k": "' + 'v' * 600000 + '"}\nlast line\n').encode()
+        path = self.write('min.json', data)
+        app = self.app()
+        steps = {}
+
+        def step(name, fn):
+            t0 = time.perf_counter()
+            fn()
+            app.root.update()
+            steps[name] = time.perf_counter() - t0
+
+        step('open', lambda: app.open_path(path))
+        buf = app.current
+        self.assertTrue(buf.huge_lines)
+        self.assertEqual(buf.text.cget('wrap'), 'none')
+        step('end of line', lambda: (buf.text.mark_set('insert', '1.end'), buf.text.see('insert')))
+        step('type', lambda: buf.text.insert('insert', 'x'))
+        step('End key', lambda: buf.text.event_generate('<End>'))
+        step('see end', lambda: buf.text.see('end'))
+        step('sideways', lambda: buf.text.xview_moveto(1.0))
+        slow = {k: round(v, 2) for k, v in steps.items() if v > 3.0}
+        self.assertEqual(slow, {})
+        self.assertFalse(buf.set_wrap(True), "wrap stays off with a huge line")
+        self.assertTrue(app.save(buf))
+        self.assertEqual(self.read('min.json'), data[:600009] + b'x' + data[600009:])
 
     def test_find_and_replace_all(self):
         path = self.write('f.txt', b'cat dog cat\ncatalog\n')

@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING, Dict, Iterator, List, Optional, Tuple
 import tkinter as tk
 from tkinter import ttk
 
-from . import BIG_FILE, LONG_LINE, fileio, syntax
+from . import BIG_FILE, HUGE_LINE, LONG_LINE, fileio, syntax
 from .fileio import Format
 from .search import Lines
 from .widgets import T, mix
@@ -35,7 +35,7 @@ COLOURS = {
     'constant': "#ff9ebb", 'number': "#b9a6ff", 'type': "#ff9ebb", 'func': "#8ec9ff",
     'def': T["ch_b"], 'meta': T["pink"], 'key': "#8ec9ff", 'heading': T["accent"],
     'tag': T["accent"], 'attr': "#8ec9ff", 'var': "#b9a6ff", 'code': T["gold"],
-    'link': T["ch_b"], 'emph': T["accent_hov"],
+    'link': T["ch_b"], 'emph': T["text"],
 }
 
 
@@ -48,11 +48,13 @@ class Highlighter:
         self.buf = buf
         self.lexer: Optional[syntax.Lexer] = None
         self.states: List[object] = [None]       # states[i]: state at the start of line i+1
+        self.epoch = 0                           # bumped when what is known changes
         self._bg: Optional[str] = None
         self._bg_target = 0
 
     def set_lexer(self, lexer: Optional[syntax.Lexer]) -> None:
         self.cancel()
+        self.epoch += 1
         self.lexer = lexer
         self.states = [None]
         buf = self.buf
@@ -91,6 +93,7 @@ class Highlighter:
         if len(self.states) < self._bg_target:
             self._bg = self.buf.text.after(5, self._background)
         else:
+            self.epoch += 1
             self.buf.schedule_refresh()
 
     def colour(self, first: int, last: int) -> None:
@@ -152,11 +155,15 @@ class Buffer:
         self.indent = ' ' * app.settings['tab_width']
         self.restored = False
         self.wrap = app.settings['wrap']
+        self.huge_lines = False          # a line over HUGE_LINE characters
         self._chunks: Optional[Iterator[str]] = None
         self._refresh_id: Optional[str] = None
         self._content: Optional[Tuple[int, str, Lines]] = None
         self._gutter_digits = 0
         self._curline = 0
+        self._scroll: Tuple = ()
+        self._coloured: Tuple = ()
+        self.refreshes = 0
         self.first_screen_at: Optional[float] = None
 
         px = app.px
@@ -170,7 +177,7 @@ class Buffer:
             insertontime=700, selectbackground=T["line2"], inactiveselectbackground=T["line"],
             relief='flat', bd=0, highlightthickness=0, padx=px(8), pady=px(4),
             exportselection=True, spacing1=0, spacing3=0, takefocus=1)
-        self.vbar = ttk.Scrollbar(self.frame, orient='vertical', command=self.text.yview,
+        self.vbar = ttk.Scrollbar(self.frame, orient='vertical', command=self._scrollbar,
                                   style="Spark.Vertical.TScrollbar")
         self.hbar = ttk.Scrollbar(self.frame, orient='horizontal', command=self.text.xview,
                                   style="Spark.Horizontal.TScrollbar")
@@ -187,6 +194,7 @@ class Buffer:
         for tag in syntax.TAGS:
             self.text.tag_configure('sx_' + tag, foreground=COLOURS[tag])
         self.text.tag_configure('sx_heading', font=app.editor_bold)
+        self.text.tag_configure('sx_emph', font=app.editor_bold)
         self.text.tag_configure('found', background=mix(T["gold"], T["bg"], 0.72))
         self.text.tag_configure('found_cur', background=T["gold"], foreground=T["on_accent"])
         self.text.tag_lower('curline')
@@ -221,8 +229,15 @@ class Buffer:
                     return ''
                 line = int(str(self.call('index', args[0])).split('.')[0])
                 result = self.call(cmd, *args)
+                if cmd != 'delete' and not self.huge_lines and                         any(len(str(a)) > HUGE_LINE for a in args[1:]):
+                    self.text.after_idle(self._check_huge)
                 self._changed(line)
                 return result
+            if self.huge_lines:
+                if cmd == 'see' and args and self._see_cheaply(args[0]):
+                    return ''
+                if cmd == 'xview' and args:
+                    return ''                # sideways along a huge line: Tk hangs
             result = self.call(cmd, *args)
             if cmd == 'edit' and args and args[0] in ('undo', 'redo'):
                 self._changed(1)
@@ -233,6 +248,29 @@ class Buffer:
             # Tk's own bindings call some commands expecting an error to be caught
             # (deleting a selection that isn't there); answer them the way IDLE does
             return ''
+
+    def _see_cheaply(self, index) -> bool:
+        """Tk's own `see` lays out a line from its start, which takes seconds or minutes on
+        a line of hundreds of thousands of characters, and Tk calls it after every key. In a
+        buffer with such a line, `see` only scrolls up or down to bring the line on screen
+        (the view never moves sideways there). True when handled here."""
+        try:
+            line = int(str(self.call('index', index)).split('.')[0])
+        except (tk.TclError, ValueError):
+            return False
+        first, last = self.visible_lines()
+        if line < first:
+            self.call('yview', f'{line}.0')
+        elif line > last:
+            self.call('yview', f'{max(1, line - max(1, last - first) + 1)}.0')
+        return True
+
+    def _check_huge(self) -> None:
+        if not self.huge_lines and fileio.has_huge_line(self.get_all(), HUGE_LINE):
+            self.huge_lines = True
+            self.call('xview', 'moveto', 0)
+            self.set_wrap(False)
+            self.app.on_huge(self)
 
     def _changed(self, line: int) -> None:
         self.version += 1
@@ -285,7 +323,10 @@ class Buffer:
         self.load_total, self.load_done = len(text), 0
         self.load_started = time.perf_counter()
         self.detect_indent(text[:200000])
-        if len(text) > BIG_FILE and self.wrap:
+        self.huge_lines = fileio.has_huge_line(text, HUGE_LINE)
+        if self.huge_lines:
+            self.set_wrap(False)
+        elif len(text) > BIG_FILE and self.wrap:
             self.set_wrap(False)
         self.text.configure(undo=False)
         self.call('delete', '1.0', 'end')
@@ -359,14 +400,20 @@ class Buffer:
         self.highlighter.set_lexer(syntax.lexer_for(lang))
         self.schedule_refresh()
 
-    def set_wrap(self, on: bool) -> None:
+    def set_wrap(self, on: bool) -> bool:
+        """Word wrap on or off. Tk takes seconds per key on a wrapped line of hundreds of
+        thousands of characters, so a buffer with such a line stays unwrapped (and doesn't
+        scroll sideways either); False if that kept it off."""
+        if self.huge_lines:
+            on = False
         self.wrap = on
         self.text.configure(wrap='word' if on else 'none')
         self._place_hbar()
         self.schedule_refresh()
+        return not self.huge_lines
 
     def _place_hbar(self) -> None:
-        if self.wrap:
+        if self.wrap or self.huge_lines:
             self.hbar.grid_remove()
         else:
             self.hbar.grid(row=1, column=1, sticky='ew')
@@ -380,7 +427,19 @@ class Buffer:
     # ─── Drawing what's on screen ──────────────────────────────
 
     def _on_yscroll(self, first, last) -> None:
+        # Tk calls this again whenever it re-measures lines, even when nothing moved
+        if (first, last) == self._scroll:
+            return
+        self._scroll = (first, last)
         self.vbar.set(first, last)
+        if not self.huge_lines:
+            # with a huge line, Tk measures it bit by bit in the background and calls this
+            # after each bit; a refresh here would make it start over, for ever. Wheel,
+            # scrollbar, keys and edits refresh instead.
+            self.schedule_refresh()
+
+    def _scrollbar(self, *args) -> None:
+        self.text.yview(*args)
         self.schedule_refresh()
 
     def schedule_refresh(self) -> None:
@@ -391,19 +450,28 @@ class Buffer:
         self._refresh_id = None
         if not self.text.winfo_ismapped():
             return
+        self.refreshes += 1
         first, last = self.visible_lines()
         self._draw_curline()
         self._draw_gutter(first, last)
         total = self.line_count()
-        self.highlighter.colour(max(1, first - MARGIN), min(total, last + MARGIN))
+        # changing tags makes Tk lay the lines out again, which calls back here: only touch
+        # them when something really changed, or a long line keeps the loop going
+        key = (first, last, total, self.version, self.highlighter.epoch,
+               id(self.highlighter.lexer))
+        if key != self._coloured:
+            self._coloured = key
+            self.highlighter.colour(max(1, first - MARGIN), min(total, last + MARGIN))
         self.app.on_refresh(self, first, last)
 
     def _draw_curline(self) -> None:
         line = self.cursor()[0]
-        if line != self._curline:
-            if self._curline:
-                self.call('tag', 'remove', 'curline', f'{self._curline}.0', f'{self._curline + 1}.0')
-            self._curline = line
+        if line == self._curline and self.call('tag', 'nextrange', 'curline', f'{line}.0',
+                                                f'{line}.0+1c'):
+            return
+        if self._curline:
+            self.call('tag', 'remove', 'curline', f'{self._curline}.0', f'{self._curline + 1}.0')
+        self._curline = line
         self.call('tag', 'add', 'curline', f'{line}.0', f'{line + 1}.0')
 
     def _draw_gutter(self, first: int, last: int) -> None:
@@ -420,10 +488,9 @@ class Buffer:
         call = self.call
         for line in range(first, last + 1):
             info = call('dlineinfo', f'{line}.0')
-            if not info:
+            info = self.text.tk.splitlist(info) if info else ()
+            if len(info) < 5:
                 continue
-            if isinstance(info, str):
-                info = info.split()
             baseline = int(info[1]) + int(info[4])
             g.create_text(x, baseline, anchor='se', text=str(line), font=app.gutter_font,
                           fill=T["accent"] if line == current else T["dim"])
@@ -431,6 +498,10 @@ class Buffer:
 
     def paint_matches(self, pattern, first: int, last: int,
                       current: Optional[Tuple[str, str]]) -> None:
+        key = (pattern, first, last, current, self.version)
+        if key == getattr(self, '_painted', None):
+            return
+        self._painted = key
         self.call('tag', 'remove', 'found', '1.0', 'end')
         self.call('tag', 'remove', 'found_cur', '1.0', 'end')
         if pattern is not None:
@@ -467,6 +538,8 @@ class Buffer:
         t = self.text
         t.bind('<<Modified>>', self._on_modified)
         t.bind('<Configure>', lambda _e: self.schedule_refresh())
+        for seq in ('<MouseWheel>', '<Button-4>', '<Button-5>', '<Shift-MouseWheel>'):
+            t.bind(seq, lambda _e: self.schedule_refresh(), add='+')
         t.bind('<Map>', lambda _e: self.schedule_refresh())
         t.bind('<Return>', self._return)
         t.bind('<KP_Enter>', self._return)
@@ -486,8 +559,8 @@ class Buffer:
         if self.loading:
             return self.restored
         try:
-            return bool(int(str(self.call('edit', 'modified'))))
-        except (tk.TclError, ValueError):
+            return bool(self.text.tk.getboolean(self.call('edit', 'modified')))
+        except (tk.TclError, ValueError, TypeError):
             return False
 
     def _on_modified(self, _e=None) -> None:

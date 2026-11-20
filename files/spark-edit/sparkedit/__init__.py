@@ -14,3 +14,4 @@ AUTOSAVE_BIG_MS = 20000          # the same, for buffers over BIG_BUFFER charact
 BIG_BUFFER = 8 * 1024 * 1024
 BIG_FILE = 5 * 1024 * 1024       # opened with word wrap off
 LONG_LINE = 5000                 # characters coloured per line; the rest stays plain
+HUGE_LINE = 20000                # past this, Tk's own scrolling to the cursor gets very slow

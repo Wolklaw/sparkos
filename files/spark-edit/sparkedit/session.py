@@ -104,6 +104,8 @@ def read_autosave(autosave_id: str) -> Optional[Autosave]:
             meta = json.load(f)
         with open(base + '.txt', encoding='utf-8', newline='') as f:
             text = f.read()
+    except FileNotFoundError:
+        return None
     except (OSError, ValueError) as exc:
         log.warning("autosave %s unreadable: %s", autosave_id, exc)
         return None

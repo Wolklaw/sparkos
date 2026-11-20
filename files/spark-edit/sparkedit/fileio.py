@@ -161,6 +161,18 @@ def read_file(path: str, encoding: Optional[str] = None,
     return text, fmt, st
 
 
+def has_huge_line(text: str, limit: int) -> bool:
+    """Is any line longer than `limit` characters? Steps a whole window at a time, so a
+    50 MB file takes a few milliseconds."""
+    pos, n = 0, len(text)
+    while n - pos > limit:
+        nl = text.rfind('\n', pos, pos + limit + 1)
+        if nl == -1:
+            return True
+        pos = nl + 1
+    return False
+
+
 def chunks(text: str, size: int) -> Iterator[str]:
     """Pieces of about `size` characters, each ending after a newline when there is one
     near the cut, so the editor never shows half a line while it loads."""
