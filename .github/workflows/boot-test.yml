@@ -224,7 +224,9 @@ jobs:
           $SSH 'ldd ~/.local/share/androidbox-app/venv/lib/python3*/site-packages/PySide6/Qt/plugins/platforms/libqxcb.so | grep "not found" || echo "androidbox: no missing libraries"' | tee "$WORK/androidbox-ldd.txt"
           ! grep -q 'not found' "$WORK/androidbox-ldd.txt"
           # It opens and stays open with no Android installed, and writes no crash log
-          $SSH 'export ANDROIDBOX_HOME=$(mktemp -d) QT_QPA_PLATFORM=offscreen; timeout 12 ~/.local/bin/androidbox; code=$?; test -f "$ANDROIDBOX_HOME/data/crash.log" && { cat "$ANDROIDBOX_HOME/data/crash.log"; exit 1; }; test $code -eq 124 && echo "androidbox stayed open"'
+          # (its output goes to a file and stdin is closed, so a helper it starts in the
+          # background can't hold the SSH session open; anything left is killed afterwards)
+          timeout 60 $SSH 'export ANDROIDBOX_HOME=$(mktemp -d) QT_QPA_PLATFORM=offscreen; timeout -k 3 12 ~/.local/bin/androidbox </dev/null >/tmp/androidbox-run.log 2>&1; code=$?; pkill -f androidbox-app || true; tail -5 /tmp/androidbox-run.log; test -f "$ANDROIDBOX_HOME/data/crash.log" && { cat "$ANDROIDBOX_HOME/data/crash.log"; exit 1; }; test $code -eq 124 && echo "androidbox stayed open"'
           # KVM may not exist inside this test VM, so only report it
           $SSH 'ls -l /dev/kvm 2>&1 || true'
 
