@@ -1,0 +1,36 @@
+{
+  "id": "dev.wolklaw.SparkUpdate",
+  "slug": "spark-update",
+  "name": "Spark Update",
+  "name_fr": "Spark Update",
+  "summary": "SparkOS's updater: gets the new version ready in the background, tells you when a restart will start it, shows what changed and rolls back.",
+  "summary_fr": "Les mises à jour de SparkOS : prépare la nouvelle version en arrière-plan, vous dit quand un redémarrage la lancera, montre ce qui a changé et revient en arrière.",
+  "version": "1.0.0",
+  "installed_size_kb": 260,
+  "icon": "icons/spark-update-256.png",
+  "categories": ["System", "Settings"],
+  "part_of_image": true,
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "rpm-ostree": "reading the installed versions; checking and rolling back",
+      "bootc": "staging new images (the system install's root timer)",
+      "flatpak": "updating Flatpak apps",
+      "notify-send": "the 'SparkOS updated' notification",
+      "pkexec": "roll back and system settings",
+      "systemctl": "the timers"
+    },
+    "system": "SparkOS (an rpm-ostree/bootc image). Background image downloads need the system install that ships in the image; --user gives the window, the notification and your own Flatpak updates."
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-update --self-test"
+  },
+  "license": "Apache-2.0",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-update"
+}
