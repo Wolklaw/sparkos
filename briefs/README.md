@@ -20,7 +20,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [spark-snip-capture.md](spark-snip-capture.md) | Spark Snip captures without Spectacle | In progress (Release 2) |
 | [release2-cleanup.md](release2-cleanup.md) | Image cleanup: font in the repo, Plasma System Monitor and Tailscale out, own AppImage handling, no calling home | PR open ([#13](https://github.com/Wolklaw/sparkos/pull/13)): build and full boot test passed. The connectivity check is the owner's call (see the PR) |
 | [spark-edit.md](spark-edit.md) | Spark Edit: light text and code editor (no editor ships today) | In progress |
-| [spark-calc.md](spark-calc.md) | Spark Calc: standard, scientific and programmer calculator | In progress |
+| [spark-calc.md](spark-calc.md) | Spark Calc: standard, scientific and programmer calculator | PR open (branch `spark-calc`), in [files/spark-calc](../files/spark-calc); optional, per-user install |
 | [spark-archive.md](spark-archive.md) | Spark Archive: zip, 7z, tar and more, Extract/Compress in Dolphin (replaces Ark) | In progress |
 | [spark-scan.md](spark-scan.md) | Spark Scan: scanning with preview, crop, multi-page PDF and OCR | In progress |
 | [spark-run.md](spark-run.md) | Spark Run: Windows programs on Wine (replaces Bottles) | In progress |
