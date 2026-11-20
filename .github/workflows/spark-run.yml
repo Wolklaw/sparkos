@@ -69,6 +69,8 @@ jobs:
           if [ $status != 0 ]; then
             { echo '### Unit tests failed (Fedora)'; echo '```'
               grep -E -A40 '^(FAIL|ERROR):' /tmp/unit.log | head -300; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            grep -E -A30 '^(FAIL|ERROR):' /tmp/unit.log | head -150 | bash tests/ci_annotate.sh "Unit tests (Fedora)"
+            tail -30 /tmp/unit.log | bash tests/ci_annotate.sh "Unit tests, last lines (Fedora)"
           fi
           exit $status
 
@@ -98,6 +100,9 @@ jobs:
             { echo '### Real Wine failed (Fedora), last lines'; echo '```'; tail -80 /tmp/wine.log
               echo '```'; echo 'Spark Run logs:'; echo '```'
               tail -n 40 "$home"/.local/state/spark-run/*.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            tail -60 /tmp/wine.log | bash files/spark-run/tests/ci_annotate.sh "Real Wine (Fedora)"
+            tail -n 30 "$home"/.local/state/spark-run/*.log 2>/dev/null | \
+              bash files/spark-run/tests/ci_annotate.sh "Spark Run logs (Fedora)"
           fi
           exit "${status:-0}"
 
@@ -147,6 +152,7 @@ jobs:
 
       - name: The image build step, as root (what Spark Run adds to the image)
         run: |
+          set +e
           sudo podman run --rm -v "$PWD/files:/files:ro" "$IMAGE" bash -euo pipefail -c '
             before=$(rpm -qa | sort)
             CONFIG_DIRECTORY=/files bash /files/scripts/spark-run.sh
@@ -158,7 +164,12 @@ jobs:
             echo "added to the image:"
             du -ch /usr/lib/spark-run /usr/bin/spark-run /usr/share/applications/dev.wolklaw.SparkRun.desktop \
               /usr/share/icons/hicolor/*/apps/dev.wolklaw.SparkRun.* | tail -1
-          '
+          ' 2>&1 | tee "$RUNNER_TEMP/build.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" != 0 ]; then
+            tail -60 "$RUNNER_TEMP/build.log" | bash files/spark-run/tests/ci_annotate.sh "Build step in the SparkOS image"
+          fi
+          exit "$status"
 
       - name: As a normal user, no root - install, self-test, real Wine, uninstall
         run: |
@@ -212,5 +223,10 @@ jobs:
             { echo '### SparkOS job failed, last lines'; echo '```'; tail -120 "$RUNNER_TEMP/sparkos.log"
               echo '```'; echo 'Spark Run logs:'; echo '```'
               tail -n 40 "$RUNNER_TEMP"/out/state/*.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            grep -E -A30 '^(FAIL|ERROR):' "$RUNNER_TEMP/sparkos.log" | head -150 | \
+              bash files/spark-run/tests/ci_annotate.sh "Unit tests (SparkOS)"
+            tail -60 "$RUNNER_TEMP/sparkos.log" | bash files/spark-run/tests/ci_annotate.sh "SparkOS job, last lines"
+            sudo tail -n 30 "$RUNNER_TEMP"/out/state/*.log 2>/dev/null | \
+              bash files/spark-run/tests/ci_annotate.sh "Spark Run logs (SparkOS)"
           fi
           exit "$status"

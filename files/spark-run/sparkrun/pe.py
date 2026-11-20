@@ -84,7 +84,8 @@ class PEInfo:
         return icon_from_resources(self._rsrc, self._rsrc_data, self._rsrc_rva)
 
 
-def inspect(path: str) -> PEInfo:
+def inspect(path: str, markers: bool = True) -> PEInfo:
+    """markers=False skips looking for installer makers' marks (reads up to 5 MB)."""
     info = PEInfo(path)
     try:
         info.size = os.path.getsize(path)
@@ -146,7 +147,7 @@ def inspect(path: str) -> PEInfo:
                         info.strings = version_strings(ver)
                     except (struct.error, IndexError, UnicodeDecodeError):
                         info.strings = {}
-            if not info.installer:
+            if not info.installer and markers:
                 info.installer = _installer_marker(f, info)
     except OSError:
         pass

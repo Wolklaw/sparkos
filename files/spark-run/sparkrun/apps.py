@@ -364,7 +364,7 @@ def find_programs(prefix: str, before: set, hint: str = '') -> List[Candidate]:
             base = os.path.basename(path)
             if SKIP.search(base):
                 continue
-            info = pe.inspect(path)
+            info = pe.inspect(path, markers=False)
             if info.kind != 'pe':
                 continue
             title = info.product or os.path.splitext(base)[0]
@@ -389,7 +389,7 @@ def save_icon(app: App, exe: str) -> Optional[str]:
             os.unlink(os.path.join(app.prefix, name))
         except OSError:
             pass
-    ico = pe.inspect(exe).icon_ico() if exe and os.path.isfile(exe) else None
+    ico = pe.inspect(exe, markers=False).icon_ico() if exe and os.path.isfile(exe) else None
     if not ico:
         return None
     png = os.path.join(app.prefix, ICON)

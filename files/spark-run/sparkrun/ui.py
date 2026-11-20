@@ -310,6 +310,9 @@ class Window:
     def clear(self) -> tk.Frame:
         if self.view is not None:
             self.view.destroy()
+        for seq in ("<Return>", "<Delete>"):
+            self.root.unbind(seq)
+        self.listing = False
         self.view = tk.Frame(self.body, bg=T["bg"])
         self.view.pack(fill="both", expand=True)
         return self.view
@@ -589,10 +592,9 @@ class Window:
 
     def show_list(self, message: str = '') -> None:
         self.from_list = False
-        self.listing = True
-        self.root.unbind("<Return>")
         self.status_idle()
         v = self.clear()
+        self.listing = True
         px = self.px
         top = tk.Frame(v, bg=T["bg"])
         top.pack(fill="x")
@@ -621,7 +623,10 @@ class Window:
             def wheel(event):
                 step = -1 if (getattr(event, 'num', 0) == 4 or getattr(event, 'delta', 0) > 0) \
                     else 1
-                canvas.yview_scroll(step, 'units')
+                try:
+                    canvas.yview_scroll(step, 'units')
+                except tk.TclError:          # the list was replaced by another view
+                    pass
             for seq in ("<Button-4>", "<Button-5>", "<MouseWheel>"):
                 canvas.bind_all(seq, wheel)
             for app in self.apps:
