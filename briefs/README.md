@@ -14,7 +14,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 |---|---|---|
 | [spark-welcome.md](spark-welcome.md) | Spark Welcome: first-login setup | Not started |
 | [spark-games.md](spark-games.md) | Spark Games: one library for every launcher | Owner has started notes; ask for them first |
-| [spark-monitor.md](spark-monitor.md) | Spark Monitor: task manager (Ctrl+Shift+Esc) | Not started |
+| [spark-monitor.md](spark-monitor.md) | Spark Monitor: task manager (Ctrl+Shift+Esc) | Built; [PR #5](https://github.com/Wolklaw/sparkos/pull/5) open for the owner. Shortcut not yet tried on hardware |
 | (no brief yet) | Spark Portal: the hub that lists, installs, updates and removes optional Spark apps | Idea; the owner decides the format first |
 
 ## Optional apps install on their own
