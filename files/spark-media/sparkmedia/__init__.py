@@ -7,7 +7,7 @@ APP_NAME = "Spark Media"
 APP_SLUG = "spark-media"         # command, folders, log names
 APP_CLASS = "SparkMedia"         # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkMedia"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 KINDS = ("photo", "video", "music")
 
@@ -16,7 +16,8 @@ KINDS = ("photo", "video", "music")
 PHOTO_EXT = frozenset("""
     jpg jpeg jpe jfif png apng gif webp bmp dib tif tiff ico cur avif heic heif tga ppm pgm pbm
     pnm pcx qoi dds psd
-""".split())
+    cr2 cr3 crw nef nrw arw srf sr2 dng raf orf rw2 pef srw rwl 3fr iiq x3f
+""".split())             # the last line: camera RAW (sparkmedia/raw.py)
 VIDEO_EXT = frozenset("""
     mp4 m4v mkv webm avi mov qt wmv asf flv mpg mpeg mpe vob ts m2ts mts 3gp 3g2 ogv divx
 """.split())

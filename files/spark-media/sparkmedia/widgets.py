@@ -492,6 +492,13 @@ class IconButton(tk.Canvas):
         elif icon == "rotate":
             line(18, 9, 18, 18, 6, 18, 6, 6, 14, 6)
             poly(13, 3, 17.5, 6, 13, 9)
+        elif icon == "rotate_ccw":
+            line(6, 9, 6, 18, 18, 18, 18, 6, 10, 6)
+            poly(11, 3, 6.5, 6, 11, 9)
+        elif icon == "edit":
+            # a crop mark: the two corner brackets every editor uses
+            line(7, 3, 7, 17, 21, 17)
+            line(3, 7, 17, 7, 17, 21)
         elif icon == "zoom_in":
             line(5, 12, 19, 12)
             line(12, 5, 12, 19)
