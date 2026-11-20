@@ -1,0 +1,19 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/all;
+Actions=compressZip;compressTarZst;
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Compress
+X-KDE-Submenu[fr]=Compresser
+
+[Desktop Action compressZip]
+Name=Compress to .zip
+Name[fr]=Compresser en .zip
+Icon=dev.wolklaw.SparkArchive
+Exec=spark-archive --compress zip %F
+
+[Desktop Action compressTarZst]
+Name=Compress to .tar.zst
+Name[fr]=Compresser en .tar.zst
+Icon=dev.wolklaw.SparkArchive
+Exec=spark-archive --compress tar.zst %F

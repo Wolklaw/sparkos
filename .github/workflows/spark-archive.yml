@@ -1,6 +1,22 @@
 name: spark-archive
+# Spark Archive: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, with Dolphin's Extract and
+# Compress menu. Build step files/scripts/spark-archive.sh; also installs per user without
+# root, the way optional Spark apps will through the future Spark Portal.
+#
+# fedora:  runs the image build step in a plain Fedora container (as root), then the unit
+#          tests (every format, every path-escape case) and the window tests under Xvfb, and
+#          times opening the window and a 20 000-file archive.
+# sparkos: inside the published SparkOS image, as a normal user (setpriv: su and runuser need
+#          PAM, which a container doesn't have), installs it with install.sh --user, runs the
+#          self-test and the unit tests on the image's own Python, libarchive and 7z,
+#          uninstalls it and checks nothing is left behind.
 on:
   push:
+    paths:
+      - "files/spark-archive/**"
+      - "files/scripts/spark-archive.sh"
+      - ".github/workflows/spark-archive.yml"
+  pull_request:
     paths:
       - "files/spark-archive/**"
       - "files/scripts/spark-archive.sh"
@@ -8,47 +24,98 @@ on:
   workflow_dispatch:
 
 jobs:
-  probe-fedora:
+  fedora:
     runs-on: ubuntu-24.04
     container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
     steps:
-      - name: Probe
+      - uses: actions/checkout@v4
+
+      - name: Tools the image has (7z, zstd command)
+        run: dnf -y install --setopt=install_weak_deps=False 7zip zstd
+
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-archive.sh
+
+      - name: Tests (Xvfb)
         run: |
-          cat /etc/os-release | head -3
-          python3 -c 'import sys; print(sys.version)'
-          python3 -c 'import compression.zstd as z; print("zstd ok", z.zstd_version_info)' || true
-          python3 -c 'import tkinter' && echo tk ok || echo no tk
-          ls -l /usr/lib64/libarchive.so* || true
-          rpm -q libarchive bsdtar 7zip p7zip p7zip-plugins unrar zstd || true
-          dnf -q repoquery --whatprovides '/usr/bin/7z' '/usr/bin/7zz' '/usr/bin/bsdtar' '/usr/bin/unrar' 2>/dev/null || true
-          dnf -q info 7zip libarchive bsdtar 2>/dev/null | grep -E '^(Name|Version|Size|Repository)' || true
-  probe-sparkos:
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth
+          cd files/spark-archive
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Speed (window, and a 20 000-file archive)
+        run: |
+          python3 -c "
+          import zipfile
+          with zipfile.ZipFile('/tmp/many.zip', 'w') as zf:
+              for i in range(20000):
+                  zf.writestr(f'folder{i // 500}/file{i}.txt', 'x' * 100)
+          "
+          xvfb-run -a -s "-screen 0 1920x1080x24" spark-archive --bench 20 | tee bench.txt
+          xvfb-run -a -s "-screen 0 1920x1080x24" spark-archive --bench 20 /tmp/many.zip | tee -a bench.txt
+          { echo '### Spark Archive speed (GitHub runner, Xvfb)'; echo '```'; cat bench.txt; echo '```'; } \
+            >> "$GITHUB_STEP_SUMMARY"
+
+  sparkos:
     runs-on: ubuntu-24.04
+    timeout-minutes: 45
     permissions:
       contents: read
       packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
     steps:
+      - uses: actions/checkout@v4
+
       - name: Free disk space
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
           df -h /
-      - name: Probe
+
+      - name: Pull the SparkOS image
         run: |
           echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          sudo podman pull -q ghcr.io/wolklaw/sparkos:latest
-          sudo podman run --rm ghcr.io/wolklaw/sparkos:latest bash -c '
-            head -3 /etc/os-release
-            python3 -c "import sys; print(sys.version)"
-            python3 -c "import compression.zstd as z; print(\"zstd ok\", z.zstd_version_info)" || true
-            python3 -c "import tkinter; print(\"tk\", tkinter.TkVersion)" || true
-            python3 -c "import PIL; print(\"PIL\", PIL.__version__)" || true
-            ls -l /usr/lib64/libarchive.so* || true
-            rpm -q libarchive bsdtar 7zip p7zip p7zip-plugins unrar zstd ark kio-extras || true
-            for c in 7z 7zz 7za bsdtar unrar unzip zstd xz bzip2 gzip lsar unar; do printf "%s: " $c; command -v $c || echo no; done
-            rpm -q --whatrequires libarchive | head -20
-            rpm -q --whatrequires "libarchive.so.13()(64bit)" | head -20
-            ls /usr/share/kio/servicemenus/ 2>/dev/null; ls /usr/share/kservices6/ServiceMenus/ 2>/dev/null | head
-            grep -l -i "zip\|archive" /usr/share/applications/*.desktop | head
-            xdg-mime query default application/zip 2>/dev/null || true
-            grep -ri "zip\|x-7z\|rar\|iso9660\|x-tar" /usr/share/applications/mimeapps.list /etc/xdg/mimeapps.list 2>/dev/null | head
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: What the image has for archives (for the PR)
+        run: sudo podman run --rm -v "$PWD/files/spark-archive/tests:/t:ro" "$IMAGE" bash /t/image_report.sh
+
+      - name: Install, self-test, uninstall as a normal user
+        run: |
+          sudo podman run --rm -v "$PWD/files/spark-archive:/src:ro" "$IMAGE" bash -euo pipefail -c '
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            cp -r /src "$home/spark-archive"
+            chown -R tester: "$home/spark-archive"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester \
+                    LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+            usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+
+            echo "--- install --user"
+            as "bash ~/spark-archive/install.sh --user"
+            as "test -x ~/.local/bin/spark-archive"
+            as "grep -q \"^Exec=$home/.local/bin/spark-archive %f$\" ~/.local/share/applications/dev.wolklaw.SparkArchive.desktop"
+            as "test -x ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.extract.desktop"
+            as "grep -q \"^Exec=$home/.local/bin/spark-archive --compress zip %F$\" ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.compress.desktop"
+            as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkArchive.png"
+            test ! -e /usr/bin/spark-archive
+            test ! -e /usr/share/applications/dev.wolklaw.SparkArchive.desktop
+
+            echo "--- self-test and unit tests on the image Python, libarchive and 7z"
+            as "~/.local/bin/spark-archive --version"
+            as "~/.local/bin/spark-archive --self-test"
+            as "cd ~/spark-archive && python3 -m unittest discover -s tests -v"
+
+            echo "--- uninstall"
+            as "bash ~/spark-archive/install.sh --user --uninstall"
+            left=$(as "find ~/.local -iname \"*spark*archive*\" -o -iname \"*SparkArchive*\"" || true)
+            if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
+            usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+            [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
+            echo "installed, tested and removed without root"
           '
