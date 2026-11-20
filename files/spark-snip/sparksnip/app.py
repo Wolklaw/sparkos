@@ -21,9 +21,9 @@ from PIL import Image
 
 from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, MODES, SHORTCUTS, VERSION
 from .core import (DEFAULT_LANG, CaptureError, Clipboard, Monitor, OCREngine, OCRError, Tesseract,
-                   bounding_box, grab_screen, language_label, language_short, load_config, log,
-                   monitors, place_on_desktop, recordings_dir, reduced_motion, runtime_dir,
-                   sample_image, save_config, setup_logging, system_font_file)
+                   bounding_box, cache_dir, grab_screen, language_label, language_short,
+                   load_config, log, monitors, place_on_desktop, recordings_dir, reduced_motion,
+                   runtime_dir, sample_image, save_config, setup_logging, system_font_file)
 from .widgets import T, Glitch, GlitchText, Mark, Segmented, Strip, Toggle, WolkButton, pick_mono
 
 try:
@@ -621,15 +621,13 @@ def self_test(skip_record: bool = False) -> int:
                 report["reads"].append({"lang": lang, "error": str(exc), "passed": False})
             ok = ok and passed
     report["ocr_passed"] = ok
+    # screenshots through KWin or the portal, never Spectacle
+    from .capture import self_check
+    report["capture"] = self_check()
+    report["pygobject"] = report["capture"]["dbus"].startswith("PyGObject")
+    ok = ok and report["capture"]["passed"]
     if not skip_record:
         from .recorder import self_test_encode
-        try:
-            import gi
-            gi.require_version('Gio', '2.0')
-            from gi.repository import Gio  # noqa: F401
-            report["pygobject"] = True
-        except (ImportError, ValueError):
-            report["pygobject"] = False
         report["recording"] = self_test_encode()
         ok = ok and report["pygobject"] and report["recording"]["passed"]
     report["passed"] = ok
@@ -649,16 +647,28 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument('--from', dest='from_file', metavar='FILE',
                         help="pick from an image file instead of the screen (for testing)")
     parser.add_argument('--self-test', action='store_true',
-                        help="read samples with Tesseract and encode a test video, print a "
-                             "report and exit; needs no display")
+                        help="read samples with Tesseract, check screen capture needs no "
+                             "Spectacle, encode a test video, print a report and exit; "
+                             "needs no display")
     parser.add_argument('--skip-record', action='store_true',
                         help="with --self-test: leave out the recording check")
+    parser.add_argument('--capture-check', nargs='?', const='', metavar='FOLDER',
+                        help="on a running desktop: take a screenshot every way Spark Snip "
+                             "can (KWin workspace, screen, window, area, then the portal), "
+                             "save them to FOLDER (default ~/.cache/spark-snip/capture-check) "
+                             "and print a report")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")
     args = parser.parse_args(argv)
 
     setup_logging()
     if args.self_test:
         return self_test(skip_record=args.skip_record)
+    if args.capture_check is not None:
+        from .capture import capture_check
+        folder = args.capture_check or os.path.join(cache_dir(), 'capture-check')
+        report = capture_check(folder)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report["passed"] else 1
     if args.mode == 'video':
         from .recorder import running_recorder
         pid = running_recorder()

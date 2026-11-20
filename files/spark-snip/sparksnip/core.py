@@ -69,6 +69,10 @@ def config_dir() -> str:
     return _xdg_dir('XDG_CONFIG_HOME', '.config')
 
 
+def cache_dir() -> str:
+    return _xdg_dir('XDG_CACHE_HOME', '.cache')
+
+
 def state_dir() -> str:
     return _xdg_dir('XDG_STATE_HOME', os.path.join('.local', 'state'))
 
@@ -458,10 +462,11 @@ class Monitor(NamedTuple):
         return (self.x, self.y, self.x + self.w, self.y + self.h)
 
 
+# Built in (sparksnip/capture.py): 'kwin' is KWin's ScreenShot2 D-Bus interface, 'portal'
+# the XDG Desktop Portal's Screenshot call, 'pil' Pillow on X11 and Windows. The helper
+# programs below are only for other Wayland desktops. Spectacle is not used.
+BUILT_IN_CAPTURE = ('kwin', 'portal', 'pil')
 CAPTURE_TOOLS: Dict[str, Callable[[str], List[str]]] = {
-    # KDE Plasma: KWin only lets trusted programs read the screen, and Spectacle is one
-    'spectacle': lambda path: ['spectacle', '--background', '--nonotify', '--fullscreen',
-                               '--output', path],
     'grim': lambda path: ['grim', path],                       # Sway, Hyprland, wlroots
     'gnome-screenshot': lambda path: ['gnome-screenshot', '--file', path],
 }
@@ -475,13 +480,13 @@ def capture_order() -> List[str]:
     if kind == 'windows':
         return ['pil']
     if kind == 'x11':
-        return ['pil', 'spectacle', 'gnome-screenshot']
+        return ['pil', 'portal']
     desktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
     if 'gnome' in desktop:
-        return ['gnome-screenshot', 'spectacle', 'grim']
+        return ['gnome-screenshot', 'portal']
     if 'kde' in desktop or not desktop:
-        return ['spectacle', 'grim', 'gnome-screenshot']
-    return ['grim', 'spectacle', 'gnome-screenshot']
+        return ['kwin', 'portal']
+    return ['grim', 'portal']
 
 
 def _tool_screenshot(name: str) -> Image.Image:
@@ -506,18 +511,38 @@ def _tool_screenshot(name: str) -> Image.Image:
             pass
 
 
+def _built_in_screenshot(name: str) -> Image.Image:
+    from . import capture
+    if name == 'pil':
+        from PIL import ImageGrab
+        return ImageGrab.grab().convert('RGB')
+    if name == 'kwin':
+        with capture.KWinScreenShot() as kwin:
+            return kwin.workspace().convert('RGB')
+    return capture.portal_screenshot()
+
+
 def grab_screen() -> Tuple[Image.Image, str]:
     """The whole desktop as one image, and the tool that took it."""
+    from .capture import ScreenReadError
     problems = []
     for tool in capture_order():
-        if tool == 'pil':
+        if tool in BUILT_IN_CAPTURE:
             try:
-                from PIL import ImageGrab
-                return ImageGrab.grab().convert('RGB'), 'pil'
-            except Exception as exc:                    # noqa: BLE001 - try the next tool
-                problems.append(f"pil: {exc}")
+                shot = _built_in_screenshot(tool)
+                log.info("captured %sx%s with %s", shot.width, shot.height, tool)
+                return shot, tool
+            except ScreenReadError as exc:
+                log.warning("capture with %s failed: %s", tool, exc)
+                problems.append(str(exc))
+            except Exception as exc:                    # noqa: BLE001 - try the next one
+                log.exception("capture with %s failed", tool)
+                problems.append(f"{tool}: {exc}")
             continue
-        if tool not in CAPTURE_TOOLS or not shutil.which(tool):
+        if tool not in CAPTURE_TOOLS:
+            problems.append(f"{tool}: not a capture method Spark Snip knows")
+            continue
+        if not shutil.which(tool):
             problems.append(f"{tool}: not installed")
             continue
         try:
@@ -527,7 +552,7 @@ def grab_screen() -> Tuple[Image.Image, str]:
         except (CaptureError, OSError, subprocess.SubprocessError) as exc:
             log.warning("capture with %s failed: %s", tool, exc)
             problems.append(str(exc))
-    raise CaptureError("No screenshot tool worked. " + "; ".join(problems))
+    raise CaptureError("Could not read the screen. " + "; ".join(problems))
 
 
 MONITOR_RE = re.compile(r'(\d+)/\d+x(\d+)/\d+\+(-?\d+)\+(-?\d+)\s+(\S+)')

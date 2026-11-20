@@ -7,9 +7,13 @@ display (on CI: xvfb-run) and open real windows for a few seconds.
 """
 
 import os
+import shutil
+import subprocess
 import sys
 import tempfile
+import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, os.path.dirname(HERE))
@@ -18,7 +22,7 @@ os.environ.setdefault('XDG_CONFIG_HOME', tempfile.mkdtemp(prefix='spark-snip-con
 
 from PIL import Image  # noqa: E402
 
-from sparksnip import core, recorder  # noqa: E402
+from sparksnip import capture, core, recorder  # noqa: E402
 from sparksnip.core import Monitor  # noqa: E402
 
 XRANDR = """Monitors: 2
@@ -122,6 +126,192 @@ class LogicTests(unittest.TestCase):
     def test_config_round_trip(self):
         core.save_config({'lang': 'fra', 'mode': 'video'})
         self.assertEqual(core.load_config()['mode'], 'video')
+
+
+class CaptureLogicTests(unittest.TestCase):
+    """Reading the screen without Spectacle: decoding, order, desktop entry. Run anywhere."""
+
+    def test_raw_rgbx_with_padded_rows(self):
+        width, height, stride = 3, 2, 3 * 4 + 4
+        data = b''.join(bytes(b for x in range(width) for b in (x * 50, y * 100, 7, 255))
+                        + bytes(4) for y in range(height))
+        image = capture.image_from_raw(data, width, height, stride, 16)
+        self.assertEqual(image.mode, 'RGB')
+        self.assertEqual(image.size, (3, 2))
+        self.assertEqual(image.getpixel((2, 1)), (100, 100, 7))
+
+    def test_raw_argb32_is_bgra_in_memory(self):
+        image = capture.image_from_raw(bytes([30, 20, 10, 255]), 1, 1, 4, 4)
+        self.assertEqual(image.getpixel((0, 0)), (10, 20, 30))
+
+    def test_raw_premultiplied_window(self):
+        image = capture.image_from_raw(bytes([50, 25, 0, 128]), 1, 1, 4, 18)
+        red, green, _blue, alpha = image.getpixel((0, 0))
+        self.assertEqual(alpha, 128)
+        self.assertLessEqual(abs(red - 100), 1)
+        self.assertLessEqual(abs(green - 50), 1)
+
+    def test_raw_rejects_short_data_and_unknown_formats(self):
+        with self.assertRaises(capture.ScreenReadError):
+            capture.image_from_raw(bytes(10), 2, 2, 8, 16)
+        with self.assertRaises(capture.ScreenReadError):
+            capture.image_from_raw(bytes(16), 2, 2, 8, 9999)
+
+    @unittest.skipIf(os.name == 'nt', "Windows always uses Pillow")
+    def test_no_desktop_uses_spectacle(self):
+        orders = capture.orders_by_desktop()
+        self.assertEqual(orders['plasma'], ['kwin', 'portal'])
+        for desktop, order in orders.items():
+            self.assertNotIn('spectacle', order, desktop)
+            self.assertIn('portal', order, desktop)
+        self.assertNotIn('spectacle', core.CAPTURE_TOOLS)
+
+    def test_forced_spectacle_is_refused(self):
+        with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'spectacle'}):
+            with self.assertRaises(core.CaptureError) as caught:
+                core.grab_screen()
+        self.assertIn("not a capture method", str(caught.exception))
+
+    def test_desktop_entry_declares_kwin_and_owns_the_keys(self):
+        path = os.path.join(os.path.dirname(HERE), capture.DESKTOP_FILE)
+        report = capture.check_desktop_entry(path)
+        self.assertTrue(report['passed'], report)
+        self.assertEqual(report['restricted_interfaces'], ['org.kde.KWin.ScreenShot2'])
+
+    def test_install_script_does_not_pull_spectacle(self):
+        with open(os.path.join(os.path.dirname(HERE), 'install.sh'), encoding='utf-8') as f:
+            self.assertNotIn('spectacle', f.read().lower())
+
+
+DBUS_CONFIG = """<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/dbus/1.0/busconfig.dtd">
+<busconfig>
+  <type>session</type>
+  <listen>unix:tmpdir={tmp}</listen>
+  <auth>EXTERNAL</auth>
+  <policy context="default">
+    <allow send_destination="*" eavesdrop="true"/>
+    <allow eavesdrop="true"/>
+    <allow own="*"/>
+  </policy>
+</busconfig>
+"""
+NEEDS_DBUS = ("needs PyGObject and dbus-daemon; CI sets SPARK_SNIP_REQUIRE_DBUS_TESTS=1 "
+              "so these never skip there")
+HAVE_DBUS = capture.gio_ready()[0] and bool(shutil.which('dbus-daemon'))
+if os.environ.get('SPARK_SNIP_REQUIRE_DBUS_TESTS') == '1' and not HAVE_DBUS:
+    raise RuntimeError(NEEDS_DBUS)
+
+
+@unittest.skipUnless(HAVE_DBUS, NEEDS_DBUS)
+class DBusCaptureTests(unittest.TestCase):
+    """The real D-Bus client against a stand-in KWin and portal (tests/fake_desktop.py) on a
+    private bus: fd passing, the raw pixel read, and the fallback order."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls.tmp = tempfile.mkdtemp(prefix='spark-snip-dbus-')
+        config = os.path.join(cls.tmp, 'bus.conf')
+        with open(config, 'w', encoding='utf-8') as f:
+            f.write(DBUS_CONFIG.format(tmp=cls.tmp))
+        cls.daemon = subprocess.Popen(['dbus-daemon', f'--config-file={config}', '--nofork',
+                                       '--nopidfile', '--print-address=1'],
+                                      stdout=subprocess.PIPE, text=True)
+        cls.address = cls.daemon.stdout.readline().strip()
+        if not cls.address:
+            cls.daemon.kill()
+            raise RuntimeError("dbus-daemon gave no address")
+        cls.env = mock.patch.dict(os.environ, {
+            'DBUS_SESSION_BUS_ADDRESS': cls.address, 'XDG_SESSION_TYPE': 'wayland',
+            'WAYLAND_DISPLAY': 'wayland-test', 'XDG_CURRENT_DESKTOP': 'KDE'})
+        cls.env.start()
+        os.environ.pop('SPARK_SNIP_CAPTURE', None)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.env.stop()
+        cls.daemon.kill()
+        cls.daemon.wait(5)
+        shutil.rmtree(cls.tmp, ignore_errors=True)
+
+    def setUp(self):
+        self.folder = tempfile.mkdtemp(dir=self.tmp)
+        self.fake = None
+
+    def tearDown(self):
+        if self.fake:
+            self.fake.kill()
+            self.fake.wait(5)
+
+    def start_fake(self, *flags):
+        self.fake = subprocess.Popen(
+            [sys.executable, os.path.join(HERE, 'fake_desktop.py'), self.folder, *flags],
+            stdout=subprocess.PIPE, text=True)
+        deadline = time.monotonic() + 15
+        line = ''
+        while time.monotonic() < deadline and 'READY' not in line:
+            line = self.fake.stdout.readline()
+            if not line and self.fake.poll() is not None:
+                break
+        self.assertIn('READY', line, "the stand-in desktop did not start")
+
+    def calls(self):
+        with open(os.path.join(self.folder, 'calls.txt'), encoding='utf-8') as f:
+            return f.read()
+
+    def test_kwin_workspace_pixels(self):
+        self.start_fake()
+        with capture.KWinScreenShot() as kwin:
+            self.assertEqual(kwin.version(), 5)
+            image = kwin.workspace()
+        self.assertEqual(image.size, (300, 200))
+        self.assertEqual(image.getpixel((10, 20)), (10, 20, 77))
+        self.assertEqual(image.getpixel((299, 199)), (299 % 256, 199, 77))
+        self.assertIn("CaptureWorkspace ({'include-cursor': False, 'native-resolution': True},)",
+                      self.calls())
+
+    def test_kwin_screen_window_and_area(self):
+        self.start_fake()
+        with capture.KWinScreenShot() as kwin:
+            self.assertEqual(kwin.screen('DP-1').size, (300, 200))
+            self.assertEqual(kwin.active_screen().size, (300, 200))
+            self.assertEqual(kwin.active_window().size, (300, 200))
+            area = kwin.area(5, 6, 64, 32)
+        self.assertEqual(area.size, (64, 32))
+        calls = self.calls()
+        self.assertIn("CaptureScreen ('DP-1',", calls)
+        self.assertIn("'include-decoration': True", calls)
+        self.assertIn("CaptureArea (5, 6, 64, 32,", calls)
+
+    def test_plasma_capture_goes_through_kwin(self):
+        self.start_fake()
+        shot, tool = core.grab_screen()
+        self.assertEqual(tool, 'kwin')
+        self.assertEqual(shot.size, (300, 200))
+
+    def test_falls_back_to_the_portal_when_kwin_refuses(self):
+        self.start_fake('--kwin-refuses')
+        shot, tool = core.grab_screen()
+        self.assertEqual(tool, 'portal')
+        self.assertEqual(shot.getpixel((0, 0)), (1, 2, 3))
+        self.assertIn("portal Screenshot interactive=False", self.calls())
+
+    def test_reports_every_failure_clearly(self):
+        self.start_fake('--no-kwin', '--no-portal')
+        with self.assertRaises(core.CaptureError) as caught:
+            core.grab_screen()
+        message = str(caught.exception)
+        self.assertTrue(message.startswith("Could not read the screen."), message)
+        self.assertIn("KWin CaptureWorkspace", message)
+        self.assertIn("portal:", message)
+
+    def test_capture_check_saves_every_path(self):
+        self.start_fake()
+        report = capture.capture_check(os.path.join(self.folder, 'check'))
+        self.assertTrue(report['passed'], report)
+        for name in ('kwin-workspace', 'kwin-active-screen', 'kwin-active-window', 'kwin-area',
+                     'portal'):
+            self.assertTrue(os.path.isfile(report[name]['file']), name)
 
 
 @unittest.skipUnless(core.Tesseract().cmd, "Tesseract is not installed")
