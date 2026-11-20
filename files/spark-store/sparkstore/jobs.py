@@ -22,6 +22,28 @@ WAITING, RUNNING, DONE, FAILED, CANCELLED = 'waiting', 'running', 'done', 'faile
 FINISHED = (DONE, FAILED, CANCELLED)
 
 PERCENT = re.compile(r'(\d{1,3})\s?%')
+ANSI = re.compile(rb'\x1b(\[[0-9;?]*[ -/]*[@-~]|\][^\x07\x1b]*(\x07|\x1b\\)|[()][0-9A-Za-z]|[=>78])')
+
+
+def use_pty() -> bool:
+    if os.environ.get('SPARK_STORE_NO_PTY') == '1' or os.name != 'posix':
+        return False
+    import importlib.util
+    return importlib.util.find_spec('pty') is not None
+
+
+def pty_pair():
+    """A pseudo-terminal 160 columns wide (flatpak sizes its progress bar to it)."""
+    import fcntl
+    import pty
+    import struct
+    import termios
+    master, slave = pty.openpty()
+    try:
+        fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 160, 0, 0))
+    except OSError:
+        pass
+    return master, slave
 STEP = re.compile(r'\b(\d{1,3})/(\d{1,3})\b')
 
 
@@ -217,24 +239,55 @@ class JobQueue:
         if job.flatpak and not base:
             job.output.append("error: flatpak is not installed")
             return 127
-        try:      # in the user's language: its errors are shown as they are
-            proc = subprocess.Popen(base + argv, stdout=subprocess.PIPE,
-                                    stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                    close_fds=True, start_new_session=os.name == 'posix')
+        # flatpak shows its progress bar only on a terminal, so on Linux it gets one (a
+        # pseudo-terminal); elsewhere (the tests on Windows) a pipe. Output stays in the
+        # user's language: its errors are shown as they are.
+        master = slave = None
+        if job.flatpak and use_pty():
+            try:
+                master, slave = pty_pair()
+            except OSError:
+                master = slave = None
+        out = slave if slave is not None else subprocess.PIPE
+        env = dict(os.environ, TERM='xterm-256color') if slave is not None else None
+        try:
+            proc = subprocess.Popen(base + argv, stdout=out, stderr=subprocess.STDOUT,
+                                    stdin=subprocess.DEVNULL, close_fds=True, env=env,
+                                    start_new_session=os.name == 'posix')
         except OSError as exc:
             job.output.append(f"error: {exc}")
+            for fd in (master, slave):
+                if fd is not None:
+                    os.close(fd)
             return 127
+        if slave is not None:
+            os.close(slave)
         job.proc = proc
         # A reader thread hands over what it prints; the step ends when the process does,
         # even if something it started (a D-Bus daemon, say) keeps the pipe open.
         chunks: 'queue.Queue[bytes]' = queue.Queue()
-        stream = proc.stdout
-        assert stream is not None
+        if master is not None:
+            fd = master
+
+            def read_some() -> bytes:
+                return os.read(fd, 4096)       # EIO once the terminal is closed: the end
+
+            def close_stream():
+                os.close(fd)
+        else:
+            stream = proc.stdout
+            assert stream is not None
+
+            def read_some() -> bytes:
+                return stream.read1(4096)
+
+            def close_stream():
+                stream.close()
 
         def read():
             while True:
                 try:
-                    chunk = stream.read1(4096)
+                    chunk = read_some()
                 except (OSError, ValueError):
                     chunk = b''
                 chunks.put(chunk)
@@ -250,10 +303,10 @@ class JobQueue:
             except queue.Empty:
                 chunk = None
             if chunk == b'':
-                stream.close()                      # end of output
+                close_stream()                      # end of output
                 break
             if chunk:
-                pending += chunk
+                pending += ANSI.sub(b'', chunk)
                 parts = re.split(rb'[\r\n]', pending)
                 pending = parts.pop()
                 for raw in parts:

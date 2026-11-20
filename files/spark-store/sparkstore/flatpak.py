@@ -228,24 +228,27 @@ def installed_metadata(app_id: str, scope: str) -> str:
 
 
 # ─── Commands for the queue ───────────────────────────────────
+# -y answers yes to flatpak's questions (a runtime to add, say), and stdin is empty, so any
+# other question ends the step instead of waiting. Not --noninteractive: that also hides the
+# progress bar.
 
 def cmd_install(app_id: str, branch: str = 'stable', remote: str = REMOTE) -> List[str]:
     ref = f'app/{app_id}//{branch}' if branch else app_id
-    return ['--user', 'install', '-y', '--noninteractive', remote, ref]
+    return ['--user', 'install', '-y', remote, ref]
 
 
 def cmd_install_addon(addon_id: str, branch: str = 'stable', remote: str = REMOTE) -> List[str]:
-    return ['--user', 'install', '-y', '--noninteractive', remote,
+    return ['--user', 'install', '-y', remote,
             f'runtime/{addon_id}//{branch}' if branch else f'runtime/{addon_id}']
 
 
 def cmd_remove_addon(addon_id: str, scope: str, branch: str = '') -> List[str]:
     ref = f'runtime/{addon_id}//{branch}' if branch else f'runtime/{addon_id}'
-    return [f'--{scope}', 'uninstall', '-y', '--noninteractive', ref]
+    return [f'--{scope}', 'uninstall', '-y', ref]
 
 
 def cmd_install_ref(path: str) -> List[str]:
-    return ['--user', 'install', '-y', '--noninteractive', '--from', path]
+    return ['--user', 'install', '-y', '--from', path]
 
 
 def cmd_add_flathub() -> List[str]:
@@ -253,19 +256,19 @@ def cmd_add_flathub() -> List[str]:
 
 
 def cmd_remove(app_id: str, scope: str, delete_data: bool = False) -> List[str]:
-    args = [f'--{scope}', 'uninstall', '-y', '--noninteractive']
+    args = [f'--{scope}', 'uninstall', '-y']
     if delete_data:
         args.append('--delete-data')
     return args + [app_id]
 
 
 def cmd_update(app_id: Optional[str], scope: str) -> List[str]:
-    args = [f'--{scope}', 'update', '-y', '--noninteractive']
+    args = [f'--{scope}', 'update', '-y']
     return args + ([app_id] if app_id else [])
 
 
 def cmd_remove_unused(scope: str = 'user') -> List[str]:
-    return [f'--{scope}', 'uninstall', '--unused', '-y', '--noninteractive']
+    return [f'--{scope}', 'uninstall', '--unused', '-y']
 
 
 def cmd_refresh_catalog(scope: str = 'user', remote: str = REMOTE) -> List[str]:

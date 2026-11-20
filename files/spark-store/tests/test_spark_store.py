@@ -601,7 +601,7 @@ class QueueTests(unittest.TestCase):
         self.assertEqual(first.step_text, '1/1')
         installed = [a['id'] for a in fake.read()['installed']]
         self.assertEqual(installed, ['org.example.Paint', 'com.example.Chat'])
-        self.assertIn(['--user', 'install', '-y', '--noninteractive', 'flathub',
+        self.assertIn(['--user', 'install', '-y', 'flathub',
                        'app/org.example.Paint//stable'], fake.calls())
 
     def test_failure_keeps_flatpaks_error_and_retries(self):
@@ -629,7 +629,7 @@ class QueueTests(unittest.TestCase):
         add = ['--user', 'remote-add', '--if-not-exists', 'flathub', flatpak.FLATHUB_REPO]
         self.assertIn(add, calls)
         self.assertLess(calls.index(add), calls.index(
-            ['--user', 'install', '-y', '--noninteractive', 'flathub',
+            ['--user', 'install', '-y', 'flathub',
              'app/org.example.Paint//stable']))
 
     def test_cancel_waiting_and_running(self):
@@ -894,7 +894,7 @@ class UITests(unittest.TestCase):
         s.install_addon(addon)
         self.pump(lambda: s.runtimes.get(addon.id) == 'user', timeout=30)
         self.pump(lambda: 'INSTALLED' in self.texts(page.addon_frame))
-        self.assertIn(['--user', 'install', '-y', '--noninteractive', 'flathub',
+        self.assertIn(['--user', 'install', '-y', 'flathub',
                        'runtime/org.example.Paint.Plugin.Extra//stable'], self.fake.calls())
         s.remove_addon(addon)
         self.pump(lambda: addon.id not in s.runtimes, timeout=30)
@@ -944,7 +944,7 @@ class UITests(unittest.TestCase):
         self.assertIn('INSTALL FROM REPO.VENDOR.EXAMPLE', texts)
         s.install(page.subject)
         self.pump(lambda: 'com.vendor.App' in s.installed, timeout=30)
-        self.assertIn(['--user', 'install', '-y', '--noninteractive', '--from', other],
+        self.assertIn(['--user', 'install', '-y', '--from', other],
                       self.fake.calls())
         s.handle_target('appstream://org.example.Missing')
         self.assertEqual(s.page, 'search')
@@ -990,7 +990,7 @@ class UITests(unittest.TestCase):
         self.assertIn('REMOVE UNUSED RUNTIMES', texts)
         s.remove_unused()
         self.pump(lambda: not s.queue.busy(), timeout=30)
-        self.assertIn(['--user', 'uninstall', '--unused', '-y', '--noninteractive'],
+        self.assertIn(['--user', 'uninstall', '--unused', '-y'],
                       self.fake.calls())
         s.clear_finished()
         s.go('updates')

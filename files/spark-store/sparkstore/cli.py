@@ -118,8 +118,12 @@ def self_test() -> int:
         os.unlink(probe)
         print(f"cache:     {cache_dir()}")
     except OSError as exc:
-        print(f"cache:     NOT WRITABLE ({exc})")
-        failures.append("cache")
+        if os.path.isdir(os.path.expanduser('~')):
+            print(f"cache:     NOT WRITABLE ({exc})")
+            failures.append("cache")
+        else:            # an image build: root's home is on /var, which is empty there
+            print(f"cache:     none here: {os.path.expanduser('~')} doesn't exist "
+                  "(fine while building an image)")
     if failures:
         print("FAILED: " + ", ".join(failures))
         return 1

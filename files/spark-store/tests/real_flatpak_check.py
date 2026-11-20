@@ -59,10 +59,22 @@ def watch(q: JobQueue, job: Job, limit: float = 900):
           f"steps: {sorted(steps)}; last line: {job.line!r}")
     if job.error:
         print("         error: " + job.error.replace('\n', '\n                '))
+    for line in list(job.output)[-12:]:
+        print(f"         | {line[:150]}")
     return seen
 
 
+def show_remote_info(app) -> None:
+    """What flatpak prints for remote-info, as it is (sizes are read from it)."""
+    code, out, err = flatpak.run(['--user', 'remote-info', 'flathub',
+                                  f'app/{app.id}//{app.branch}'])
+    print(f"         remote-info exit {code}")
+    for line in (out + err).splitlines()[:20]:
+        print(f"         | {line!r}")
+
+
 def queue_check(cat, app) -> None:
+    show_remote_info(app)
     info = flatpak.remote_info(app.id, app.branch)
     check(info.error == '', f"remote-info {app.id}: {info.error or 'read'}")
     check(bool(info.download and info.installed),
@@ -104,6 +116,7 @@ def queue_check(cat, app) -> None:
 def ui_check(cat, app) -> None:
     os.environ['SPARK_STORE_REDUCED_MOTION'] = '1'
     from sparkstore.app import Store
+    show_remote_info(app)
     store = Store(offline=True)
 
     def pump(until, limit=900.0):

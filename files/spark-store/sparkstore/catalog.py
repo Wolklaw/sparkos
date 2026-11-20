@@ -106,7 +106,7 @@ class Catalog:
             try:
                 cached = self._rebuild(key)
                 self.rebuilt = True
-            except (OSError, EOFError, ValueError, SyntaxError) as exc:   # broken catalog file
+            except (OSError, EOFError, ValueError, SyntaxError, sqlite3.Error) as exc:
                 log.warning("could not read the catalog %s: %s", self.source.path, exc)
                 self.error = str(exc)
                 cached = ([], [])
