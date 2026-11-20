@@ -78,7 +78,21 @@ jobs:
             cp -r /src /tmp/spark-welcome
             chown -R tester: /tmp/spark-welcome
             home=$(getent passwd tester | cut -d: -f6)
-            runuser -u tester -- env -i HOME="$home" USER=tester LOGNAME=tester \
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            cd "$home"
+            setpriv --reuid=tester --regid=tester --init-groups \
+              env -i HOME="$home" USER=tester LOGNAME=tester \
               PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
               bash /tmp/spark-welcome/tests/ci-user-install.sh /tmp/spark-welcome
+          '
+
+      - name: Image build step and self-test, system-wide as root
+        run: |
+          # A fresh container: what files/scripts/spark-welcome.sh does in the image build,
+          # then the self-test the boot test will run.
+          podman run --rm -v "$PWD/files:/files:ro" "$IMAGE" bash -euc '
+            CONFIG_DIRECTORY=/files bash /files/scripts/spark-welcome.sh
+            spark-welcome --self-test | tee /tmp/self-test.txt
+            grep -q "^self-test passed" /tmp/self-test.txt
+            spark-welcome --version
           '
