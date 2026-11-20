@@ -8,8 +8,8 @@ Universal Blue's `uupd`. There is always exactly one updater, and never none.
 
 | Engine | Downloads and stages images | Spark Update does |
 |---|---|---|
-| `uupd` (**the default, the initial release**) | Universal Blue's `uupd.timer`, daily at 04:00, as Bazzite ships it (image, Flatpak apps, brew) | the notification, the window, Check now (starts `uupd-manual.service`, the same as `ujust update`), Restart, Roll back |
-| `spark` | `spark-update.timer` (below); `uupd.timer` off, and `uupd.service`/`uupd-manual.service` run Spark Update instead | everything |
+| `uupd` (the first release only; SparkOS has used `spark` and removed uupd since 2026-11-20) | Universal Blue's `uupd.timer`, daily at 04:00, as Bazzite ships it (image, Flatpak apps, brew) | the notification, the window, Check now (starts `uupd-manual.service`, the same as `ujust update`), Restart, Roll back |
+| `spark` (**SparkOS today**) | `spark-update.timer` (below). Where uupd is installed, `uupd.timer` is off and its units run Spark Update; SparkOS removes the uupd package, and `ujust update` runs Spark Update's Check now | everything |
 
 The image build picks it with `SPARK_UPDATE_ENGINE` (`files/scripts/spark-update.sh`); the
 switch to `spark` waits until Spark Update's own staging has worked on a booted SparkOS. The
