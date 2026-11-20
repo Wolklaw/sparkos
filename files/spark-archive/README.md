@@ -8,7 +8,7 @@ Open, extract and make archives on SparkOS. It reads zip, tar (plain, gz, bz2, x
 - **Overwriting:** if a file is already there it asks: Replace, Skip, Keep both (`name (2).txt`) or Cancel, with "Do this for every file".
 - **Cancel** at any time. What that extraction had written is removed again, and a folder it made goes too. A file it was replacing stays whole until its new version is complete, so Cancel never leaves a half file.
 
-Where things go: **Extract here** puts the contents in the archive's folder. **Extract to folder**, **Extract all** and **Extract selected** put them in a new folder named after the archive (`photos.zip` → `photos/`, or `photos (2)/` if that exists). When the archive already holds just one folder with that name, it isn't doubled into `photos/photos/`.
+Where things go: **Extract here** puts the contents in the archive's folder. **Extract to folder**, **Extract all** and **Extract selected** put them in a new folder named after the archive (`photos.zip` → `photos/`, or `photos (2)/` if that exists). When the archive already holds just one folder with that name, it isn't doubled into `photos/photos/`. Show in folder opens the folder that was made.
 
 ## Safe extraction
 
@@ -33,9 +33,22 @@ Whatever was left out is listed at the end with the reason ("its path leads outs
 | tar.zst | Python's `tarfile` with `compression.zstd` (Python 3.14+) | libarchive otherwise |
 | 7z, rar, iso, others | libarchive, loaded in-process with ctypes | password-protected 7z goes to the 7z command |
 
-libarchive is already in SparkOS because rpm, ostree, rpm-ostree and flatpak need it, so it stays when Ark goes. The **7z command** (Fedora's `7zip` package, 7-Zip 26) is only used for password-protected 7z and as a last resort. It unpacks into a hidden staging folder inside the target, and Spark Archive then moves each file into place through the same safe writer, refusing links that lead out and copying (never moving) any file 7z made as a hard link. The password goes to 7z on its standard input, never on the command line where other users could read it.
+libarchive is already in SparkOS because rpm, ostree, rpm-ostree and flatpak need it, so it stays when Ark goes. The **7z command** (Fedora's `7zip` package, 7-Zip 26) is only used for password-protected 7z and as a last resort. It unpacks into a hidden staging folder inside the target, and Spark Archive then moves each file into place through the same safe writer, refusing links that lead out and copying (never moving) any file 7z made as a hard link. 7-Zip 26 has its own checks and refuses unsafe links and the writes through them; those are listed as left out too ("the 7z command refused it as unsafe"). The password goes to 7z on its standard input, never on the command line where other users could read it.
 
 Making archives: zip with Python's `zipfile` (files that are already compressed, like JPEG, MP4 or other archives, are stored rather than compressed again, which is as small and much faster); tar.zst with `tarfile` and Python's zstd at level 3, using several threads where libzstd allows it, or the `zstd` command on an older Python. Links are stored as links in both.
+
+## Speed
+
+The brief asks for a window well under a second and a window that never freezes. `spark-archive --bench 20 [ARCHIVE]` opens the window (and the archive), prints the time to first paint and to the finished listing, counted from the moment the process started (Python's own start-up included), and closes.
+
+Measured by CI on 2026-11-20 (GitHub runner, Fedora 45, Python 3.15, Tk 9.0, Xvfb):
+
+| | After the process starts |
+|---|---|
+| Window open, no archive (first paint) | 0.10 s |
+| Window open with a 20 000-file zip listed | 0.24 s |
+
+Listing and extracting run in a thread; the window reads their progress ten times a second, and the table only builds a folder's rows when you open it, so a big archive doesn't slow the window down. Not measured yet on the owner's PC.
 
 ## Install, run, test
 
