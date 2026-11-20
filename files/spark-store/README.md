@@ -36,10 +36,18 @@ An app is "installed" when its desktop entry is there, "for you" when it is in `
 
 Targets from the brief: open in under a second with thousands of apps, and no CPU when idle.
 
-- The window, the Spark apps and the header are drawn before anything else; the catalog index, the installed list and the update check load in threads. Icons load one batch per idle moment.
-- Measured on a Windows PC during development (the Store itself is for SparkOS), with the real Flathub catalog of 3,366 apps: building the index takes 1.25 s once; loading it afterwards takes 0.05 s; a search over all apps takes about 8 ms.
-- CI measures the time to first paint, to the catalog on screen, and the idle CPU on a GitHub runner with the real catalog, cold and cached (`spark-store --bench 10`; the run's summary shows the numbers). It hasn't been measured on the owner's Ryzen yet.
-- When nothing is running, nothing is scheduled: the window only polls while a background job or the queue is busy. The glitch on the title (every 7-12 s) is the only timer, and it's off when Plasma's animations are off.
+Measured by CI on 2026-11-20 (GitHub runner: 4 vCPUs of an Intel Xeon 6975P-C, Fedora, Xvfb) with the real Flathub catalog of 3,366 apps, `spark-store --bench 10`:
+
+| Run | First paint | All 3,366 apps on screen | Idle CPU (one core = 100%) |
+|---|---|---|---|
+| First ever (index built) | 0.30 s | 1.30 s (index: 1.15 s) | 0.20% |
+| Every run after | 0.22 s | 0.21 s (index: 0.05 s) | 0.20% |
+| Animations off | 0.22 s | 0.21 s | 0.00% |
+
+First paint counts from the moment the process started, Python's own start-up included. A search over all apps takes about 8 ms. It hasn't been measured on the owner's Ryzen yet; the line above runs anywhere.
+
+- The window, the Spark apps and the header are drawn first; the catalog index, the installed list and the update check load in threads. Icons load a few per idle moment.
+- When nothing is running, nothing is scheduled: the window only polls while a background job or the queue is busy. The idle 0.2% is the glitch on the title (every 7-12 s); it's off when Plasma's animations are off, and then the Store uses no CPU.
 
 ## Install, run, test
 

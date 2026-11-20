@@ -15,7 +15,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [spark-welcome.md](spark-welcome.md) | Spark Welcome: first-login setup | Merged ([#4](https://github.com/Wolklaw/sparkos/pull/4)), in [files/spark-welcome](../files/spark-welcome); ships in the first build |
 | [spark-games.md](spark-games.md) | Spark Games: one library for every launcher | Merged ([#3](https://github.com/Wolklaw/sparkos/pull/3)), in [files/spark-games](../files/spark-games); ships in the first build |
 | [spark-monitor.md](spark-monitor.md) | Spark Monitor: task manager (Ctrl+Shift+Esc) | Merged ([#5](https://github.com/Wolklaw/sparkos/pull/5)), in [files/spark-monitor](../files/spark-monitor); ships in the first build. Ctrl+Shift+Esc not yet tried on hardware |
-| [spark-store.md](spark-store.md) | Spark Store: SparkOS's own store over Flathub, with the Spark apps in it (replaces Bazaar; the Spark Portal idea) | In progress (Release 3) |
+| [spark-store.md](spark-store.md) | Spark Store: SparkOS's own store over Flathub, with the Spark apps in it (replaces Bazaar; the Spark Portal idea) | PR open (Release 3), in [files/spark-store](../files/spark-store); build step [spark-store.sh](../files/scripts/spark-store.sh) not wired in, Bazaar still the store |
 | [spark-update.md](spark-update.md) | Spark Update: SparkOS's own updater, notification and rollback | In progress (Release 2) |
 | [spark-snip-capture.md](spark-snip-capture.md) | Spark Snip captures without Spectacle | In progress (Release 2) |
 | [release2-cleanup.md](release2-cleanup.md) | Image cleanup: font in the repo, Plasma System Monitor and Tailscale out, own AppImage handling, no calling home | In progress (Release 2) |
