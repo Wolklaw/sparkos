@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Firefox
+Icon=org.mozilla.firefox
+Exec=firefox %u
+
+[Desktop Action new-window]
+Name=Open a New Window

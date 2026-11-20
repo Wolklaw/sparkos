@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=KDE Connect
+Comment=Connect your phone
+Exec=kdeconnectd
+X-KDE-autostart-phase=1

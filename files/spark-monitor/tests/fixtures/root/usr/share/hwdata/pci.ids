@@ -1,0 +1,12 @@
+#	List of PCI IDs (excerpt for tests)
+
+0f00  Some Other Vendor
+	0001  Something
+1002  Advanced Micro Devices, Inc. [AMD/ATI]
+	164e  Raphael
+	73bf  Navi 21 [Radeon RX 6800/6800 XT / 6900 XT]
+		1002 0e3a  Radeon RX 6800 XT
+		1043 04f2  ROG Strix RX 6800 XT
+	73df  Navi 22 [Radeon RX 6700/6700 XT/6750 XT / 6800M/6850M XT]
+10de  NVIDIA Corporation
+	2684  AD102 [GeForce RTX 4090]

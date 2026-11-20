@@ -1,0 +1,9 @@
+Name:	steamwebhelper
+Umask:	0022
+State:	S
+Tgid:	3010
+Pid:	3010
+PPid:	3000
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	30

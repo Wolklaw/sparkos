@@ -1,0 +1,9 @@
+Name:	xdg-desktop-por
+Umask:	0022
+State:	S
+Tgid:	1700
+Pid:	1700
+PPid:	1200
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	5

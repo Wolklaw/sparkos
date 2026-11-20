@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=GNOME Thing
+Exec=gnome-thing
+OnlyShowIn=GNOME;

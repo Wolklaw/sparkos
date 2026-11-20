@@ -1,0 +1,5 @@
+[Unit]
+Description=Example tray helper
+
+[Service]
+ExecStart=/usr/bin/example-tray

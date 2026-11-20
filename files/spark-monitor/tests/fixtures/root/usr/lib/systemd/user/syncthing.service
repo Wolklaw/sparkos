@@ -1,0 +1,5 @@
+[Unit]
+Description=Syncthing - Open Source Continuous File Synchronization
+
+[Service]
+ExecStart=/usr/bin/syncthing serve --no-browser
