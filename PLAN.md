@@ -4,7 +4,7 @@ SparkOS is a custom Linux image for gaming and everyday work. It is built on **B
 
 We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. SparkOS adds the apps, defaults and branding.
 
-## Status (2026-11-19)
+## Status (2026-11-20)
 - **Phase 0: done.** Repo `Wolklaw/sparkos` is public, the cosign key is in `SIGNING_SECRET` (a local copy is in the git-ignored `cosign.key`), and the first CI build passed in about 5 minutes. `ghcr.io/wolklaw/sparkos:latest` is public, and its signature verifies against `cosign.pub`.
 - **Phase 1: done in CI.** The boot-test workflow boots every build in QEMU/KVM on GitHub. Local VirtualBox testing on this PC froze because Windows' Memory Integrity holds the CPU's virtualization. [docs/vm-test.md](docs/vm-test.md) stays as the manual path for a PC without that.
 - Renamed from WolkOS to SparkOS on 2026-11-19: the repo is now `Wolklaw/sparkos` (GitHub redirects the old URL) and the image is `ghcr.io/wolklaw/sparkos`. The old `ghcr.io/wolklaw/wolkos` image is no longer updated. The local folder is still named `WolkOS`.
@@ -28,9 +28,10 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
    - **FreeSuite: in the image** (`files/scripts/freesuite.sh`, always the latest release, checked against that release's SHA256SUMS). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, PDF and every Office format it opens, including .doc/.xls/.ppt, OpenDocument and RTF.
    - **Spark Snip 1.0.0: in the image**, built from this repo (`files/spark-snip`, installed by `files/scripts/spark-snip.sh`). It's the screenshot, OCR and screen recording tool and takes Print, Meta+Shift+S/T/R from Spectacle, which stays installed because Spark Snip reads the screen through it. It grew out of QuickOCR, whose Windows app is finished.
    - **Spark Media 1.0.0: in the image**, built from this repo (`files/spark-media`, installed by `files/scripts/spark-media.sh`). It opens photos, videos and music and is the default for all three, so a fresh SparkOS needs no extra app for them. Photos through Pillow (HEIC with pillow-heif), playback through GStreamer with FFmpeg's decoders; the build fails if H.264, H.265, AAC or MP3 can't play.
+   - **Spark Welcome, Spark Games, Spark Monitor 1.0: in the image (owner's decision, 2026-11-20)**, built by separate sessions from [briefs/](briefs/README.md) and merged in PRs #3 to #5. Welcome opens once at first login; Games gathers Steam, Heroic and Lutris libraries; Monitor is the Ctrl+Shift+Esc task manager. The boot test runs each one's self-test in the real image. Later Spark apps are optional, through a future Spark Portal.
    - **Androidbox: not in the image, but ready to install.** SparkOS ships what its Linux installer needs: `python3.13`, because Qt for Python has no packages for Fedora 45's Python 3.15, plus the Qt, SDL and emulator libraries. You install it for your user, with no root, from the latest release (see the switching guide). The boot test does exactly that on every build and starts it.
    - **Androidbox compatibility: parked (2026-11-20).** The owner will finish it later. The boot test no longer installs Androidbox as a user (that check was slow and kept failing). `python3.13` and the Qt/SDL libraries stay in the image, ready for when it's picked up.
-   - **App policy (2026-11-20):** SparkOS ships only the owner's own apps: Soot, FreeSuite, Spark Snip and Spark Media. Every other company's or project's app is removed, Bazzite's included (Steam, Lutris, Waydroid, Firefox and its other first-boot apps, Kate/KWrite, Filelight, the Portal), and is installable from the Store. ONLYOFFICE is gone too: old .doc/.xls/.ppt open in FreeSuite, which reads them partly. The platform stays: Plasma, Dolphin, Konsole, Spectacle, System Settings, Ark, KDE Connect and the Store.
+   - **App policy (2026-11-20):** SparkOS ships only the owner's own apps: Soot, FreeSuite and the Spark apps (Snip, Media, Welcome, Games, Monitor). Every other company's or project's app is removed, Bazzite's included (Steam, Lutris, Waydroid, Firefox and its other first-boot apps, Kate/KWrite, Filelight, the Portal), and is installable from the Store. ONLYOFFICE is gone too: old .doc/.xls/.ppt open in FreeSuite, which reads them partly. The platform stays: Plasma, Dolphin, Konsole, Spectacle, System Settings, Ark, KDE Connect and the Store.
    - **Updates:** publish a new release of Soot or FreeSuite, and the next image build (daily, or any push) includes it. The boot test then checks it.
 3. **Install target (needed only in Phase 5; Phases 0–4 run in a VM):**
    - **Chosen: E:, after its games are uninstalled.** In Phase 5, uninstall the Windows games on E: (Steam, Epic, Battle.net and Xbox app), then shrink E: in Disk Management (run as admin) and install SparkOS into the freed space. Uninstall the Xbox app's games through the Xbox app itself. Their protected `WindowsApps`/`XboxGames` files are what usually block a shrink.
@@ -64,6 +65,11 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 - **Done when:** a fresh install gets from login to a playable Steam game and an open document with no terminal use.
 
 ### Phase 3: Branding (a few evenings, in the house style)
+**Built (2026-11-20), checked in the boot-test VM.** Colour scheme, fonts, Konsole profile, the SparkOS look-and-feel package (top bar and floating dock, sign-in splash), wallpaper on desktop, lock and sign-in screens, Plymouth boot splash in a rebuilt initramfs, logo in About/os-release/fastfetch (`files/scripts/sparkos-theme.sh`, `files/system`). The boot test signs in once and screenshots the real desktop.
+- Plasma Login Manager has no themes by KDE's design, so the sign-in screen gets the SparkOS wallpaper, colours and fonts but keeps KDE's layout (its big clock is close to the mockup).
+- **Not confirmed yet:** the boot splash on screen. The VM showed black then boot text; being looked into, and to check on real hardware in Phase 5.
+- Still to do: the animated bot in the sign-in splash (today a still image), real app icons for the lettered tiles.
+
 **Your verdict on the stock look (2026-11-19):** it reads as "Windows on a black theme". SparkOS needs its own identity, not Bazzite's skin with a dark palette. The plan:
 - Remove Bazzite's Portal autostart, announcements and wallpaper, in the live installer too.
 - Rethink the taskbar layout rather than keep the Windows-style bar.
