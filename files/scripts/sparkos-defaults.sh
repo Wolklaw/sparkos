@@ -33,8 +33,8 @@ test -f "$MEDIA" || { echo "Spark Media is not installed (spark-media.sh runs fi
 add dev.wolklaw.SparkMedia.desktop $(sed -n 's/^MimeType=//p' "$MEDIA" | tr ';' ' ')
 
 # Installing apps by double-click, the way Windows users expect. SparkOS preinstalls no
-# third-party apps, so sparkos-open-package fetches Bottles (.exe/.msi) or Gear Lever (.AppImage)
-# from Flathub on first use, then opens the file; it also guides .rpm installs and explains .deb.
+# third-party apps, so sparkos-open-package fetches Bottles (.exe/.msi) from Flathub on first use;
+# it adds AppImages to the menu itself, guides .rpm installs and explains .deb.
 add sparkos-open-package.desktop \
   application/x-ms-dos-executable application/x-msi application/x-msdownload \
   application/vnd.microsoft.portable-executable application/x-ms-shortcut \

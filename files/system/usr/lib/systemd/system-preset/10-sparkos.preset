@@ -1,0 +1,5 @@
+# SparkOS service choices. Read before Fedora's 90-default.preset, so these win when systemd
+# applies presets (at first boot, and with `systemctl preset`).
+
+# Fedora's usage counting: rpm-ostree reports this machine to Fedora's servers once a week
+disable rpm-ostree-countme.timer

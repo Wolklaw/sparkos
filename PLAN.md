@@ -132,11 +132,11 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 **Release 2: easy wins**
 | Today | SparkOS's own | Status |
 |---|---|---|
-| Chakra Petch downloaded from Google's GitHub at every build | The font kept in this repo (OFL allows it) | Brief: [release2-cleanup](briefs/release2-cleanup.md) |
-| Plasma System Monitor | Spark Monitor, already shipping; KDE's removed | Brief: release2-cleanup |
-| Gear Lever, fetched to open `.AppImage` files | A small Spark handler in `sparkos-open-package` | Brief: release2-cleanup |
-| Tailscale, preinstalled by Bazzite | Removed (installable by anyone who wants it) | Brief: release2-cleanup |
-| Fedora's usage counting and connectivity check, KDE's "Get New Stuff" | Off, or pointed at SparkOS's own address | Brief: release2-cleanup |
+| Chakra Petch downloaded from Google's GitHub at every build | The font kept in this repo (OFL allows it) | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) ([brief](briefs/release2-cleanup.md)) |
+| Plasma System Monitor | Spark Monitor, already shipping, also on Meta+Esc and Ctrl+Esc; KDE's removed | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
+| Gear Lever, fetched to open `.AppImage` files | A small Spark handler in `sparkos-open-package` | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
+| Tailscale, preinstalled by Bazzite | Removed (installable by anyone who wants it) | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
+| Fedora's usage counting and connectivity check, KDE's "Get New Stuff" | Usage counting off and Get New Stuff hidden in PR [#13](https://github.com/Wolklaw/sparkos/pull/13); the connectivity check is the owner's call (in the PR) |
 | Spectacle, which Spark Snip uses to capture | Spark Snip captures through KWin directly | Brief: [spark-snip-capture](briefs/spark-snip-capture.md) |
 | Bazzite/ublue update tools (`ujust`, their update service and rollback helper) | **Spark Update**: "SparkOS updated, restart?", what changed, one-click rollback | Brief: [spark-update](briefs/spark-update.md) |
 
