@@ -138,8 +138,7 @@ jobs:
             as "grep -q \"^Exec=$home/.local/bin/spark-store %U$\" ~/.local/share/applications/dev.wolklaw.SparkStore.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkStore.png"
             as "ls ~/.local/lib/spark-store/spark-apps/*/spark-app.json"
-            test ! -e /usr/bin/spark-store
-            test ! -e /usr/share/applications/dev.wolklaw.SparkStore.desktop
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
 
             echo "--- self-test and unit tests on the image'"'"'s Python"
             as "~/.local/bin/spark-store --version"

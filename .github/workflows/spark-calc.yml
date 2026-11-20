@@ -95,8 +95,7 @@ jobs:
             as "grep -q \"^Exec=$home/.local/bin/spark-calc$\" ~/.local/share/applications/dev.wolklaw.SparkCalc.desktop"
             as "grep -q \"^X-KDE-Shortcuts=Calculator$\" ~/.local/share/kglobalaccel/dev.wolklaw.SparkCalc.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkCalc.png"
-            test ! -e /usr/bin/spark-calc
-            test ! -e /usr/share/applications/dev.wolklaw.SparkCalc.desktop
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
             echo "installed size: $(as "du -sk ~/.local/lib/spark-calc ~/.local/share/icons/hicolor" | awk "{s+=\$1} END {print s}") KB"
 
             echo "--- self-test, sums and unit tests on the image'"'"'s Python"

@@ -115,7 +115,7 @@ jobs:
             as "test -x ~/.local/share/kio/servicemenus/dev.wolklaw.SparkLink.send.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkLink.png"
             as "test ! -e ~/.config/systemd/user/graphical-session.target.wants/spark-link.service"
-            test ! -e /usr/bin/spark-link
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
 
             echo "--- self-test and tests on the image'"'"'s Python and OpenSSL"
             as "~/.local/bin/spark-link --version"

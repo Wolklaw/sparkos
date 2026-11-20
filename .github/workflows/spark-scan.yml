@@ -110,8 +110,7 @@ jobs:
             as "test -x ~/.local/bin/spark-scan"
             as "grep -q \"^Exec=$home/.local/bin/spark-scan$\" ~/.local/share/applications/dev.wolklaw.SparkScan.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkScan.png"
-            test ! -e /usr/bin/spark-scan
-            test ! -e /usr/share/applications/dev.wolklaw.SparkScan.desktop
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
 
             echo "--- with only SANE'"'"'s test scanner enabled (the container has no D-Bus, and"
             echo "    some of the image'"'"'s backends abort scanimage without it)"

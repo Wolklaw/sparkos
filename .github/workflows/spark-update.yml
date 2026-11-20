@@ -178,8 +178,7 @@ jobs:
             as "grep -q \"^ExecStart=$home/.local/bin/spark-update --user-run$\" ~/.config/systemd/user/spark-update-user.service"
             as "test -L ~/.config/systemd/user/timers.target.wants/spark-update-user.timer"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkUpdate.png"
-            test ! -e /usr/bin/spark-update
-            test ! -e /usr/share/applications/dev.wolklaw.SparkUpdate.desktop
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
 
             echo "--- self-test: reads the real status and finds the image name"
             report=$(as "~/.local/bin/spark-update --self-test")

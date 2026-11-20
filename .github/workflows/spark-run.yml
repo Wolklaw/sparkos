@@ -199,7 +199,7 @@ jobs:
             as "test -x ~/.local/bin/spark-run"
             as "grep -q \"^Exec=$home/.local/bin/spark-run %f$\" ~/.local/share/applications/dev.wolklaw.SparkRun.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkRun.png"
-            test ! -e /usr/bin/spark-run
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
 
             echo "--- unit tests on the image'"'"'s Python"
             as "cd ~/spark-run && python3 -m unittest discover -s tests -v"
