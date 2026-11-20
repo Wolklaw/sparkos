@@ -3,11 +3,12 @@
 Each brief here describes one optional Spark app. Build one per session. Read this file first, then
 the app's brief.
 
-**None of these ships in the first SparkOS build.** The first build preinstalls only Soot, FreeSuite,
-Spark Snip and Spark Media. The apps below are optional: the goal is one **Spark Portal** where every
-optional Spark app is listed and can be installed or removed with a click. Until the Portal exists,
-build each app so it installs on its own (see "Optional apps install on their own" below), and do not
-add it to the recipe or the image.
+**Update (owner's decision, 2026-11-20): Spark Welcome, Spark Games and Spark Monitor ship in the
+first SparkOS build.** Each app also adds `files/scripts/spark-<name>.sh` (the image build step, like
+`spark-media.sh`), but does not edit `recipes/recipe.yml` or `boot-test.yml`: the main SparkOS session
+wires all three in when it merges the PRs, so three PRs don't fight over the same files. Keep the
+per-user install mode below too: later Spark apps will be optional, through one **Spark Portal** where
+every optional Spark app is listed and can be installed or removed with a click.
 
 | Brief | App | Status |
 |---|---|---|
