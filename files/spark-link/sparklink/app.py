@@ -427,9 +427,10 @@ class App:
             return
         body, px = self.prompt_body, self.px
         if what[0] == 'stopped':
-            self.label(body, t('app.stopped'), 9, wrap=520).pack(side="left", fill="x",
-                                                                  expand=True)
+            # the buttons go in first, so a long sentence wraps instead of squeezing them
             self.button(body, t('app.start'), self.start_service, "primary").pack(side="right")
+            self.label(body, t('app.stopped'), 9, wrap=400).pack(side="left", fill="x",
+                                                                  expand=True)
         elif what[0] == 'pair':
             col = tk.Frame(body, bg=body.cget('bg'))
             col.pack(side="left", fill="x", expand=True)
@@ -443,14 +444,14 @@ class App:
                 {'cmd': 'pair.answer', 'yes': True}), "primary").pack(side="right")
         else:
             name = self.device_name(offer['device'])
-            self.label(body, t('offer.in', name=name, file=offer['name'],
-                               size=human_size(offer['size'])), 9, wrap=440).pack(
-                side="left", fill="x", expand=True)
             self.button(body, t('offer.decline'), lambda k=offer['key']: self.call(
                 {'cmd': 'file.answer', 'key': k, 'accept': False})).pack(side="right",
                                                                           padx=(px(6), 0))
             self.button(body, t('offer.accept'), lambda k=offer['key']: self.call(
                 {'cmd': 'file.answer', 'key': k, 'accept': True}), "primary").pack(side="right")
+            self.label(body, t('offer.in', name=name, file=offer['name'],
+                               size=human_size(offer['size'])), 9, wrap=340).pack(
+                side="left", fill="x", expand=True)
         self.prompt.pack(fill="x", padx=px(14), pady=(px(8), 0), before=self.tabs)
         self.glitch.now(self.prompt, strong=True)
         try:

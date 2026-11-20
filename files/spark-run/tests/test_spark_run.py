@@ -626,11 +626,44 @@ class WindowTests(FlowTests):
     def test_chooser_installs(self):
         w = self.window(file=self.installer())
         shown = self.texts(w.view)
-        self.assertIn(text.t('file.kind.installer', maker='NSIS') + ' · 64-bit', shown)
+        self.assertIn(text.t('file.kind.installer', maker='NSIS') + ' · ' +
+                      text.t('file.bits', bits=64), shown)
         w.do_install(self.installer(), pe.inspect(self.installer()))
         self.pump(w, lambda: not w.worker.busy)
         self.assertIn(text.t('done.installed', name='Fake App'), self.texts(w.view))
         self.assertEqual([a.slug for a in apps.all_apps()], ['fake'])
+        self.assertEqual(self.errors, [])
+
+    def test_text_fits(self):
+        """Every view at the smallest window size, in the language the suite runs in."""
+        from langcheck import clipped
+        w = self.window()
+        w.root.geometry('%dx%d' % w.root.minsize())
+        self.pump(w)
+        self.assertEqual(clipped(w.root), [], "empty list")
+        w.root.destroy()
+        apps.install(self.installer())
+        w = self.window()
+        w.root.geometry('%dx%d' % w.root.minsize())
+        self.pump(w)
+        self.assertEqual(clipped(w.root), [], "one app")
+        self.pump(w, lambda: getattr(w.apps[0], 'used', None) is not None)
+        for make in (self.ui.OptionsDialog, self.ui.ConfirmDialog):
+            dialog = make(w, w.apps[0])
+            self.pump(w)
+            self.assertEqual(clipped(w.root), [], make.__name__)
+            dialog.cancel()
+            self.pump(w)
+        w.root.destroy()
+        w = self.window(file=self.installer())
+        w.root.geometry('%dx%d' % w.root.minsize())
+        self.pump(w)
+        self.assertEqual(clipped(w.root), [], "run once or install")
+        w.root.destroy()
+        w = self.window(file=self.write('old.exe', forge.dos_program()))
+        w.root.geometry('%dx%d' % w.root.minsize())
+        self.pump(w)
+        self.assertEqual(clipped(w.root), [], "error")
         self.assertEqual(self.errors, [])
 
     def test_chooser_explains_what_cant_run(self):

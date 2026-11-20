@@ -13,6 +13,8 @@ import os
 import re
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from .text import t
+
 Token = Tuple[str, int, int]
 State = object
 
@@ -584,7 +586,7 @@ def lexer_for(lang: Optional[str]) -> Optional[Lexer]:
 
 
 def name_of(lang: Optional[str]) -> str:
-    return NAMES.get(lang or '', 'Plain text')
+    return NAMES.get(lang or '', t('menu.plain'))
 
 
 def lex_lines(lexer: Lexer, lines: Iterable[str], state: State = None,

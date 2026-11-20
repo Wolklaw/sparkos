@@ -22,7 +22,7 @@ from .notify import restart_pc
 from .settings import (EVERY_HOURS, NOTIFY, REMIND_HOURS, STAGE, SystemSettings, UserPrefs,
                        as_args, load_prefs, load_system, save_prefs, write_system)
 from .status import Deployment, Host, read_host
-from .text import t
+from .text import EN, t
 from .engine import UUPD, engine, start_uupd, uupd_status
 from .updater import (direct_state_path, load_state, rollback as do_rollback, system_run,
                       update_flatpak, user_state_path)
@@ -363,13 +363,13 @@ class App:
         self.pc_panel.grid(row=0, column=0, sticky="nsew", padx=(0, px(5)))
         self.pc_version = self.label(pc, "—", 12, T["text"])
         self.pc_version.pack(anchor="w", pady=(px(4), 0))
-        self.pc_detail = self.label(pc, "", 8, T["muted"], bold=False)
+        self.pc_detail = self.label(pc, "", 8, T["muted"], bold=False, wraplength=px(250))
         self.pc_detail.pack(anchor="w")
         self.next_panel, nx = self.panel(top, t('panel.next'))
         self.next_panel.grid(row=0, column=1, sticky="nsew", padx=(px(5), 0))
         self.next_version = self.label(nx, "—", 12, T["text"])
         self.next_version.pack(anchor="w", pady=(px(4), 0))
-        self.next_detail = self.label(nx, "", 8, T["muted"], bold=False)
+        self.next_detail = self.label(nx, "", 8, T["muted"], bold=False, wraplength=px(250))
         self.next_detail.pack(anchor="w")
 
         self.changes_panel, ch = self.panel(f, t('panel.changes_current'))
@@ -588,7 +588,9 @@ class App:
         else:
             lines.append(t('check.never'))
         if state.get('result') == 'postponed' and state.get('reason'):
-            lines.append(t('check.postponed', why=state['reason']))
+            key, args = state.get('reason_key'), state.get('reason_args')
+            why = t(key, **args) if key in EN and isinstance(args, dict) else state['reason']
+            lines.append(t('check.postponed', why=why))
         if not snap.system_install and not self.env.fake:
             lines.append(t('check.direct'))
         elif not conf.automatic:
@@ -905,7 +907,8 @@ class App:
         w['flatpak'].pack(anchor="w", pady=(px(2), px(6)))
         self.label(sysp, t('set.admin_note') if can_system else
                    t('set.uupd') if under_uupd else t('set.no_helper'), 7,
-                   T["dim"] if can_system else T["gold"], bold=False).pack(anchor="w")
+                   T["dim"] if can_system else T["gold"], bold=False,
+                   wraplength=px(540)).pack(anchor="w")
         if not can_system:
             for key in ('automatic', 'flatpak'):
                 w[key].unbind("<ButtonRelease-1>")

@@ -2,6 +2,8 @@
 
 The SparkOS text and code editor: notes, settings files, logs and code. Kate and KWrite are gone from the image, so without it `.txt`, `.md`, `.conf` and code files open in FreeSuite Writer, an office suite. Spark Edit is small (about 600 KB installed, half of it Python's compiled copies; it needs Python and Tk, nothing else) and opens at once.
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 It is optional for now: the main SparkOS session decides when it goes into the image ([build step](../scripts/spark-edit.sh)) and makes it the default for text files. It also installs for one user without root (`install.sh --user`), the way optional Spark apps will through the future Spark Portal.
 
 - **Tabs**, one window. `spark-edit FILE` while it is open adds a tab to that window. Ctrl+Tab and Ctrl+PageUp/PageDown switch tabs, Alt+1 to Alt+9 jump to one, Ctrl+W closes, Ctrl+Shift+T reopens the last one closed. A dot on a tab means unsaved changes; undoing back to the saved text clears it.

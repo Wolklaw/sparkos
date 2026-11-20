@@ -31,6 +31,7 @@ from sparkedit import VERSION, fileio, search, session, syntax  # noqa: E402
 from sparkedit.cli import parse_target, self_test  # noqa: E402
 from sparkedit.fileio import BinaryFile, EncodeError, Format  # noqa: E402
 from sparkedit import instance  # noqa: E402
+from sparkedit.text import t  # noqa: E402
 
 LINUX = sys.platform.startswith('linux')
 
@@ -594,6 +595,8 @@ class Window(TempDir):
             time.sleep(0.005)
 
     def type(self, buf, text):
+        buf.text.focus_force()          # key events go to the focus, wherever they're generated
+        buf.app.root.update()
         for ch in text:
             if ch == '\n':
                 buf.text.event_generate('<Return>')
@@ -605,7 +608,7 @@ class Window(TempDir):
         app = self.app()
         self.assertEqual(len(app.buffers), 1)
         self.assertIsNone(app.buffers[0].path)
-        self.assertEqual(app.current.title, 'Untitled')
+        self.assertEqual(app.current.title, t('untitled'))
 
     def test_open_edit_undo_save_keeps_crlf(self):
         path = self.write('w.txt', b'one\r\ntwo\r\n')
@@ -730,9 +733,9 @@ class Window(TempDir):
         bar.find_entry.insert(0, 'cat')
         bar.word.set(True)
         bar._changed()
-        self.assertEqual(bar.count.cget('text'), '1 OF 2')
+        self.assertEqual(bar.count.cget('text'), t('find.count', i=1, n=2).upper())
         bar.step(+1)
-        self.assertEqual(bar.count.cget('text'), '2 OF 2')
+        self.assertEqual(bar.count.cget('text'), t('find.count', i=2, n=2).upper())
         bar.replace_entry.insert(0, 'bird')
         bar.replace_all()
         self.assertEqual(buf.get_all(), 'bird dog bird\ncatalog\n')
@@ -823,7 +826,7 @@ class Window(TempDir):
             app.close_buffer(buf)
         finally:
             appmod.ask = original
-        self.assertEqual(answers, ['Save changes?'])
+        self.assertEqual(answers, [t('ask.unsaved_title')])
         self.assertNotIn(buf, app.buffers)
         self.assertIsNone(session.read_autosave(aid))
 

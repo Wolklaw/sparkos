@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spark Store
+Name[fr]=Spark Store
 GenericName=App store
 GenericName[fr]=Magasin d'applications
 Comment=Get the Spark apps and every app on Flathub

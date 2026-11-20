@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 from . import STATE_PATH
 from . import guard
 from .core import Env, load_json, log, run, save_json, state_dir, which
+from .text import EN, t
 from .settings import NOTIFY, STAGE, SystemSettings, load_prefs, load_system
 from .engine import UUPD, engine, uupd_status
 from .status import Host, read_host
@@ -137,7 +138,7 @@ def update_flatpak(scope: str, runner: Runner, now: float) -> Dict[str, Any]:
     after, not from parsing flatpak's progress output."""
     before = flatpak_apps(scope, runner)
     if before is None:
-        return {'ok': None, 'at': now, 'updated': [], 'error': "flatpak isn't available"}
+        return {'ok': None, 'at': now, 'updated': [], 'error': t('err.no_flatpak')}
     code, out, err = runner(['flatpak', 'update', f'--{scope}', '--noninteractive', '-y'],
                             timeout=2 * 3600)
     after = flatpak_apps(scope, runner) or {}
@@ -166,11 +167,14 @@ def system_run(env: Env, now_mode: Optional[str] = None, runner: Runner = run,
         if not due(state.get('last_check'), conf.every_hours, now,
                    failed=state.get('result') == 'failed'):
             return 0
-        wait = guard.reason_to_wait(env)
-        if wait:
+        why = guard.wait_reason(env)
+        if why:
+            wait = EN[why[0]].format(**why[1])
             if state.get('reason') != wait or state.get('result') != 'postponed':
                 log.info("waiting for a later hour: %s", wait)
-            state.update(result='postponed', reason=wait, last_run=now, running=False)
+            # the English for the log, the key so the window can say it in its own language
+            state.update(result='postponed', reason=wait, reason_key=why[0],
+                         reason_args=why[1], last_run=now, running=False)
             save_state(env, state, state_path)
             return 0
     lock = _lock(env, state_path, wait=bool(now_mode))
@@ -273,9 +277,9 @@ def rollback(env: Env, runner: Runner = run) -> Tuple[int, str]:
     dropped first, so the restart really goes back."""
     host = read_host(env)
     if host.booted is None:
-        return 1, f"can't read the system status: {host.error}"
+        return 1, t('err.no_status', why=host.error)
     if host.rollback is None and not host.rollback_queued:
-        return 1, "there is no previous version on this PC"
+        return 1, t('err.no_previous')
     if host.staged is not None:
         code, out, err = runner(['rpm-ostree', 'cleanup', '--pending'], timeout=600)
         if code != 0:

@@ -7,6 +7,6 @@ APP_NAME = "Spark Calc"
 APP_SLUG = "spark-calc"          # command, folders, log names
 APP_CLASS = "SparkCalc"          # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkCalc"
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 MODES = ("standard", "scientific", "programmer")

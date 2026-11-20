@@ -26,12 +26,16 @@ class Entry:
     blurb: str
     name_fr: str = ''
     blurb_fr: str = ''
+    by_fr: str = ''
 
     def label(self, lang: str = 'en') -> str:
         return (self.name_fr if lang == 'fr' and self.name_fr else self.name)
 
     def text(self, lang: str = 'en') -> str:
         return (self.blurb_fr if lang == 'fr' and self.blurb_fr else self.blurb)
+
+    def who(self, lang: str = 'en') -> str:
+        return (self.by_fr if lang == 'fr' and self.by_fr else self.by)
 
 
 @dataclass
@@ -65,7 +69,8 @@ def _entry(raw: Any, where: str) -> Entry:
     if not FLATPAK_ID.match(raw['id']):
         raise CatalogError(f"{where}: '{raw['id']}' isn't a Flathub app id")
     return Entry(raw['id'], raw['name'], raw['by'], raw['blurb'],
-                 str(raw.get('name_fr', '')), str(raw.get('blurb_fr', '')))
+                 str(raw.get('name_fr', '')), str(raw.get('blurb_fr', '')),
+                 str(raw.get('by_fr', '')))
 
 
 def parse(data: Dict[str, Any]) -> Catalog:

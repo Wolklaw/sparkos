@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spark Calc
+Name[fr]=Spark Calc
 GenericName=Calculator
 GenericName[fr]=Calculatrice
 Comment=Exact sums, with scientific and programmer modes

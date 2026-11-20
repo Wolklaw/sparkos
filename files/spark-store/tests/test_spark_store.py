@@ -47,6 +47,7 @@ for var in ('LC_ALL', 'LC_MESSAGES', 'SPARK_STORE_APPSTREAM', 'XDG_RUNTIME_DIR')
 
 from sparkstore import APP_ID, VERSION, flatpak, permissions, sparkapps  # noqa: E402
 from sparkstore import text as text_mod  # noqa: E402
+from sparkstore.lang import local_units  # noqa: E402
 from sparkstore.appstream import (Source, find_sources, flatpak_arch, fold,  # noqa: E402
                                   licence_label, parse)
 from sparkstore.catalog import Catalog  # noqa: E402
@@ -308,11 +309,26 @@ class CatalogTests(unittest.TestCase):
             os.environ.update(old)
 
 
+def T(key: str, **kw) -> str:
+    """A sentence from text.py the way the window shows it in capitals."""
+    return text_mod.t(key, **kw).upper()
+
+
+def said(key: str, shown, **known) -> bool:
+    """Is the sentence `key` on show? Blanks not given in `known` can be anything."""
+    import string
+    blanks = {f for _, f, _, _ in string.Formatter().parse(text_mod.EN[key]) if f}
+    sample = text_mod.t(key, **{f: known.get(f, '\x01') for f in blanks})
+    hay = ('\n'.join(shown) if isinstance(shown, (list, tuple)) else shown).upper()
+    return all(part.strip().upper() in hay for part in sample.split('\x01') if part.strip())
+
+
 # ─── Permissions in plain words ───────────────────────────────
 
 class PermissionTests(unittest.TestCase):
     def setUp(self):
-        text_mod.use('en')
+        text_mod.use('en')                  # these check the English wording
+        self.addCleanup(text_mod.use, text_mod.LANG)
 
     def lines(self, context: str, extra: str = ''):
         return permissions.describe(f"[Application]\nname=x\n\n[Context]\n{context}\n{extra}")
@@ -835,21 +851,21 @@ class UITests(unittest.TestCase):
         s = self.store
         self.assertEqual(len(s.catalog.apps), 5)
         texts = self.texts(s.pages['home'].inner)
-        self.assertIn('SPARK APPS', texts)
+        self.assertIn(T('home.spark'), texts)
         self.assertIn('Spark Alpha', texts)
-        self.assertIn('GAMES', texts)
+        self.assertIn(T('row.games'), texts)
         self.assertIn('Falling Blocks', texts)
-        self.assertIn('PROPRIETARY', texts)
-        self.assertIn('INSTALLED', texts)              # Chatter
-        self.assertIn('5 apps from Flathub, offline', s.status.cget('text'))
+        self.assertIn(T('chip.proprietary'), texts)
+        self.assertIn(T('chip.installed'), texts)       # Chatter
+        self.assertIn(text_mod.t('status.ready', n=5), s.status.cget('text'))
 
     def test_browse_a_category(self):
         s = self.store
-        self.assertIn('BROWSE', self.texts(s.pages['home'].inner))
+        self.assertIn(T('home.browse'), self.texts(s.pages['home'].inner))
         s.go('category', 'games')
         texts = self.texts(s.pages['category'].inner)
         self.assertIn('Falling Blocks', texts)
-        self.assertIn('1 found', texts)
+        self.assertIn(text_mod.t('search.count', n=1), texts)
         s.go_back()
         self.assertEqual(s.page, 'home')
 
@@ -872,21 +888,22 @@ class UITests(unittest.TestCase):
         page = s.pages['app']
         self.pump(lambda: 'org.example.Paint' in page.facts)
         texts = self.texts(page.inner)
-        self.assertIn('Paint Pro', texts)
-        self.assertIn('VERIFIED', texts)
-        self.assertIn('INSTALL', texts)
-        self.assertIn('103.3 MB installed (39.6 MB download), plus any shared runtime it needs',
+        self.assertIn(s.catalog.apps['org.example.Paint'].name, texts)    # Peinture Pro in French
+        self.assertIn(T('chip.verified'), texts)
+        self.assertIn(T('btn.install'), texts)
+        self.assertIn(text_mod.t('size.remote', size=local_units('103.3 MB'),
+                                 download=local_units('39.6 MB')),
                       texts)
-        self.assertIn('·  Your Downloads folder', texts)
+        self.assertIn('·  ' + text_mod.t('perm.f.downloads'), texts)
         self.assertIn('GPL-3.0-or-later', texts)
         s.install(page.subject)
         self.pump(lambda: s.queue.current() is not None)
         self.assertTrue(s.qbar_shown)
         self.pump(lambda: 'org.example.Paint' in s.installed, timeout=30)
-        self.pump(lambda: 'OPEN' in self.texts(page.actions))
-        self.assertIn('REMOVE', self.texts(page.actions))
+        self.pump(lambda: T('btn.open') in self.texts(page.actions))
+        self.assertIn(T('btn.remove'), self.texts(page.actions))
         page.ask_remove()
-        self.assertIn('REMOVE WITH ITS DATA', self.texts(page.confirm))
+        self.assertIn(T('btn.remove_data'), self.texts(page.confirm))
         s.remove(page.subject, 'user', delete_data=False)
         self.pump(lambda: 'org.example.Paint' not in s.installed, timeout=30)
         self.pump(lambda: not s.qbar_shown)
@@ -895,23 +912,24 @@ class UITests(unittest.TestCase):
         s = self.store
         s.open_app('org.example.Paint')
         page = s.pages['app']
-        self.assertIn('ADD-ONS', self.texts(page.inner))
-        self.assertTrue(any('Install Paint Pro first' in x for x in self.texts(page.inner)))
+        self.assertIn(T('addons.title'), self.texts(page.inner))
+        paint = s.catalog.apps['org.example.Paint'].name           # Peinture Pro in French
+        self.assertIn(text_mod.t('addons.need_app', name=paint), self.texts(page.inner))
         self.fake.update(installed=[{'id': 'org.example.Paint', 'name': 'Paint Pro',
                                      'installation': 'user'}])
         s.refresh_installed()
         self.pump(lambda: 'org.example.Paint' in s.installed)
         self.pump(lambda: 'Extra brushes' in self.texts(page.addon_frame) and
-                  'INSTALL' in self.texts(page.addon_frame))
+                  T('btn.install') in self.texts(page.addon_frame))
         addon = s.catalog.addons['org.example.Paint'][0]
         s.install_addon(addon)
         self.pump(lambda: s.runtimes.get(addon.id) == 'user', timeout=30)
-        self.pump(lambda: 'INSTALLED' in self.texts(page.addon_frame))
+        self.pump(lambda: T('addons.installed') in self.texts(page.addon_frame))
         self.assertIn(['--user', 'install', '-y', 'flathub',
                        'runtime/org.example.Paint.Plugin.Extra//stable'], self.fake.calls())
         s.remove_addon(addon)
         self.pump(lambda: addon.id not in s.runtimes, timeout=30)
-        self.pump(lambda: 'INSTALLED' not in self.texts(page.addon_frame))
+        self.pump(lambda: T('addons.installed') not in self.texts(page.addon_frame))
 
     def test_proprietary_and_failure(self):
         s = self.store
@@ -920,16 +938,16 @@ class UITests(unittest.TestCase):
         self.pump(lambda: 'com.example.Chat' not in s.installed)
         s.open_app('com.example.Chat')
         texts = self.texts(s.pages['app'].inner)
-        self.assertIn('PROPRIETARY', texts)
-        self.assertTrue(any("source code isn't public" in x for x in texts))
+        self.assertIn(T('chip.proprietary'), texts)
+        self.assertTrue(said('prop.text', texts, name='Chatter'))
         s.install(s.pages['app'].subject)
         self.pump(lambda: s.queue.jobs and s.queue.jobs[-1].state == FAILED, timeout=30)
-        self.pump(lambda: 'RETRY' in self.texts(s.pages['app'].actions))
+        self.pump(lambda: T('btn.retry') in self.texts(s.pages['app'].actions))
         self.assertTrue(any('Not enough disk space' in x for x in
                             self.texts(s.pages['app'].actions)))
-        self.assertIn("COULDN'T INSTALL CHATTER", s.status.cget('text'))
+        self.assertTrue(said('failed.install', s.status.cget('text'), name='Chatter'))
         s.go('queue')
-        self.assertIn('RETRY', self.texts(s.pages['queue'].inner))
+        self.assertIn(T('btn.retry'), self.texts(s.pages['queue'].inner))
         self.fake.update(fail=[])
         s.retry(s.queue.jobs[-1])
         self.pump(lambda: 'com.example.Chat' in s.installed, timeout=30)
@@ -938,7 +956,7 @@ class UITests(unittest.TestCase):
         s = self.store
         s.handle_target('appstream://net.example.Blocks')
         self.assertEqual(s.pages['app'].subject.id, 'net.example.Blocks')
-        self.assertIn('NOT VERIFIED', self.texts(s.pages['app'].inner))
+        self.assertIn(T('unverified.title'), self.texts(s.pages['app'].inner))
         ref = os.path.join(self.base, 'tunes.flatpakref')
         with open(ref, 'w', encoding='utf-8') as f:
             f.write("[Flatpak Ref]\nName=org.example.Tunes\nUrl=https://dl.flathub.org/repo/\n")
@@ -953,8 +971,8 @@ class UITests(unittest.TestCase):
         page = s.pages['app']
         self.assertEqual((page.subject.kind, page.subject.name), ('ref', 'Vendor App'))
         texts = self.texts(page.inner)
-        self.assertIn('NOT FROM FLATHUB', texts)
-        self.assertIn('INSTALL FROM REPO.VENDOR.EXAMPLE', texts)
+        self.assertIn(T('ref.title'), texts)
+        self.assertIn(T('btn.install_from', host='repo.vendor.example'), texts)
         s.install(page.subject)
         self.pump(lambda: 'com.vendor.App' in s.installed, timeout=30)
         self.assertIn(['--user', 'install', '-y', '--from', other],
@@ -962,7 +980,7 @@ class UITests(unittest.TestCase):
         s.handle_target('appstream://org.example.Missing')
         self.assertEqual(s.page, 'search')
         s.handle_target('not a link')
-        self.assertIn("CAN'T OPEN THIS LINK", s.status.cget('text'))
+        self.assertTrue(said('link.bad', s.status.cget('text')))
 
     def test_flatpakrepo_page(self):
         s = self.store
@@ -973,25 +991,45 @@ class UITests(unittest.TestCase):
         s.handle_target(path)
         page = s.pages['app']
         self.assertEqual(page.subject.kind, 'repo')
-        self.pump(lambda: 'ADD THIS SOURCE' in self.texts(page.actions))
+        self.pump(lambda: T('repo.add') in self.texts(page.actions))
         texts = self.texts(page.inner)
-        self.assertIn('NOT CHECKED BY SPARKOS', texts)
+        self.assertIn(T('repo.title'), texts)
         self.assertIn('https://repo.games.example/', texts)
         s.add_remote(page.subject)
-        self.pump(lambda: any('Added for you' in x for x in self.texts(page.actions)), timeout=30)
+        self.pump(lambda: said('repo.added', self.texts(page.actions)), timeout=30)
         self.assertIn(['--user', 'remote-add', '--if-not-exists', '--from', 'games', path],
                       self.fake.calls())
         s.handle_target(os.path.join(self.base, 'missing.flatpakrepo'))
-        self.assertIn("CAN'T BE READ", s.status.cget('text'))
+        self.assertIn(T('link.bad_repo'), s.status.cget('text').upper())
+
+    def test_text_fits(self):
+        """Every page at the smallest window size, in the language the suite runs in."""
+        from langcheck import clipped
+        s = self.store
+        s.root.geometry('%dx%d' % s.root.minsize())
+        s.root.update()
+        pages = [('home', None), ('installed', None), ('updates', None), ('queue', None),
+                 ('app', 'org.example.Paint'), ('app', 'com.example.Chat'),
+                 ('app', 'net.example.Blocks'), ('app', s.spark_by_id['dev.wolklaw.SparkAlpha'])]
+        for page, arg in pages:
+            if page == 'app':
+                s.open_app(arg)
+            else:
+                s.go(page)
+            for _ in range(10):
+                s.root.update()
+                time.sleep(0.02)
+            with self.subTest(page=page, app=getattr(arg, 'id', arg)):
+                self.assertEqual(clipped(s.root), [])
 
     def test_spark_app_page(self):
         s = self.store
         s.open_app(s.spark_by_id['dev.wolklaw.SparkAlpha'])
         texts = self.texts(s.pages['app'].inner)
-        self.assertIn('SPARK APP', texts)
-        self.assertTrue(any("isn't decided" in x for x in texts))     # nothing to install from
-        self.assertTrue(any("aren't sandboxed" in x for x in texts))
-        self.assertIn('420.0 KB', texts)
+        self.assertIn(T('chip.spark'), texts)
+        self.assertTrue(said('spark.no_source', texts))            # nothing to install from
+        self.assertTrue(said('perm.spark', texts))
+        self.assertIn(local_units('420.0 KB'), texts)
 
     def test_installed_updates_and_queue_pages(self):
         s = self.store
@@ -999,8 +1037,8 @@ class UITests(unittest.TestCase):
         s.go('installed')
         texts = self.texts(s.pages['installed'].inner)
         self.assertIn('Chatter', texts)
-        self.assertIn('1 apps, 286.1 MB', texts)
-        self.assertIn('REMOVE UNUSED RUNTIMES', texts)
+        self.assertIn(text_mod.t('installed.count', n=1, size=local_units('286.1 MB')), texts)
+        self.assertIn(T('unused.button'), texts)
         s.remove_unused()
         self.pump(lambda: not s.queue.busy(), timeout=30)
         self.assertIn(['--user', 'uninstall', '--unused', '-y'],
@@ -1009,16 +1047,16 @@ class UITests(unittest.TestCase):
         s.go('updates')
         s.check_updates()
         self.pump(lambda: not s.updates_busy and s.updates)
-        self.assertIn('UPDATES 1', s.tabs.labels['updates'][0].cget('text'))
+        self.assertIn(T('tab.updates') + ' 1', s.tabs.labels['updates'][0].cget('text'))
         s.update_all()
         self.pump(lambda: not s.queue.busy(), timeout=30)
         self.assertEqual([(j.kind, j.state, j.error) for j in s.queue.jobs],
                          [('update_all', DONE, '')])
         self.pump(lambda: not s.updates)
         s.go('queue')
-        self.pump(lambda: 'DONE' in self.texts(s.pages['queue'].inner))
+        self.pump(lambda: T('state.done') in self.texts(s.pages['queue'].inner))
         s.clear_finished()
-        self.assertIn('Nothing to do. Installs, updates and removals line up here.',
+        self.assertIn(text_mod.t('queue.empty'),
                       self.texts(s.pages['queue'].inner))
 
     def test_keys_and_close_while_busy(self):

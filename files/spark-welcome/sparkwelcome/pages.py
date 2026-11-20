@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional
 import tkinter as tk
 
 from . import APP_NAME, catalog as catalog_mod, checks, core, flatpak, windows
-from .strings import t
+from .strings import LANG, t
 from .widgets import T, GlitchPanel, GlitchText, Segmented, Strip, Toggle, WolkButton
 
 
@@ -234,11 +234,11 @@ class AppRow(GlitchPanel):
         left.pack(side="left", fill="x", expand=True)
         top = tk.Frame(left, bg=T["panel"])
         top.pack(anchor="w", fill="x")
-        self.tick = Tick(top, entry.label(), lambda _v: page.ticks_changed(), app.font(9))
+        self.tick = Tick(top, entry.label(LANG), lambda _v: page.ticks_changed(), app.font(9))
         self.tick.pack(side="left")
-        tk.Label(top, text=t('apps.by', who=entry.by), bg=T["panel"], fg=T["dim"],
+        tk.Label(top, text=t('apps.by', who=entry.who(LANG)), bg=T["panel"], fg=T["dim"],
                  font=app.font(8, False)).pack(side="left", padx=(px(10), 0))
-        tk.Label(left, text=entry.text(), bg=T["panel"], fg=T["muted"],
+        tk.Label(left, text=entry.text(LANG), bg=T["panel"], fg=T["muted"],
                  font=app.font(9, False), anchor="w", justify="left",
                  wraplength=px(520)).pack(anchor="w", fill="x", pady=(px(4), 0))
         self.error = tk.Label(left, text="", bg=T["panel"], fg=T["pink"], font=app.font(8, False),
@@ -349,7 +349,7 @@ class AppsPage(InstallPage):
         self.title(t('apps.title'))
         self.para(t('apps.intro'))
         for cat in self.app.catalog.categories:
-            self.micro(cat.label())
+            self.micro(cat.label(LANG))
             self.add_rows(cat.apps)
         bar = self.install_bar()
         self.button(bar, t('apps.store'), lambda: self.app.action('store'))

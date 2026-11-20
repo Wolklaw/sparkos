@@ -28,8 +28,12 @@ def parse_desktop(text: str, group: str = 'Desktop Entry') -> Dict[str, str]:
 
 
 def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']"""
-    lang = os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
+    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']: which Name[..] of a desktop entry to show. SPARK_LANG
+    (lang.py) wins, so app names follow the window's language."""
+    forced = (os.environ.get('SPARK_LANG') or '').strip().lower()
+    if forced in ('en', 'fr'):
+        return [forced]
+    lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
     if not lang:
         try:
             lang = locale.getlocale()[0] or ''

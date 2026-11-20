@@ -217,7 +217,6 @@ class App:
         label = self.font(8, True)
         self.st_message = tk.Label(bar, text='', font=label, bg=T["panel"], fg=T["muted"],
                                    anchor='w', padx=px(10), pady=px(3))
-        self.st_message.pack(side='left', fill='x', expand=True)
         self.st_zoom = StatusItem(bar, label, px, lambda _e: self.zoom(0))
         self.st_wrap = StatusItem(bar, label, px, lambda _e: self.toggle_wrap())
         self.st_newline = StatusItem(bar, label, px, self._newline_menu)
@@ -228,6 +227,8 @@ class App:
         for item in (self.st_zoom, self.st_wrap, self.st_newline, self.st_encoding,
                      self.st_lang, self.st_pos, self.st_access):
             item.pack(side='right')
+        # packed last, so a long message is the one cut short, not the items on the right
+        self.st_message.pack(side='left', fill='x', expand=True)
 
         self.body = tk.Frame(self.main, bg=T["bg"])
         self.body.pack(fill='both', expand=True)

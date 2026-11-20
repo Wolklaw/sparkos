@@ -24,6 +24,8 @@ from PIL import Image  # noqa: E402
 
 from sparksnip import capture, core, recorder  # noqa: E402
 from sparksnip.core import Monitor  # noqa: E402
+from sparksnip.lang import local_units  # noqa: E402
+from sparksnip.text import t  # noqa: E402
 
 XRANDR = """Monitors: 2
  0: +*DP-1 2560/597x1440/336+0+0  DP-1
@@ -65,15 +67,16 @@ class LogicTests(unittest.TestCase):
                          (0, 0, 4480, 1440))
 
     def test_language_labels(self):
-        self.assertEqual(core.language_label('eng+fra'), "English + French")
+        self.assertEqual(core.language_label('eng+fra'), f"{t('ocr.eng')} + {t('ocr.fra')}")
+        self.assertEqual(core.language_label('xyz'), "xyz")
         self.assertEqual(core.language_short('eng+fra'), "EN + FR")
         self.assertEqual(core.language_short('xyz'), "XYZ")
 
     def test_clock_and_size(self):
         self.assertEqual(core.clock(83), "01:23")
         self.assertEqual(core.clock(3723), "1:02:03")
-        self.assertEqual(core.human_size(512), "512 B")
-        self.assertEqual(core.human_size(5 * 1024 * 1024), "5.0 MB")
+        self.assertEqual(core.human_size(512), local_units("512 B"))
+        self.assertEqual(core.human_size(5 * 1024 * 1024), local_units("5.0 MB"))
 
     def test_capture_order_can_be_forced(self):
         os.environ['SPARK_SNIP_CAPTURE'] = 'grim'
@@ -330,7 +333,7 @@ class DBusCaptureTests(unittest.TestCase):
         with self.without_spectacle(), self.assertRaises(core.CaptureError) as caught:
             core.grab_screen()
         message = str(caught.exception)
-        self.assertTrue(message.startswith("Could not read the screen."), message)
+        self.assertTrue(message.startswith(t('cap.failed', why='')), message)
         self.assertIn("KWin CaptureWorkspace", message)
         self.assertIn("spectacle: not installed", message)
         self.assertIn("portal:", message)
@@ -452,14 +455,14 @@ class UITests(unittest.TestCase):
     def test_text_mode_reads_and_copies(self):
         seen = self._run('text')
         self.assertTrue(seen.get('overlay'))
-        self.assertEqual(seen.get('headline'), "TEXT COPIED")
+        self.assertEqual(seen.get('headline'), t('head.text_copied'))
         self.assertIn("2041", seen.get('text', ''))
 
     def test_image_mode_reports_the_copy(self):
         seen = self._run('image')
         self.assertTrue(seen.get('overlay'))
         # copying an image needs wl-copy or xclip; either outcome is reported, never silent
-        self.assertIn(seen.get('headline'), ("SCREENSHOT COPIED", "COULD NOT COPY"))
+        self.assertIn(seen.get('headline'), (t('head.shot_copied'), t('head.not_copied')))
 
 
 if __name__ == '__main__':

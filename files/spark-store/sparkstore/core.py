@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, List, Optional
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
 
 log = logging.getLogger(APP_SLUG)
 
@@ -103,7 +104,11 @@ def reduced_motion() -> bool:
 
 
 def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']; the order the catalog's translations are tried in."""
+    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']; the order the catalog's translations are tried in.
+    SPARK_LANG (lang.py) wins, so the catalog speaks the same language as the window."""
+    forced = (os.environ.get('SPARK_LANG') or '').strip().lower()
+    if forced in ('en', 'fr'):
+        return [forced]
     lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or \
         os.environ.get('LANG') or ''
     if not lang:
@@ -119,7 +124,7 @@ def languages() -> List[str]:
 
 # ─── Numbers for people ───────────────────────────────────────
 
-def size(n: Optional[float], digits: int = 1) -> str:
+def _size(n: Optional[float], digits: int = 1) -> str:
     """Bytes, in the units Windows uses (1 KB = 1024 bytes)."""
     if n is None:
         return "—"
@@ -130,6 +135,11 @@ def size(n: Optional[float], digits: int = 1) -> str:
             return f"{n:.{digits}f} {unit}"
         n /= 1024
     return f"{n:.1f} TB"
+
+
+def size(n: Optional[float], digits: int = 1) -> str:
+    """Bytes, in the units Windows uses (1 KB = 1024 bytes)."""
+    return local_units(_size(n, digits))
 
 
 _UNITS = {'b': 1, 'bytes': 1, 'kb': 1000, 'kib': 1024, 'mb': 1000 ** 2, 'mib': 1024 ** 2,

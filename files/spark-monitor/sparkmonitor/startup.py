@@ -14,6 +14,7 @@ from typing import Callable, Dict, List, Optional, Tuple
 
 from .desktop import languages, localized, parse_desktop
 from .source import Source, listdir, read_text
+from .text import t
 
 AUTOSTART, SERVICE = 'autostart', 'service'
 MARK = 'X-Spark-Monitor-Override'
@@ -189,7 +190,7 @@ def service_items(src: Source, remembered: List[str]) -> List[StartupItem]:
                     description=desc, enabled=True, origin=origin,
                     path=os.path.join(folder, wants, unit),
                     can_toggle=origin == 'user',
-                    note="" if origin == 'user' else "Set for every user by the system.")
+                    note="" if origin == 'user' else t('startup.system_note'))
     for unit in remembered:
         if unit not in found:
             found[unit] = StartupItem(

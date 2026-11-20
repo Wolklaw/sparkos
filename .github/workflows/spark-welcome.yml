@@ -39,6 +39,11 @@ jobs:
           cd files/spark-welcome
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
 
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        run: |
+          cd files/spark-welcome
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
       - name: Uninstall (system-wide)
         run: |
           bash files/spark-welcome/install.sh --uninstall

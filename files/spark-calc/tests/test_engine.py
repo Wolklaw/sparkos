@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.dirname(HERE))
 
 from sparkcalc import engine  # noqa: E402
 from sparkcalc.engine import CalcError, evaluate, format_number  # noqa: E402
-from sparkcalc.text import EN  # noqa: E402
+from sparkcalc.text import EN, t  # noqa: E402
 
 
 def ans(expr, **kw):
@@ -234,8 +234,8 @@ class Errors(Case):
         self.fails('sqrt(1, 2)', 'args')
 
     def test_messages_name_the_problem(self):
-        self.assertIn('“x”', self.fails('x', 'name').message())
-        self.assertIn('“#”', self.fails('#', 'char').message())
+        self.assertEqual(self.fails('x', 'name').message(), t('err.name', name='x'))
+        self.assertEqual(self.fails('#', 'char').message(), t('err.char', char='#'))
         self.assertIn('sin()', self.fails('sin()', 'args').message())
         for key, text in EN.items():
             if key.startswith('err.'):

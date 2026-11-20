@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spark Run
+Name[fr]=Spark Run
 GenericName=Windows programs
 GenericName[fr]=Programmes Windows
 Comment=Run Windows programs, or install them as apps with their own menu entry

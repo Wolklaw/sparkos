@@ -2,6 +2,8 @@
 
 The SparkOS tool for screenshots, copying text off the screen, and screen recording. It grew out of [QuickOCR](https://github.com/Wolklaw/QuickOCR), whose Windows app is finished.
 
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
 | Key | Does |
 |---|---|
 | Print, Meta+Shift+S | Screenshot an area. It goes on the clipboard. Read its text or save it from the window that follows. |

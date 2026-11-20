@@ -1,7 +1,6 @@
 """Folders, the log, small file helpers, and numbers for people."""
 
 import json
-import locale
 import logging
 import os
 import re
@@ -9,9 +8,10 @@ import shutil
 import sys
 import unicodedata
 from logging.handlers import RotatingFileHandler
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
 
 log = logging.getLogger(APP_SLUG)
 
@@ -150,19 +150,6 @@ def reduced_motion() -> bool:
         return False
 
 
-def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']"""
-    lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or \
-        os.environ.get('LANG') or ''
-    if not lang:
-        try:
-            lang = locale.getlocale()[0] or ''
-        except ValueError:
-            lang = ''
-    lang = lang.split('.')[0].split('@')[0]
-    return [lang, lang.split('_')[0]] if '_' in lang else ([lang] if lang else [])
-
-
 # ─── Names ───────────────────────────────────────────────────
 
 def slugify(name: str) -> str:
@@ -190,7 +177,7 @@ def name_from_file(filename: str) -> str:
 
 # ─── Numbers for people ──────────────────────────────────────
 
-def size(n: Optional[float], digits: int = 0) -> str:
+def _size(n: Optional[float], digits: int = 0) -> str:
     """Bytes, in the units Windows and Dolphin show (1 MB = 1024 KB)."""
     if n is None:
         return "—"
@@ -201,3 +188,8 @@ def size(n: Optional[float], digits: int = 0) -> str:
             return f"{n:.{digits}f} {unit}"
         n /= 1024
     return f"{n:.1f} TB"
+
+
+def size(n: Optional[float], digits: int = 0) -> str:
+    """Bytes, in the units Windows and Dolphin show (1 MB = 1024 KB)."""
+    return local_units(_size(n, digits))

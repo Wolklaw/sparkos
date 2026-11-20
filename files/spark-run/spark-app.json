@@ -5,7 +5,7 @@
   "name_fr": "Spark Run",
   "summary": "Run Windows programs on Wine, or install them as apps with their own folder and menu entry.",
   "summary_fr": "Lancer des programmes Windows sur Wine, ou les installer comme applications avec leur propre dossier et entrée de menu.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "installed_size_kb": 400,
   "icon": "icons/spark-run-256.png",
   "categories": ["System", "Emulator"],

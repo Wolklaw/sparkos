@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spark Update
+Name[fr]=Spark Update
 GenericName=System updates
 GenericName[fr]=Mises à jour du système
 Comment=See what changed in SparkOS, check for updates, restart or roll back

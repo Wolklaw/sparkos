@@ -33,6 +33,7 @@ from sparkupdate import IMAGE, STATE_PATH, VERSION, core, release  # noqa: E402
 from sparkupdate import guard, notify, settings, status, updater  # noqa: E402
 from sparkupdate.cli import main as cli_main, other_updaters, self_test  # noqa: E402
 from sparkupdate.core import Env  # noqa: E402
+from sparkupdate.text import t  # noqa: E402
 
 LINUX = sys.platform.startswith('linux')
 A_SUM, B_SUM, P_SUM = "a1" * 32, "b2" * 32, "c3" * 32
@@ -304,7 +305,7 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(kinds['Spark Monitor'][0], 'same')
         self.assertEqual(kinds['Spark Update'], ('added', '', '1.0.0'))
         self.assertEqual(kinds['FreeSuite'], ('removed', '0.4.1', ''))
-        self.assertEqual(kinds['Linux kernel'], ('changed', '6.17.7', '6.17.8'))
+        self.assertEqual(kinds[t('platform.kernel')], ('changed', '6.17.7', '6.17.8'))
         self.assertTrue(all(c.kind == 'added' for c in release.diff(None, new)))
 
 
@@ -387,12 +388,11 @@ class NotifyTests(unittest.TestCase):
 
     def test_message_is_the_mockup(self):
         title, body, actions = notify.message('ready', B_VER, True)
-        self.assertEqual(title, "SparkOS updated")
-        self.assertEqual(body, "The new version is ready. It starts the next time you "
-                               "restart. Your apps are already up to date.")
-        self.assertEqual([a[1] for a in actions], ['Later', 'Restart'])
+        self.assertEqual(title, t('notify.ready.title'))      # "SparkOS updated"
+        self.assertEqual(body, t('notify.ready.body') + ' ' + t('notify.apps_ok'))
+        self.assertEqual([a[1] for a in actions], [t('notify.later'), t('notify.restart')])
         _, body, _ = notify.message('ready', B_VER, False)
-        self.assertNotIn('apps', body)
+        self.assertNotIn(t('notify.apps_ok'), body)
         title, body, actions = notify.message('available', B_VER, False)
         self.assertIn(B_VER, body)
         self.assertEqual([a[0] for a in actions], ['later', 'open'])
@@ -507,7 +507,7 @@ class SystemRunTests(unittest.TestCase):
         write(lonely, '/status/rpm-ostree.json', json.dumps(doc))
         code, why = updater.rollback(Env(lonely), runner=FakeRunner(lonely))
         self.assertEqual(code, 1)
-        self.assertIn('no previous version', why)
+        self.assertEqual(why, t('err.no_previous'))
 
 
 class UserRunTests(unittest.TestCase):
@@ -862,16 +862,16 @@ class UITests(unittest.TestCase):
     def test_staged(self):
         app = self.open()
         self.assertLess(self.opened, 3.0)
-        self.assertIn('TEST DATA', app.status.cget('text'))
+        self.assertIn(t('status.test_data'), app.status.cget('text'))
         self.assertEqual(app.pc_version.cget('text'), f'SparkOS {A_VER}')
         self.assertEqual(app.next_version.cget('text'), f'SparkOS {B_VER}')
         rows = {r[0]: r[1:] for r in app.change_rows}
         self.assertEqual(rows['Soot'], ('0.2.0', '0.3.0', 'changed'))
         self.assertEqual(rows['Spark Update'], ('', '1.0.0', 'added'))
-        self.assertEqual(rows['Linux kernel'], ('6.17.7', '6.17.8', 'changed'))
+        self.assertEqual(rows[t('platform.kernel')], ('6.17.7', '6.17.8', 'changed'))
         self.assertNotIn('Spark Monitor', rows)                      # unchanged, counted
         self.assertTrue(app.buttons['restart'].winfo_ismapped())
-        self.assertEqual(app.buttons['restart'].label.cget('text'), 'RESTART TO UPDATE')
+        self.assertEqual(app.buttons['restart'].label.cget('text'), t('btn.restart').upper())
 
     def test_previous_version_from_files(self):
         app = self.open('rpm-ostree-none.json')
@@ -884,7 +884,7 @@ class UITests(unittest.TestCase):
 
     def test_rollback_queued(self):
         app = self.open('rpm-ostree-rollback-queued.json')
-        self.assertEqual(app.buttons['rollback'].label.cget('text'), 'CANCEL ROLL BACK')
+        self.assertEqual(app.buttons['rollback'].label.cget('text'), t('btn.undo_rollback').upper())
         self.assertTrue(app.buttons['restart'].winfo_ismapped())
         self.assertEqual(app.next_version.cget('text'), f'SparkOS {P_VER}')
 
@@ -893,7 +893,7 @@ class UITests(unittest.TestCase):
         for key in ('check', 'rollback', 'restart'):
             app.buttons[key]._click()
             app.root.update()
-            self.assertIn('test data', app.message.cget('text'))
+            self.assertEqual(app.message.cget('text'), t('msg.test_data'))
         self.assertIsNone(app.dialog)
 
     def test_rollback_dialog(self):
@@ -906,7 +906,7 @@ class UITests(unittest.TestCase):
         app.on_rollback()
         app.root.update()
         self.assertIsNotNone(app.dialog)
-        self.assertIn('Nothing is deleted', ''.join(
+        self.assertIn(t('rollback.body', old='@', date='@', current='@').split('\n\n')[1][:20], ''.join(
             w.cget('text') for w in app.dialog.winfo_children()[0].winfo_children()[0]
             .winfo_children() if isinstance(w, __import__('tkinter').Label)))
         app.dialog.answer('cancel')
@@ -935,10 +935,10 @@ class UITests(unittest.TestCase):
         settings.save_prefs(settings.UserPrefs())
         app.show('log')
         app.root.update()
-        self.assertIn('BACKGROUND CHECKS', app.log_text.get('1.0', 'end'))
+        self.assertIn(t('log.system').upper(), app.log_text.get('1.0', 'end'))
         app.show('main')
         app.root.update()
-        self.assertIn('Notify only', app.check_line.cget('text'))
+        self.assertIn(t('check.notify_only'), app.check_line.cget('text'))
 
     def test_failed_state_shows(self):
         root = make_root('rpm-ostree-none.json', updater_on='spark')
@@ -953,9 +953,10 @@ class UITests(unittest.TestCase):
         write(root, '/status/uupd.json', json.dumps(uupd_units(ok=True, ended=time.time() - 600)))
         app = self.open(root=root)
         self.assertEqual(app.snap.engine, 'uupd')
-        self.assertIn("uupd downloads updates for now", app.check_line.cget('text'))
-        self.assertIn('Last check today', app.check_line.cget('text'))
-        self.assertIn('Updated by uupd together with SparkOS', app.apps_line.cget('text'))
+        self.assertIn(t('check.uupd'), app.check_line.cget('text'))
+        self.assertIn(t('check.last', when=t('when.today', clock='@')).split('@')[0],
+                      app.check_line.cget('text'))
+        self.assertIn(t('apps.uupd_ok', when='@').split('(')[0], app.apps_line.cget('text'))
         app.show('settings')
         app.root.update()
         self.assertFalse(app.can_system)              # uupd's schedule isn't Spark Update's
@@ -966,7 +967,7 @@ class UITests(unittest.TestCase):
         while app.pending and time.monotonic() < deadline:
             app.root.update()
             time.sleep(0.02)
-        self.assertIn('failed', app.check_line.cget('text'))
+        self.assertIn(t('check.uupd_failed', when='@').split('(')[0], app.check_line.cget('text'))
 
 
 if __name__ == '__main__':

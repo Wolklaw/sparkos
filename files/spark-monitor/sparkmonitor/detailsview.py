@@ -9,7 +9,7 @@ from tkinter import messagebox
 from . import core
 from .procs import Proc, users
 from .text import t
-from .ui import make_table
+from .ui import heading_width, make_table
 from .widgets import T, WolkButton
 
 COLUMNS = ('name', 'pid', 'user', 'state', 'cpu', 'memory', 'nice', 'command')
@@ -33,7 +33,8 @@ class DetailsView(tk.Frame):
             self.tree.heading(col, text=t(f'col.{col}').upper(),
                               anchor="e" if col in RIGHT else "w",
                               command=lambda c=col: self.sort_by(c))
-            self.tree.column(col, width=px(WIDTHS[col]), minwidth=px(40),
+            width = max(px(WIDTHS[col]), heading_width(self.tree, t(f'col.{col}').upper()))
+            self.tree.column(col, width=width, minwidth=px(40),
                              anchor="e" if col in RIGHT else "w",
                              stretch=col == 'command')
         self.users = users()

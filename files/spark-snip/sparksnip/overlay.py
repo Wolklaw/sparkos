@@ -13,6 +13,7 @@ from PIL import Image, ImageTk
 
 from . import APP_NAME, MODES
 from .core import Box, Monitor, bounding_box, language_short, log, screen_to_image
+from .text import t
 from .widgets import T
 
 if TYPE_CHECKING:
@@ -121,14 +122,12 @@ class SnipOverlay:
 
     def _instructions(self) -> str:
         if self.mode == "text":
-            return (f"DRAG OVER TEXT  ·  {language_short(self.app.ocr.lang)}  ·  "
-                    "CLICK = WHOLE SCREEN  ·  ESC CANCELS")
+            return t('overlay.text', lang=language_short(self.app.ocr.lang))
         if self.mode == "image":
-            return "DRAG AN AREA  ·  CLICK = WHOLE SCREEN  ·  ESC CANCELS"
-        mic = "ON" if self.app.config.get("mic") else "OFF"
-        sound = "ON" if self.app.config.get("sound", True) else "OFF"
-        return (f"DRAG AN AREA  ·  CLICK = WHOLE SCREEN  ·  [M] MIC {mic}  ·  "
-                f"[S] SOUND {sound}  ·  ESC CANCELS")
+            return t('overlay.image')
+        mic = t('on') if self.app.config.get("mic") else t('off')
+        sound = t('on') if self.app.config.get("sound", True) else t('off')
+        return t('overlay.video', mic=mic, sound=sound)
 
     def _draw_hint(self, screen: _Screen):
         c, w = screen.canvas, screen.monitor.w
@@ -137,7 +136,7 @@ class SnipOverlay:
         title, rest = "SPARK SNIP", self._instructions()
         pad_x, pad_y, gap, seg_pad = px(16), px(10), px(14), px(10)
         line_h = font.metrics("linespace")
-        seg_w = [font.measure(m.upper()) + 2 * seg_pad for m in MODES]
+        seg_w = [font.measure(t(f'mode.{m}').upper()) + 2 * seg_pad for m in MODES]
         width = (font.measure(title) + gap + sum(seg_w) + gap + font.measure(rest) + 2 * pad_x)
         height = line_h + 2 * pad_y
         x0, y0 = max(px(8), (w - width) // 2), px(28)
@@ -158,7 +157,7 @@ class SnipOverlay:
             c.create_rectangle(x, y0 + px(5), x + sw, y0 + height - px(5),
                                fill=T["accent"] if on else T["panel2"],
                                outline=T["accent"] if on else T["line2"], tags=("hint", tag))
-            c.create_text(x + sw / 2, cy, text=mode.upper(), font=font,
+            c.create_text(x + sw / 2, cy, text=t(f'mode.{mode}').upper(), font=font,
                           fill=T["on_accent"] if on else T["muted"], tags=("hint", tag))
             c.tag_bind(tag, "<ButtonRelease-1>", lambda _e, m=mode: self.set_mode(m))
             c.tag_bind(tag, "<Enter>", lambda _e: c.configure(cursor="hand2"))

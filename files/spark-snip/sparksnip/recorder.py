@@ -16,6 +16,7 @@ from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple
 
 from . import APP_SLUG
 from .core import Box, Monitor, log
+from .text import t
 
 PORTAL_BUS = 'org.freedesktop.portal.Desktop'
 PORTAL_PATH = '/org/freedesktop/portal/desktop'
@@ -176,12 +177,12 @@ class ScreenCastPortal:
             gi.require_version('Gio', '2.0')
             from gi.repository import Gio, GLib
         except (ImportError, ValueError) as exc:
-            raise RecordError("recording needs PyGObject (Fedora: python3-gobject-base)") from exc
+            raise RecordError(t('rec.no_gi')) from exc
         self.Gio, self.GLib = Gio, GLib
         try:
             self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         except Exception as exc:                    # noqa: BLE001 - GLib.Error
-            raise RecordError(f"no session bus: {exc}") from exc
+            raise RecordError(t('rec.no_bus', error=exc)) from exc
         self.sender = self.bus.get_unique_name()[1:].replace('.', '_')
         self.session: Optional[str] = None
         self.cancelled = False
@@ -223,7 +224,7 @@ class ScreenCastPortal:
                     if self.cancelled:
                         raise RecordCancelled("cancelled")
                     if time.monotonic() > deadline:
-                        raise RecordError("no answer from the screen sharing dialog")
+                        raise RecordError(t('rec.no_answer'))
                     if not context.iteration(False):
                         time.sleep(0.02)
             finally:
@@ -231,14 +232,14 @@ class ScreenCastPortal:
         except RecordError:
             raise
         except Exception as exc:                    # noqa: BLE001 - GLib.Error from D-Bus
-            raise RecordError(f"screen sharing portal: {exc}") from exc
+            raise RecordError(t('rec.portal', error=exc)) from exc
         finally:
             context.pop_thread_default()
         code, results = box['response']
         if code == 1:
-            raise RecordCancelled("screen sharing was declined")
+            raise RecordCancelled(t('rec.declined'))
         if code != 0:
-            raise RecordError("the screen sharing portal refused the request")
+            raise RecordError(t('rec.refused'))
         return results
 
     def start(self, restore_token: Optional[str]) -> PortalStream:
@@ -271,7 +272,7 @@ class ScreenCastPortal:
             self.session, '', {'handle_token': v('s', t)})))
         streams = started.get('streams') or []
         if not streams:
-            raise RecordError("the portal shared no screen")
+            raise RecordError(t('rec.no_screen'))
         node, props = streams[0]
         result, fds = self.bus.call_with_unix_fd_list_sync(
             PORTAL_BUS, PORTAL_PATH, SCREENCAST, 'OpenPipeWireRemote',
@@ -344,9 +345,9 @@ class Recording:
     # start
     def begin(self):
         if not gst_tool('gst-launch-1.0'):
-            raise RecordError("recording needs GStreamer (Fedora: gstreamer1)")
+            raise RecordError(t('rec.no_gst'))
         if not self.encoders:
-            raise RecordError("no video encoder found (Fedora: gstreamer1-plugins-good)")
+            raise RecordError(t('rec.no_encoder'))
         self.portal = ScreenCastPortal()
         self.state = 'asking'
         threading.Thread(target=self._ask, daemon=True).start()
@@ -405,8 +406,7 @@ class Recording:
             state = self.state
         if state == 'starting':
             if not stream_matches(self.monitor, self.stream.props):
-                self._fail(f"You shared a different screen. Start again and pick "
-                           f"{self.monitor.name} in the dialog.")
+                self._fail(t('rec.other_screen', screen=self.monitor.name))
                 return self.state
             self._launch()
         elif state == 'recording' and self.process.poll() is not None:
@@ -417,7 +417,7 @@ class Recording:
             if early and self.encoders:
                 self._launch()                     # that encoder can't run here; next one
             else:
-                self._fail(f"the recording stopped: {detail}")
+                self._fail(t('rec.stopped', detail=detail))
         return self.state
 
     def elapsed(self) -> float:
@@ -456,7 +456,7 @@ class Recording:
             with self._lock:
                 self.state = 'done' if ok else 'failed'
                 if not ok:
-                    self.error = self._stderr[-1] if self._stderr else "no video was written"
+                    self.error = self._stderr[-1] if self._stderr else t('rec.empty')
             self._cleanup()
             done()
 

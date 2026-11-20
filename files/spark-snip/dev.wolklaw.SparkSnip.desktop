@@ -1,6 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Spark Snip
+Name[fr]=Spark Snip
 GenericName=Screenshots, text and screen recording
 GenericName[fr]=Captures d'écran, texte et enregistrement
 Comment=Snip an area of the screen to copy its text or image, or record it

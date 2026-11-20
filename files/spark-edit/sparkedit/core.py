@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Any, Dict, List
 
 from . import APP_NAME, APP_SLUG, VERSION
+from .lang import local_units
 
 log = logging.getLogger(APP_SLUG)
 
@@ -134,18 +135,6 @@ def reduced_motion() -> bool:
         return False
 
 
-def languages() -> List[str]:
-    """'fr_CA.UTF-8' -> ['fr_CA', 'fr']"""
-    lang = os.environ.get('LC_ALL') or os.environ.get('LC_MESSAGES') or os.environ.get('LANG') or ''
-    if not lang:
-        try:
-            lang = locale.getlocale()[0] or ''
-        except ValueError:
-            lang = ''
-    lang = lang.split('.')[0].split('@')[0]
-    return [lang, lang.split('_')[0]] if '_' in lang else ([lang] if lang else [])
-
-
 def home_short(path: str) -> str:
     """/home/me/notes/a.txt -> ~/notes/a.txt"""
     home = os.path.expanduser('~')
@@ -154,9 +143,13 @@ def home_short(path: str) -> str:
     return path
 
 
-def size_text(n: float) -> str:
+def _size_text(n: float) -> str:
     for unit in ("B", "KB", "MB", "GB"):
         if n < 1024 or unit == "GB":
             return f"{int(n)} {unit}" if unit == "B" else f"{n:.1f} {unit}"
         n /= 1024
     return f"{n:.1f} GB"
+
+
+def size_text(n: float) -> str:
+    return local_units(_size_text(n))

@@ -4,9 +4,10 @@ battery is low. Cheap reads of /proc, /sys and one D-Bus property; nothing stays
 import os
 import re
 import subprocess
-from typing import Optional
+from typing import Any, Dict, Optional, Tuple
 
 from .core import Env
+from .text import EN
 
 # A process whose command line holds one of these is a game (or Wine/Proton, which is how
 # Windows games run): Steam starts every game under 'reaper SteamLaunch'; gamescope is the
@@ -81,14 +82,22 @@ def metered(env: Env) -> bool:
     return bool(match) and int(match.group(1)) in (1, 3)
 
 
-def reason_to_wait(env: Env) -> Optional[str]:
-    """Why a background run should wait for a later hour, or None to go ahead."""
+def wait_reason(env: Env) -> Optional[Tuple[str, Dict[str, Any]]]:
+    """Why a background run should wait for a later hour, as a sentence in text.py and its
+    blanks ('wait.game', {'game': 'Hades'}), or None to go ahead."""
     game = game_running(env)
     if game:
-        return f"a game is running ({game})"
+        return 'wait.game', {'game': game}
     if metered(env):
-        return "the connection is metered"
+        return 'wait.metered', {}
     low = battery_low(env)
     if low is not None:
-        return f"the battery is at {low}% and not charging"
+        return 'wait.battery', {'percent': low}
     return None
+
+
+def reason_to_wait(env: Env) -> Optional[str]:
+    """wait_reason() in English, for the log and state.json. The window shows the sentence in
+    its own language from the key saved next to it."""
+    why = wait_reason(env)
+    return EN[why[0]].format(**why[1]) if why else None

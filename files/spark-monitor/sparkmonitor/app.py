@@ -153,7 +153,7 @@ class App:
 
     def _on_tk_error(self, exc_type, exc_value, exc_tb):
         log.error("unhandled callback error", exc_info=(exc_type, exc_value, exc_tb))
-        self.set_status("SOMETHING WENT WRONG", T["pink"])
+        self.set_status(t('status.crashed'), T["pink"])
         self.glitch.now(self.title, strong=True)
 
     def _build(self):
