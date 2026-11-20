@@ -248,9 +248,16 @@ jobs:
               "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" >/dev/null 2>&1
             echo "== swap ffmpeg-free for RPM Fusion ffmpeg"
             dnf -y swap ffmpeg-free ffmpeg --allowerasing 2>&1 | grep -E "^ [a-z0-9]|Total size|After this|^Complete|Error"
-            echo "== Spark Media after the swap"
+            echo "== Spark Media after the swap (its --require only checks that decoders exist)"
             s=$(mktemp -d)
             XDG_STATE_HOME=$s XDG_CONFIG_HOME=$s XDG_CACHE_HOME=$s spark-media --self-test --require h264,h265,aac,mp3 2>&1 | grep -E "^decoders|self-test|FAILED"
+            echo "== real decode: clips made with RPM Fusion ffmpeg, played through GStreamer"
+            cd "$s"
+            ffmpeg -loglevel error -f lavfi -i testsrc=duration=1:size=320x240:rate=30 -c:v libx264 h264.mp4 && echo "made h264.mp4"
+            ffmpeg -loglevel error -f lavfi -i testsrc=duration=1:size=320x240:rate=30 -c:v libx265 h265.mp4 && echo "made h265.mp4"
+            for f in h264 h265; do
+              if timeout 60 gst-launch-1.0 -q filesrc location=$f.mp4 ! decodebin ! fakesink >/dev/null 2>&1; then echo "$f: decodes"; else echo "$f: does not decode"; fi
+            done
             echo "== what RPM Fusion offers for Mesa video decode"
             dnf repoquery --repo="rpmfusion-free*" "mesa*" 2>/dev/null
             echo "== dry run: mesa-va-drivers-freeworld"
@@ -477,7 +484,8 @@ jobs:
         continue-on-error: true
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          $SSH 'cat /usr/share/sparkos/fedora-base/media-formats.txt'
+          $SSH 'cat /usr/share/sparkos/fedora-base/media-formats.txt' | tee "$WORK/media-formats.txt"
+          grep -q '^h264 (OpenH264): decodes' "$WORK/media-formats.txt" || echo "::error::H.264 does not decode"
           $SSH 'for m in image/jpeg video/mp4 audio/mpeg; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/media-defaults.txt"
           if grep -v -- '-> dev.wolklaw.SparkMedia.desktop$' "$WORK/media-defaults.txt"; then echo "::error::these types don't open in Spark Media"; exit 1; fi
           $SSH 'spark-media --self-test --require h264,h265,aac,mp3' 2>&1 | tee "$WORK/spark-media-self-test.txt"
