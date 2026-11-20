@@ -41,6 +41,17 @@ jobs:
           cd files/spark-archive
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
 
+      - name: Screenshots (Xvfb, invented files)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False python3-pillow cascadia-mono-fonts
+          cd files/spark-archive
+          xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/screenshots.py /tmp/screenshots
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spark-archive-screenshots
+          path: /tmp/screenshots
+
       - name: Install (the image build step)
         run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-archive.sh
 
