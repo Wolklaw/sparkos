@@ -35,7 +35,9 @@ on:
         default: false
 
 concurrency:
-  group: boot-test
+  # One queue per branch: main's runs (after builds, Sundays) never cancel a branch test waiting
+  # in line, or the other way round
+  group: boot-test-${{ github.ref }}
   cancel-in-progress: false # a newer build waits for the running test instead of killing it
 
 jobs:
@@ -605,6 +607,53 @@ jobs:
           else
             echo "::error::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"; exit 1
           fi
+
+      # Every preinstalled app opened on the real desktop, in the session the step above signed
+      # in to: started from its menu entry the way Plasma's menu does, KWin must show a window,
+      # no Python traceback, a screenshot of the screen through KWin, then closed. Once in the
+      # session's language, once more in French (Spark apps). .github/scripts/desktop-smoke.py
+      - name: Open every app on the desktop
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          for i in $(seq 1 24); do $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break; sleep 5; done
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
+            .github/scripts/desktop-smoke.py spark@127.0.0.1:/tmp/desktop-smoke.py
+          EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkUpdate,dev.wolklaw.Soot,freesuite
+          set +e
+          timeout 900 $SSH "rm -rf /tmp/desktop-smoke; python3 /tmp/desktop-smoke.py --out /tmp/desktop-smoke --passes en,fr --expect $EXPECT" 2>&1 | tee "$WORK/desktop-smoke.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          mkdir -p "$WORK/desktop-screenshots"
+          $SSH 'tar -C /tmp/desktop-smoke -cf - .' | tar -C "$WORK/desktop-screenshots" -xf - || true
+          python3 - "$WORK/desktop-screenshots/results.json" >> "$GITHUB_STEP_SUMMARY" <<'EOF' || true
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          cell = lambda s: str(s).replace('|', '\\|').replace('\n', ' ')
+          print('### Apps opened on the Plasma desktop (test VM)')
+          print(f"Started from their menu entries with {data['launcher']}; screenshots in the desktop-screenshots artifact.\n")
+          print('| App | Language | Window title | Seconds to open | Result |')
+          print('|---|---|---|---|---|')
+          for r in data['results']:
+              result = 'OK' if r['ok'] else 'fail: ' + r['reason']
+              notes = '; '.join(r.get('notes', []))
+              if notes:
+                  result += f' ({notes})'
+              print(f"| {cell(r['name'])} | {r['pass']} | {cell(r['title'])} | {r['seconds'] if r['seconds'] is not None else '-'} | {cell(result)} |")
+          EOF
+          if [ "$status" != 0 ]; then
+            grep -E '^-- |^   FAIL' "$WORK/desktop-smoke.txt" | grep -B1 '^   FAIL' | grep '^-- ' | sed 's/^-- /::error::did not open cleanly on the desktop: /' || true
+            echo "::error::desktop app check failed (exit $status); see desktop-smoke.txt and the summary"
+            exit 1
+          fi
+
+      - name: Upload the desktop screenshots
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-screenshots
+          path: /mnt/boot-test/desktop-screenshots/
+          if-no-files-found: warn
 
       - name: Check Spark Update installs a real update
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.SPARK_UPDATE_TEST == 'true' }}
