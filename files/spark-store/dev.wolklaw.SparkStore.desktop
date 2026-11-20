@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Store
+GenericName=App store
+GenericName[fr]=Magasin d'applications
+Comment=Get the Spark apps and every app on Flathub
+Comment[fr]=Obtenir les applications Spark et toutes les applications de Flathub
+Exec=spark-store %U
+Icon=dev.wolklaw.SparkStore
+Terminal=false
+Categories=System;PackageManager;
+Keywords=store;app store;software;apps;install;uninstall;update;flathub;flatpak;spark;portal;microsoft store;magasin;logiciels;applications;installer;désinstaller;mise à jour;
+Keywords[fr]=magasin;logiciels;applications;installer;désinstaller;mise à jour;flathub;flatpak;spark;
+MimeType=application/vnd.flatpak.ref;application/vnd.flatpak.repo;x-scheme-handler/appstream;
+StartupWMClass=SparkStore
+SingleMainWindow=true
+Actions=Installed;Updates;
+
+[Desktop Action Installed]
+Name=Installed apps
+Name[fr]=Applications installées
+Exec=spark-store --page installed
+
+[Desktop Action Updates]
+Name=Updates
+Name[fr]=Mises à jour
+Exec=spark-store --page updates

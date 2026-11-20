@@ -1,0 +1,153 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- A small catalog in Flathub's format, with invented apps: verified and not, proprietary,
+     with and without screenshots, translated, plus entries the Store must skip (an addon, a
+     runtime, a console tool, a component with no name). -->
+<components version="0.8" origin="flatpak">
+  <component type="desktop-application">
+    <id>org.example.Paint</id>
+    <name>Paint Pro</name>
+    <name xml:lang="fr">Peinture Pro</name>
+    <summary>Draw and edit pictures</summary>
+    <summary xml:lang="fr">Dessiner et retoucher des images</summary>
+    <project_license>GPL-3.0-or-later</project_license>
+    <description>
+      <p>Paint Pro is a <em>simple</em> drawing app.</p>
+      <ul>
+        <li>Layers and brushes</li>
+        <li>Opens PNG,   JPEG and WebP</li>
+      </ul>
+      <p>It works offline.</p>
+    </description>
+    <description xml:lang="fr">
+      <p>Peinture Pro est une application de dessin.</p>
+    </description>
+    <developer id="org.example">
+      <name>Example Studio</name>
+    </developer>
+    <launchable type="desktop-id">org.example.Paint.desktop</launchable>
+    <icon height="64" type="cached" width="64">org.example.Paint.png</icon>
+    <icon height="128" type="cached" width="128">org.example.Paint.png</icon>
+    <icon height="64" scale="2" type="cached" width="64">org.example.Paint.png</icon>
+    <icon height="128" type="remote" width="128">https://dl.flathub.org/media/org/example/Paint/icons/128x128/org.example.Paint.png</icon>
+    <url type="homepage">https://paint.example.org</url>
+    <url type="bugtracker">https://paint.example.org/issues</url>
+    <categories>
+      <category>Graphics</category>
+      <category>2DGraphics</category>
+    </categories>
+    <keywords>
+      <keyword>draw</keyword>
+      <keyword>drawing</keyword>
+      <keyword>sketch</keyword>
+    </keywords>
+    <keywords xml:lang="fr">
+      <keyword>dessin</keyword>
+    </keywords>
+    <screenshots>
+      <screenshot type="default">
+        <caption>The main window</caption>
+        <caption xml:lang="fr">La fenêtre principale</caption>
+        <image height="1080" type="source" width="1920">https://dl.flathub.org/media/org/example/Paint/screenshots/image-1_orig.png</image>
+        <image height="423" type="thumbnail" width="752">https://dl.flathub.org/media/org/example/Paint/screenshots/image-1_752x423@1.png</image>
+        <image height="126" type="thumbnail" width="224">https://dl.flathub.org/media/org/example/Paint/screenshots/image-1_224x126@1.png</image>
+      </screenshot>
+      <screenshot>
+        <caption>Layers</caption>
+        <image height="351" type="thumbnail" width="624">https://dl.flathub.org/media/org/example/Paint/screenshots/image-2_624x351@1.png</image>
+        <image type="thumbnail" width="752">http://insecure.example.org/image-2.png</image>
+      </screenshot>
+    </screenshots>
+    <releases>
+      <release timestamp="1700000000" type="stable" version="3.1.0"/>
+      <release timestamp="1760000000" type="stable" version="3.2.0"/>
+    </releases>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+      <value key="flathub::verification::method">website</value>
+    </custom>
+    <bundle type="flatpak" runtime="org.freedesktop.Platform/x86_64/24.08" sdk="org.freedesktop.Sdk/x86_64/24.08">app/org.example.Paint/x86_64/stable</bundle>
+  </component>
+  <component type="desktop-application">
+    <id>com.example.Chat</id>
+    <name>Chatter</name>
+    <summary>Talk with friends by voice and text</summary>
+    <project_license>LicenseRef-proprietary=https://chat.example.com/terms</project_license>
+    <description>
+      <p>Chatter is a chat client.</p>
+    </description>
+    <developer id="com.example">
+      <name>Chatter Inc.</name>
+    </developer>
+    <icon height="64" type="cached" width="64">com.example.Chat.png</icon>
+    <categories>
+      <category>InstantMessaging</category>
+      <category>Network</category>
+    </categories>
+    <custom>
+      <value key="flathub::verification::verified">true</value>
+    </custom>
+    <bundle type="flatpak">app/com.example.Chat/x86_64/stable</bundle>
+  </component>
+  <component type="desktop-application">
+    <id>net.example.Blocks</id>
+    <name>Falling Blocks</name>
+    <summary>A puzzle game with falling blocks</summary>
+    <project_license>MIT</project_license>
+    <developer_name>A. Hobbyist</developer_name>
+    <categories>
+      <category>Game</category>
+      <category>LogicGame</category>
+    </categories>
+    <keywords>
+      <keyword>puzzle</keyword>
+      <keyword>tetromino</keyword>
+    </keywords>
+    <bundle type="flatpak">app/net.example.Blocks/x86_64/beta</bundle>
+  </component>
+  <component type="desktop-application">
+    <id>org.example.Tunes</id>
+    <name>Tunes</name>
+    <summary>A music player for your library</summary>
+    <project_license>GPL-2.0-only</project_license>
+    <developer_name>Tunes Team</developer_name>
+    <categories>
+      <category>Audio</category>
+      <category>Music</category>
+    </categories>
+    <metadata>
+      <value key="flathub::verification::verified">true</value>
+    </metadata>
+    <bundle type="flatpak">app/org.example.Tunes/x86_64/stable</bundle>
+  </component>
+  <component type="desktop">
+    <id>org.example.Old.desktop</id>
+    <name>Old Editor</name>
+    <summary>An editor with an old-style ID</summary>
+    <project_license>GPL-2.0+</project_license>
+    <bundle type="flatpak">app/org.example.Old/x86_64/stable</bundle>
+  </component>
+  <component type="addon">
+    <id>org.example.Paint.Plugin.Extra</id>
+    <name>Extra brushes</name>
+    <summary>More brushes for Paint Pro</summary>
+    <extends>org.example.Paint</extends>
+    <bundle type="flatpak">runtime/org.example.Paint.Plugin.Extra/x86_64/stable</bundle>
+  </component>
+  <component type="runtime">
+    <id>org.freedesktop.Platform</id>
+    <name>Freedesktop Platform</name>
+    <summary>Shared libraries</summary>
+    <bundle type="flatpak">runtime/org.freedesktop.Platform/x86_64/24.08</bundle>
+  </component>
+  <component type="console-application">
+    <id>org.example.Tool</id>
+    <name>Tool</name>
+    <summary>A command-line tool</summary>
+    <bundle type="flatpak">app/org.example.Tool/x86_64/stable</bundle>
+  </component>
+  <component type="desktop-application">
+    <id>org.example.NoName</id>
+    <summary>Has no name, so it can't be listed</summary>
+    <bundle type="flatpak">app/org.example.NoName/x86_64/stable</bundle>
+  </component>
+</components>

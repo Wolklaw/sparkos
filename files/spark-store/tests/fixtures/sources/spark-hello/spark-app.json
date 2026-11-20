@@ -1,0 +1,9 @@
+{
+  "id": "dev.wolklaw.SparkHello",
+  "slug": "spark-hello",
+  "name": "Spark Hello",
+  "summary": "An optional test app that installs for one user.",
+  "version": "0.0.1",
+  "size_kb": 4,
+  "license": "Apache-2.0"
+}

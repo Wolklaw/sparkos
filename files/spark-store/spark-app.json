@@ -1,0 +1,42 @@
+{
+  "id": "dev.wolklaw.SparkStore",
+  "slug": "spark-store",
+  "name": "Spark Store",
+  "name_fr": "Spark Store",
+  "summary": "The SparkOS app store: the Spark apps and every app on Flathub, installed for you with one click.",
+  "summary_fr": "Le magasin d'applications de SparkOS : les applications Spark et toutes celles de Flathub, installées pour vous en un clic.",
+  "version": "0.1.0",
+  "size_kb": 420,
+  "icon": "icons/spark-store-256.png",
+  "desktop": "dev.wolklaw.SparkStore.desktop",
+  "command": "spark-store",
+  "categories": ["System", "PackageManager"],
+  "license": "Apache-2.0",
+  "needs": {
+    "root": false,
+    "python": ">=3.9",
+    "python_modules": ["tkinter", "sqlite3"],
+    "commands": ["flatpak"],
+    "optional": {
+      "PIL.ImageTk": "sharper icons, and JPEG screenshots"
+    }
+  },
+  "reads": [
+    "~/.local/share/flatpak/appstream/flathub",
+    "/var/lib/flatpak/appstream/flathub"
+  ],
+  "writes": [
+    "~/.config/spark-store",
+    "~/.cache/spark-store",
+    "~/.local/state/spark-store"
+  ],
+  "network": "Only through flatpak (installs, updates, a catalog older than a day), and screenshots when an app's page opens. No account, no tracking.",
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "image_build": "files/scripts/spark-store.sh",
+    "self_test": "spark-store --self-test"
+  },
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-store"
+}

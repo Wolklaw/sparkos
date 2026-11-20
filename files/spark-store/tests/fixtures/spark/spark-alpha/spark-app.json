@@ -1,0 +1,12 @@
+{
+  "id": "dev.wolklaw.SparkAlpha",
+  "slug": "spark-alpha",
+  "name": "Spark Alpha",
+  "name_fr": "Spark Alpha",
+  "summary": "A test app that is part of the image.",
+  "summary_fr": "Une application de test qui fait partie de l'image.",
+  "version": "1.2.0",
+  "installed_size_kb": 420,
+  "license": "Apache-2.0",
+  "in_image": true
+}

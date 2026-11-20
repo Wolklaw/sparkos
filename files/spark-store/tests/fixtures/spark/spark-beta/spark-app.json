@@ -1,0 +1,9 @@
+{
+  "id": "dev.wolklaw.SparkBeta",
+  "name": "Spark Beta",
+  "description": "A test app described the way Spark Welcome describes itself.",
+  "version": "0.3.0",
+  "size_kb": 200,
+  "command": "spark-beta",
+  "needs": {"optional_programs": ["flatpak", "kdialog"]}
+}
