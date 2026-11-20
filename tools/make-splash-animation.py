@@ -11,6 +11,7 @@ Run it again whenever the animated SVG changes, and commit the GIF.
 import pathlib, subprocess, tempfile
 import imageio_ffmpeg
 from playwright.sync_api import sync_playwright
+from svg_inline import inline_bot  # tools/svg_inline.py: makes the <use> copies seekable
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 SVG = REPO / "branding" / "sparkos-bot-animated.svg"
@@ -18,7 +19,7 @@ OUT = REPO / "files/system/usr/share/plasma/look-and-feel/dev.wolklaw.sparkos.de
 SIZE, FPS, LENGTH = 560, 25, 6.8
 BG = "#05040f"  # the splash background
 
-svg = SVG.read_text(encoding="utf-8")
+svg = inline_bot(SVG.read_text(encoding="utf-8"))
 html = f"""<!doctype html><html><head><meta charset="utf-8"><style>
 html, body {{ margin: 0; width: {SIZE}px; height: {SIZE}px; background: {BG}; overflow: hidden; }}
 #art svg {{ width: {SIZE}px; height: {SIZE}px; display: block; }}
