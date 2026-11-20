@@ -99,11 +99,11 @@ jobs:
                     env -i HOME="$home" USER=tester LOGNAME=tester \
                     PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 ${SANE:+SANE_CONFIG_DIR=$SANE} \
                     bash -c "$1"); }
-            usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
-
             echo "--- what the image has"
             rpm -q sane-backends sane-backends-drivers-scanners sane-airscan tesseract \
                    tesseract-langpack-fra python3-pillow-tk poppler-utils
+            # after rpm, which touches its database under /usr/lib/sysimage
+            find /usr -newer /etc/hostname 2>/dev/null | sort > /tmp/usr-before
 
             echo "--- install --user"
             as "bash ~/spark-scan/install.sh --user"
@@ -129,7 +129,7 @@ jobs:
             # the log in ~/.local/state stays, like settings and scans (see install.sh)
             left=$(as "find ~/.local -path ~/.local/state -prune -o \( -iname \"*spark*scan*\" -o -iname \"*SparkScan*\" \) -print" || true)
             if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
-            usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
-            [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
+            find /usr -newer /etc/hostname 2>/dev/null | sort > /tmp/usr-after
+            diff /tmp/usr-before /tmp/usr-after || { echo "/usr changed"; exit 1; }
             echo "installed, scanned, tested and removed without root"
           '
