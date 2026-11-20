@@ -76,7 +76,7 @@ jobs:
           # Bazzite ships with sshd off (SparkOS keeps that). Start it on this
           # test disk only, through a kernel argument.
           [customizations.kernel]
-          append = "systemd.wants=sshd.service"
+          append = "systemd.wants=sshd.service rhgb quiet"
           EOF
           mkdir -p "$WORK/output"
           sudo podman run --rm --privileged --pull=newer \
