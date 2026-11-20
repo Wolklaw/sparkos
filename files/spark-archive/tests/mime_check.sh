@@ -36,7 +36,9 @@ for name in "${ours[@]}" "${others[@]}"; do
     *.txt|*.r) printf 'hello\n' > "$dir/$name"; continue ;;
     *) : > "$dir/$name" ;;
   esac
-  head -c 200 /dev/urandom >> "$dir/$name"
+  # the same binary bytes every time (a NUL, then 0xff): content sniffing must not differ
+  # between the checks, and must never take it for text
+  { printf '\000'; head -c 199 /dev/zero | tr '\000' '\377'; } >> "$dir/$name"
 done
 
 type_of() {
