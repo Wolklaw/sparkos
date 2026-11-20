@@ -58,6 +58,7 @@ EN: Dict[str, str] = {
     'status.editing': "EDITING · THE ORIGINAL STAYS AS IT IS",
     'status.edit_cancelled': "EDIT CANCELLED", 'status.saving': "SAVING…",
     'status.saved_as': "SAVED AS {name}", 'status.save_failed': "COULD NOT SAVE",
+    'status.playing_now': "PLAYING {name}",
 
     # app
     'app.cant_open': "Spark Media can't open this:\n{path}",
@@ -79,7 +80,11 @@ EN: Dict[str, str] = {
 
     # photos
     'photo.gone': "The file is gone.",
-    'photo.need_heif': "{ext} photos need the pillow-heif plugin, which isn't installed.",
+    'photo.heif_nolib': "{ext} photos need libheif, which isn't installed.",
+    'photo.heif_nohevc': "This {ext} photo is HEVC inside, and libheif here has no HEVC "
+                         "decoder (the libheif-freeworld package adds one).",
+    'photo.heif_noav1': "This {ext} photo is AV1 inside, and libheif here has no AV1 decoder.",
+    'photo.heif_damaged': "The {ext} file is damaged, or uses something libheif can't read.",
     'photo.damaged': "The file is damaged, or isn't a photo format Spark Media reads.",
     'photo.raw_unreadable': "This RAW file has no preview Spark Media can read, and LibRaw "
                             "couldn't develop it.",
@@ -100,6 +105,7 @@ EN: Dict[str, str] = {
     'edit.replace_ask': "Save the edit over {name}?\n\nThe original can't be brought back.",
     'edit.save_failed': "The photo couldn't be saved:\n{error}",
     'edit.suffix': "edited",
+    'edit.discard_ask': "You're editing a photo. Leave it without saving?",
 
     # players
     'play.need_gst': "VIDEO AND MUSIC NEED GSTREAMER", 'play.no_start': "THE PLAYER COULD NOT START",
@@ -194,6 +200,7 @@ FR: Dict[str, str] = {
     'status.editing': "MODIFICATION · L'ORIGINAL RESTE INTACT",
     'status.edit_cancelled': "MODIFICATION ANNULÉE", 'status.saving': "ENREGISTREMENT…",
     'status.saved_as': "ENREGISTRÉ SOUS {name}", 'status.save_failed': "ENREGISTREMENT IMPOSSIBLE",
+    'status.playing_now': "LECTURE : {name}",
 
     'app.cant_open': "Spark Media ne peut pas ouvrir ceci :\n{path}",
     'app.wrong_kind': "Spark Media n'ouvre pas ce type de fichier :\n{path}",
@@ -213,8 +220,13 @@ FR: Dict[str, str] = {
     'home.folder': "DOSSIER", 'home.no_preview': "AUCUN APERÇU",
 
     'photo.gone': "Le fichier n'existe plus.",
-    'photo.need_heif': "Les photos {ext} ont besoin du module pillow-heif, qui n'est pas "
-                       "installé.",
+    'photo.heif_nolib': "Les photos {ext} ont besoin de libheif, qui n'est pas installé.",
+    'photo.heif_nohevc': "Cette photo {ext} est en HEVC, et la libheif d'ici n'a pas de "
+                         "décodeur HEVC (le paquet libheif-freeworld en ajoute un).",
+    'photo.heif_noav1': "Cette photo {ext} est en AV1, et la libheif d'ici n'a pas de "
+                        "décodeur AV1.",
+    'photo.heif_damaged': "Le fichier {ext} est endommagé, ou utilise une fonction que libheif "
+                          "ne lit pas.",
     'photo.damaged': "Le fichier est endommagé, ou ce format photo n'est pas pris en charge "
                      "par Spark Media.",
     'photo.raw_unreadable': "Ce fichier RAW n'a pas d'aperçu lisible par Spark Media, et LibRaw "
@@ -238,6 +250,7 @@ FR: Dict[str, str] = {
                         "pas être récupéré.",
     'edit.save_failed': "La photo n'a pas pu être enregistrée :\n{error}",
     'edit.suffix': "modifié",
+    'edit.discard_ask': "Vous modifiez une photo. La quitter sans enregistrer?",
 
     'play.need_gst': "LA VIDÉO ET LA MUSIQUE ONT BESOIN DE GSTREAMER",
     'play.no_start': "LE LECTEUR N'A PAS PU DÉMARRER",

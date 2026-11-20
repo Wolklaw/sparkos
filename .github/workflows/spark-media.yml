@@ -40,14 +40,16 @@ jobs:
       - name: Tests (Xvfb)
         shell: bash
         run: |
+          # a session bus for the MPRIS tests (gdbus calls Spark Media like Plasma does), and
+          # heif-enc to make an AVIF here
           dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
-            mesa-dri-drivers shared-mime-info
+            mesa-dri-drivers shared-mime-info dbus-daemon dbus-tools glib2 libheif-tools
           cd files/spark-media
-          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v 2>&1 \
-            | tee /tmp/tests.txt
+          xvfb-run -a -s "-screen 0 1920x1080x24" dbus-run-session -- \
+            python3 -m unittest discover -s tests -v 2>&1 | tee /tmp/tests.txt
           rc=${PIPESTATUS[0]}
           { echo "### Tests in Fedora: $(tail -n 1 /tmp/tests.txt)"
-            echo '```'; grep -E '^(speed|scan|raw|mime):' /tmp/tests.txt || true; echo '```'
+            echo '```'; grep -E '^(speed|scan|raw|mime|heif|mpris):' /tmp/tests.txt || true; echo '```'
             if [ "$rc" != 0 ]; then echo '```'; sed -n '/^=====/,$p' /tmp/tests.txt | head -300; echo '```'; fi
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$rc"
@@ -105,14 +107,16 @@ jobs:
             cp -r /src /tmp/sm && cd /tmp/sm
             export XDG_CACHE_HOME=/tmp/c XDG_CONFIG_HOME=/tmp/c XDG_STATE_HOME=/tmp/c
             python3 spark_media.py --self-test --require h264,h265,aac,mp3 2>&1 | tee /out/self-test.txt
-            python3 -m unittest discover -s tests -v 2>&1 | tee /out/tests.txt; exit ${PIPESTATUS[0]}
+            # the image's own session bus tools, for the MPRIS tests
+            run=""; command -v dbus-run-session >/dev/null && run="dbus-run-session --"
+            $run python3 -m unittest discover -s tests -v 2>&1 | tee /out/tests.txt; exit ${PIPESTATUS[0]}
           '
           rc=$?
           { echo "### In the SparkOS image: $( [ "$rc" = 0 ] && echo passed || echo FAILED)"
             if [ -f /tmp/out/self-test.txt ]; then echo '```'; cat /tmp/out/self-test.txt; echo '```'; fi
             if [ -f /tmp/out/tests.txt ]; then
               echo "Unit tests: $(tail -n 1 /tmp/out/tests.txt)"
-              echo '```'; grep -E '^(speed|scan|raw|mime):|skipped' /tmp/out/tests.txt || true; echo '```'
+              echo '```'; grep -E '^(speed|scan|raw|mime|heif|mpris):|skipped' /tmp/out/tests.txt || true; echo '```'
               if grep -q '^=====' /tmp/out/tests.txt; then
                 echo '```'; sed -n '/^=====/,$p' /tmp/out/tests.txt | head -300; echo '```'
               fi

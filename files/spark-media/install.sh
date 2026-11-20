@@ -32,13 +32,14 @@ dnf_install() {
 }
 
 if [ "$DEPS" = 1 ]; then
-  # 1. programs and data, by package name. taglib reads music tags and LibRaw develops camera
-  #    RAW photos, both through their C libraries; SparkOS already has them (KDE uses them).
+  # 1. programs and data, by package name. taglib reads music tags, LibRaw develops camera
+  #    RAW photos and libheif opens HEIC and AVIF, all through their C libraries; SparkOS
+  #    already has them (KDE uses them).
   missing=()
   for pkg in python3 python3-tkinter python3-pillow python3-pillow-tk python3-gobject-base \
              gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good \
              xrdb xdg-user-dirs xdg-utils glib2 cascadia-mono-fonts \
-             taglib LibRaw; do
+             taglib LibRaw libheif; do
     rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
   done
   if [ ${#missing[@]} -gt 0 ]; then
@@ -68,9 +69,6 @@ if [ "$DEPS" = 1 ]; then
   # and the SparkOS build requires it (files/scripts/spark-media.sh).
   has avdec_aac || dnf_install gstreamer1-plugin-libav || echo "--- optional: no gst-libav"
   has dav1ddec || dnf_install gstreamer1-plugin-dav1d || echo "--- optional: no AV1 decoder"
-  # HEIC and AVIF photos (phones save HEIC)
-  python3 -c 'import pillow_heif' 2>/dev/null || dnf_install python3-pillow-heif \
-    || echo "--- optional: no pillow-heif, HEIC photos won't open"
 fi
 
 # The program

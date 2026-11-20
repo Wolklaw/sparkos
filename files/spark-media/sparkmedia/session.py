@@ -22,6 +22,7 @@ class MusicSession:
         self.player: Optional[gst.Player] = None
         self.problem: Optional[str] = gst.init()
         self.finished = False
+        self.stopped = True                 # nothing loaded, or Stop pressed
         self.error: Optional[str] = None
         self._poll_id: Optional[str] = None
         self._skip_id: Optional[str] = None
@@ -96,6 +97,19 @@ class MusicSession:
         self._load()
         self._emit('queue')
 
+    def play_now(self, items: Sequence[str]) -> None:
+        """Opened from outside (a double-click): into the queue right after the current song,
+        and playing at once."""
+        if not items:
+            return
+        if self.current is None:
+            self.play(items)
+            return
+        first = len(self.queue.items)
+        self.queue.play_next(items)
+        self._emit('queue')
+        self.jump(first)
+
     def add(self, items: Sequence[str]) -> None:
         idle = self.current is None
         self.queue.add(items)
@@ -138,6 +152,9 @@ class MusicSession:
         if self.error and not self.player.playing:
             self._load()                       # try the file again
             return
+        if self.stopped:
+            self._load()                       # Stop unloads the song: start it again
+            return
         self.player.toggle()
         self.finished = False
         self._emit('state')
@@ -152,7 +169,7 @@ class MusicSession:
             return
         pos = self.player.position() or 0
         if pos > 3 or len(self.queue) < 2:
-            self.player.seek(0)
+            self.seek(0)
             self._emit('tick')
             return
         if self.queue.prev():
@@ -161,6 +178,7 @@ class MusicSession:
     def seek(self, seconds: float, accurate: bool = True) -> None:
         if self.player is not None:
             self.player.seek(seconds, accurate)
+            self._emit('seeked', max(0.0, seconds))
 
     def set_shuffle(self, on: bool) -> None:
         self.queue.set_shuffle(on)
@@ -177,11 +195,13 @@ class MusicSession:
                 self.player.muted = False
             self.app.settings["volume"] = round(self.player.volume, 3)
             self.app.settings["muted"] = self.player.muted
+            self._emit('volume')
 
     def set_muted(self, on: bool) -> None:
         if self.player is not None:
             self.player.muted = on
             self.app.settings["muted"] = on
+            self._emit('volume')
 
     def pause(self) -> None:
         if self.player is not None and self.player.playing:
@@ -192,6 +212,7 @@ class MusicSession:
         self._cancel()
         if self.player is not None:
             self.player.stop()
+        self.stopped = True
         self._emit('state')
 
     def close(self) -> None:
@@ -209,7 +230,7 @@ class MusicSession:
             self.app.root.after_cancel(self._skip_id)
             self._skip_id = None
         path = self.current
-        self.finished, self.error = False, None
+        self.finished, self.error, self.stopped = False, None, False
         log.info("music: %s", path)
         self.player.load(path, video=False, play=play)
         self._emit('track', path)

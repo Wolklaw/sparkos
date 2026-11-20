@@ -7,14 +7,14 @@ APP_NAME = "Spark Media"
 APP_SLUG = "spark-media"         # command, folders, log names
 APP_CLASS = "SparkMedia"         # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkMedia"
-VERSION = "1.1.0"
+VERSION = "1.2.0"
 
 KINDS = ("photo", "video", "music")
 
-# What each kind opens, by file extension. Pillow reads the photos (HEIC and AVIF when its
-# plugins are installed); GStreamer plays the rest with whatever decoders the system has.
+# What each kind opens, by file extension. Pillow reads the photos (libheif the HEIC and AVIF
+# ones, LibRaw the RAWs); GStreamer plays the rest with whatever decoders the system has.
 PHOTO_EXT = frozenset("""
-    jpg jpeg jpe jfif png apng gif webp bmp dib tif tiff ico cur avif heic heif tga ppm pgm pbm
+    jpg jpeg jpe jfif png apng gif webp bmp dib tif tiff ico cur avif heic heif hif tga ppm pgm pbm
     pnm pcx qoi dds psd
     cr2 cr3 crw nef nrw arw srf sr2 dng raf orf rw2 pef srw rwl 3fr iiq x3f
 """.split())             # the last line: camera RAW (sparkmedia/raw.py)
