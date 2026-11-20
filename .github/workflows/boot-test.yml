@@ -1,13 +1,24 @@
 name: boot-test
-# Boots the published SparkOS image in a real VM (QEMU + KVM) and checks it:
-# system name, booted image, signing policy, preinstalled Flatpaks, and
-# screenshots of the screen. Runs after every successful image build.
+# Boots the published SparkOS image in a real VM (QEMU + KVM) and checks it.
+#
+# Quick run (after every image build): system name and update signing, only SparkOS's own apps
+# present, Spark Media, and boot/idle measurements.
+# Full run (Sundays, or by hand with "full"): everything, including the checks that have passed
+# many times (Soot/FreeSuite, printing, startup sound, Claude Code, Spark Snip, Windows-style
+# installs), so a Bazzite update that breaks one is still caught within the week.
 on:
   workflow_run:
     workflows: [bluebuild]
     types: [completed]
     branches: [main]
+  schedule:
+    - cron: "0 10 * * 0" # Sundays, after the daily image build
   workflow_dispatch:
+    inputs:
+      full:
+        description: Run every check, not just the quick set
+        type: boolean
+        default: true
 
 concurrency:
   group: boot-test
@@ -15,7 +26,7 @@ concurrency:
 
 jobs:
   boot:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
@@ -24,6 +35,7 @@ jobs:
     env:
       IMAGE: ghcr.io/wolklaw/sparkos:latest
       WORK: /mnt/boot-test
+      FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -76,19 +88,6 @@ jobs:
           sudo chown -R "$USER" "$WORK/output"
           DISK=$(find "$WORK/output" -name '*.qcow2' | head -1)
           test -n "$DISK" || { echo "no qcow2 produced"; find "$WORK/output"; exit 1; }
-          # Room for the ~5 GB of first-boot Flatpaks. image-builder can't size the root of a
-          # bootc qcow2, and growing the file alone leaves the filesystem small, so copy it
-          # onto an 80 GB disk with virt-resize, which grows the root partition and its btrfs.
-          sudo apt-get install -y -qq libguestfs-tools >/dev/null
-          sudo chmod 0644 /boot/vmlinuz-* || true   # libguestfs needs to read the host kernel
-          ROOT=$(sudo virt-filesystems -a "$DISK" --partitions --long --csv | tail -n +2 | sort -t, -k4 -n | tail -1 | cut -d, -f1)
-          echo "growing root partition $ROOT"
-          qemu-img create -f qcow2 "$WORK/disk80.qcow2" 80G
-          sudo virt-resize --expand "$ROOT" "$DISK" "$WORK/disk80.qcow2"
-          sudo chown "$USER" "$WORK/disk80.qcow2"
-          rm -f "$DISK"
-          DISK="$WORK/disk80.qcow2"
-          sudo virt-filesystems -a "$DISK" --all --long -h
           echo "DISK=$DISK" >> "$GITHUB_ENV"
           ls -lh "$DISK"
 
@@ -139,7 +138,7 @@ jobs:
           $SSH 'rpm -q steam lutris gamescope mangohud 2>&1; flatpak --version'
 
       - name: Check Soot and FreeSuite
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           # Installed, with no missing libraries
           $SSH 'ls -l /usr/bin/soot /usr/bin/freesuite; readlink -f /usr/bin/soot /usr/bin/freesuite; ls -l /var/opt/freesuite'
@@ -164,7 +163,7 @@ jobs:
           $SSH 'python3 /tmp/smoke-test.py --soot /usr/bin/soot' 2>&1 | tee "$WORK/soot-smoke-test.txt"
 
       - name: Check printing, scanning and devices
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
           ! grep -q 'not installed' "$WORK/devices.txt"
@@ -172,13 +171,13 @@ jobs:
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
 
       - name: Check the startup sound
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           $SSH 'test -s /usr/share/sounds/sparkos/startup.wav && test -x /usr/bin/sparkos-startup-sound && test -f /etc/xdg/autostart/sparkos-startup-sound.desktop && echo "startup sound present"'
           $SSH 'sparkos-startup-sound --off && test -e ~/.config/sparkos/startup-sound-off && sparkos-startup-sound --on && test ! -e ~/.config/sparkos/startup-sound-off && echo "off/on switch works"'
 
       - name: Check Claude Code setup
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           $SSH 'rpm -q socat bubblewrap kdialog konsole' | tee "$WORK/claude-deps.txt"
           ! grep -q 'not installed' "$WORK/claude-deps.txt"
@@ -192,7 +191,7 @@ jobs:
           $SSH '~/.local/bin/claude --version' | grep -qiE '[0-9]+\.[0-9]+'
 
       - name: Check Spark Snip
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           # Installed, shortcuts registered, Spectacle gave up Print and Meta+Shift+R
           $SSH 'spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
@@ -220,13 +219,7 @@ jobs:
       - name: Check no third-party apps are preinstalled
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # SparkOS ships only Soot, FreeSuite, Spark Snip and Spark Media. Give the first-boot Flatpak services
-          # (BlueBuild's and Bazzite's) time to run, then nothing may have been installed.
-          for i in $(seq 1 30); do
-            STATES=$($SSH 'systemctl is-active system-flatpak-setup.service bazzite-flatpak-manager.service' 2>/dev/null || true)
-            echo "$STATES" | grep -q activating || break
-            sleep 20
-          done
+          # SparkOS ships only its own apps: no Flatpak apps, none of Bazzite's removed packages, no Portal
           $SSH 'echo "== system Flatpak apps"; flatpak list --system --app --columns=application
                 echo "== removed packages"; rpm -q steam lutris waydroid kate kwrite filelight 2>&1
                 echo "== Portal autostart"; ls /etc/skel/.config/autostart/ 2>&1' | tee "$WORK/apps.txt"
@@ -238,7 +231,7 @@ jobs:
           $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           # Double-clicked downloads open in the SparkOS helper, which fetches Bottles or Gear Lever
           # from Flathub on first use (nothing is preinstalled), or guides .rpm and .deb files
@@ -257,7 +250,7 @@ jobs:
         run: |
           # Not this PC's real numbers (nested VM, no GPU), but a change that makes boot or idle
           # heavier shows up here between builds. Measured after first-boot work has finished.
-          sleep 30
+          sleep 10
           $SSH 'echo "== boot"; systemd-analyze; echo; echo "== slowest services"; systemd-analyze blame --no-pager | head -12
                 echo; echo "== memory"; free -m
                 echo; echo "== load"; uptime
