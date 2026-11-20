@@ -13,8 +13,11 @@
 # --no-test  skip the self-test at the end.
 #
 # Besides the app, this installs Dolphin's right-click entries (KIO service menus): Extract
-# here and Extract to folder on archives, Compress to .zip and to .tar.zst on anything. It
-# does not make Spark Archive the default for archives; the image build decides that.
+# here and Extract to folder on archives, Compress to .zip, .7z, .tar.zst and with a password
+# on anything. And file types for the later parts of multi-part archives (.r00, .z01,
+# .7z.002...), which have none, so Extract shows on those too (shared-mime-info package
+# dev.wolklaw.SparkArchive.xml; update-mime-database runs after installing and removing it).
+# It does not make Spark Archive the default for archives; the image build decides that.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -39,6 +42,11 @@ while [ $# -gt 0 ]; do
 done
 SIZES="16 22 24 32 48 64 128 256 512"
 MENUS="extract compress"
+
+refresh_mime() {   # $1: the mime folder (.../share/mime): rebuild it from its packages/
+  command -v update-mime-database >/dev/null || return 0
+  [ -d "$1" ] && update-mime-database "$1" 2>/dev/null || true
+}
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
@@ -80,6 +88,7 @@ if [ "$USER_MODE" = 1 ]; then
     for dir in "$DATA/kio/servicemenus" "$DATA/kio" "$HOME/.local/lib"; do
       rmdir --ignore-fail-on-non-empty "$dir" 2>/dev/null || true
     done
+    refresh_mime "$DATA/mime"
     refresh_menus "$DATA/applications"
     echo "Spark Archive removed for $(id -un). Its cache (~/.cache/$SLUG) and log"
     echo "(~/.local/state/$SLUG) stay; delete them too if you like."
@@ -132,6 +141,10 @@ EOF
   target="$DATA/icons/hicolor/scalable/apps/$APP_ID.svg"
   install -Dm 0644 "$here/icons/$SLUG.svg" "$target"
   record "$target"
+  target="$DATA/mime/packages/$APP_ID.xml"
+  install -Dm 0644 "$here/$APP_ID.xml" "$target"
+  record "$target"
+  refresh_mime "$DATA/mime"
   refresh_menus "$DATA/applications"
 
   test -x "$BIN"
@@ -155,13 +168,15 @@ fi
 if [ "$UNINSTALL" = 1 ]; then
   rm -rf -- "$PREFIX"
   rm -f /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
-        "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
+        "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg" \
+        "/usr/share/mime/packages/$APP_ID.xml"
   for menu in $MENUS; do
     rm -f "/usr/share/kio/servicemenus/$APP_ID.$menu.desktop"
   done
   for size in $SIZES; do
     rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
   done
+  refresh_mime /usr/share/mime
   refresh_menus /usr/share/applications
   echo "Spark Archive removed from the system."
   exit 0
@@ -196,12 +211,15 @@ for size in $SIZES; do
     "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
 done
 install -Dm 0644 "$here/icons/$SLUG.svg" "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
+install -Dm 0644 "$here/$APP_ID.xml" "/usr/share/mime/packages/$APP_ID.xml"
+refresh_mime /usr/share/mime
 command -v update-desktop-database >/dev/null && update-desktop-database -q /usr/share/applications || true
 command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 
 test -x /usr/bin/$SLUG
 test -f "$PREFIX/sparkarchive/app.py"
 test -f "/usr/share/applications/$APP_ID.desktop"
+test -f "/usr/share/mime/packages/$APP_ID.xml"
 /usr/bin/$SLUG --version
 if [ "$TEST" = 1 ]; then
   /usr/bin/$SLUG --self-test

@@ -43,7 +43,8 @@ jobs:
       - name: What SparkOS has (Python with Tk, libarchive, 7z, zstd, unrar), and Xvfb
         run: |
           dnf -y install --setopt=install_weak_deps=False python3 python3-tkinter libarchive \
-            7zip zstd cpio lz4 lzip ncompress xorg-x11-server-Xvfb xorg-x11-xauth
+            7zip zstd cpio lz4 lzip ncompress xorg-x11-server-Xvfb xorg-x11-xauth \
+            shared-mime-info glib2
           # unrar is in RPM Fusion nonfree, as in the SparkOS image. The sparkos job below
           # tests with the image's own unrar either way.
           dnf -y install --setopt=install_weak_deps=False \
@@ -80,8 +81,14 @@ jobs:
           name: spark-archive-screenshots
           path: /tmp/screenshots
 
+      - name: File types before installing (for the check after)
+        run: bash files/spark-archive/tests/mime_check.sh before /tmp/mime-before.txt
+
       - name: Install (the image build step)
         run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-archive.sh
+
+      - name: File types after installing (.r00, .z01... are Spark Archive's; nothing else moved)
+        run: bash files/spark-archive/tests/mime_check.sh installed /tmp/mime-before.txt
 
       - name: Speed (window, and a 20 000-file archive)
         run: |
@@ -95,6 +102,12 @@ jobs:
           xvfb-run -a -s "-screen 0 1920x1080x24" spark-archive --bench 20 /tmp/many.zip | tee -a bench.txt
           { echo '### Spark Archive speed (GitHub runner, Xvfb)'; echo '```'; cat bench.txt; echo '```'; } \
             >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Uninstall (system-wide), and the file types go back
+        run: |
+          bash files/spark-archive/install.sh --uninstall
+          test ! -e /usr/share/mime/packages/dev.wolklaw.SparkArchive.xml
+          bash files/spark-archive/tests/mime_check.sh removed /tmp/mime-before.txt
 
   sparkos:
     runs-on: ubuntu-24.04
@@ -145,8 +158,14 @@ jobs:
             echo "--- unit tests on the image Python, libarchive and 7z"
             as "cd ~/spark-archive && python3 -m unittest discover -s tests -v 2>&1 | tee /out/tests.txt; exit \${PIPESTATUS[0]}"
 
+            echo "--- file types before"
+            as "bash ~/spark-archive/tests/mime_check.sh before /tmp/mime-before.txt"
+
             echo "--- install --user"
             as "bash ~/spark-archive/install.sh --user"
+            as "test -f ~/.local/share/mime/packages/dev.wolklaw.SparkArchive.xml"
+            echo "--- file types after installing for this user"
+            as "bash ~/spark-archive/tests/mime_check.sh installed /tmp/mime-before.txt"
             as "test -x ~/.local/bin/spark-archive"
             as "grep -q \"^Exec=$home/.local/bin/spark-archive %f$\" ~/.local/share/applications/dev.wolklaw.SparkArchive.desktop"
             as "test -x ~/.local/share/kio/servicemenus/dev.wolklaw.SparkArchive.extract.desktop"
@@ -162,6 +181,8 @@ jobs:
 
             echo "--- uninstall"
             as "bash ~/spark-archive/install.sh --user --uninstall"
+            echo "--- file types after uninstalling: as before"
+            as "bash ~/spark-archive/tests/mime_check.sh removed /tmp/mime-before.txt"
             left=$(as "find ~/.local -iname \"*spark*archive*\" -o -iname \"*SparkArchive*\"" || true)
             if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
             usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)

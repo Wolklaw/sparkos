@@ -586,7 +586,11 @@ class ExtractJob(Job):
 
 ZIP, SEVEN_Z, TAR_ZST = 'zip', '7z', 'tar.zst'
 FORMATS = (ZIP, SEVEN_Z, TAR_ZST)
-PASSWORD_FORMATS = (ZIP, SEVEN_Z)          # zip: AES-256; 7z: AES-256, names encrypted too
+PASSWORD_FORMATS = (ZIP, SEVEN_Z)          # zip: AES-256 or ZipCrypto; 7z: AES-256, names too
+AES, ZIPCRYPTO = 'aes', 'zipcrypto'        # how a zip is encrypted
+# the three kinds of password archive the dialogs offer: (kind, format, zip encryption)
+PASSWORD_KINDS = (('zip-any', ZIP, ZIPCRYPTO), ('zip-strong', ZIP, AES), ('7z', SEVEN_Z, AES))
+DEFAULT_PASSWORD_KIND = 'zip-strong'
 # already compressed: storing is as small and much faster than deflating again
 STORE_EXT = {'.zip', '.7z', '.rar', '.gz', '.tgz', '.bz2', '.xz', '.zst', '.lz', '.lzma',
              '.jpg', '.jpeg', '.png', '.gif', '.webp', '.avif', '.heic', '.jxl', '.mp3', '.ogg',
@@ -626,16 +630,22 @@ class _Counting:
 
 class CompressJob(Job):
     """Make one archive of `sources`. zip without a password and tar.zst are written here
-    with Python; 7z, and zip with a password (AES-256), by the 7z command, with the password
-    on its stdin. A 7z with a password has its file names encrypted too."""
+    with Python; 7z, and zip with a password, by the 7z command, with the password on its
+    stdin. A zip's password is AES-256 (zip_encryption=AES, strong; Windows' own zip tool
+    can't open it) or ZipCrypto (ZIPCRYPTO: opens anywhere, weak). A 7z with a password is
+    AES-256 with its file names encrypted too."""
 
     def __init__(self, sources: List[str], fmt: str = ZIP, output: Optional[str] = None,
-                 asker: Asker = no_questions, password: Optional[str] = None):
+                 asker: Asker = no_questions, password: Optional[str] = None,
+                 zip_encryption: str = AES):
         super().__init__(asker)
         if fmt not in FORMATS:
             raise ValueError(fmt)
         if password and fmt not in PASSWORD_FORMATS:
             raise ValueError(f"{fmt} can't have a password")
+        if zip_encryption not in (AES, ZIPCRYPTO):
+            raise ValueError(zip_encryption)
+        self.zip_encryption = zip_encryption
         self.sources = [os.path.abspath(s).rstrip('/') or '/' for s in sources]
         self.fmt = fmt
         self.output = output
@@ -764,7 +774,9 @@ class CompressJob(Job):
         if self.fmt == SEVEN_Z:
             args += ['-t7z'] + (['-p', '-mhe=on'] if self.password else [])
         else:
-            args += ['-tzip'] + (['-p', '-mem=AES256'] if self.password else [])
+            method = '-mem=ZipCrypto' if self.zip_encryption == ZIPCRYPTO else '-mem=AES256'
+            # -mcu=on: non-ASCII names marked as UTF-8, which Windows and Python read right
+            args += ['-tzip', '-mcu=on'] + (['-p', method] if self.password else [])
         if leave_out:
             listfile = os.path.join(os.path.dirname(tmp), 'leave-out.txt')
             with open(listfile, 'w', encoding='utf-8', errors='surrogateescape') as f:

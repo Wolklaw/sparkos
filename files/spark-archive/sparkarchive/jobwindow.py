@@ -68,7 +68,7 @@ class JobWindow(Look):
         if self.action.startswith('compress'):
             if self.index > 0:
                 return self._finished()
-            password = None
+            password, encryption = None, None
             fmt = self.action[len('compress-'):]
             if fmt == 'password':
                 choice = self.ask_compress(len(self.paths), ZIP, with_password=True)
@@ -76,8 +76,9 @@ class JobWindow(Look):
                     self.exit_code = 2
                     self.root.destroy()
                     return
-                fmt, password = choice
-            self.job = CompressJob(self.paths, fmt, asker=self.bridge.ask, password=password)
+                fmt, password, encryption = choice
+            self.job = CompressJob(self.paths, fmt, asker=self.bridge.ask, password=password,
+                                   zip_encryption=encryption or 'aes')
             self.what = os.path.basename(self.paths[0]) if len(self.paths) == 1 else \
                 os.path.basename(os.path.dirname(os.path.abspath(self.paths[0])))
         else:
