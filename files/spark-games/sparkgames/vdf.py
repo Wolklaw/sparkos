@@ -7,9 +7,11 @@ appmanifest_<id>.acf and localconfig.vdf.
         "name"      "Portal 2"
     }
 
-Keys are case-insensitive in Steam, so lookups go through get(). Read only; nothing here writes.
+Keys are case-insensitive in Steam, so lookups go through get(). Read only; nothing here writes
+Steam's files. The binary form Steam uses for shortcuts.vdf is at the end.
 """
 
+import struct
 from typing import Any, Dict, List, Optional, Tuple
 
 BACKSLASH = chr(92)
@@ -127,3 +129,71 @@ def to_int(value: Optional[Any], default: int = 0) -> int:
         return int(str(value).strip())
     except (TypeError, ValueError):
         return default
+
+
+# ─── The binary form (shortcuts.vdf) ──────────────────────────
+#
+# Steam keeps non-Steam shortcuts in userdata/<id>/config/shortcuts.vdf as binary KeyValues:
+# one type byte, the key as a NUL-terminated string, then the value. 0x00 opens a block, 0x08
+# closes one; 0x01 is a string, 0x02 a 32-bit int, 0x03 a float, 0x07 a 64-bit int.
+
+def loads_binary(data: bytes) -> Dict[str, Any]:
+    pos = 0
+
+    def cstring() -> str:
+        nonlocal pos
+        end = data.find(b'\x00', pos)
+        if end < 0:
+            raise VDFError("binary VDF: unterminated string")
+        text = data[pos:end].decode('utf-8', errors='replace')
+        pos = end + 1
+        return text
+
+    def block(top: bool = False) -> Dict[str, Any]:
+        nonlocal pos
+        out: Dict[str, Any] = {}
+        while True:
+            if pos >= len(data):
+                if top:                  # some writers leave out the last 0x08
+                    return out
+                raise VDFError("binary VDF: ends inside a block")
+            kind = data[pos]
+            pos += 1
+            if kind == 0x08:
+                return out
+            key = cstring()
+            if kind == 0x00:
+                out[key] = block()
+            elif kind == 0x01:
+                out[key] = cstring()
+            elif kind in (0x02, 0x03, 0x07):
+                size, fmt = {0x02: (4, '<i'), 0x03: (4, '<f'), 0x07: (8, '<Q')}[kind]
+                if pos + size > len(data):
+                    raise VDFError("binary VDF: ends inside a number")
+                out[key] = struct.unpack_from(fmt, data, pos)[0]
+                pos += size
+            else:
+                raise VDFError(f"binary VDF: unknown type {kind:#x} at byte {pos - 1}")
+
+    return block(top=True)
+
+
+def load_binary(path: str) -> Dict[str, Any]:
+    with open(path, 'rb') as f:
+        return loads_binary(f.read())
+
+
+def dumps_binary(data: Dict[str, Any]) -> bytes:
+    """The reverse, for the tests' fixtures (Spark Games never writes Steam's files)."""
+    out = bytearray()
+    for key, value in data.items():
+        name = key.encode('utf-8') + b'\x00'
+        if isinstance(value, dict):
+            out += b'\x00' + name + dumps_binary(value)
+        elif isinstance(value, str):
+            out += b'\x01' + name + value.encode('utf-8') + b'\x00'
+        elif isinstance(value, int):
+            out += b'\x02' + name + struct.pack('<i', value)
+        else:
+            raise TypeError(f"can't write {type(value).__name__} to binary VDF")
+    return bytes(out) + b'\x08'

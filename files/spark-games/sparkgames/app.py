@@ -14,13 +14,23 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, VERSION
-from . import anticheat, heroic, launch, library, lutris, steam
+from . import (anticheat, bottles, gamepad, heroic, itch, launch, library, lutris, minecraft,
+               steam)
 from .core import (Game, home, load_settings, log, mtime, open_uri, reduced_motion,
                    save_settings, setup_logging, spawn, which)
 from .strings import tr
 
 STORE_DESKTOP = 'io.github.kolunmi.Bazaar.desktop'
 FOCUS_CHECK = 2.0          # seconds between looks at the launchers' files on window focus
+PAD_KEYS = {'up': 'Up', 'down': 'Down', 'left': 'Left', 'right': 'Right', 'a': 'Return',
+            'b': 'Escape', 'y': 'slash', 'start': 'space'}
+
+
+class PadEvent:
+    """A key event made from a controller button, for the views' key() handlers."""
+
+    def __init__(self, keysym: str, widget=None):
+        self.keysym, self.char, self.state, self.widget = keysym, '', 0, widget
 
 
 def detect_scale(root) -> float:
@@ -64,7 +74,7 @@ def load_icon(root):
 
 
 class App:
-    def __init__(self, scan_home: Optional[str] = None):
+    def __init__(self, scan_home: Optional[str] = None, big_screen: bool = False):
         import tkinter as tk
         import tkinter.font as tkfont
         from .views import LibraryView
@@ -107,6 +117,9 @@ class App:
         self._pump_id: Optional[str] = None
         self._status_id: Optional[str] = None
         self.view = None
+        self.big = None                  # the big screen, while it is open
+        self._windowed_geometry: Optional[str] = None
+        self._focus_id: Optional[str] = None
         self._build()
 
         self.library = LibraryView(self)
@@ -123,6 +136,13 @@ class App:
         if self.anticheat_on():
             self._load_anticheat()
         self.root.bind("<FocusIn>", self._focus_in, add="+")
+        # controllers are read only while the window has focus
+        self.pads = gamepad.Gamepads(self.root, self.pad_action, on_change=self._pad_change)
+        self.root.bind("<FocusIn>", self._focus_changed, add="+")
+        self.root.bind("<FocusOut>", self._focus_changed, add="+")
+        self._focus_changed()
+        if big_screen:
+            self.enter_big()
 
     # look helpers
     def px(self, value: float) -> int:
@@ -142,7 +162,7 @@ class App:
         from tkinter import messagebox
         from .widgets import T
         log.error("unhandled callback error", exc_info=(exc_type, exc_value, exc_tb))
-        self.set_status("SOMETHING WENT WRONG", T["pink"])
+        self.set_status(tr('went_wrong'), T["pink"])
         self.glitch.now(self.title, strong=True)
         messagebox.showerror(APP_NAME, tr('err_unexpected', detail=exc_value), parent=self.root)
 
@@ -175,6 +195,8 @@ class App:
                    tip=tr('tip_settings')).pack(side="right", padx=(0, px(10)))
         IconButton(self.head, "rescan", self.rescan, px(28),
                    tip=tr('tip_rescan')).pack(side="right", padx=(0, px(4)))
+        IconButton(self.head, "fullscreen", self.enter_big, px(28),
+                   tip=tr('tip_big')).pack(side="right", padx=(0, px(4)))
         self.strip = Strip(root, height=px(2))
         self.strip.pack(fill="x")
         self.body = tk.Frame(root, bg=bg)
@@ -192,6 +214,8 @@ class App:
     def set_status(self, text: str, colour: Optional[str] = None, hold_ms: int = 2500):
         from .widgets import T
         self.status.config(text=f"● {text}", fg=colour or T["accent"])
+        if self.big is not None and text != tr('scanning'):
+            self.big.toast(text, colour, hold_ms)
         if self._status_id:
             self.root.after_cancel(self._status_id)
         self._status_id = self.root.after(hold_ms, self._status_idle)
@@ -218,14 +242,18 @@ class App:
         self.view = view
         view.pack(fill="both", expand=True)
         on_library = view is self.library
-        if on_library and self.back.winfo_ismapped():
+        # winfo_manager, not winfo_ismapped: the header is hidden while the big screen is up
+        packed = bool(self.back.winfo_manager())
+        if on_library and packed:
             self.back.pack_forget()
-        elif not on_library and not self.back.winfo_ismapped():
+        elif not on_library and view is not self.big and not packed:
             self.back.pack(side="left", padx=(0, self.px(8)), before=self.mark)
         view.focus_default()
 
     def go_back(self):
-        if self.view is not self.library:
+        if self.big is not None:
+            self.leave_big()
+        elif self.view is not self.library:
             self._show(self.library)
             self.library.render()
             self.glitch.now(self.title)
@@ -319,6 +347,8 @@ class App:
         if self.ac_entries is not None:
             anticheat.mark(self.games, self.ac_entries)
         self.library.set_games(self.games, scanning)
+        if self.big is not None:
+            self.big.set_games(self.games)
         if not scanning:
             self._status_idle()
 
@@ -344,7 +374,7 @@ class App:
             self.ac_entries = None
             for game in self.games:
                 game.anticheat = ''
-            self.library.render()
+            self.redraw()
 
     def _load_anticheat(self):
         def done(entries):
@@ -353,7 +383,7 @@ class App:
                 count = anticheat.mark(self.games, entries)
                 log.info("anti-cheat list: %d entries, %d installed games marked",
                          len(entries), count)
-                self.library.render()
+                self.redraw()
         self.background(lambda: anticheat.load(online=True), done)
 
     def anticheat_checked(self) -> str:
@@ -374,16 +404,96 @@ class App:
         self.settings['options'][key] = options
         save_settings(self.settings)
 
+    def redraw(self):
+        self.library.render()
+        if self.big is not None:
+            self.big.render()
+
     def launchers_found(self) -> List[Tuple[str, str]]:
         base = self.scan_home or home()
-        out = []
-        for path, flatpak in steam.roots(base):
-            out.append(("Steam" + (" (Flatpak)" if flatpak else ""), path))
-        for path, flatpak in heroic.roots(base):
-            out.append(("Heroic" + (" (Flatpak)" if flatpak else ""), path))
-        for data, _cache, flatpak in lutris.roots(base):
-            out.append(("Lutris" + (" (Flatpak)" if flatpak else ""), data))
-        return out
+        found = [('steam', path, flatpak) for path, flatpak in steam.roots(base)]
+        found += [('heroic', path, flatpak) for path, flatpak in heroic.roots(base)]
+        found += [('lutris', data, flatpak) for data, _cache, flatpak in lutris.roots(base)]
+        found += [('itch', path, flatpak) for path, flatpak in itch.roots(base)]
+        found += [('bottles', path, flatpak) for path, flatpak in bottles.roots(base)]
+        found += [('minecraft', path, flatpak) for path, flatpak in minecraft.official_roots(base)]
+        found += [('prism', path, flatpak) for path, flatpak in minecraft.prism_roots(base)]
+        return [(tr(f'launcher_{name}') + (f" ({tr('flatpak')})" if flatpak else ''), path)
+                for name, path, flatpak in found]
+
+    # controllers
+    def _focus_changed(self, _event=None):
+        """Focus also moves between widgets; once it settles, look whether the window as a
+        whole has it."""
+        if self._focus_id is None:
+            self._focus_id = self.root.after(60, self._apply_focus)
+
+    def _apply_focus(self):
+        self._focus_id = None
+        self.pads.set_active(gamepad.focused(self.root))
+
+    def _pad_change(self, name: str, connected: bool):
+        self.set_status(tr('pad_on', name=name.upper()[:40]) if connected else tr('pad_off'))
+
+    def pad_action(self, action: str):
+        """A controller button: the big screen handles its own; elsewhere buttons act as keys."""
+        if self.root.grab_current() is not None:
+            # a dialog is up (an error message): A and B answer it, nothing else gets through
+            target = self.root.focus_get()
+            if target is not None and action in ('a', 'b'):
+                target.event_generate('<Return>' if action == 'a' else '<Escape>')
+            return
+        if self.big is not None:
+            self.big.pad(action)
+            return
+        if action == 'guide':
+            self.enter_big()
+            return
+        if action in ('lb', 'rb'):
+            if self.view is self.library:
+                self.library.cycle_source(-1 if action == 'lb' else 1)
+            return
+        if action in ('y', 'start') and self.view is not self.library:
+            return
+        keysym = PAD_KEYS.get(action)
+        if keysym:
+            self._key(PadEvent(keysym, self.root.focus_get()))
+
+    # the big screen
+    def enter_big(self):
+        if self.big is not None:
+            return
+        from .bigscreen import BigScreen
+        if self.root.state() == 'normal':
+            self._windowed_geometry = self.root.geometry()
+        self.head.pack_forget()
+        self.strip.pack_forget()
+        self.big = BigScreen(self)
+        self._show(self.big)
+        try:
+            self.root.attributes('-fullscreen', True)
+        except self.tk.TclError:
+            pass
+        self.root.title(APP_NAME)
+        log.info("big screen: on")
+
+    def leave_big(self):
+        if self.big is None:
+            return
+        self.big = None
+        try:
+            self.root.attributes('-fullscreen', False)
+        except self.tk.TclError:
+            pass
+        px = self.px
+        self.head.pack(fill="x", padx=px(14), pady=(px(10), px(8)), before=self.body)
+        self.strip.pack(fill="x", before=self.body)
+        self._show(self.library)
+        self.library.render()
+        if self._windowed_geometry:
+            self.root.geometry(self._windowed_geometry)
+        self.glitch.now(self.title)
+        log.info("big screen: off")
 
     # playing
     def play(self, game: Game):
@@ -430,6 +540,12 @@ class App:
         if k == 'F5':
             self.rescan()
             return "break"
+        if k == 'F11':
+            if self.big is None:
+                self.enter_big()
+            else:
+                self.leave_big()
+            return "break"
         handler = getattr(self.view, 'key', None)
         if handler and handler(event):
             return "break"
@@ -440,8 +556,12 @@ class App:
         return None
 
     def _on_close(self):
-        if self.root.state() == 'normal':
+        if self.big is not None:
+            if self._windowed_geometry:
+                self.settings["geometry"] = self._windowed_geometry
+        elif self.root.state() == 'normal':
             self.settings["geometry"] = self.root.geometry()
+        self.pads.set_active(False)
         self.settings["version"] = VERSION
         save_settings(self.settings)
         log.info("--- shutting down ---")
@@ -490,6 +610,15 @@ def self_test() -> int:
         parsed = vdf.loads('"a" { "b" "say \\"hi\\"" "C" { "d" "1" } }')
         check("vdf parser", vdf.get(parsed, 'A', 'B') == 'say "hi"' and
               vdf.get(parsed, 'a', 'c', 'D') == '1')
+        sample = {'shortcuts': {'0': {'appid': -5, 'AppName': 'X', 'tags': {}}}}
+        check("binary vdf parser", vdf.loads_binary(vdf.dumps_binary(sample)) == sample)
+        if fixtures.source_dir() is not None:
+            decoder, pressed = gamepad.Decoder(), []
+            for _t, ev_type, code, value in fixtures.recorded_events('xbox'):
+                pressed += [name for kind, name in decoder.feed(ev_type, code, value)
+                            if kind == 'press']
+            check("gamepad events", pressed == ['down', 'right', 'left', 'a', 'y', 'b', 'start',
+                                                'guide'], ' '.join(pressed))
         if fixtures.source_dir() is None:
             check("fixtures", False, "not found next to the program")
         else:
@@ -522,7 +651,8 @@ def self_test() -> int:
         shutil.rmtree(scratch, ignore_errors=True)
 
     print("optional:")
-    for name in ('flatpak', 'steam', 'lutris', 'gamemoderun', 'mangohud', 'umu-run', 'kdialog'):
+    for name in ('flatpak', 'steam', 'lutris', 'bottles-cli', 'minecraft-launcher', 'prismlauncher',
+                 'gamemoderun', 'mangohud', 'umu-run', 'kdialog'):
         check(name, bool(which(name)), required=False)
     if failures:
         print("FAILED: " + ", ".join(failures))
@@ -537,6 +667,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument('--self-test', action='store_true',
                         help="check the parsers against the bundled fixtures; no display needed")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")
+    parser.add_argument('--big-screen', action='store_true',
+                        help="open fullscreen in the couch layout (Esc or B leaves it)")
     parser.add_argument('--track', metavar='JSON', help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.self_test:
@@ -550,7 +682,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         launch.track(spec)
         return 0
     try:
-        app = App(os.environ.get('SPARK_GAMES_HOME') or None)
+        app = App(os.environ.get('SPARK_GAMES_HOME') or None, big_screen=args.big_screen)
     except Exception as exc:          # noqa: BLE001 - TclError without a display
         if type(exc).__name__ == 'TclError':
             print(f"{APP_NAME} needs a display: {exc}", file=sys.stderr)

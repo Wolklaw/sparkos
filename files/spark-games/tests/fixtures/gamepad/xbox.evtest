@@ -1,0 +1,46 @@
+# An Xbox controller (xpad), in evtest's format: D-pad down, D-pad right, left stick pushed
+# left and let go, then A, Y, B, Start and Guide, each pressed and released.
+Input driver version is 1.0.1
+Input device ID: bus 0x3 vendor 0x45e product 0x2ea version 0x301
+Input device name: "Microsoft X-Box One S pad"
+Testing ... (interrupt to exit)
+Event: time 1732100000.100000, type 3 (EV_ABS), code 17 (ABS_HAT0Y), value 1
+Event: time 1732100000.100000, -------------- SYN_REPORT ------------
+Event: time 1732100000.180000, type 3 (EV_ABS), code 17 (ABS_HAT0Y), value 0
+Event: time 1732100000.180000, -------------- SYN_REPORT ------------
+Event: time 1732100000.400000, type 3 (EV_ABS), code 16 (ABS_HAT0X), value 1
+Event: time 1732100000.400000, -------------- SYN_REPORT ------------
+Event: time 1732100000.470000, type 3 (EV_ABS), code 16 (ABS_HAT0X), value 0
+Event: time 1732100000.470000, -------------- SYN_REPORT ------------
+Event: time 1732100000.700000, type 3 (EV_ABS), code 0 (ABS_X), value -5120
+Event: time 1732100000.700000, -------------- SYN_REPORT ------------
+Event: time 1732100000.712000, type 3 (EV_ABS), code 0 (ABS_X), value -21504
+Event: time 1732100000.712000, type 3 (EV_ABS), code 1 (ABS_Y), value 1024
+Event: time 1732100000.712000, -------------- SYN_REPORT ------------
+Event: time 1732100000.724000, type 3 (EV_ABS), code 0 (ABS_X), value -32768
+Event: time 1732100000.724000, -------------- SYN_REPORT ------------
+Event: time 1732100000.800000, type 3 (EV_ABS), code 0 (ABS_X), value -14336
+Event: time 1732100000.800000, -------------- SYN_REPORT ------------
+Event: time 1732100000.812000, type 3 (EV_ABS), code 0 (ABS_X), value -256
+Event: time 1732100000.812000, type 3 (EV_ABS), code 1 (ABS_Y), value 0
+Event: time 1732100000.812000, -------------- SYN_REPORT ------------
+Event: time 1732100001.000000, type 1 (EV_KEY), code 304 (BTN_SOUTH), value 1
+Event: time 1732100001.000000, -------------- SYN_REPORT ------------
+Event: time 1732100001.090000, type 1 (EV_KEY), code 304 (BTN_SOUTH), value 0
+Event: time 1732100001.090000, -------------- SYN_REPORT ------------
+Event: time 1732100001.300000, type 1 (EV_KEY), code 308 (BTN_WEST), value 1
+Event: time 1732100001.300000, -------------- SYN_REPORT ------------
+Event: time 1732100001.380000, type 1 (EV_KEY), code 308 (BTN_WEST), value 0
+Event: time 1732100001.380000, -------------- SYN_REPORT ------------
+Event: time 1732100001.600000, type 1 (EV_KEY), code 305 (BTN_EAST), value 1
+Event: time 1732100001.600000, -------------- SYN_REPORT ------------
+Event: time 1732100001.660000, type 1 (EV_KEY), code 305 (BTN_EAST), value 0
+Event: time 1732100001.660000, -------------- SYN_REPORT ------------
+Event: time 1732100001.900000, type 1 (EV_KEY), code 315 (BTN_START), value 1
+Event: time 1732100001.900000, -------------- SYN_REPORT ------------
+Event: time 1732100001.970000, type 1 (EV_KEY), code 315 (BTN_START), value 0
+Event: time 1732100001.970000, -------------- SYN_REPORT ------------
+Event: time 1732100002.200000, type 1 (EV_KEY), code 316 (BTN_MODE), value 1
+Event: time 1732100002.200000, -------------- SYN_REPORT ------------
+Event: time 1732100002.290000, type 1 (EV_KEY), code 316 (BTN_MODE), value 0
+Event: time 1732100002.290000, -------------- SYN_REPORT ------------

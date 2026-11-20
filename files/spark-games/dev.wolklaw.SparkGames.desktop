@@ -3,12 +3,18 @@ Type=Application
 Name=Spark Games
 GenericName=Game library
 GenericName[fr]=Bibliothèque de jeux
-Comment=Play the games from Steam, Heroic, Lutris and your own, in one place
-Comment[fr]=Jouer aux jeux de Steam, Heroic, Lutris et aux vôtres, au même endroit
+Comment=Play the games from Steam, Heroic, Lutris, itch, Bottles, Minecraft and your own, in one place
+Comment[fr]=Jouer aux jeux de Steam, Heroic, Lutris, itch, Bottles, Minecraft et aux vôtres, au même endroit
 Exec=spark-games
 Icon=dev.wolklaw.SparkGames
 Terminal=false
 Categories=Game;
-Keywords=games;library;launcher;steam;heroic;epic;gog;amazon;lutris;play;jeux;bibliothèque;jouer;
-Keywords[fr]=jeux;bibliothèque;lanceur;steam;heroic;epic;gog;amazon;lutris;jouer;
+Keywords=games;library;launcher;steam;heroic;epic;gog;amazon;lutris;itch;bottles;minecraft;prism;controller;gamepad;play;jeux;bibliothèque;jouer;manette;
+Keywords[fr]=jeux;bibliothèque;lanceur;steam;heroic;epic;gog;amazon;lutris;itch;bottles;minecraft;manette;grand écran;jouer;
 StartupWMClass=SparkGames
+Actions=big-screen;
+
+[Desktop Action big-screen]
+Name=Big screen
+Name[fr]=Grand écran
+Exec=spark-games --big-screen

@@ -1,0 +1,4 @@
+Arch: win64
+External_Programs: {}
+Name: Empty
+Runner: sys-wine-9.0

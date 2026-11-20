@@ -4,6 +4,8 @@
   <library>/steamapps/appmanifest_<appid>.acf    one per installed app
   <root>/appcache/librarycache/<appid>/...       cover art Steam already downloaded
   <root>/userdata/<id>/config/localconfig.vdf    playtime and last played, per Steam account
+  <root>/userdata/<id>/config/shortcuts.vdf      non-Steam games added to Steam (binary VDF)
+  <root>/userdata/<id>/config/grid/              their covers, if the user set any
 
 <root> is ~/.local/share/Steam for the regular Steam, and
 ~/.var/app/com.valvesoftware.Steam/.local/share/Steam for the Flatpak (SparkOS's usual one).
@@ -12,6 +14,7 @@
 import glob
 import os
 import re
+import zlib
 from typing import Dict, List, Optional, Set, Tuple
 
 from . import STEAM_FLATPAK, vdf
@@ -142,6 +145,66 @@ def cover(root: str, appid: str) -> str:
     return ''
 
 
+# A shortcut that only starts a game another launcher already lists (Heroic's, Lutris's and
+# Bottles' "add to Steam", Prism instances) would show the same game twice.
+OTHER_LAUNCHERS = re.compile(r'heroic://|lutris:rungame|bottles-cli|prismlauncher|itch://',
+                             re.I)
+
+
+def shortcut_id(info: dict) -> int:
+    """The shortcut's 32-bit app ID: its own appid field, or (older Steam) a CRC of the
+    program and the name with the top bit set."""
+    appid = vdf.get(info, 'appid')
+    if isinstance(appid, int) and appid:
+        return appid & 0xFFFFFFFF
+    text = (str(vdf.get(info, 'exe', default='')) + str(vdf.get(info, 'appname', default='')))
+    return zlib.crc32(text.encode('utf-8')) | 0x80000000
+
+
+def shortcut_cover(config: str, short: int) -> str:
+    grid = os.path.join(config, 'grid')
+    for name in (f'{short}p', f'{short}'):           # portrait first, then the wide one
+        for ext in ('png', 'jpg', 'jpeg', 'webp'):
+            path = os.path.join(grid, f'{name}.{ext}')
+            if os.path.isfile(path):
+                return path
+    return ''
+
+
+def shortcuts(root: str, flatpak: bool, watch: List[str]) -> List[Game]:
+    """Non-Steam games added to Steam, from every account's shortcuts.vdf."""
+    games = []
+    for path in sorted(glob.glob(os.path.join(root, 'userdata', '*', 'config', 'shortcuts.vdf'))):
+        watch.append(path)
+        try:
+            data = vdf.load_binary(path)
+        except (OSError, vdf.VDFError) as exc:
+            log.warning("steam: skipping %s: %s", path, exc)
+            continue
+        block = vdf.get(data, 'shortcuts')
+        if not isinstance(block, dict):
+            continue
+        config = os.path.dirname(path)
+        for info in block.values():
+            if not isinstance(info, dict):
+                continue
+            name = str(vdf.get(info, 'appname', default='')).strip()
+            exe = str(vdf.get(info, 'exe', default='')).strip().strip('"')
+            options = str(vdf.get(info, 'LaunchOptions', default=''))
+            if not name or vdf.get(info, 'IsHidden') == 1                     or OTHER_LAUNCHERS.search(exe + ' ' + options):
+                continue
+            short = shortcut_id(info)
+            start = str(vdf.get(info, 'StartDir', default='')).strip().strip('"')
+            last = vdf.get(info, 'LastPlayTime')
+            games.append(Game(key=f'steam-shortcut:{short}', title=name, source='steam',
+                              install_dir=start or os.path.dirname(exe),
+                              last_played=last if isinstance(last, int) and last > 0 else 0,
+                              cover=shortcut_cover(config, short), flatpak=flatpak,
+                              launch={'appid': str((short << 32) | 0x02000000),
+                                      'flatpak': flatpak, 'shortcut': True}))
+    return games
+
+
 def scan(home: str, watch: List[str]) -> List[Game]:
     games: Dict[str, Game] = {}
     for root, flatpak in roots(home):
@@ -167,4 +230,6 @@ def scan(home: str, watch: List[str]) -> List[Game]:
                                   playtime=minutes, last_played=max(last, manifest_last),
                                   cover=cover(root, appid), flatpak=flatpak, store_id=appid,
                                   launch={'appid': appid, 'flatpak': flatpak})
+        for game in shortcuts(root, flatpak, watch):
+            games.setdefault(game.key, game)
     return list(games.values())

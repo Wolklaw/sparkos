@@ -1,0 +1,39 @@
+# A DualSense (hid-playstation), in evtest's format. Its sticks run 0 to 255 (centre 128), and
+# HID devices send an MSC_SCAN before each button. D-pad up, cross, triangle, left stick pushed
+# down and let go, circle.
+Input driver version is 1.0.1
+Input device ID: bus 0x3 vendor 0x54c product 0xce6 version 0x8111
+Input device name: "Sony Interactive Entertainment DualSense Wireless Controller"
+Testing ... (interrupt to exit)
+Event: time 1732200000.100000, type 3 (EV_ABS), code 17 (ABS_HAT0Y), value -1
+Event: time 1732200000.100000, -------------- SYN_REPORT ------------
+Event: time 1732200000.160000, type 3 (EV_ABS), code 17 (ABS_HAT0Y), value 0
+Event: time 1732200000.160000, -------------- SYN_REPORT ------------
+Event: time 1732200000.400000, type 4 (EV_MSC), code 4 (MSC_SCAN), value 589825
+Event: time 1732200000.400000, type 1 (EV_KEY), code 304 (BTN_SOUTH), value 1
+Event: time 1732200000.400000, -------------- SYN_REPORT ------------
+Event: time 1732200000.470000, type 4 (EV_MSC), code 4 (MSC_SCAN), value 589825
+Event: time 1732200000.470000, type 1 (EV_KEY), code 304 (BTN_SOUTH), value 0
+Event: time 1732200000.470000, -------------- SYN_REPORT ------------
+Event: time 1732200000.700000, type 4 (EV_MSC), code 4 (MSC_SCAN), value 589828
+Event: time 1732200000.700000, type 1 (EV_KEY), code 307 (BTN_NORTH), value 1
+Event: time 1732200000.700000, -------------- SYN_REPORT ------------
+Event: time 1732200000.760000, type 4 (EV_MSC), code 4 (MSC_SCAN), value 589828
+Event: time 1732200000.760000, type 1 (EV_KEY), code 307 (BTN_NORTH), value 0
+Event: time 1732200000.760000, -------------- SYN_REPORT ------------
+Event: time 1732200001.000000, type 3 (EV_ABS), code 1 (ABS_Y), value 170
+Event: time 1732200001.000000, -------------- SYN_REPORT ------------
+Event: time 1732200001.012000, type 3 (EV_ABS), code 1 (ABS_Y), value 230
+Event: time 1732200001.012000, -------------- SYN_REPORT ------------
+Event: time 1732200001.024000, type 3 (EV_ABS), code 1 (ABS_Y), value 255
+Event: time 1732200001.024000, -------------- SYN_REPORT ------------
+Event: time 1732200001.200000, type 3 (EV_ABS), code 1 (ABS_Y), value 190
+Event: time 1732200001.200000, -------------- SYN_REPORT ------------
+Event: time 1732200001.212000, type 3 (EV_ABS), code 1 (ABS_Y), value 129
+Event: time 1732200001.212000, -------------- SYN_REPORT ------------
+Event: time 1732200001.500000, type 4 (EV_MSC), code 4 (MSC_SCAN), value 589826
+Event: time 1732200001.500000, type 1 (EV_KEY), code 305 (BTN_EAST), value 1
+Event: time 1732200001.500000, -------------- SYN_REPORT ------------
+Event: time 1732200001.560000, type 4 (EV_MSC), code 4 (MSC_SCAN), value 589826
+Event: time 1732200001.560000, type 1 (EV_KEY), code 305 (BTN_EAST), value 0
+Event: time 1732200001.560000, -------------- SYN_REPORT ------------
