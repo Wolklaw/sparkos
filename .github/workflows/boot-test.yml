@@ -219,13 +219,11 @@ jobs:
       - name: Check Spark Snip
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          # Installed, shortcuts registered, Spectacle gave up Print and Meta+Shift+R
+          # Installed, shortcuts registered, Spectacle gone (Spark Snip captures through KWin)
           $SSH 'spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
-          $SSH 'grep "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop /usr/share/applications/org.kde.spectacle.desktop' | tee "$WORK/shortcuts.txt"
+          $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop' | tee "$WORK/shortcuts.txt"
           grep -q 'SparkSnip.desktop:X-KDE-Shortcuts=Print,Meta+Shift+S' "$WORK/shortcuts.txt"
-          if grep -E 'spectacle.desktop:X-KDE-Shortcuts=(.*,)?(Print|Meta\+Shift\+R)(,|$)' "$WORK/shortcuts.txt"; then
-            echo "Spectacle still claims Print or Meta+Shift+R"; exit 1
-          fi
+          if $SSH 'rpm -q spectacle'; then echo "::error::Spectacle is back in the image"; exit 1; fi
           # OCR in English and French, and a test video through each installed encoder
           $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
 
@@ -437,7 +435,7 @@ jobs:
           ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
           ! grep -q 'bazzite-portal' "$WORK/apps.txt"
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH 'rpm -q dolphin konsole spectacle plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -512,13 +510,13 @@ jobs:
           grep -q "org.kde.plasma.icontasks" "$WORK/desktop-layout.txt"
           grep -q "menuLabel=SPARKOS" "$WORK/desktop-layout.txt" || { echo "::error::the SparkOS layout was not used"; exit 1; }
           grep -E "^launchers=" "$WORK/desktop-layout.txt" || true
-          # Spark Snip captures through KWin in a real Plasma session (Spectacle only as a fallback).
-          # Reported, not required yet: Spectacle leaves the image once this passes.
+          # Spark Snip captures through KWin in a real Plasma session.
+          # Required: Spectacle is gone, so this is how Print works.
           if $SSH 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u) spark-snip --capture-test /tmp/snip.png' 2>&1 | tee "$WORK/spark-snip-capture.txt"; then
             echo "Spark Snip captured the desktop through KWin"
             $SSH 'cat /tmp/snip.png' > "$WORK/shots/4-spark-snip-capture.png" || true
           else
-            echo "::warning::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"
+            echo "::error::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"; exit 1
           fi
 
       - name: Screenshot at the end

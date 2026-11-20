@@ -10,10 +10,11 @@ description: SparkOS, a desktop for gaming and everyday work, built on Bazzite.
 # FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
 # Run, Link, Store and Update). Every other company's or project's app is removed, Bazzite's
 # included; people install what they want from the Store (Spark Store, or Bazaar next to it). What stays is the platform
-# SparkOS needs to work: Plasma, Dolphin, Konsole, Spectacle (Spark Snip's fallback), System
+# SparkOS needs to work: Plasma, Dolphin, Konsole, System
 # Settings, Ark (zip support), KDE Connect, the Store, drivers, printing and scanning.
 # Where a Spark app does the job, KDE's own is removed too: Spark Monitor replaces Plasma System
-# Monitor (and takes its shortcuts). Ark and KDE Connect stay until Spark Archive and Spark Link
+# Monitor (and takes its shortcuts), Spark Snip replaces Spectacle (it captures through KWin
+# itself). Ark and KDE Connect stay until Spark Archive and Spark Link
 # are tried on real hardware. Tailscale, a company's VPN service, is removed too.
 base-image: ghcr.io/ublue-os/bazzite
 image-version: stable
@@ -73,6 +74,7 @@ modules:
         - khelpcenter
         # KDE's own apps that a Spark app replaces (nothing else in the image requires them)
         - plasma-systemmonitor # Spark Monitor
+        - spectacle # Spark Snip (captures through KWin; nothing else in the image requires Spectacle)
         # Third-party services Bazzite preinstalls (installable by anyone who wants them; see docs/switching.md)
         - tailscale
 
