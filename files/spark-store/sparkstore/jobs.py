@@ -250,7 +250,8 @@ class JobQueue:
             except queue.Empty:
                 chunk = None
             if chunk == b'':
-                break                               # end of output
+                stream.close()                      # end of output
+                break
             if chunk:
                 pending += chunk
                 parts = re.split(rb'[\r\n]', pending)

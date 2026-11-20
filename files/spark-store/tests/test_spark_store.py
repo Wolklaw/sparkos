@@ -897,7 +897,10 @@ class UITests(unittest.TestCase):
         self.pump(lambda: not s.updates_busy and s.updates)
         self.assertIn('UPDATES 1', s.tabs.labels['updates'][0].cget('text'))
         s.update_all()
-        self.pump(lambda: not s.updates and not s.queue.busy(), timeout=30)
+        self.pump(lambda: not s.queue.busy(), timeout=30)
+        self.assertEqual([(j.kind, j.state, j.error) for j in s.queue.jobs],
+                         [('update_all', DONE, '')])
+        self.pump(lambda: not s.updates)
         s.go('queue')
         self.pump(lambda: 'DONE' in self.texts(s.pages['queue'].inner))
         s.clear_finished()
@@ -907,8 +910,19 @@ class UITests(unittest.TestCase):
     def test_keys_and_close_while_busy(self):
         s = self.store
         s.go('installed')
-        s.root.event_generate('<Control-Key-1>')
-        self.pump(lambda: s.page == 'home')
+
+        class Key:          # a key press as Tk hands it over (synthetic ones need focus)
+            def __init__(self, keysym, state=0):
+                self.keysym, self.state, self.widget = keysym, state, s.root
+        self.assertEqual(s._key(Key('1', 0x4)), 'break')
+        self.assertEqual(s.page, 'home')
+        s.search.set('paint')
+        self.pump(lambda: s.page == 'search')
+        s._key(Key('Escape'))
+        self.pump(lambda: s.page == 'home' and not s.search.get())
+        s.open_app('org.example.Paint')
+        s._key(Key('Escape'))
+        self.assertEqual(s.page, 'home')
         self.fake.update(delay=2)
         s.install(s.pages['app'].subject_for(s.catalog.apps['org.example.Tunes']))
         self.pump(lambda: s.queue.current() is not None)
