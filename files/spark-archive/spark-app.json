@@ -1,0 +1,39 @@
+{
+  "id": "dev.wolklaw.SparkArchive",
+  "slug": "spark-archive",
+  "name": "Spark Archive",
+  "name_fr": "Spark Archive",
+  "summary": "Open, extract and make archives: zip, tar (gz, bz2, xz, zst), 7z, rar and iso. Extract and Compress in Dolphin's right-click menu.",
+  "summary_fr": "Ouvrir, extraire et créer des archives : zip, tar (gz, bz2, xz, zst), 7z, rar et iso. Extraire et Compresser dans le menu clic droit de Dolphin.",
+  "version": "1.0.0",
+  "installed_size_kb": 260,
+  "icon": "icons/spark-archive-256.png",
+  "categories": ["Utility", "Archiving", "Compression"],
+  "formats": {
+    "read": ["zip", "tar", "tar.gz", "tar.bz2", "tar.xz", "tar.zst", "7z", "rar", "iso", "gz", "bz2", "xz", "zst"],
+    "write": ["zip", "tar.zst"],
+    "passwords": ["zip (ZipCrypto, AES)", "7z (needs the 7z command)"]
+  },
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "libraries": ["libarchive.so.13 (7z, rar, iso)"],
+    "optional": {
+      "compression.zstd": "tar.zst with Python 3.14+ (otherwise the zstd command or libarchive)",
+      "7z": "password-protected 7z, and zip AES if libarchive can't decrypt it",
+      "kdialog": "the desktop's own file dialogs",
+      "dolphin": "the right-click menu and Show in folder"
+    },
+    "system": "Linux; Plasma 6 for the Dolphin menu"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-archive --self-test"
+  },
+  "license": "Apache-2.0",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-archive"
+}
