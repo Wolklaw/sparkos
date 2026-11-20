@@ -1,5 +1,5 @@
 name: installer-iso
-# Builds the SparkOS installer (live ISO) with every app inside, boots it once in a VM,
+# Builds the SparkOS installer (live ISO), boots it once in a VM,
 # and publishes it to the "installer" release in parts under 2 GiB (GitHub's limit per
 # release file), with a join script for Windows and Linux.
 # Adapted from Bazzite's build_iso.yml (github.com/ublue-os/bazzite, Apache-2.0).
@@ -156,7 +156,7 @@ jobs:
             echo "Write the ISO to a USB stick (16 GB or larger) with Fedora Media Writer (Custom image) or Rufus (DD mode)."
             echo "The parts exist because GitHub limits each release file to 2 GiB."
             echo
-            echo "**Apps:** SparkOS ships only its own apps, Soot, FreeSuite, Spark Snip and Spark Media, as part of the system."
+            echo "**Apps:** SparkOS ships only its own apps, as part of the system: Soot, FreeSuite, Spark Snip, Spark Media, Spark Welcome, Spark Games and Spark Monitor."
             echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm."
             if grep -q . /tmp/installer-apps.txt; then
               echo; echo "Extra Flatpaks carried by this installer:"; echo '```'; cat /tmp/installer-apps.txt; echo '```'

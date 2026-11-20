@@ -68,7 +68,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 **Built (2026-11-20), checked in the boot-test VM.** Colour scheme, fonts, Konsole profile, the SparkOS look-and-feel package (top bar and floating dock, sign-in splash), wallpaper on desktop, lock and sign-in screens, Plymouth boot splash in a rebuilt initramfs, logo in About/os-release/fastfetch (`files/scripts/sparkos-theme.sh`, `files/system`). The boot test signs in once and screenshots the real desktop.
 - Plasma Login Manager has no themes by KDE's design, so the sign-in screen gets the SparkOS wallpaper, colours and fonts but keeps KDE's layout (its big clock is close to the mockup).
 - **Not confirmed yet:** the boot splash on screen. The VM showed black then boot text; being looked into, and to check on real hardware in Phase 5.
-- Still to do: the animated bot in the sign-in splash (today a still image), real app icons for the lettered tiles.
+- Still to do: the animated bot in the sign-in splash (today a still image). The dock's "S" and "F" tiles are Soot's and FreeSuite's own brand icons, already in the house style; the mockup's placeholder tiles needed no replacing.
 
 **Your verdict on the stock look (2026-11-19):** it reads as "Windows on a black theme". SparkOS needs its own identity, not Bazzite's skin with a dark palette. The plan:
 - Remove Bazzite's Portal autostart, announcements and wallpaper, in the live installer too.
