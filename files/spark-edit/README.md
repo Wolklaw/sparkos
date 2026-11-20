@@ -73,4 +73,4 @@ The tests cover reading and writing every encoding and line ending byte for byte
 - Find counts and Replace all work on the whole text in memory; on a 50 MB file a search over everything takes a few tenths of a second, and in files over 4 MB Find waits for Enter instead of searching as you type.
 - No spell check, no split view, no printing.
 - The clipboard follows X11 rules (Tk runs under XWayland): text you copied is gone when Spark Edit quits unless Plasma's clipboard keeps it (it does by default).
-- English only for now; every sentence is in [`text.py`](sparkedit/text.py), ready for a French table.
+- English and Quebec French, picked from the PC's language (`SPARK_LANG=en|fr` overrides it); every sentence is in [`text.py`](sparkedit/text.py).

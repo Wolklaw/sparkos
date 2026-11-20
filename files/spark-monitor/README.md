@@ -66,5 +66,5 @@ The tests use a fake `/proc` and `/sys` in `tests/fixtures/root`: a Ryzen 7 7800
 - **No network column per app.** Linux only counts traffic per process with root-level tools (eBPF), so the Apps tab shows network totals on the Performance tab only.
 - **GPU per app** needs a driver that publishes fdinfo counters (AMD, Intel). NVIDIA's driver publishes nothing in `/sys`, so its usage, memory and temperature show as not readable.
 - Bringing the open window forward on Ctrl+Shift+Esc may only flash it in the taskbar, depending on KWin's focus-stealing setting.
-- English only for now; every sentence is in `sparkmonitor/text.py`, ready for a French table.
+- English and Quebec French, picked from the PC's language (`SPARK_LANG=en|fr` overrides it), app names included; every sentence is in `sparkmonitor/text.py`.
 - App icons are PNG only (Tk can't draw SVG): apps whose icon theme has only SVG get a coloured tile.

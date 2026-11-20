@@ -48,6 +48,6 @@ Settings are in `~/.config/spark-welcome/`, the log in `~/.local/state/spark-wel
 
 - Not tried by hand on a SparkOS desktop yet. The pages were checked on Windows with a fake Windows drive; the checks and installs are covered by tests with sample outputs and a fake flatpak, not on real hardware.
 - The "fresh user account gets the window once at first login" part is covered by the `--first-login` tests and the autostart entry, not by a real login yet. The boot test doesn't cover it until Spark Welcome is added there.
-- English only for now. `strings.py` has an empty French table, and `apps.json` takes `name_fr`/`blurb_fr`.
+- English and Quebec French, picked from the PC's language (`LC_ALL`, `LC_MESSAGES` or `LANG`; `SPARK_LANG=en|fr` overrides it). It no longer reads `LANGUAGE`.
 - Files from Windows: OneDrive folders that only exist online aren't copied (they aren't on the disk). Windows accounts are copied one at a time. Storage Spaces and dynamic disks aren't detected.
 - No progress for flatpak's download size before an install starts; the bar follows flatpak's own percentage.

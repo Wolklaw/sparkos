@@ -100,7 +100,7 @@ The tests ([tests/](tests)) cover the parser (order of operations, implicit mult
 ## Known gaps
 
 - **Not tried on a SparkOS desktop yet.** It was checked on Windows and runs under Xvfb in CI. Whether Plasma 6.8 gives it the Calculator key the way it did KCalc (`X-KDE-Shortcuts=Calculator`) hasn't been tried on hardware; a `--user` install may need a log out and back in first.
-- **Decimal point only.** Numbers are typed and shown with a `.`; French (Canada) writes 0,5. English only for now; every sentence is in `sparkcalc/text.py`.
+- **English and Quebec French**, picked from the PC's language (`SPARK_LANG=en|fr` overrides it). In French, numbers are typed and shown with a decimal comma (0,5) and spaces between thousands; every sentence is in `sparkcalc/text.py`.
 - **No complex numbers**, so √−1 is an error. No unit conversion, graphing or date arithmetic.
 - **Programmer mode** has no grid of clickable bits, and is always signed (two's complement); there is no unsigned DEC view.
 - Standard mode follows the order of operations (2 + 3 × 4 is 14), because the whole sum is visible. The Windows calculator's Standard mode works left to right instead (20).

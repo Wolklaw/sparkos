@@ -55,5 +55,5 @@ python3 make_icons.py                     # redraw icons/ after changing the mar
 - **On a SparkOS desktop.** Not run on Plasma 6.8 yet: the Plasma notifications, Klipper's D-Bus clipboard on Plasma 6.8, Dolphin's Send to phone menu, the KDE file picker, starting at login through `graphical-session.target`, and the window's look at the desktop's scaling. CI has no session bus, so those paths are only exercised by the self-test's reporting.
 - **mDNS on a real network.** Tested with Avahi inside a container, not across Wi-Fi to an Android phone; some routers block multicast, which is what the pairing link and typed address are for.
 - **Soot's "send this tab to phone".** Soot can call `spark-link --send-url <url>`; Soot needs a menu item or toolbar button that runs it with the current tab's address (a native-messaging host, or a small extension calling one). Nothing in Soot does that yet.
-- English only; every sentence is in `sparklink/text.py`, ready for a French table.
+- English and Quebec French, picked from the PC's language (`SPARK_LANG=en|fr` overrides it). Soot's "Link to PC" screen is still named in English: check its name in Soot's French interface.
 - A second window can open if you start Spark Link while one is open.
