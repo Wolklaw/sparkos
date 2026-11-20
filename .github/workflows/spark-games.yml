@@ -43,15 +43,14 @@ jobs:
         run: |
           dnf -y install --setopt=install_weak_deps=False shadow-utils util-linux
           bash files/spark-games/install.sh --uninstall
+          test ! -e /usr/bin/spark-games
           useradd -m tester
-          cp -r files/spark-games /home/tester/src && chown -R tester: /home/tester/src
-          runuser -u tester -- bash -euxc '
-            bash ~/src/install.sh --user
-            ~/.local/bin/spark-games --self-test
-            bash ~/src/install.sh --user --uninstall
-            test ! -e ~/.local/bin/spark-games && test ! -e ~/.local/lib/spark-games
-            left=$(find ~/.local -type f)
-            if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi'
+          home=$(getent passwd tester | cut -d: -f6)
+          cp -r files/spark-games "$home/spark-games-src" && chown -R tester: "$home/spark-games-src"
+          # setpriv, not su or runuser: those open a PAM session, which fails in a container
+          cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+            env -i HOME="$home" USER=tester LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin \
+            LANG=C.UTF-8 bash "$home/spark-games-src/tests/user_install_check.sh" "$home/spark-games-src"
 
   sparkos:
     runs-on: ubuntu-24.04
@@ -88,17 +87,9 @@ jobs:
         run: |
           sudo podman run --rm --network=none -v "$PWD/files/spark-games:/src:ro" "$IMAGE" bash -euxc '
             useradd -m tester
-            runuser -u tester -- bash -euxc "
-              cp -r /src ~/spark-games-src
-              bash ~/spark-games-src/install.sh --user
-              test -x ~/.local/bin/spark-games
-              test -f ~/.local/share/applications/dev.wolklaw.SparkGames.desktop
-              ~/.local/bin/spark-games --version
-              ~/.local/bin/spark-games --self-test
-              bash ~/spark-games-src/install.sh --user --uninstall
-              test ! -e ~/.local/bin/spark-games
-              test ! -e ~/.local/lib/spark-games
-              test ! -e ~/.local/share/applications/dev.wolklaw.SparkGames.desktop
-              left=\$(find ~/.local -type f)
-              if [ -n \"\$left\" ]; then echo left behind:; echo \"\$left\"; exit 1; fi
-            "'
+            home=$(getent passwd tester | cut -d: -f6)
+            cp -r /src "$home/spark-games-src" && chown -R tester: "$home/spark-games-src"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+              env -i HOME="$home" USER=tester LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin \
+              LANG=C.UTF-8 bash "$home/spark-games-src/tests/user_install_check.sh" "$home/spark-games-src"'
