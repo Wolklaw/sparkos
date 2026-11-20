@@ -93,20 +93,33 @@ jobs:
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
 
-      - name: The image build step on SparkOS (root), Bazzite's updater switched off
+      - name: The image build step on SparkOS (root), with each updater
         run: |
-          sudo podman run --rm -v "$PWD/files:/files:ro" "$IMAGE" bash -euo pipefail -c '
+          # uupd: the default (Bazzite's updater stays on, Spark Update notifies and rolls
+          # back). spark: Spark Update downloads itself and uupd is switched off.
+          for engine in uupd spark; do
+          echo "=============== SPARK_UPDATE_ENGINE=$engine"
+          sudo podman run --rm -e SPARK_UPDATE_ENGINE=$engine -v "$PWD/files:/files:ro" "$IMAGE" bash -euo pipefail -c '
             echo "--- before: Bazzite updater"
             ls -l /etc/systemd/system/timers.target.wants/ | grep -E "uupd|spark" || true
             CONFIG_DIRECTORY=/files bash /files/scripts/spark-update.sh
 
             echo "--- after"
-            test ! -e /etc/systemd/system/timers.target.wants/uupd.timer
-            test -e /etc/systemd/system/timers.target.wants/spark-update.timer
+            ls -l /etc/systemd/system/timers.target.wants/ | grep -E "uupd|spark" || true
             test -e /etc/systemd/user/timers.target.wants/spark-update-user.timer
-            grep -q "^ExecStart=/usr/bin/spark-update --system-run --now stage$" \
-              /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
-            cat /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
+            if [ "$SPARK_UPDATE_ENGINE" = uupd ]; then
+              # updates must never stop: Bazzite's timer untouched, ours off, no drop-ins
+              test -e /etc/systemd/system/timers.target.wants/uupd.timer
+              test ! -e /etc/systemd/system/timers.target.wants/spark-update.timer
+              test ! -e /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
+              grep -q "^ExecStart=/usr/bin/uupd" /usr/lib/systemd/system/uupd.service
+            else
+              test ! -e /etc/systemd/system/timers.target.wants/uupd.timer
+              test -e /etc/systemd/system/timers.target.wants/spark-update.timer
+              grep -q "^ExecStart=/usr/bin/spark-update --system-run --now stage$" \
+                /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
+              cat /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
+            fi
             grep -q "^NoDisplay=true" /usr/share/applications/io.github.rfrench3.bazzite-updater.desktop
             out=$(bazzite-rollback-helper list || true)
             echo "$out"
@@ -136,8 +149,14 @@ jobs:
             echo "$report"
             grep -q "^image:     ghcr.io/wolklaw/sparkos (from /usr/share/sparkos/release.json)" <<<"$report"
             grep -q "^self-test passed" <<<"$report"
+            if [ "$SPARK_UPDATE_ENGINE" = uupd ]; then
+              grep -q "^updater:   Universal Blue.s uupd" <<<"$report"
+            else
+              grep -q "^updater:   Spark Update" <<<"$report"
+            fi
             spark-update --status || true
           '
+          done
 
       - name: Install, self-test, uninstall as a normal user
         run: |

@@ -14,35 +14,65 @@
 #                       (AutomaticUpdatePolicy=none). bootc-fetch-apply-updates would reboot.
 #   brew-update/brew-upgrade timers: Homebrew's own packages, not the system; left alone.
 #
-# The switch, so there is exactly one updater:
-#   1. Spark Update installed: spark-update.timer (root, hourly look; checks every 6 h by
-#      default), spark-update-user.timer (every user: their Flatpak apps and the
-#      notification), the pkexec helper and polkit files.
-#   2. uupd.timer disabled. A drop-in makes uupd.service and uupd-manual.service run Spark
-#      Update instead, so `ujust update` and anything else that starts them still works and
-#      the two never run side by side. (The uupd package stays: removing it is the recipe's
-#      job; see the PR.)
-#   3. Bazzite Updater hidden from the menu (it drives uupd directly).
+# Exactly one updater, and never none. SPARK_UPDATE_ENGINE picks who downloads images:
+#   uupd   (default, the initial release) Bazzite's uupd stays on and does the downloading,
+#          daily at 04:00. Spark Update adds the "SparkOS updated" notification, the window
+#          (what changed, Check now = uupd-manual.service, Restart, Roll back) and the
+#          rollback through pkexec. spark-update.timer stays off.
+#   spark  Spark Update's own timer stages images and updates Flatpak apps; uupd.timer is
+#          disabled and a drop-in makes uupd.service and uupd-manual.service run Spark Update
+#          instead, so `ujust update` still works and the two never run side by side.
+# The swap to spark waits until Spark Update's own staging has run on a booted SparkOS (the
+# boot test); until then updates keep going through the tool Bazzite ships. If uupd ever
+# disappears from the base image, this falls back to spark so updates never stop.
+#
+# Both engines:
+#   1. Spark Update installed: spark-update-user.timer (every user: the notification), the
+#      pkexec helper and polkit files, and spark-update.timer (enabled only under spark).
+#   3. Bazzite Updater hidden from the menu (Spark Update's window has Check now).
 #   4. bazzite-rollback-helper replaced by a short note that points to Spark Update; its
-#      `rollback` and `current` still work, through Spark Update.
+#      `rollback` and `current` still work, through Spark Update. (It offered stock
+#      ublue-os/bazzite images, which would leave SparkOS.)
 #   5. rpm-ostreed's and bootc's own automatic updates checked to stay off.
 #   6. /usr/share/sparkos/release.json: what's in this image (Soot, FreeSuite, the Spark apps,
 #      kernel, Mesa, Plasma), which the window compares between versions.
-# The self-test then fails the build if Spark Update's timers aren't on or another updater is.
+# The self-test then fails the build unless exactly one updater's timer is on, the
+# notification timer is on, and the image name is ghcr.io/wolklaw/sparkos.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-update"
 test -f "$SRC/install.sh" || { echo "Spark Update source not found at $SRC"; exit 1; }
 
-bash "$SRC/install.sh" --deps --no-test
+ENGINE="${SPARK_UPDATE_ENGINE:-uupd}"
+case "$ENGINE" in
+  uupd|spark) ;;
+  *) echo "SPARK_UPDATE_ENGINE must be uupd or spark, not $ENGINE"; exit 1 ;;
+esac
+if [ "$ENGINE" = uupd ] && [ ! -f /usr/lib/systemd/system/uupd.timer ]; then
+  echo "--- uupd isn't in this image: Spark Update downloads updates itself (engine spark)"
+  ENGINE=spark
+fi
+echo "--- updater: $ENGINE"
 
-# ── 2. uupd: off, and pointed at Spark Update ──
-if [ -f /usr/lib/systemd/system/uupd.service ]; then
-  systemctl disable uupd.timer 2>/dev/null || true
-  rm -f /etc/systemd/system/timers.target.wants/uupd.timer
-  for unit in uupd.service uupd-manual.service; do
-    install -d "/usr/lib/systemd/system/$unit.d"
-    cat > "/usr/lib/systemd/system/$unit.d/50-sparkos.conf" <<'EOF'
+bash "$SRC/install.sh" --deps --no-test --engine "$ENGINE"
+
+# ── 2. Who downloads ──
+if [ "$ENGINE" = uupd ]; then
+  # keep Bazzite's updater on, exactly as it ships
+  if [ ! -e /etc/systemd/system/timers.target.wants/uupd.timer ]; then
+    systemctl enable uupd.timer
+    echo "--- uupd.timer was off; enabled it"
+  fi
+  rm -f /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf \
+        /usr/lib/systemd/system/uupd-manual.service.d/50-sparkos.conf
+  echo "--- uupd.timer stays on (daily at 04:00); Spark Update notifies and rolls back"
+else
+  if [ -f /usr/lib/systemd/system/uupd.service ]; then
+    systemctl disable uupd.timer 2>/dev/null || true
+    rm -f /etc/systemd/system/timers.target.wants/uupd.timer
+    for unit in uupd.service uupd-manual.service; do
+      install -d "/usr/lib/systemd/system/$unit.d"
+      cat > "/usr/lib/systemd/system/$unit.d/50-sparkos.conf" <<'EOF'
 # SparkOS: Spark Update is the updater (files/scripts/spark-update.sh). Whatever starts
 # this unit (`ujust update`, the Bazzite Updater) runs a Spark Update check now instead.
 [Service]
@@ -56,10 +86,9 @@ StateDirectoryMode=0755
 LogsDirectory=spark-update
 LogsDirectoryMode=0755
 EOF
-  done
-  echo "--- uupd.timer disabled; uupd.service and uupd-manual.service run Spark Update"
-else
-  echo "--- uupd isn't in this image; nothing to switch off"
+    done
+    echo "--- uupd.timer disabled; uupd.service and uupd-manual.service run Spark Update"
+  fi
 fi
 
 # ── 3. Bazzite Updater out of the menu ──
@@ -116,13 +145,24 @@ test -x /usr/bin/spark-update
 test -x /usr/libexec/spark-update-helper
 test -f /usr/lib/systemd/system/spark-update.timer
 test -f /usr/lib/systemd/user/spark-update-user.timer
-test -e /etc/systemd/system/timers.target.wants/spark-update.timer
 test -e /etc/systemd/user/timers.target.wants/spark-update-user.timer
-test ! -e /etc/systemd/system/timers.target.wants/uupd.timer
+if [ "$ENGINE" = uupd ]; then
+  test -e /etc/systemd/system/timers.target.wants/uupd.timer
+  test ! -e /etc/systemd/system/timers.target.wants/spark-update.timer
+else
+  test -e /etc/systemd/system/timers.target.wants/spark-update.timer
+  test ! -e /etc/systemd/system/timers.target.wants/uupd.timer
+fi
 test -f /usr/share/polkit-1/actions/dev.wolklaw.SparkUpdate.policy
 test -f /usr/share/applications/dev.wolklaw.SparkUpdate.desktop
 report=$(/usr/bin/spark-update --self-test)
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
 grep -q '^others:    no other automatic updater is on' <<<"$report"
-echo "$(/usr/bin/spark-update --version) installed; Bazzite's updater is off."
+grep -q '^image:     ghcr.io/wolklaw/sparkos ' <<<"$report"
+if [ "$ENGINE" = uupd ]; then
+  grep -q "^updater:   Universal Blue's uupd" <<<"$report"
+else
+  grep -q '^updater:   Spark Update' <<<"$report"
+fi
+echo "$(/usr/bin/spark-update --version) installed; updates run through $ENGINE."

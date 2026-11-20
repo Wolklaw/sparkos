@@ -23,6 +23,7 @@ from .settings import (EVERY_HOURS, NOTIFY, REMIND_HOURS, STAGE, SystemSettings,
                        as_args, load_prefs, load_system, save_prefs, write_system)
 from .status import Deployment, Host, read_host
 from .text import t
+from .engine import UUPD, engine, start_uupd, uupd_status
 from .updater import (direct_state_path, load_state, rollback as do_rollback, system_run,
                       update_flatpak, user_state_path)
 from .widgets import (MONO_FAMILIES, T, Glitch, GlitchPanel, GlitchText, Mark, Segmented,
@@ -45,6 +46,7 @@ class Snapshot:
     other_dep: Optional[Deployment] = None
     compare: str = 'none'           # 'update', 'rollback', 'previous', 'none'
     system_install: bool = False
+    engine: str = 'none'            # who stages images: 'uupd', 'spark' or 'none' (engine.py)
     read_at: float = field(default_factory=time.time)
 
 
@@ -55,9 +57,12 @@ def gather(env: Env) -> Snapshot:
     direct = load_json(direct_state_path())
     if (direct.get('last_run') or 0) > (state.get('last_run') or 0):
         state = direct
+    eng = engine(env)
+    if eng == UUPD:
+        state = uupd_state(env, host)
     snap = Snapshot(host=host, conf=conf, conf_warnings=warnings, state=state,
                     user_state=load_json(user_state_path()),
-                    system_install=os.path.isfile(env.path(NOW_UNIT)))
+                    system_install=os.path.isfile(env.path(NOW_UNIT)), engine=eng)
     if host.booted is not None:
         snap.current = release.load(host.booted.root(env))
         if host.rollback_queued and host.next_boot is not None:
@@ -71,6 +76,21 @@ def gather(env: Env) -> Snapshot:
     else:
         snap.current = release.load(env.path('/'), use_rpm=False)
     return snap
+
+
+def uupd_state(env: Env, host: Host) -> Dict[str, Any]:
+    """uupd's last run in the same shape as Spark Update's own state file."""
+    u = uupd_status(env)
+    state: Dict[str, Any] = {'engine': UUPD, 'running': u['running'],
+                             'last_run': u['last_run'], 'last_check': u['last_run']}
+    if u['ok'] is False:
+        state.update(result='failed', error=t('uupd.failed'))
+    elif host.update_ready:
+        state.update(result='staged', staged_version=host.staged.version)
+    elif u['last_run']:
+        state['result'] = 'up_to_date'
+    state['flatpak_ok'] = u['ok']
+    return state
 
 
 def tail(path: str, lines: int = 200) -> List[str]:
@@ -221,6 +241,7 @@ class App:
         self.change_rows: List[Tuple[str, str, str, str]] = []   # for tests: name, old, new, kind
         self.dialog: Optional[Dialog] = None
         self.first_paint: Optional[float] = None
+        self.check_started = 0.0
         self._poll_id: Optional[str] = None
         self._watch_id: Optional[str] = None
         self._build()
@@ -393,6 +414,8 @@ class App:
     # — rendering the snapshot —
     def running(self) -> bool:
         state = self.snap.state if self.snap else {}
+        if state.get('engine') == UUPD:
+            return bool(state.get('running'))
         return bool(state.get('running')) and time.time() - (state.get('last_run') or 0) < 3 * 3600
 
     def render_status(self):
@@ -533,6 +556,9 @@ class App:
 
     def _render_lines(self, snap: Snapshot, running: bool):
         state, conf = snap.state, snap.conf
+        if snap.engine == UUPD:
+            self._render_uupd_lines(snap, running)
+            return
         # apps
         if not conf.flatpak:
             apps = t('apps.off')
@@ -575,6 +601,26 @@ class App:
                                                             + conf.every_hours * 3600)))
         if snap.conf_warnings:
             lines.append(t('set.conf_warnings', lines='; '.join(snap.conf_warnings)))
+        self.check_line.config(text=' '.join(lines),
+                               fg=T["pink"] if state.get('result') == 'failed' else T["muted"])
+
+    def _render_uupd_lines(self, snap: Snapshot, running: bool):
+        state = snap.state
+        when = core.when(state.get('last_run'))
+        if not state.get('last_run'):
+            apps = t('apps.uupd_never')
+        elif state.get('flatpak_ok'):
+            apps = t('apps.uupd_ok', when=when)
+        else:
+            apps = t('apps.uupd_failed', when=when)
+        self.apps_line.config(text=t('panel.apps').upper() + "   " + apps)
+        lines = [t('check.uupd')]
+        if running:
+            lines.append(t('check.uupd_running'))
+        elif state.get('result') == 'failed':
+            lines.append(t('check.uupd_failed', when=when))
+        elif state.get('last_run'):
+            lines.append(t('check.last', when=when))
         self.check_line.config(text=' '.join(lines),
                                fg=T["pink"] if state.get('result') == 'failed' else T["muted"])
 
@@ -648,6 +694,12 @@ class App:
             st = self.snap.state
             if st.get('running'):
                 return
+            if st.get('engine') == UUPD and self.busy == 'check' and \
+                    (st.get('last_run') or 0) < self.check_started - 1:
+                # uupd-manual hasn't started yet, or hasn't finished a run since the click
+                if time.time() - self.check_started < 120:
+                    self._watch()
+                    return
             if before.get('running') or self.busy == 'check':
                 self.busy = None
                 self.report_check(st)
@@ -674,7 +726,10 @@ class App:
         self.status.config(text="● " + t('status.checking'), fg=T["gold"])
         self.buttons['check'].set_enabled(False)
         self.glitch.now(self.title)
-        if snap.system_install:
+        self.check_started = time.time()
+        if snap.engine == UUPD:
+            self.work(start_uupd, self._unit_started)
+        elif snap.system_install:
             self.work(lambda: self._start_unit(mode), self._unit_started)
             if snap.conf.flatpak and mode == 'stage':
                 self.work(self._user_flatpak, lambda _r: None)
@@ -816,7 +871,8 @@ class App:
         conf = snap.conf if snap else load_system(self.env)[0]
         self.edit = SystemSettings(conf.automatic, conf.mode, conf.every_hours, conf.flatpak)
         self.edit_prefs = UserPrefs(self.prefs.notify, self.prefs.remind_hours, self.prefs.glitch)
-        can_system = self.env.fake or os.path.isfile(HELPER)
+        under_uupd = (snap.engine if snap else engine(self.env)) == UUPD
+        can_system = (self.env.fake or os.path.isfile(HELPER)) and not under_uupd
 
         p, sysp = self.panel(f, t('set.system'))
         p.pack(fill="x")
@@ -847,7 +903,8 @@ class App:
         w['flatpak'] = Toggle(sysp, t('set.flatpak'), self.edit.flatpak,
                               setter(self.edit, 'flatpak'), self.font(8))
         w['flatpak'].pack(anchor="w", pady=(px(2), px(6)))
-        self.label(sysp, t('set.admin_note') if can_system else t('set.no_helper'), 7,
+        self.label(sysp, t('set.admin_note') if can_system else
+                   t('set.uupd') if under_uupd else t('set.no_helper'), 7,
                    T["dim"] if can_system else T["gold"], bold=False).pack(anchor="w")
         if not can_system:
             for key in ('automatic', 'flatpak'):
@@ -929,6 +986,13 @@ class App:
                 tag = 'cmd' if ' $ ' in ln else 'err' if ('ERROR' in ln or 'exit 1' in ln) else ''
                 text.insert('end', ln + "\n", tag)
             text.insert('end', "\n")
+        if self.snap and self.snap.engine == UUPD and not self.env.fake:
+            text.insert('end', f"{t('log.uupd').upper()}  journalctl -u uupd.service "
+                               "-u uupd-manual.service\n", 'h')
+            code, out, err = run(['journalctl', '--no-pager', '-n', '150', '-o', 'short-iso',
+                                  '-u', 'uupd.service', '-u', 'uupd-manual.service'],
+                                 timeout=10, quiet=True)
+            text.insert('end', (out if code == 0 else err or t('log.empty')).rstrip() + "\n")
         text.config(state="disabled")
         text.see('end')
         self.log_text = text

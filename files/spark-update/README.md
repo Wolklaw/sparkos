@@ -1,7 +1,22 @@
 # Spark Update
 
-SparkOS's own updater. It replaces what Bazzite and Universal Blue ran before (`uupd`, the
-Bazzite Updater app, the rollback helper), so there is exactly one updater.
+SparkOS's own updater: the "SparkOS updated" notification, a window with what changed, Check
+now, Restart and Roll back, and (when switched on) its own background downloads, replacing
+Universal Blue's `uupd`. There is always exactly one updater, and never none.
+
+## Who downloads updates (the engine)
+
+| Engine | Downloads and stages images | Spark Update does |
+|---|---|---|
+| `uupd` (**the default, the initial release**) | Universal Blue's `uupd.timer`, daily at 04:00, as Bazzite ships it (image, Flatpak apps, brew) | the notification, the window, Check now (starts `uupd-manual.service`, the same as `ujust update`), Restart, Roll back |
+| `spark` | `spark-update.timer` (below); `uupd.timer` off, and `uupd.service`/`uupd-manual.service` run Spark Update instead | everything |
+
+The image build picks it with `SPARK_UPDATE_ENGINE` (`files/scripts/spark-update.sh`); the
+switch to `spark` waits until Spark Update's own staging has worked on a booted SparkOS. The
+app reads which timer is enabled, so the window always shows what the PC really does. The
+self-test fails the image build if no updater, or two, are on.
+
+## With the spark engine
 
 - **In the background:** a systemd timer, not a daemon. Every few hours (6 by default) it
   downloads the new SparkOS image and gets it ready for the next restart (`bootc upgrade`, or
@@ -9,6 +24,10 @@ Bazzite Updater app, the rollback helper), so there is exactly one updater.
   It waits for a later hour while a game runs (Steam, Proton/Wine, gamescope), on a metered
   connection or on a battery under 20%. It runs at the lowest CPU and disk priority. It
   **never restarts the PC on its own.**
+- **Settings** (below) apply to this timer; under uupd, uupd keeps its own daily schedule.
+
+## With either engine
+
 - **The notification**, when a new version is ready: "SparkOS updated. The new version is
   ready. It starts the next time you restart. Your apps are already up to date." with
   **Later** and **Restart**. The apps sentence shows only when the last Flatpak updates
@@ -55,7 +74,7 @@ version again later; turn them off in Settings to stay on the old one.
 ## Install
 
 ```bash
-sudo bash install.sh --deps        # system-wide: what the image build does
+sudo bash install.sh --deps [--engine uupd|spark]   # system-wide: what the image build does
 bash install.sh --user             # just you, no root: the window, the notification, your Flatpak apps
 bash install.sh --user --uninstall
 ```

@@ -70,6 +70,20 @@ EN = {
     'apps.yours': "Yours",
     'apps.system': "System",
 
+    # while Universal Blue's uupd does the downloading (engine.py)
+    'uupd.failed': "uupd's last run failed; the Log shows why.",
+    'apps.uupd_ok': "Updated by uupd together with SparkOS ({when}).",
+    'apps.uupd_failed': "uupd's last run ({when}) didn't finish; your apps may not be up to "
+                        "date.",
+    'apps.uupd_never': "Updated by uupd together with SparkOS; it hasn't run yet.",
+    'check.uupd': "Universal Blue's uupd downloads updates for now: daily around 04:00, and "
+                  "when you click Check now.",
+    'check.uupd_running': "It's running now.",
+    'check.uupd_failed': "Its last run ({when}) failed; see the Log.",
+    'set.uupd': "Universal Blue's uupd downloads updates for now, daily around 04:00; these "
+                "settings apply once Spark Update does it itself.",
+    'log.uupd': "uupd (downloads updates for now)",
+
     'check.last': "Last check {when}.",
     'check.never': "Not checked yet.",
     'check.next': "Next check after {when}.",

@@ -19,6 +19,7 @@ from . import STATE_PATH
 from . import guard
 from .core import Env, load_json, log, run, save_json, state_dir, which
 from .settings import NOTIFY, STAGE, SystemSettings, load_prefs, load_system
+from .engine import UUPD, engine, uupd_status
 from .status import Host, read_host
 
 Runner = Callable[..., Tuple[int, str, str]]
@@ -328,8 +329,10 @@ def user_run(env: Env, runner: Runner = run, clock: Callable[[], float] = time.t
     ustate = load_json(user_state_path())
     now = clock()
 
+    eng = engine(env)
     flat = ustate.get('flatpak') if isinstance(ustate.get('flatpak'), dict) else {}
-    if conf.automatic and conf.flatpak and conf.mode == STAGE and \
+    # under uupd, uupd updates every user's Flatpak apps itself
+    if eng != UUPD and conf.automatic and conf.flatpak and conf.mode == STAGE and \
             due(flat.get('at'), conf.every_hours, now, failed=flat.get('ok') is False):
         wait = guard.reason_to_wait(env)
         if wait:
@@ -363,7 +366,12 @@ def user_run(env: Env, runner: Runner = run, clock: Callable[[], float] = time.t
     if notifier is None:
         from .notify import show
         notifier = show
-    answer = notifier(offer, apps_up_to_date(conf, sys_state, ustate, now))
+    if eng == UUPD:
+        u = uupd_status(env, runner)
+        apps_ok = bool(u.get('ok')) and now - (u.get('last_run') or 0) <= 86400
+    else:
+        apps_ok = apps_up_to_date(conf, sys_state, ustate, now)
+    answer = notifier(offer, apps_ok)
     log.info("notification answer: %s", answer or 'closed')
     ustate = load_json(user_state_path())
     if isinstance(ustate.get('notified'), dict):

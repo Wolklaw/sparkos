@@ -9,17 +9,13 @@ from typing import List, Optional, Tuple
 
 from . import APP_NAME, APP_SLUG, CONF_PATH, HELPER, IMAGE, POLKIT_ACTION, RELEASE_PATH, VERSION
 from .core import Env, log, run, setup_logging, which
+from .engine import NONE, SPARK, UUPD, both_on, engine, timer_enabled
 
 SYSTEM_UNITS = '/usr/lib/systemd/system'
 USER_UNITS = '/usr/lib/systemd/user'
-# Bazzite's and Fedora's updaters that Spark Update replaces; none may be enabled
+# Bazzite's and Fedora's automatic updaters. Exactly one updater may be on: uupd (Bazzite's,
+# the default for now) or Spark Update's own timer; the rest must stay off.
 OTHER_TIMERS = ('uupd.timer', 'rpm-ostreed-automatic.timer', 'bootc-fetch-apply-updates.timer')
-
-
-def timer_enabled(env: Env, name: str, user: bool = False) -> bool:
-    folders = ('/etc/systemd/user', '/usr/lib/systemd/user') if user else \
-        ('/etc/systemd/system', '/usr/lib/systemd/system')
-    return any(os.path.lexists(env.path(f'{f}/timers.target.wants/{name}')) for f in folders)
 
 
 def user_timer_enabled(env: Env) -> Optional[str]:
@@ -34,7 +30,9 @@ def user_timer_enabled(env: Env) -> Optional[str]:
 
 
 def other_updaters(env: Env) -> List[str]:
-    found = [name for name in OTHER_TIMERS if timer_enabled(env, name)]
+    """Automatic updaters that are on besides the one in charge (see engine.py)."""
+    mine = 'uupd.timer' if engine(env) == UUPD else ''
+    found = [name for name in OTHER_TIMERS if name != mine and timer_enabled(env, name)]
     conf = env.read('/etc/rpm-ostreed.conf') or ''
     for line in conf.splitlines():
         line = line.split('#', 1)[0].strip()
@@ -106,25 +104,36 @@ def self_test(env: Env) -> int:
     for w in warnings:
         print(f"settings:  update.conf {w}")
 
+    # Updates must never stop: exactly one updater on, and on SparkOS at least one
+    eng = engine(env)
+    if both_on(env):
+        print("updater:   TWO UPDATERS ON: spark-update.timer and uupd.timer - tell the owner")
+        failures.append("two updaters")
+    elif eng == SPARK:
+        print("updater:   Spark Update (spark-update.timer enabled; uupd off)")
+    elif eng == UUPD:
+        print("updater:   Universal Blue's uupd (uupd.timer enabled, daily at 04:00); Spark "
+              "Update adds the notification, the window and roll back")
+    else:
+        print("updater:   NONE: no automatic updater is enabled" +
+              (" - tell the owner" if is_sparkos(env) else " (not SparkOS)"))
+        if is_sparkos(env):
+            failures.append("no updater")
+
     system_install = os.path.isfile(env.path(f'{SYSTEM_UNITS}/spark-update.timer'))
+    where = user_timer_enabled(env)
+    print("timers:    spark-update-user.timer (notification) " +
+          (f"enabled for {where}" if where else "NOT ENABLED"))
     if system_install:
-        enabled = timer_enabled(env, 'spark-update.timer')
-        print(f"timers:    spark-update.timer {'enabled' if enabled else 'NOT ENABLED'} "
-              f"(system); spark-update-user.timer "
-              f"{user_timer_enabled(env) and 'enabled for ' + user_timer_enabled(env) or 'NOT ENABLED'}")
-        if not enabled or not user_timer_enabled(env):
-            failures.append("timers")
+        if not where:
+            failures.append("notification timer")
         helper_ok = os.path.isfile(env.path(HELPER)) and os.path.isfile(
             env.path(f'/usr/share/polkit-1/actions/{POLKIT_ACTION.rsplit(".", 1)[0]}.policy'))
         print(f"helper:    {HELPER if helper_ok else 'MISSING'} (polkit action {POLKIT_ACTION})")
         if not helper_ok:
             failures.append("helper")
     else:
-        where = user_timer_enabled(env)
-        print("timers:    no system timer (a per-user install: background image checks come "
-              "with the SparkOS image); " +
-              (f"spark-update-user.timer enabled for {where}" if where
-               else "spark-update-user.timer not enabled"))
+        print("timers:    a per-user install (the system parts come with the SparkOS image)")
     others = other_updaters(env)
     if others:
         print(f"others:    other updaters still on: {', '.join(others)} - tell the owner")
