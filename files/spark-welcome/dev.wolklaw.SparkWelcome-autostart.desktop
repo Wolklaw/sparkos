@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Welcome
+Comment=Opens once at the first login; does nothing after that
+Comment[fr]=S'ouvre une fois à la première connexion, puis ne fait plus rien
+Exec=spark-welcome --first-login
+Icon=dev.wolklaw.SparkWelcome
+Terminal=false
+NoDisplay=true
+X-KDE-autostart-phase=2
+X-GNOME-Autostart-enabled=true
