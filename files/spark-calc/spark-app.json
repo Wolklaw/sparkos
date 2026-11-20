@@ -1,0 +1,29 @@
+{
+  "id": "dev.wolklaw.SparkCalc",
+  "slug": "spark-calc",
+  "name": "Spark Calc",
+  "name_fr": "Spark Calc",
+  "summary": "Calculator with exact sums (0.1 + 0.2 is 0.3), and scientific and programmer modes.",
+  "summary_fr": "Calculatrice aux calculs exacts (0,1 + 0,2 donne 0,3), avec modes scientifique et programmeur.",
+  "version": "1.0.0",
+  "installed_size_kb": 400,
+  "icon": "icons/spark-calc-256.png",
+  "categories": ["Utility", "Calculator"],
+  "shortcut": "Calculator",
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter", "decimal", "fractions"],
+    "optional": {},
+    "system": "Any Linux desktop; Plasma for the Calculator key"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-calc --self-test"
+  },
+  "license": "Apache-2.0",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-calc"
+}
