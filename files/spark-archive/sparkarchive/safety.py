@@ -167,10 +167,14 @@ class SafeWriter:
                 raise Blocked(errno.ENOTDIR, f"{'/'.join(parts)} is a link or a file, "
                                              "not a folder") from None
             raise
-        if len(self._fds) > 256:
-            self._forget_fds()
         self._fds[parts] = fd
         return fd
+
+    def _trim(self) -> None:
+        """Keep the open folder handles few. Only called at the start of an operation, never
+        while one holds a handle from the cache."""
+        if len(self._fds) > 256:
+            self._forget_fds()
 
     def _open_dir(self, parent: int, name: str, parts: Parts) -> int:
         try:
@@ -184,6 +188,7 @@ class SafeWriter:
     def lstat(self, parts: Parts) -> Optional[os.stat_result]:
         """What is at root/parts now (not following a link), or None. Raises Blocked if the
         folders above it run through a link."""
+        self._trim()
         try:
             parent = self.dir_fd(parts[:-1], create=False)
         except FileNotFoundError:
@@ -204,6 +209,7 @@ class SafeWriter:
     # ─── making things ────────────────────────────────────────
 
     def make_dir(self, parts: Parts, mode: int = 0, mtime: Optional[float] = None) -> None:
+        self._trim()
         existed = parts in self._fds or self.lstat(parts) is not None
         fd = self.dir_fd(parts, create=True)
         if not existed:
@@ -216,6 +222,7 @@ class SafeWriter:
 
     def remove(self, parts: Parts) -> None:
         """Delete a file or link that is in the way (never a folder)."""
+        self._trim()
         parent = self.dir_fd(parts[:-1], create=False)
         os.unlink(parts[-1], dir_fd=parent)
 
@@ -264,6 +271,7 @@ class SafeWriter:
                    replace: bool = False, on_bytes: Callable[[int], None] = lambda n: None,
                    cancelled: Callable[[], bool] = lambda: False) -> int:
         """Copy `source` (anything with read(n)) to root/parts. Returns the bytes written."""
+        self._trim()
         parent = self.dir_fd(parts[:-1], create=True)
         name = parts[-1]
         if self._is_dir_at(parent, name):
@@ -306,6 +314,7 @@ class SafeWriter:
     def move_in(self, parts: Parts, staged: str, mode: int = 0, replace: bool = False) -> int:
         """Move a file another tool unpacked (in a staging folder on the same disk) into place.
         Only a regular file is accepted."""
+        self._trim()
         st = os.lstat(staged)
         if not stat.S_ISREG(st.st_mode):
             raise Blocked(errno.EINVAL, "not a regular file")
@@ -338,6 +347,7 @@ class SafeWriter:
         return st.st_size
 
     def make_symlink(self, parts: Parts, target: str, replace: bool = False) -> None:
+        self._trim()
         if not link_target_ok(parts, target):
             raise Blocked(errno.EPERM, f"link leads outside the folder: {target}")
         parent = self.dir_fd(parts[:-1], create=True)
@@ -364,6 +374,7 @@ class SafeWriter:
 
     def make_hardlink(self, parts: Parts, target: Parts, replace: bool = False) -> None:
         """A hard link to a file this extraction wrote; a copy if the disk can't link."""
+        self._trim()
         if target not in self.files:
             raise Blocked(errno.EPERM, "hard link to a file that isn't in this extraction")
         src_parent = self.dir_fd(target[:-1], create=False)

@@ -237,6 +237,27 @@ class TestFormats(Base):
         self.assertTrue(res.ok, res)
         self.assertEqual(read(os.path.join(self.dest, 'dir', 'copy.txt')), b'linked')
 
+    def test_many_folders_and_hard_links(self):
+        """More folders than the writer keeps open, with hard links reaching across them."""
+        arc = self.arc('many.tar')
+        with tarfile.open(arc, 'w') as tf:
+            for i in range(300):
+                ti = tarfile.TarInfo(f'a{i:03d}/deep/file.txt')
+                data = f'file {i}'.encode()
+                ti.size = len(data)
+                tf.addfile(ti, io.BytesIO(data))
+            for i in range(300):
+                hl = tarfile.TarInfo(f'b{i:03d}/link.txt')
+                hl.type = tarfile.LNKTYPE
+                hl.linkname = f'a{(i * 7) % 300:03d}/deep/file.txt'
+                tf.addfile(hl)
+        res = self.extract(arc)
+        self.assertTrue(res.ok, res)
+        self.assertEqual(res.problems, [])
+        for i in range(300):
+            self.assertEqual(read(os.path.join(self.dest, f'b{i:03d}', 'link.txt')),
+                             f'file {(i * 7) % 300}'.encode())
+
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
     def test_tar_zst_through_libarchive(self):
         """tar.zst also reads without Python's zstd, through libarchive."""
