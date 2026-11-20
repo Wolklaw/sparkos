@@ -225,6 +225,7 @@ class MusicView(tk.Frame):
         """The body's list: reuse it when the page shows the same kind of list."""
         want = (kind, tuple(columns) if columns else None)
         if self.list is not None and getattr(self.list, '_want', None) == want:
+            self.list.on_activate, self.list.on_menu = on_activate, on_menu
             return self.list
         if self.list is not None:
             self.list.destroy()

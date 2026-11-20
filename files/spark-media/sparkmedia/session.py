@@ -34,6 +34,9 @@ class MusicSession:
             except RuntimeError as exc:
                 self.problem = str(exc)
         if self.player is not None:
+            sink = self.player.playbin.get_property('audio-sink')
+            if sink is not None and sink.find_property('sync') is not None:
+                sink.set_property('sync', True)     # a test's fakesink plays in real time too
             saved = app.settings.get("volume")
             self.player.volume = float(saved) if isinstance(saved, (int, float)) else 0.8
             self.player.muted = bool(app.settings.get("muted", False))

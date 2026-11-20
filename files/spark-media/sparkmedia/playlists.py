@@ -149,20 +149,3 @@ def new_path(music_dir: str, name: str) -> Optional[str]:
     path = os.path.join(folder(music_dir), clean + '.m3u8')
     return None if os.path.exists(path) else path
 
-
-def find(roots: Sequence[str], limit: int = 2000) -> List[str]:
-    """Playlist files in the Playlists folder and directly in each root, by name."""
-    found = {}
-    for root in roots:
-        for where in (root, folder(root)):
-            try:
-                entries = list(os.scandir(where))
-            except OSError:
-                continue
-            for entry in entries:
-                if entry.is_file() and is_playlist(entry.name):
-                    found[os.path.normcase(entry.path)] = entry.path
-                    if len(found) >= limit:
-                        break
-    from .core import natural_key
-    return sorted(found.values(), key=lambda p: natural_key(os.path.basename(p)))

@@ -106,9 +106,9 @@ class PhotoView(tk.Frame):
 
     # ── loading ──
     def _load(self, path: str) -> Photo:
-        photo = self.cache.get(path) or self._ready.pop(path, None)
+        photo = self.cache.get(path)
         if photo is None:
-            photo = Photo(path)
+            photo = self._ready.pop(path, None) or Photo(path)    # preloaded, or open it now
             self.cache[path] = photo
             while len(self.cache) > CACHE:
                 self.cache.pop(next(iter(self.cache)))

@@ -293,6 +293,7 @@ class Scanner:
         self.running = False
         self.thread: Optional[threading.Thread] = None
         self.stats: Dict[str, Any] = {}
+        self.changed = False
 
     def start(self) -> None:
         if self.running:
@@ -384,15 +385,20 @@ class Scanner:
             except queue.Empty:
                 break
             if what == 'start':
+                if (data['removed'] or data['playlists'] != self.library.playlists
+                        or data['roots'] != self.library.roots):
+                    self.changed = True
                 self.library.update((), data['removed'])
                 self.library.playlists = data['playlists']
                 self.library.roots = data['roots']
             elif what == 'songs':
+                self.changed = True
                 self.library.update(data)
             elif what == 'save':
                 self.library.save()
             elif what == 'done':
                 self.running = False
-                self.library.save()
+                if self.changed:                 # nothing to write after a quiet rescan
+                    self.library.save()
             out.append((what, data))
         return out

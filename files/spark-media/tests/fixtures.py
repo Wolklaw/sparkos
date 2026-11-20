@@ -141,9 +141,9 @@ def raw_like(path: str, preview: Tuple[int, int] = (300, 200), junk: int = 40000
 # ─── Songs ────────────────────────────────────────────────────
 
 def encode(gst, path: str, seconds: float = 1.0, tags: Optional[Dict[str, object]] = None) -> bool:
-    """Encode a test tone by the file's extension (.ogg Vorbis, .flac, .mp3), with tags set
-    through GStreamer's tag interface where the encoder takes them. False if this system
-    can't encode that format."""
+    """Encode a test tone by the file's extension (.ogg Vorbis, .flac, .mp3, .opus), with tags
+    injected into the stream for the encoder or muxer to write. False if this system can't
+    encode that format."""
     Gst = gst.Gst
     ext = os.path.splitext(path)[1].lower()
     chain = {'.ogg': ['vorbisenc', 'oggmux'], '.flac': ['flacenc'],
@@ -154,6 +154,19 @@ def encode(gst, path: str, seconds: float = 1.0, tags: Optional[Dict[str, object
     src = Gst.ElementFactory.make('audiotestsrc', None)
     src.set_property('num-buffers', max(1, int(seconds * 44100 / 1024)))
     elements = [src, Gst.ElementFactory.make('audioconvert', None)]
+    if tags:
+        # taginject sends the tags down to the encoder or muxer, which writes them
+        inject = Gst.ElementFactory.make('taginject', None)
+        if inject is None:
+            return False
+        fields = []
+        for name, value in tags.items():
+            if isinstance(value, int):
+                fields.append(f'{name}=(uint){value}')
+            else:
+                fields.append(f'{name}="' + str(value).replace('"', '') + '"')
+        inject.set_property('tags', ','.join(fields))
+        elements.append(inject)
     if ext == '.opus':
         elements.append(Gst.ElementFactory.make('audioresample', None))
     elements += [Gst.ElementFactory.make(name, None) for name in chain]
@@ -164,17 +177,6 @@ def encode(gst, path: str, seconds: float = 1.0, tags: Optional[Dict[str, object
         pipeline.add(element)
     for a, b in zip(elements, elements[1:]):
         a.link(b)
-    if tags:
-        taglist = Gst.TagList.new_empty()
-        for name, value in tags.items():
-            gvalue = value
-            if isinstance(value, int):
-                from gi.repository import GObject
-                gvalue = GObject.Value(GObject.TYPE_UINT, value)
-            taglist.add_value(Gst.TagMergeMode.REPLACE, name, gvalue)
-        for element in elements:
-            if isinstance(element, Gst.TagSetter):
-                element.merge_tags(taglist, Gst.TagMergeMode.REPLACE)
     pipeline.set_state(Gst.State.PLAYING)
     msg = pipeline.get_bus().timed_pop_filtered(30 * gst.SECOND,
                                                 Gst.MessageType.EOS | Gst.MessageType.ERROR)

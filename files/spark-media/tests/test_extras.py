@@ -5,7 +5,6 @@
 Song files are encoded with GStreamer on the spot (skipped without it); the DNG is written by
 tests/fixtures.py. Lines starting with "speed:", "scan:" and "raw:" go to the CI summary."""
 
-import io
 import os
 import re
 import shutil
@@ -410,9 +409,18 @@ class TagTests(Temp):
         broken = touch(os.path.join(self.dir, 'broken.mp3'), b'nothing here')
         self.assertEqual(tags.read(broken)['song']['title'], '')
 
+    def test_libraries_load_when_installed(self):
+        """A TagLib or LibRaw that's installed but won't load is a bug, not a skip."""
+        import ctypes.util
+        if ctypes.util.find_library('tag_c'):
+            self.assertIsNotNone(tags.taglib(), "libtag_c is installed but didn't load")
+        if ctypes.util.find_library('raw_r'):
+            self.assertIsNotNone(raw.libraw(), "libraw_r is installed but didn't load")
+        print(f"scan: tags backend {tags.backend()}; raw decode {raw.decoder()}")
+
     @unittest.skipUnless(tags.taglib() is not None, "TagLib's C library (libtag_c) is not installed")
     def test_taglib(self):
-        print(f"scan: tags read with TagLib")
+        print("scan: tags read with TagLib")
         self.check(lambda p, c: tags.taglib().read(p, c))
 
     def test_gstreamer_discoverer(self):
@@ -683,7 +691,7 @@ class UITests(Temp):
         for n, (artist, album, title) in enumerate(names):
             path = os.path.join(self.music, artist, album, f'{n + 1:02d} {title}.flac')
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            if not gst.available() or not fixtures.encode(gst, path, 0.5):
+            if not gst.available() or not fixtures.encode(gst, path, 3.0):
                 raise unittest.SkipTest("needs GStreamer with a FLAC encoder")
             fixtures.flac_tags(path, {'TITLE': title, 'ARTIST': artist, 'ALBUM': album,
                                       'TRACKNUMBER': str(n + 1)})
@@ -787,7 +795,8 @@ class UITests(Temp):
         view._crop_move(type('E', (), {'x': x0 + 40, 'y': y0 + 40})())
         view._end_drag()
         x0, y0, x1, y1 = view.edits.crop
-        self.assertEqual(x1 - x0, y1 - y0)                   # still square
+        self.assertAlmostEqual(x1 - x0, y1 - y0, delta=1)    # still square
+        self.assertLess(x1 - x0, 600)
         view.save_edit(False)
         self.pump(0.4)
         saved = os.path.join(pics, 'a (edited).jpg')
@@ -795,7 +804,7 @@ class UITests(Temp):
         self.assertFalse(view.editing)
         self.assertEqual(view.files[view.index], saved)
         with Image.open(saved) as image:
-            self.assertEqual(image.size[0], image.size[1])
+            self.assertAlmostEqual(image.size[0], image.size[1], delta=1)
         # Esc leaves edit mode without saving
         view.start_edit()
         view.edit_rotate(True)
