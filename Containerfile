@@ -37,8 +37,8 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/copy-files.sh system /
 
-# 4. Packages (recipe: type dnf): remove Bazzite's third-party apps, then add what SparkOS
-#    needs. The recipe says why each package is there. Same order and options as BlueBuild's dnf
+# 4. Packages (recipe: type dnf): remove Bazzite's third-party apps (and the KDE apps a Spark app
+#    replaces), then add what SparkOS needs. The recipe says why each package is there. Same order and options as BlueBuild's dnf
 #    module: makecache, remove (with dependents), install (weak dependencies on).
 RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
@@ -56,11 +56,16 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
         krfb \
         kwalletmanager5 \
         kdebugsettings \
-        khelpcenter && \
+        khelpcenter \
+        plasma-systemmonitor \
+        spectacle \
+        tailscale && \
     dnf -y --setopt=install_weak_deps=True install \
         bubblewrap \
         socat \
         kdialog \
+        fuse \
+        fuse-libs \
         rsms-inter-fonts \
         python3.13 \
         SDL2 \
@@ -95,6 +100,15 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-welcome.sh \
         spark-games.sh \
         spark-monitor.sh \
+        spark-edit.sh \
+        spark-calc.sh \
+        spark-archive.sh \
+        spark-scan.sh \
+        spark-run.sh \
+        spark-link.sh \
+        spark-store.sh \
+        spark-update.sh \
+        sparkos-cleanup.sh \
         sparkos-defaults.sh \
         sparkos-theme.sh
 
