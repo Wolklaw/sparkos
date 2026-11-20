@@ -1,6 +1,6 @@
 # Spark Edit
 
-The SparkOS text and code editor: notes, settings files, logs and code. Kate and KWrite are gone from the image, so without it `.txt`, `.md`, `.conf` and code files open in FreeSuite Writer, an office suite. Spark Edit is small (about 340 KB, Python and Tk, nothing else) and opens at once.
+The SparkOS text and code editor: notes, settings files, logs and code. Kate and KWrite are gone from the image, so without it `.txt`, `.md`, `.conf` and code files open in FreeSuite Writer, an office suite. Spark Edit is small (about 600 KB installed, half of it Python's compiled copies; it needs Python and Tk, nothing else) and opens at once.
 
 It is optional for now: the main SparkOS session decides when it goes into the image ([build step](../scripts/spark-edit.sh)) and makes it the default for text files. It also installs for one user without root (`install.sh --user`), the way optional Spark apps will through the future Spark Portal.
 
@@ -32,7 +32,14 @@ Settings are in `~/.config/spark-edit/`, the session, the autosaves and the log 
 
 Targets from the brief: open in under 0.5 s, and open a 50 MB log file without freezing.
 
-SPEED_TABLE
+Measured by CI on 2026-11-20 (GitHub runner: 4 vCPUs of an AMD EPYC 7763, Fedora, Python 3.15.2, Tk 9.0 — the same Python and Tk as the SparkOS image — under Xvfb), three runs each, times from the moment the process started:
+
+| | Window shown | First screen of the file | Whole file in, editable | Longest the window didn't answer | Memory |
+|---|---|---|---|---|---|
+| Start, no file | 0.17–0.19 s | | | | 39 MB |
+| **50 MB log file** (470,394 lines) | 0.18–0.32 s | 0.33–0.38 s | **0.45–0.53 s** | 32–120 ms | 321 MB |
+
+Both targets are met: the window is up in under 0.2 s, and a 50 MB log is on screen in under 0.4 s and fully editable in about half a second, with the window answering at least every 0.12 s while it loads. Once it is in, jumping to the end takes 5–7 ms. Reading the whole 50 MB back out of the editor, which Find (in files that big) and Save start with, takes about 0.2 s. On the development PC under Windows 11 (Python 3.13, Tk 8.6) the same file was editable after 0.72 s. It hasn't been measured on a SparkOS desktop yet (the SparkOS image has no Xvfb, so CI can't open a window inside it); run the line below there.
 
 `spark-edit --bench FILE` measures the same on any PC: it opens the window and the file, and reports when the window was shown, when the first screen of the file was drawn, when the whole file was in the editor and editable (all counted from the moment the process started, Python's own start-up included), the longest the window went without answering while loading, and how long jumping to the end takes. `tests/make_log.py big.log 50` writes the test file.
 
@@ -54,7 +61,7 @@ python3 make_icons.py                     # redraw icons/ after changing the mar
 
 `spark-app.json` describes the app for the Spark Portal (ID, name, summary, version, size, what it needs, how to install it).
 
-The tests cover reading and writing every encoding and line ending byte for byte, binary files, permissions, symlinks and hard links, Save as administrator through a stand-in pkexec, every tokeniser, find and replace, the autosave and crash recovery, and the window itself (typing, undo back to clean, indenting, find and replace all, loading a 10 MB file in slices, colouring far down a file, handing a file to the open window). CI ([workflow](../../.github/workflows/spark-edit.yml)) runs the image build step and all of them under Xvfb as a normal user in Fedora, measures the speed, and inside the published SparkOS image installs it with `--user` as a normal user, runs the self-test and the tests, and uninstalls it.
+The tests cover reading and writing every encoding and line ending byte for byte, binary files, permissions, symlinks and hard links, Save as administrator through a stand-in pkexec, every tokeniser, find and replace, the autosave and crash recovery, and the window itself (typing, undo back to clean, indenting, find and replace all, loading a 10 MB file in slices, colouring far down a file, handing a file to the open window). CI ([workflow](../../.github/workflows/spark-edit.yml)) runs the image build step and all of them under Xvfb as a normal user in Fedora, measures the speed, and inside the published SparkOS image installs it with `--user` as a normal user, runs the self-test and the tests on the image's own Python 3.15 and Tk 9.0, and uninstalls it, checking nothing is left in `~/.local` or `/usr`. The image has no Xvfb, so the window tests and the speed measurement run in the Fedora job only (same Python and Tk).
 
 ## Known gaps
 

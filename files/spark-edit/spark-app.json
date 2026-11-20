@@ -6,7 +6,7 @@
   "summary": "Text and code editor: tabs, find and replace, syntax colours, files kept in their own encoding and line endings.",
   "summary_fr": "Éditeur de texte et de code : onglets, rechercher et remplacer, couleurs de syntaxe, fichiers gardés dans leur encodage et leurs fins de ligne.",
   "version": "1.0.0",
-  "installed_size_kb": 340,
+  "installed_size_kb": 610,
   "icon": "icons/spark-edit-256.png",
   "categories": ["Utility", "TextEditor", "Development"],
   "command": "spark-edit",
