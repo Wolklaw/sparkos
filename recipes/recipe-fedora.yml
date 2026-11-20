@@ -1,0 +1,94 @@
+---
+# yaml-language-server: $schema=https://schema.blue-build.org/recipe-v1.json
+# PROTOTYPE, published to ghcr.io/wolklaw/sparkos-fedora (never to ghcr.io/wolklaw/sparkos).
+# Built by .github/workflows/build-fedora.yml and booted there; results in docs/fedora-base.md.
+name: sparkos-fedora
+description: SparkOS prototype on plain Fedora Kinoite instead of Bazzite. Test image, not for daily use.
+
+# Base: Fedora's own atomic KDE image, the same Fedora version as the Bazzite that SparkOS uses.
+# Fedora's kernel, Fedora's Mesa, Fedora's firmware. Nothing from Universal Blue.
+base-image: quay.io/fedora/fedora-kinoite
+image-version: 45
+
+modules:
+  - type: files
+    files:
+      - source: system
+        destination: / # the same files/system as the real SparkOS image, unchanged
+
+  - type: dnf
+    install:
+      packages:
+        # --- the same list as recipes/recipe.yml
+        - bubblewrap
+        - socat
+        - kdialog
+        - rsms-inter-fonts
+        - python3.13
+        - SDL2
+        - xcb-util-cursor
+        - libxkbcommon-x11
+        - libxkbfile
+        - mesa-libGL
+        - mesa-libEGL
+        - mesa-libgbm
+        - alsa-lib
+        - pulseaudio-libs
+        - nss
+        - libXcomposite
+        - libXcursor
+        - libXdamage
+        - libXi
+        - libXrandr
+        - libXtst
+        # --- what Bazzite brought that SparkOS's scripts and boot test use, all from Fedora's
+        # own repositories (see docs/fedora-base.md for where each came from on Bazzite)
+        - ImageMagick # sparkos-theme.sh draws the wallpaper and boot splash with it
+        - ark # zip support (in the SparkOS platform list)
+        - kde-connect
+        - kio-gdrive
+        - plasma-print-manager
+        - cups-browsed
+        - ipp-usb
+        - sane-airscan
+        - sane-backends-drivers-scanners
+        - libratbag-ratbagd # gaming mice
+        - fastfetch
+        - jq # the boot test reads the signing policy with it
+        # --- the gaming layer for AMD, from Fedora: compositor, overlay, CPU governor helper
+        - gamescope
+        - mangohud
+        - gamemode
+        - vulkan-tools # vulkaninfo, to check the Vulkan driver
+        - libva-utils # vainfo, to check video decode
+        # --- video playback without RPM Fusion: Fedora's reduced FFmpeg through GStreamer
+        # (Cisco's OpenH264 is added by fedora-media.sh, from Fedora's fedora-cisco-openh264 repo)
+        - gstreamer1-plugin-libav
+        - gstreamer1-plugins-bad-free
+        - gstreamer1-plugins-ugly-free
+
+  - type: script
+    scripts:
+      - fedora-identity.sh # "SparkOS" as the system name; ID stays fedora
+      - fedora-apps.sh # remove Kinoite's third-party apps, as sparkos-apps.sh does on Bazzite
+      - fedora-gaming.sh # Steam controller/VR udev rules (Valve's, pinned), and a record of the gaming layer
+      - soot.sh
+      - freesuite.sh
+      - spark-snip.sh
+      - fedora-media.sh # Spark Media, without failing the build when H.264/H.265 can't play (measured instead)
+      - spark-welcome.sh
+      - spark-games.sh
+      - spark-monitor.sh
+      - sparkos-defaults.sh
+      - sparkos-theme.sh
+
+  - type: default-flatpaks
+    configurations:
+      - scope: system
+      - scope: user
+
+  - type: signing
+
+  - type: script
+    scripts:
+      - fedora-signing-fix.sh # same fix as sparkos-signing-fix.sh, for the sparkos-fedora name
