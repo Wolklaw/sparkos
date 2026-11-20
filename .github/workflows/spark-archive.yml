@@ -3,13 +3,13 @@ name: spark-archive
 # Compress menu. Build step files/scripts/spark-archive.sh; also installs per user without
 # root, the way optional Spark apps will through the future Spark Portal.
 #
-# fedora:  runs the image build step in a plain Fedora container (as root), then the unit
-#          tests (every format, every path-escape case) and the window tests under Xvfb, and
+# fedora:  in a plain Fedora container (as root), the unit tests (every format, every
+#          path-escape case) and the window tests under Xvfb, then the image build step, then
 #          times opening the window and a 20 000-file archive.
 # sparkos: inside the published SparkOS image, as a normal user (setpriv: su and runuser need
-#          PAM, which a container doesn't have), installs it with install.sh --user, runs the
-#          self-test and the unit tests on the image's own Python, libarchive and 7z,
-#          uninstalls it and checks nothing is left behind.
+#          PAM, which a container doesn't have), the unit tests on the image's own Python,
+#          libarchive and 7z, then install.sh --user, the self-test, uninstall, and a check
+#          that nothing is left behind.
 on:
   push:
     paths:
@@ -31,17 +31,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tools the image has (7z, zstd command)
-        run: dnf -y install --setopt=install_weak_deps=False 7zip zstd
-
-      - name: Install (the image build step)
-        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-archive.sh
+      - name: What SparkOS has (Python with Tk, libarchive, 7z, zstd), and Xvfb
+        run: |
+          dnf -y install --setopt=install_weak_deps=False python3 python3-tkinter libarchive             7zip zstd cpio xorg-x11-server-Xvfb xorg-x11-xauth
 
       - name: Tests (Xvfb)
         run: |
-          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth
           cd files/spark-archive
           xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-archive.sh
 
       - name: Speed (window, and a 20 000-file archive)
         run: |
@@ -96,6 +96,9 @@ jobs:
                     LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
             usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
 
+            echo "--- unit tests on the image Python, libarchive and 7z"
+            as "cd ~/spark-archive && python3 -m unittest discover -s tests -v"
+
             echo "--- install --user"
             as "bash ~/spark-archive/install.sh --user"
             as "test -x ~/.local/bin/spark-archive"
@@ -106,10 +109,10 @@ jobs:
             test ! -e /usr/bin/spark-archive
             test ! -e /usr/share/applications/dev.wolklaw.SparkArchive.desktop
 
-            echo "--- self-test and unit tests on the image Python, libarchive and 7z"
+            echo "--- the installed command"
             as "~/.local/bin/spark-archive --version"
             as "~/.local/bin/spark-archive --self-test"
-            as "cd ~/spark-archive && python3 -m unittest discover -s tests -v"
+            as "~/.local/bin/spark-archive --list ~/spark-archive/tests/fixtures/plain.7z"
 
             echo "--- uninstall"
             as "bash ~/spark-archive/install.sh --user --uninstall"

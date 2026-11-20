@@ -13,13 +13,14 @@ except ImportError:
     _zstd = None
 
 ZIP, TAR, SEVENZIP, RAR, ISO = 'zip', 'tar', '7z', 'rar', 'iso'
+OTHER = 'other'            # anything else libarchive reads: tar.lz, tar.lz4, tar.Z, cpio, cab...
 GZ, BZ2, XZ, ZST = 'gz', 'bz2', 'xz', 'zst'
 COMPRESSED = (GZ, BZ2, XZ, ZST)
 
 # what the interface calls each kind
 LABELS = {ZIP: 'zip', TAR: 'tar', SEVENZIP: '7z', RAR: 'rar', ISO: 'iso',
           'tar.gz': 'tar.gz', 'tar.bz2': 'tar.bz2', 'tar.xz': 'tar.xz', 'tar.zst': 'tar.zst',
-          GZ: 'gz', BZ2: 'bz2', XZ: 'xz', ZST: 'zst'}
+          GZ: 'gz', BZ2: 'bz2', XZ: 'xz', ZST: 'zst', OTHER: 'archive'}
 
 
 def has_zstd() -> bool:
@@ -79,7 +80,8 @@ def magic_kind(head: bytes) -> Optional[str]:
 
 def detect(path: str) -> Optional[str]:
     """'zip', '7z', 'rar', 'iso', 'tar', 'tar.gz' (and .bz2 .xz .zst), or a bare 'gz', 'bz2',
-    'xz', 'zst' for a single compressed file. None if it isn't an archive this app reads."""
+    'xz', 'zst' for a single compressed file; 'other' for anything else libarchive reads.
+    None if it isn't an archive this app reads."""
     try:
         with open(path, 'rb') as f:
             head = f.read(512)
@@ -110,6 +112,11 @@ def detect(path: str) -> Optional[str]:
             return ZIP
     except OSError:
         pass
+    from . import libarchive
+    if libarchive.load():
+        name, _err = libarchive.first_header(path)
+        if name and 'raw' not in name.lower():
+            return OTHER
     return None
 
 

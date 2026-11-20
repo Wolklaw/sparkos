@@ -23,7 +23,7 @@ test -f /usr/share/icons/hicolor/scalable/apps/dev.wolklaw.SparkArchive.svg
 grep -q '^Exec=spark-archive --extract-here %F$' \
   /usr/share/kio/servicemenus/dev.wolklaw.SparkArchive.extract.desktop
 
-report=$(/usr/bin/spark-archive --self-test)
+report=$(/usr/bin/spark-archive --self-test) || { echo "$report"; exit 1; }
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
 grep -q '^reads:      7z       with libarchive' <<<"$report"

@@ -356,6 +356,23 @@ class TestFormats(Base):
                 self.assertEqual(read(os.path.join(self.dest, 'notes.txt')), data)
                 os.unlink(os.path.join(self.dest, 'notes.txt'))
 
+    @unittest.skipUnless(HAS_LA, "libarchive is not installed")
+    def test_other_formats_through_libarchive(self):
+        """Kinds this app has no reader of its own for (here cpio) go to libarchive."""
+        if not shutil.which('cpio'):
+            self.skipTest("no cpio command to make one")
+        os.makedirs(self.path('c'))
+        with open(self.path('c/x.txt'), 'w') as f:
+            f.write('cpio')
+        arc = os.path.join(self.tmp, 'a.cpio')
+        with open(arc, 'wb') as out:
+            subprocess.run(['cpio', '-o', '-H', 'newc', '--quiet'], input=b'c\nc/x.txt\n',
+                           stdout=out, cwd=self.src, check=True)
+        self.assertEqual(formats.detect(arc), 'other')
+        res = self.extract(arc)
+        self.assertTrue(res.ok, res)
+        self.assertEqual(read(os.path.join(self.dest, 'c', 'x.txt')), b'cpio')
+
     def test_damaged(self):
         arc = os.path.join(self.tmp, 'cut.tar.gz')
         with tarfile.open(arc, 'w:gz') as tf:

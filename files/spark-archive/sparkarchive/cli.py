@@ -116,7 +116,7 @@ def _round_trip(seven: Optional[str]) -> List[str]:
             os.mkdir(out)
             got = ExtractJob(res.output, out, new_folder=True).run_here()
             ok = got.ok and _same(os.path.join(out, 'photos'), payload)
-            print(f"round trip: {fmt:8} {'ok' if ok else 'FAILED'} "
+            print(f"round trip: {fmt:8} {'ok' if ok else 'FAILED ' + _why(got, out)} "
                   f"({(time.monotonic() - started) * 1000:.0f} ms)")
             if not ok:
                 failures.append(f"round trip {fmt}")
@@ -129,18 +129,21 @@ def _round_trip(seven: Optional[str]) -> List[str]:
                     failures.append("libarchive read")
             os.unlink(res.output)
         if seven:
-            seven_path = os.path.join(tmp, 'p.7z')
-            proc = subprocess.run([seven, 'a', '-bd', '-y', '-snl', seven_path, 'photos'], cwd=tmp,
-                                  capture_output=True, start_new_session=True)
+            seven_path = os.path.join(tmp, 'photos.7z')
+            proc = subprocess.run([seven, 'a', '-bd', '-y', '-snl', seven_path, 'photos'],
+                                  cwd=tmp, capture_output=True, start_new_session=True)
             if proc.returncode == 0:
                 out = os.path.join(tmp, 'out-7z')
                 os.mkdir(out)
                 got = ExtractJob(seven_path, out, new_folder=True).run_here()
                 ok = got.ok and _same(os.path.join(out, 'photos'), payload)
-                print(f"round trip: 7z       {'ok' if ok else 'FAILED'} (made by 7z, read by "
-                      f"{'libarchive' if la.load() else '7z'})")
+                print(f"round trip: 7z       {'ok' if ok else 'FAILED ' + _why(got, out)} "
+                      f"(made by 7z, read by {'libarchive' if la.load() else '7z'})")
                 if not ok:
                     failures.append("7z")
+            else:
+                print(f"round trip: 7z       not tried (7z a failed: "
+                      f"{proc.stderr.decode('utf-8', 'replace').strip()[-200:]})")
         # a hostile zip must stay inside its folder
         evil = os.path.join(tmp, 'evil.zip')
         with zipfile.ZipFile(evil, 'w') as zf:
@@ -155,6 +158,17 @@ def _round_trip(seven: Optional[str]) -> List[str]:
         if not ok:
             failures.append("safety")
     return failures
+
+
+def _why(res, out: str) -> str:
+    found = []
+    for top, dirs, files in os.walk(out):
+        for name in dirs + files:
+            full = os.path.join(top, name)
+            found.append(os.path.relpath(full, out) + (' -> ' + os.readlink(full)
+                                                       if os.path.islink(full) else ''))
+    return (f"[{res.error or ''} {res.detail or ''} problems={res.problems} "
+            f"found={sorted(found)}]")
 
 
 def _same(folder: str, payload: bytes) -> bool:
