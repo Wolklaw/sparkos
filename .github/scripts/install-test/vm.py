@@ -302,17 +302,18 @@ def install(a):
         vm.ocr("live-session", keep=True)
         if prompt:
             result(a.work, "PASS", "Live session opens the desktop by itself", "no sign-in screen")
-        elif "password" in t:
+        else:
+            # Plasma Login's idle screen shows only a clock: a key shows the password box
             result(a.work, "FAIL", "Live session opens the desktop by itself",
-                   "stops at a sign-in screen for Live System User")
+                   "stops at the sign-in screen (Live System User)")
+            vm.keys("ret", delay=4)
+            vm.ocr("live-sign-in", keep=True)
             vm.keys("ret", delay=2)
             prompt, t = wait_prompt(120)
             vm.ocr("live-after-enter", keep=True)
             result(a.work, "PASS" if "password" not in t else "FAIL",
                    "Pressing Enter (empty password) signs in to the live desktop",
                    "desktop after Enter" if "password" not in t else "still at the sign-in screen")
-        else:
-            result(a.work, "FAIL", "Live session opens the desktop by itself", "no desktop and no sign-in screen read")
         result(a.work, "PASS" if prompt else "FAIL", "The SparkOS installer prompt appears on the live desktop",
                "Install SparkOS / Edit partitions / Close" if prompt else "not seen")
         vm.ser.send(start_cmd)

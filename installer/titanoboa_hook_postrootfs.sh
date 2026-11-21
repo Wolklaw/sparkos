@@ -137,16 +137,19 @@ qrencode -o "$SECUREBOOT_DOC_URL_QR" "$SECUREBOOT_DOC_URL"
     true # a service missing from this image is fine; never fail the build here
 )
 
-# Open the live desktop without a sign-in screen. livesys makes liveuser but only sets up
-# autologin for SDDM; SparkOS uses Plasma Login, which reads /etc/plasmalogin.conf.d/.
+# Open the live desktop without a sign-in screen. livesys makes liveuser, but it only turns
+# on autologin by editing a "#User=" line in /etc/plasmalogin.conf, and SparkOS's own
+# plasmalogin.conf has none, so the live session stopped at the sign-in screen.
 # This is the live image's /etc only: the installed system comes from the SparkOS image
 # and keeps its sign-in screen.
+if grep -q '^\[Autologin\]' /etc/plasmalogin.conf 2>/dev/null; then
+    echo "::warning::/etc/plasmalogin.conf already has an [Autologin] group; relying on plasmalogin.conf.d"
+else
+    printf '\n# Live installer only (installer/titanoboa_hook_postrootfs.sh)\n[Autologin]\nUser=liveuser\nSession=plasma\n' >>/etc/plasmalogin.conf
+fi
 mkdir -p /etc/plasmalogin.conf.d
-cat >/etc/plasmalogin.conf.d/zz-sparkos-live-autologin.conf <<'EOF'
-[Autologin]
-User=liveuser
-Session=plasma
-EOF
+printf '[Autologin]\nUser=liveuser\nSession=plasma\n' >/etc/plasmalogin.conf.d/zz-sparkos-live-autologin.conf
+cat /etc/plasmalogin.conf
 test -f /usr/share/wayland-sessions/plasma.desktop || { echo "plasma.desktop session not found"; exit 1; }
 
 rm -vf /etc/skel/.config/autostart/steam*.desktop
