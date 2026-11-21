@@ -93,8 +93,8 @@ the installer, dual boot and your devices are checked for the first time here (P
 
 ## If something goes wrong
 
-- **The PC starts straight into Windows:** use F8 and pick **"Bazzite"** (that is SparkOS's entry;
-  SparkOS is built on Bazzite), or set it first in the BIOS boot order (Del at the ASUS logo).
+- **The PC starts straight into Windows:** use F8 and pick **"SparkOS"** (installers built
+  before 21 November 10 AM named it "Bazzite"), or set it first in the BIOS boot order (Del at the ASUS logo).
 - **"bad shim signature" at startup:** the Secure Boot key wasn't enrolled; see step 8 of "Install".
 - **A bad update:** at startup, pick the previous version in SparkOS's boot menu. Updates never
   remove the version you had.

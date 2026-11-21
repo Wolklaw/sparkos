@@ -4,7 +4,7 @@ What to do after [install.md](install.md), in order. It takes about an hour, mos
 
 ## 1. Get the latest SparkOS (5 minutes)
 
-The installer was rebuilt on 21 November at 3 AM with every fix so far (Spark Media's one window,
+The installer was rebuilt on 21 November at 9 AM with every fix so far (Spark Media's one window,
 media keys and HEIC photos; Spark Archive's Windows-compatible password zips; FreeSuite opening from
 the menu). SparkOS also builds a new version every day, so check once:
 
