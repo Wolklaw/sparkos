@@ -17,7 +17,17 @@ sed -i \
   -e 's/^BOOTLOADER_NAME="Bazzite/BOOTLOADER_NAME="SparkOS/' \
   "$OS_RELEASE"
 
+# The firmware boot entry (F8 menu, BIOS boot order) is named by bootupd at install time from
+# the words before "release" in /etc/system-release, which Bazzite sets to "Bazzite release ...". Write
+# SparkOS's own file; if it was a link to another release file, only the link is replaced.
+sysrel=$(cat /etc/system-release)
+echo "--- /etc/system-release before: $sysrel"
+rm -f /etc/system-release
+sed -E 's/^(Bazzite|Fedora)( Linux)?/SparkOS/' <<<"$sysrel" >/etc/system-release
+echo "--- /etc/system-release after: $(cat /etc/system-release)"
+
 # Fail the build if the rename did not take, so a broken image never ships.
+grep -q '^SparkOS release' /etc/system-release
 grep -q '^NAME="SparkOS"$' "$OS_RELEASE"
 grep -q '^ID=bazzite$' "$OS_RELEASE"
 

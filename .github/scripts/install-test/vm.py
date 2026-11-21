@@ -429,6 +429,9 @@ def boot(a):
     al = c.get("autologin", "").strip()
     result(W, "PASS" if not al else "FAIL", "Installed system asks for a password (no autologin)",
            "no autologin user set" if not al else f"autologin: {al}")
+    be = c.get("boot_entry", "").strip()
+    result(W, "PASS" if be.startswith("SparkOS") else "FAIL", "Firmware boot entry is named SparkOS",
+           be or "BootCurrent not found")
     sb = c.get("sb", "")
     if a.sb:
         result(W, "PASS" if "enabled" in sb.lower() else "FAIL", "Booted with Secure Boot on", sb)
