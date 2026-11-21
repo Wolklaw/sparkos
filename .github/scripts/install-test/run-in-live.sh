@@ -56,6 +56,14 @@ HOME=$(bash -c "cd ~$luser && pwd")
 export HOME XDG_CONFIG_HOME="$HOME/.config"
 env | grep -E '^(DBUS_SESSION|WAYLAND|DISPLAY|XDG_RUNTIME|HOME)' || true
 setenforce 0
+# Test-only change to the live system (RAM overlay, not the ISO): Anaconda ignores
+# --kickstart in live mode by design (startup_utils.find_kickstart), where the WebUI asks the
+# questions instead. Let it read ours, so the install runs unattended while staying a live
+# install (same storage, payload and boot loader code as the WebUI's).
+su=$(python3 -c 'import pyanaconda.startup_utils as m; print(m.__file__)')
+sed -i 's/if options.ksfile and not options.liveinst:/if options.ksfile:  # install test/' "$su"
+grep -n "if options.ksfile:  # install test" "$su" || { echo "KSTEST-RESULT rc=96 (could not let Anaconda read the kickstart)"; exit 96; }
+rm -rf "$(dirname "$su")/__pycache__/startup_utils"*
 args=(--liveinst --cmdline --kickstart "$W/ks-final.cfg")
 sestatus | grep -q enabled || args+=(--noselinux)
 anaconda-cleanup anaconda "${args[@]}"
