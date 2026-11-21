@@ -272,7 +272,7 @@ def install(a):
     vm.ocr("grub-commands", keep=True)
     vm.type("boot\n")
     # Wait for the root shell, then start the install from the KSTEST disk
-    start_cmd = "mkdir -p /run/kst; until mount -L KSTEST /run/kst; do sleep 2; done; bash /run/kst/run-in-live.sh\n"
+    start_cmd = "mkdir -p /run/kst; until mount -L KSTEST /run/kst; do sleep 2; done; cp /run/kst/run-in-live.sh /tmp/; bash /tmp/run-in-live.sh\n"
     deadline = time.time() + 420
     shell = False
     while time.time() < deadline and vm.alive():

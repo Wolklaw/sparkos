@@ -38,6 +38,17 @@ for i in raid0 raid1 raid5 raid6 raid456 raid10 dm-mod dm-zero dm-mirror dm-snap
     modprobe $i 2>/dev/null
 done
 export PATH=/sbin:/usr/sbin:$PATH
+# liveinst runs Anaconda (through pkexec) with the desktop user's session environment;
+# Anaconda needs that session bus (it inhibits the screensaver first)
+luser=$(loginctl list-sessions --no-legend | awk '$3!="root" && $3!=""{print $3; exit}')
+luser=${luser:-liveuser}
+uid=$(id -u "$luser")
+for _ in $(seq 1 150); do [ -S "/run/user/$uid/bus" ] && break; sleep 2; done
+readarray -t user_environment < <(runuser -u "$luser" -- env XDG_RUNTIME_DIR="/run/user/$uid" systemctl --user show-environment)
+for variable in "${user_environment[@]}"; do export "${variable?}"; done
+HOME=$(bash -c "cd ~$luser && pwd")
+export HOME XDG_CONFIG_HOME="$HOME/.config"
+env | grep -E '^(DBUS_SESSION|WAYLAND|DISPLAY|XDG_RUNTIME|HOME)' || true
 setenforce 0
 args=(--liveinst --cmdline --kickstart "$W/ks-final.cfg")
 sestatus | grep -q enabled || args+=(--noselinux)
