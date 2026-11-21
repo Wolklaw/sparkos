@@ -1,7 +1,8 @@
 name: installer-iso
 # Builds the SparkOS installer (live ISO), boots it once in a VM,
-# and publishes it to the "installer" release in parts under 2 GiB (GitHub's limit per
-# release file), with a join script for Windows and Linux.
+# and uploads it to the "installer" release in parts under 2 GiB (GitHub's limit per
+# release file), with a join script for Windows and Linux. The release is a draft (not
+# public) until the owner publishes it by hand; this workflow never publishes it.
 # Adapted from Bazzite's build_iso.yml (github.com/ublue-os/bazzite, Apache-2.0).
 on:
   workflow_dispatch:
@@ -162,7 +163,7 @@ jobs:
             fi
           } > notes.md
           gh release view installer >/dev/null 2>&1 || \
-            gh release create installer --target main --title "SparkOS installer" --notes "Building..." --latest=false
+            gh release create installer --draft --target main --title "SparkOS installer" --notes "Building..." --latest=false
           gh release upload installer "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS --clobber
           gh release edit installer --notes-file notes.md --title "SparkOS installer ($(date -u +%Y-%m-%d))"
           # Remove parts left over from an older, larger ISO

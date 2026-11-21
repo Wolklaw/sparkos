@@ -25,9 +25,9 @@ the installer, dual boot and your devices are checked for the first time here (P
 
 ## Make the USB stick (16 GB or larger, it gets erased)
 
-1. Download **every file** from the
-   [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer) into one folder
-   (the parts exist because GitHub limits each file to 2 GB).
+1. Download **every file** of the `installer` release into one folder (the parts exist because
+   GitHub limits each file to 2 GB). It is a draft, not public: signed in to GitHub, it shows on the
+   repository's Releases page, or run `gh release download installer -R Wolklaw/sparkos -D <folder>`.
 2. Double-click **`join-iso.cmd`**. It joins the parts into `SparkOS-installer.iso` and checks it.
    It must say "OK".
 3. Write the ISO with **Fedora Media Writer** ("Select .iso file") or **Rufus** (choose
