@@ -53,6 +53,14 @@ settings, 7 MB) and `Interface` (addons, about 930 MB). Copy them and nothing ne
 
 The Windows copy of WoW stays on E: untouched, so Windows still has it too.
 
+**Faster, to skip the big download (not tried yet on SparkOS):** in step 1, install only
+Battle.net, not WoW. Copy the whole `E:\Battle.Net\World of Warcraft` folder (from Dolphin, as in
+step 3) into `~/Games/battlenet/drive_c/Program Files (x86)/`. It's a copy on the same disk, so
+minutes instead of a download. Then in Battle.net, on World of Warcraft's page, click **Locate the
+game** (under the Install button) and pick that folder. Battle.net checks the files, updates what
+it needs, and your `WTF` and `Interface` come along. If Battle.net still wants a full download,
+use steps 1 to 5 instead.
+
 ## 5. Day-one checks (things only your hardware can tell)
 
 Note anything that doesn't work and it gets fixed in an update.
