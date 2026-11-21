@@ -50,6 +50,8 @@ uid=$(id -u "$luser")
 for _ in $(seq 1 150); do [ -S "/run/user/$uid/bus" ] && break; sleep 2; done
 readarray -t user_environment < <(runuser -u "$luser" -- env XDG_RUNTIME_DIR="/run/user/$uid" systemctl --user show-environment)
 for variable in "${user_environment[@]}"; do export "${variable?}"; done
+# pkexec sets this; Anaconda uses it to talk to the user's session bus as that user
+export PKEXEC_UID=$uid
 HOME=$(bash -c "cd ~$luser && pwd")
 export HOME XDG_CONFIG_HOME="$HOME/.config"
 env | grep -E '^(DBUS_SESSION|WAYLAND|DISPLAY|XDG_RUNTIME|HOME)' || true
