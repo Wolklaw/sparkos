@@ -87,6 +87,7 @@ jobs:
           ls -l /usr/share/OVMF/
 
       - name: Download the installer ISO
+        timeout-minutes: 60
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -94,12 +95,13 @@ jobs:
           # Same steps as a person: download every file, run join-iso.sh (joins, checks SHA-256)
           for attempt in 1 2 3 4 5 6; do
             rm -f ./*
-            if gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" &&
+            # A file replaced mid-download can stall the transfer: give each try 12 minutes
+            if timeout 720 gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" &&
                sha256sum -c --ignore-missing SHA256SUMS && sh join-iso.sh; then
               break
             fi
             echo "::warning::download or check failed (attempt $attempt); the release may be being replaced"
-            sleep 120
+            sleep 60
           done
           test -s SparkOS-installer.iso
           rm -f SparkOS-installer.iso.part*
