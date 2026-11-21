@@ -16,9 +16,18 @@ nothing to do. If it downloads a new version, wait until it says it's ready, the
 It opens by itself at the first sign-in (later: menu > Spark Welcome).
 
 - **Apps:** tick the launchers you use. For World of Warcraft that's **Lutris** (Battle.net runs through it).
-- **Files from Windows:** pick your Windows drive and the folders to copy (Desktop, Documents, Pictures...).
-  It only reads the Windows drive, never writes to it. If it says the drive is hibernated, Fast Startup
-  was still on: start Windows, turn it off (install.md, "Before", step 3), shut down, and try again.
+- **Files from Windows:** do this after step 1's update and restart. On your PC, Windows keeps
+  Desktop, Documents and Pictures in OneDrive (`C:\Users\Rock_\OneDrive\...`, Documents is
+  "Documentos") and Videos and Downloads on D:. The installer's Spark Welcome only looks in
+  `C:\Users\Rock_\Documents` and the like, which are empty, so it would find nothing. The update
+  (21 November, afternoon) reads where Windows really keeps each folder. If Spark Welcome opened by
+  itself before you updated, skip this part and open it again from the menu after the restart.
+
+  Pick the Windows drive (C:, about 930 GB), then the folders. Each one shows its Windows path, so
+  check it says OneDrive. Downloads is unticked at first (D: is your scrap drive). It opens drives
+  read-only and never writes to them; it may ask for your password, once for C: and once for D:.
+  If it says the drive is hibernated, Fast Startup was still on: start Windows, turn it off
+  (install.md, "Before", step 3), shut down, and try again.
 - **Checks:** graphics, sound, printer and network. Anything it flags, note it for the day-one list below.
 
 ## 3. FreeSuite

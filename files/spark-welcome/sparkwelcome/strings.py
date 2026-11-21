@@ -126,6 +126,9 @@ EN: Dict[str, str] = {
     'win.planning': "WORKING OUT WHAT TO COPY…",
     'win.copying': "COPYING {name}  ·  {done} OF {total}",
     'win.copy_failed': "The copy stopped: {error}",
+    'win.no_space': "Nothing was copied: the ticked folders need {need} and SparkOS's disk "
+                    "has {free} free (2 GB stays free so the system keeps working). Untick "
+                    "the biggest folder and try again.",
     'win.done': "Copy finished",
     'win.done.cancelled': "Copy stopped",
     'win.done.copied': "Copied {n} files ({size}).",
@@ -362,6 +365,9 @@ FR: Dict[str, str] = {
     'win.planning': "PRÉPARATION DE LA COPIE…",
     'win.copying': "COPIE DE {name}  ·  {done} SUR {total}",
     'win.copy_failed': "La copie s'est arrêtée : {error}",
+    'win.no_space': "Rien n'a été copié : les dossiers cochés demandent {need} et le disque "
+                    "de SparkOS a {free} de libre (2 Go restent libres pour que le système "
+                    "fonctionne). Décochez le plus gros dossier et réessayez.",
     'win.done': "Copie terminée",
     'win.done.cancelled': "Copie arrêtée",
     'win.done.copied': "{n} fichiers copiés ({size}).",
