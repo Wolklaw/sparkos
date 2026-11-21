@@ -20,13 +20,18 @@ on:
       release:
         description: Release to take the ISO from
         default: installer
+      iso_run:
+        description: Or an installer-iso run ID whose installer-iso artifact to test
+        default: ""
   workflow_run:
     workflows: [installer-iso]
     types: [completed]
   push:
     paths:
       - .github/workflows/installer-install-test.yml
+      - .github/workflows/installer-iso.yml
       - .github/scripts/install-test/**
+      - installer/**
 
 permissions:
   # Reading a draft release needs push access. This workflow only downloads; it never
@@ -35,7 +40,7 @@ permissions:
 
 concurrency:
   group: installer-install-test-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   install:
@@ -92,13 +97,23 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p "$W/iso" && cd "$W/iso"
-          # Same steps as a person: download every file, run join-iso.sh (joins, checks SHA-256)
+          # Which ISO: an installer-iso run's artifact (asked for, the run that triggered this,
+          # or the newest successful build of this branch when it isn't main), else the release
+          has_iso() { [ -n "$1" ] && gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/artifacts" --jq '.artifacts[] | select(.name=="installer-iso" and .expired==false) | .id' | grep -q .; }
+          run="${{ inputs.iso_run }}"
+          [ -z "$run" ] && [ "$GITHUB_EVENT_NAME" = workflow_run ] && run="${{ github.event.workflow_run.id }}"
+          if [ -z "$run" ] && [ "$GITHUB_REF_NAME" != main ]; then
+            run=$(gh run list -R "$GITHUB_REPOSITORY" -w installer-iso -b "$GITHUB_REF_NAME" -s success -L 1 --json databaseId --jq '.[0].databaseId // empty')
+          fi
+          has_iso "$run" || run=""
+          # Same steps as a person: download every file, check them, run join-iso.sh
           for attempt in 1 2 3 4 5 6; do
             rm -f ./*
             # A file replaced mid-download can stall the transfer: give each try 12 minutes
-            if timeout 720 gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" &&
-               sha256sum -c --ignore-missing SHA256SUMS; then
-              break
+            if [ -n "$run" ]; then
+              timeout 720 gh run download "$run" -R "$GITHUB_REPOSITORY" -n installer-iso -D . && sha256sum -c --ignore-missing SHA256SUMS && break
+            else
+              timeout 720 gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" && sha256sum -c --ignore-missing SHA256SUMS && break
             fi
             echo "::warning::download or check failed (attempt $attempt); the release may be being replaced"
             sleep 60
@@ -117,10 +132,17 @@ jobs:
           grep -q "$sha" join-iso.cmd && printf 'PASS\tjoin-iso.cmd checks the same SHA-256\t%s\n' "${sha:0:16}..." >>"$W/results.tsv"
           test -s SparkOS-installer.iso
           rm -f SparkOS-installer.iso.part*
-          gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json body --jq .body | tee "$W/release-notes.md"
-          grep -oE 'sha256:[0-9a-f]{64}' "$W/release-notes.md" | head -1 >"$W/expected-digest" || true
+          if [ -n "$run" ]; then
+            echo "From installer-iso run $run" | tee "$W/release-notes.md"
+            grep -oE 'sha256:[0-9a-f]{64}' image-digest.txt | head -1 >"$W/expected-digest" || true
+            name="installer-iso run $run ($(gh run view "$run" -R "$GITHUB_REPOSITORY" --json headBranch,createdAt --jq '.headBranch + ", " + .createdAt'))"
+          else
+            gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json body --jq .body | tee "$W/release-notes.md"
+            grep -oE 'sha256:[0-9a-f]{64}' "$W/release-notes.md" | head -1 >"$W/expected-digest" || true
+            name="release: $(gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json name --jq .name)"
+          fi
           echo "ISO=$W/iso/SparkOS-installer.iso" >>"$GITHUB_ENV"
-          printf 'INFO\tInstaller ISO\t%s\n' "$(gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json name --jq .name), sha256 $(sha256sum SparkOS-installer.iso | cut -c1-16)..., image $(cut -c1-19 "$W/expected-digest")..." >>"$W/results.tsv"
+          printf 'INFO\tInstaller ISO\t%s\n' "$name, sha256 $(sha256sum SparkOS-installer.iso | cut -c1-16)..., image $(cut -c1-19 "$W/expected-digest")..." >>"$W/results.tsv"
           ls -l
 
       - name: Look inside the ISO

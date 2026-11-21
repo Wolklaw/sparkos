@@ -289,20 +289,32 @@ def install(a):
     else:
         # What a person sees on the live system: the desktop with the installer prompt, or a
         # sign-in screen (livesys sets up autologin for SDDM; SparkOS uses Plasma Login)
-        time.sleep(45)
-        t = vm.ocr("live-session", keep=True)
-        if "password" in t.lower():
+        def wait_prompt(secs):
+            t, end = "", time.time() + secs
+            while time.time() < end:
+                t = vm.norm(vm.ocr())
+                if "sparkosinstaller" in t or "installsparkos" in t:
+                    return True, t
+                time.sleep(4)
+            return False, t
+
+        prompt, t = wait_prompt(150)
+        vm.ocr("live-session", keep=True)
+        if prompt:
+            result(a.work, "PASS", "Live session opens the desktop by itself", "no sign-in screen")
+        elif "password" in t:
             result(a.work, "FAIL", "Live session opens the desktop by itself",
                    "stops at a sign-in screen for Live System User")
-            vm.keys("ret", delay=25)
-            t2 = vm.ocr("live-after-enter", keep=True)
-            ok = "password" not in t2.lower()
-            result(a.work, "PASS" if ok else "FAIL", "Pressing Enter (empty password) signs in to the live desktop",
-                   "desktop after Enter" if ok else "still at the sign-in screen")
-            time.sleep(20)
-            vm.ocr("live-desktop", keep=True)
+            vm.keys("ret", delay=2)
+            prompt, t = wait_prompt(120)
+            vm.ocr("live-after-enter", keep=True)
+            result(a.work, "PASS" if "password" not in t else "FAIL",
+                   "Pressing Enter (empty password) signs in to the live desktop",
+                   "desktop after Enter" if "password" not in t else "still at the sign-in screen")
         else:
-            result(a.work, "PASS", "Live session opens the desktop by itself", "no sign-in screen")
+            result(a.work, "FAIL", "Live session opens the desktop by itself", "no desktop and no sign-in screen read")
+        result(a.work, "PASS" if prompt else "FAIL", "The SparkOS installer prompt appears on the live desktop",
+               "Install SparkOS / Edit partitions / Close" if prompt else "not seen")
         vm.ser.send(start_cmd)
     last = time.time()
     deadline = time.time() + a.timeout * 60
@@ -407,6 +419,9 @@ def boot(a):
     words = [w for w in ("sparktest", "spark test", "password", "log in", "login") if w in signin.lower()]
     result(W, "PASS" if dm.startswith("active") else "FAIL", "Sign-in screen is up",
            f"display-manager {dm}; on screen: {', '.join(words) or 'see screenshot'}")
+    al = c.get("autologin", "").strip()
+    result(W, "PASS" if not al else "FAIL", "Installed system asks for a password (no autologin)",
+           "no autologin user set" if not al else f"autologin: {al}")
     sb = c.get("sb", "")
     if a.sb:
         result(W, "PASS" if "enabled" in sb.lower() else "FAIL", "Booted with Secure Boot on", sb)

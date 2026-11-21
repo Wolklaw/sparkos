@@ -137,6 +137,18 @@ qrencode -o "$SECUREBOOT_DOC_URL_QR" "$SECUREBOOT_DOC_URL"
     true # a service missing from this image is fine; never fail the build here
 )
 
+# Open the live desktop without a sign-in screen. livesys makes liveuser but only sets up
+# autologin for SDDM; SparkOS uses Plasma Login, which reads /etc/plasmalogin.conf.d/.
+# This is the live image's /etc only: the installed system comes from the SparkOS image
+# and keeps its sign-in screen.
+mkdir -p /etc/plasmalogin.conf.d
+cat >/etc/plasmalogin.conf.d/zz-sparkos-live-autologin.conf <<'EOF'
+[Autologin]
+User=liveuser
+Session=plasma
+EOF
+test -f /usr/share/wayland-sessions/plasma.desktop || { echo "plasma.desktop session not found"; exit 1; }
+
 rm -vf /etc/skel/.config/autostart/steam*.desktop
 dnf -yq remove steam lutris bazaar waydroid || :
 rm -vf /etc/profile.d/verify_motd.sh
