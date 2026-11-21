@@ -1,0 +1,184 @@
+name: installer-install-test
+# Installs SparkOS from the installer ISO next to Windows-style partitions, in a VM, and
+# checks that nothing that was on the disks changed and that the installed system boots.
+#
+# The ISO is the one in the draft "installer" release (built by installer-iso.yml), joined
+# and checked with its own join-iso.sh, then booted from a USB stick in QEMU with UEFI.
+# GRUB gets one test-only kernel argument (a root shell on the serial port); from there
+# Anaconda runs in command-line mode with a kickstart that starts from the ISO's own
+# interactive-defaults.ks (the WebUI's defaults: same scripts, same payload) and answers
+# "Use free space" on one disk. Then the disks boot without the ISO, the Secure Boot key
+# is enrolled in MokManager with the installer's password, and the system reports itself.
+#
+# Layouts (see .github/scripts/install-test/disks.sh):
+#   shared-esp             one disk: Windows EFI partition + NTFS (half the disk) + free space
+#   two-disks              the owner's PC: a Windows disk, and a data disk with NTFS + free space
+#   two-disks-secure-boot  the same with Secure Boot on (Microsoft keys, like a Windows 11 PC)
+on:
+  workflow_dispatch:
+    inputs:
+      release:
+        description: Release to take the ISO from
+        default: installer
+  workflow_run:
+    workflows: [installer-iso]
+    types: [completed]
+  push:
+    paths:
+      - .github/workflows/installer-install-test.yml
+      - .github/scripts/install-test/**
+
+permissions:
+  # Reading a draft release needs push access. This workflow only downloads; it never
+  # creates, edits, publishes or deletes a release or its files.
+  contents: write
+
+concurrency:
+  group: installer-install-test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  install:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    name: install (${{ matrix.leg }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 200
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { leg: shared-esp, layout: shared-esp, sb: false }
+          - { leg: two-disks, layout: two-disks, sb: false }
+          - { leg: two-disks-secure-boot, layout: two-disks, sb: true }
+    env:
+      RELEASE: ${{ inputs.release || 'installer' }}
+      LAYOUT: ${{ matrix.layout }}
+      SB: ${{ matrix.sb && '--sb' || '' }}
+      T: .github/scripts/install-test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pick a work disk
+        id: disk
+        run: |
+          df -h / /mnt || true
+          free_root=$(df --output=avail -BG / | tail -1 | tr -dc 0-9)
+          free_mnt=$(df --output=avail -BG /mnt 2>/dev/null | tail -1 | tr -dc 0-9 || echo 0)
+          if [ "${free_mnt:-0}" -ge 50 ]; then W=/mnt/kst; else W=$HOME/kst; fi
+          sudo mkdir -p "$W" && sudo chown "$USER" "$W"
+          echo "W=$W" >>"$GITHUB_ENV"
+          big=$([ "${free_mnt:-0}" -ge 50 ] || [ "$free_root" -ge 50 ] && echo yes || echo no)
+          echo "big=$big" >>"$GITHUB_OUTPUT"
+
+      - name: Free disk space
+        if: steps.disk.outputs.big != 'yes'
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+
+      - name: Enable KVM and install the tools
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils ovmf tesseract-ocr python3-pil \
+            gdisk ntfs-3g dosfstools mtools xorriso jq >/dev/null
+          qemu-system-x86_64 --version | head -1
+          ls -l /usr/share/OVMF/
+
+      - name: Download the installer ISO
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p "$W/iso" && cd "$W/iso"
+          # Same steps as a person: download every file, run join-iso.sh (joins, checks SHA-256)
+          for attempt in 1 2 3 4 5 6; do
+            rm -f ./*
+            if gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" &&
+               sha256sum -c --ignore-missing SHA256SUMS && sh join-iso.sh; then
+              break
+            fi
+            echo "::warning::download or check failed (attempt $attempt); the release may be being replaced"
+            sleep 120
+          done
+          test -s SparkOS-installer.iso
+          rm -f SparkOS-installer.iso.part*
+          gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json body --jq .body | tee "$W/release-notes.md"
+          grep -oE 'sha256:[0-9a-f]{64}' "$W/release-notes.md" | head -1 >"$W/expected-digest" || true
+          echo "ISO=$W/iso/SparkOS-installer.iso" >>"$GITHUB_ENV"
+          printf 'INFO\tInstaller ISO\t%s\n' "$(gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json name --jq .name), sha256 $(sha256sum SparkOS-installer.iso | cut -c1-16)..., image $(cut -c1-19 "$W/expected-digest")..." >>"$W/results.tsv"
+          ls -l
+
+      - name: Look inside the ISO
+        run: |
+          sudo sfdisk -l "$ISO" || true
+          xorriso -indev "$ISO" -find / -maxdepth 3 -name '*.cfg' 2>/dev/null || true
+          for f in /EFI/BOOT/grub.cfg /boot/grub2/grub.cfg; do
+            out="$W/iso${f//\//_}"
+            xorriso -osirrox on -indev "$ISO" -extract "$f" "$out" 2>/dev/null && { echo "=== $f"; cat "$out"; } || true
+          done
+
+      - name: Make the Windows-style disks
+        run: |
+          chmod +x "$T/disks.sh"
+          "$T/disks.sh" prepare "$LAYOUT" "$W"
+          # The disk the installer reads its instructions from (test only)
+          truncate -s 512M "$W/kstest.img"
+          mkfs.vfat -n KSTEST "$W/kstest.img" >/dev/null
+          mcopy -i "$W/kstest.img" "$T/ks.cfg" "$T/run-in-live.sh" ::/
+          if [ -n "$SB" ]; then cp /usr/share/OVMF/OVMF_VARS_4M.ms.fd "$W/vars.fd"; else cp /usr/share/OVMF/OVMF_VARS_4M.fd "$W/vars.fd"; fi
+
+      - name: Install SparkOS from the ISO
+        run: /usr/bin/python3 "$T/vm.py" install --work "$W" --layout "$LAYOUT" --iso "$ISO" $SB --timeout 120
+
+      - name: Collect the installer logs
+        if: always()
+        run: |
+          mkdir -p "$W/install-logs"
+          mcopy -s -n -i "$W/kstest.img" ::/out/* "$W/install-logs/" 2>/dev/null || echo "no installer logs on the KSTEST disk"
+          ls -la "$W/install-logs" || true
+          grep -E "KSTEST-STAGE|KSTEST-RESULT" "$W/serial-install.log" | tr -d '\r' || true
+          tail -40 "$W/install-logs/anaconda.log" 2>/dev/null || true
+
+      - name: Boot the installed disk without the ISO
+        run: |
+          /usr/bin/python3 "$T/vm.py" boot --work "$W" --layout "$LAYOUT" $SB \
+            --expect-digest "$(cat "$W/expected-digest" 2>/dev/null)"
+          cat "$W/installed-check.txt" | tr -d '\r' || true
+
+      - name: Check nothing that was on the disks changed
+        if: always()
+        run: |
+          [ -f "$W/disk-before/data-table.txt" ] || exit 0
+          "$T/disks.sh" verify "$LAYOUT" "$W"
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### SparkOS install test: ${{ matrix.leg }}"
+            echo
+            echo "| Result | Check | Detail |"
+            echo "|---|---|---|"
+            awk -F'\t' '{ gsub(/\|/, "/", $3); printf "| %s | %s | %s |\n", $1, $2, $3 }' "$W/results.tsv"
+            echo
+            echo "Screenshots and logs: artifact \`install-test-${{ matrix.leg }}\`."
+          } | tee -a "$GITHUB_STEP_SUMMARY"
+          ! grep -q '^FAIL' "$W/results.tsv"
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-test-${{ matrix.leg }}
+          path: |
+            ${{ env.W }}/shots/
+            ${{ env.W }}/serial-*.log
+            ${{ env.W }}/install-logs/
+            ${{ env.W }}/disk-before/
+            ${{ env.W }}/disk-after/
+            ${{ env.W }}/installed-check.txt
+            ${{ env.W }}/results.tsv
+            ${{ env.W }}/release-notes.md
+            ${{ env.W }}/iso_*.cfg
+          retention-days: 14
