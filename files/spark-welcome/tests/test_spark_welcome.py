@@ -19,6 +19,7 @@ import tempfile
 import threading
 import time
 import unittest
+from typing import Optional
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -72,6 +73,58 @@ def touch(path: str, data: bytes = b'x') -> str:
 def read(path: str) -> bytes:
     with open(path, 'rb') as f:
         return f.read()
+
+
+def text_value(text: str):
+    return (windows.REG_EXPAND_SZ, (text + '\0').encode('utf-16-le'))
+
+
+def uuid_bytes(guid: str) -> bytes:
+    import uuid
+    return uuid.UUID(guid).bytes_le
+
+
+def make_hive(path: str, key_path: str, values) -> None:
+    """A Windows registry file holding one key (key_path, under a root key) with values
+    {name: (type, data)}, in the same layout Windows writes."""
+    import struct
+    cells = bytearray(b'hbin' + b'\0' * 28)
+
+    def add(data: bytes) -> int:
+        offset, size = len(cells), len(data) + 4
+        size += (-size) % 8
+        cells.extend(struct.pack('<i', -size) + data + b'\0' * (size - 4 - len(data)))
+        return offset
+
+    def nk(name: str, subkeys: Optional[int], value_list: Optional[int], n_values: int) -> int:
+        raw = bytearray(0x4C)
+        raw[0:2] = b'nk'
+        struct.pack_into('<H', raw, 2, 0x20)
+        struct.pack_into('<I', raw, 0x14, 1 if subkeys is not None else 0)
+        struct.pack_into('<I', raw, 0x1C, subkeys if subkeys is not None else 0xFFFFFFFF)
+        struct.pack_into('<I', raw, 0x24, n_values)
+        struct.pack_into('<I', raw, 0x28, value_list if value_list is not None else 0xFFFFFFFF)
+        struct.pack_into('<H', raw, 0x48, len(name))
+        return add(bytes(raw) + name.encode('latin-1'))
+
+    offsets = []
+    for name, (vtype, data) in values.items():
+        data_cell = add(data)
+        offsets.append(add(b'vk' + struct.pack('<HIIIHH', len(name), len(data), data_cell,
+                                               vtype, 1, 0) + name.encode('latin-1')))
+    value_list = add(b''.join(struct.pack('<I', o) for o in offsets))
+    parts = key_path.split('\\')
+    child = nk(parts[-1], None, value_list, len(offsets))
+    for name in reversed(['ROOT'] + parts[:-1]):
+        sig = b'li' if len(name) % 2 else b'lh'       # both list kinds Windows uses
+        entry = struct.pack('<I', child) + (b'' if sig == b'li' else b'\0' * 4)
+        child = nk(name, add(sig + struct.pack('<H', 1) + entry), None, 0)
+    header = bytearray(0x1000)
+    header[0:4] = b'regf'
+    struct.pack_into('<I', header, 0x24, child)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'wb') as f:
+        f.write(bytes(header) + bytes(cells))
 
 
 def try_symlink(target: str, link: str) -> bool:
@@ -254,6 +307,100 @@ class WindowsTests(unittest.TestCase):
         self.assertEqual(windows.measure(ann.folders[0].path), (5, 1))
         self.assertEqual(windows.measure(ann.folders[1].path), (8, 1))
         self.assertEqual(windows.find_users(os.path.join(self.dir, 'nothing')), [])
+
+    def test_registry_reader(self):
+        values = {'Personal': text_value(r'%USERPROFILE%\OneDrive\Documentos'),
+                  'My Video': text_value('D:\\Videos')}
+        path = os.path.join(self.dir, 'NTUSER.DAT')
+        make_hive(path, windows.SHELL_FOLDERS_KEY, values)
+        hive = windows.read_hive(path)
+        self.assertEqual(windows.reg_text(hive.values(windows.SHELL_FOLDERS_KEY)['personal']),
+                         r'%USERPROFILE%\OneDrive\Documentos')
+        self.assertEqual(hive.values(r'Software\Nothing'), {})
+        self.assertIsNone(windows.read_hive(touch(os.path.join(self.dir, 'junk'), b'x' * 5000)))
+        self.assertIsNone(windows.read_hive(os.path.join(self.dir, 'missing')))
+
+    def _redirected_tree(self):
+        """The layout Windows 11 often has: Desktop, Documents and Pictures in OneDrive (with
+        Spanish names), Videos and Downloads on drive D:, the account's own folders empty."""
+        root = os.path.join(self.dir, 'c')
+        profile = os.path.join(root, 'Users', 'Rock_')
+        touch(os.path.join(profile, 'OneDrive', 'Desktop', 'notes.txt'), b'desk')
+        touch(os.path.join(profile, 'OneDrive', 'Documentos', 'cv.pdf'), b'pdf')
+        touch(os.path.join(profile, 'OneDrive', 'Pictures', 'cat.jpg'), b'jpg')
+        os.makedirs(os.path.join(profile, 'Documents'))
+        os.makedirs(os.path.join(profile, 'Music'))
+        d = os.path.join(self.dir, 'd')
+        touch(os.path.join(d, 'Videos', 'clip.mp4'), b'vid')
+        touch(os.path.join(d, 'Downloads', 'setup.exe'), b'MZ')
+        return root, profile, d
+
+    def test_folders_where_windows_keeps_them(self):
+        root, profile, d = self._redirected_tree()
+        make_hive(os.path.join(profile, 'NTUSER.DAT'), windows.SHELL_FOLDERS_KEY, {
+            'Desktop': text_value(r'%USERPROFILE%\OneDrive\Desktop'),
+            'Personal': text_value(r'C:\Users\Rock_\OneDrive\Documentos'),
+            'My Pictures': text_value(r'%USERPROFILE%\OneDrive\Pictures'),
+            'My Video': text_value('D:\\Videos'),
+            'My Music': text_value(r'%USERPROFILE%\Music'),
+            '{374DE290-123F-4565-9164-39C4925E467B}': text_value('d:\\downloads'),
+        })
+        c_guid, d_guid = '38c2cadb-0c51-4f5b-b136-fc35b957fd52', '3deaedc9-42ae-457d-bd5b-55e513f546d0'
+        make_hive(os.path.join(root, 'Windows', 'System32', 'config', 'SYSTEM'), 'MountedDevices', {
+            '\\DosDevices\\C:': (3, b'DMIO:ID:' + uuid_bytes(c_guid)),
+            '\\DosDevices\\D:': (3, b'DMIO:ID:' + uuid_bytes(d_guid)),
+            '\\DosDevices\\G:': (3, b'\x12\x34\x56\x78' + b'\0' * 8),     # an MBR disk
+        })
+        c = windows.Partition('nvme1n1p3', '/dev/nvme1n1p3', 'ntfs', '', root, 1, c_guid)
+        dpart = windows.Partition('nvme0n1p2', '/dev/nvme0n1p2', 'ntfs', 'Scrap', d, 1, d_guid)
+        self.assertEqual(windows.drive_letters(root), {'C': c_guid, 'D': d_guid})
+        [user] = windows.find_users(root, c, [c, dpart])
+        got = {f.key: (os.path.relpath(f.path, self.dir), f.where) for f in user.folders}
+        self.assertEqual(got, {
+            'Desktop': (os.path.join('c', 'Users', 'Rock_', 'OneDrive', 'Desktop'),
+                        r'C:\Users\Rock_\OneDrive\Desktop'),
+            'Documents': (os.path.join('c', 'Users', 'Rock_', 'OneDrive', 'Documentos'),
+                          r'C:\Users\Rock_\OneDrive\Documentos'),
+            'Pictures': (os.path.join('c', 'Users', 'Rock_', 'OneDrive', 'Pictures'),
+                         r'C:\Users\Rock_\OneDrive\Pictures'),
+            'Videos': (os.path.join('d', 'Videos'), 'D:\\Videos'),
+            'Downloads': (os.path.join('d', 'Downloads'), 'd:\\downloads'),
+        })
+        # A drive that isn't there (or won't open) just leaves its folders out.
+        [user] = windows.find_users(root, c, [c])
+        self.assertEqual([f.key for f in user.folders], ['Desktop', 'Documents', 'Pictures'])
+
+    def test_onedrive_without_the_registry_file(self):
+        root, _profile, _d = self._redirected_tree()
+        [user] = windows.find_users(root)
+        self.assertEqual({f.key: f.where for f in user.folders}, {
+            'Desktop': r'C:\Users\Rock_\OneDrive\Desktop',
+            'Documents': r'C:\Users\Rock_\OneDrive\Documentos',
+            'Pictures': r'C:\Users\Rock_\OneDrive\Pictures',
+        })
+
+    def test_not_enough_space(self):
+        src = os.path.join(self.dir, 'src')
+        touch(os.path.join(src, 'big.bin'), b'0123456789')
+        plan = windows.plan_copy(src, os.path.join(self.dir, 'dst'))
+        with mock.patch.object(windows, 'free_space', return_value=windows.RESERVE + 5):
+            self.assertEqual(windows.check_space(plan, self.dir), (10, windows.RESERVE + 5))
+        with mock.patch.object(windows, 'free_space', return_value=windows.RESERVE + 10):
+            self.assertIsNone(windows.check_space(plan, self.dir))
+        self.assertIsNotNone(windows.free_space(os.path.join(self.dir, 'not', 'made', 'yet')))
+
+    def test_copy_never_touches_a_users_part_file(self):
+        src, dst = os.path.join(self.dir, 'src'), os.path.join(self.dir, 'dst')
+        touch(os.path.join(src, 'movie.mkv'), b'new')
+        plan = windows.plan_copy(src, dst)
+        touch(os.path.join(dst, 'movie.mkv.part'), b'mine')
+        summary = windows.copy_plan(plan)
+        self.assertEqual(summary.copied, 1)
+        with open(os.path.join(dst, 'movie.mkv.part'), 'rb') as f:
+            self.assertEqual(f.read(), b'mine')
+        self.assertEqual(sorted(os.listdir(dst)), ['movie.mkv', 'movie.mkv.part'])
+        if os.name == 'posix':
+            self.assertFalse(os.stat(os.path.join(dst, 'movie.mkv')).st_mode & 0o111)
 
     def test_plan_and_copy(self):
         src = os.path.join(self.dir, 'src')

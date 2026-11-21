@@ -370,6 +370,8 @@ class WindowsPage(Page):
         self.area = tk.Frame(self.col, bg=T["bg"])
         self.area.pack(fill="x")
         self.scanned = False
+        self.parts: List[windows.Partition] = []
+        self.parts: List[windows.Partition] = []
         self.cancel = threading.Event()
         self.copying = False
         self.users: List[windows.WindowsUser] = []
@@ -399,6 +401,7 @@ class WindowsPage(Page):
         if isinstance(result, Exception):
             result = ([], str(result))
         parts, problem = result
+        self.parts = parts
         if problem:
             self.para(t('win.lsblk_failed', error=problem), self.drives, colour=T["pink"])
             self.app.event(error=True)
@@ -432,7 +435,7 @@ class WindowsPage(Page):
 
         def work():
             point, problem = windows.mount_read_only(part)
-            users = windows.find_users(point) if point else []
+            users = windows.find_users(point, part, self.parts)                 if point else []
             return point, problem, users
 
         self.app.bg(work, self._mounted)
@@ -483,6 +486,10 @@ class WindowsPage(Page):
             self.sizes[folder.key] = size
             tk.Label(line, text=f"→ {windows.destination(folder)}", bg=T["panel"], fg=T["muted"],
                      font=self.app.font(8, False)).pack(side="right")
+            if folder.where:
+                tk.Label(box.inner, text=folder.where, bg=T["panel"], fg=T["dim"],
+                         font=self.app.font(8, False), anchor="w").pack(
+                    fill="x", padx=self.px(12), pady=(0, self.px(6)))
         bar = self.row(self.folders, pady=(10, 0))
         self.copy_btn = self.button(bar, t('win.copy'), self.copy, "primary")
         self.cancel_btn = WolkButton(bar, t('win.cancel'), self.cancel.set, self.app.font(9),
@@ -537,9 +544,13 @@ class WindowsPage(Page):
         def work():
             plan, claimed = windows.Plan(), set()
             for folder in chosen:
-                plan.extend(windows.plan_copy(folder.path, windows.destination(folder), claimed))
+                plan.extend(windows.plan_copy(folder.path, windows.destination(folder), claimed,
+                                              self.cancel))
                 if self.cancel.is_set():
                     return windows.Summary(cancelled=True)
+            short = windows.check_space(plan, windows.destination(chosen[0]))
+            if short:
+                return windows.Summary(skipped=len(plan.skipped), no_space=short)
             return windows.copy_plan(plan, progress, self.cancel)
 
         self.app.bg(work, self._copied)
@@ -566,6 +577,12 @@ class WindowsPage(Page):
         if isinstance(summary, Exception):
             self.para(t('win.copy_failed', error=summary), self.result, colour=T["pink"],
                       pady=(12, 0))
+            self.app.event(error=True)
+            return
+        if summary.no_space:
+            need, free = summary.no_space
+            self.para(t('win.no_space', need=core.human_size(need), free=core.human_size(free)),
+                      self.result, colour=T["pink"], pady=(12, 0))
             self.app.event(error=True)
             return
         box = self.panel(self.result, pady=(12, 0))
