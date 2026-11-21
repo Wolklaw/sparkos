@@ -97,7 +97,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 - `installer/` and `.github/workflows/installer-iso.yml` build a SparkOS live installer, adapted from Bazzite's (Apache-2.0). It runs on demand and every Monday.
 - The installer carries SparkOS itself. It can carry Flatpaks too (`installer/flatpaks`, copied onto the new system during install), but under the app policy that list is empty.
 - After install, the system follows signed SparkOS updates (`bootc switch --enforce-container-sigpolicy`).
-- **Published** to the `installer` release in parts under 2 GiB (GitHub's limit per file), with `join-iso.cmd` and `join-iso.sh`, which join the parts and check the SHA-256.
+- **Uploaded** to the `installer` release in parts under 2 GiB (GitHub's limit per file), with `join-iso.cmd` and `join-iso.sh`, which join the parts and check the SHA-256. **The release is a draft, not public (owner's decision, 2026-11-20):** it stays hidden until the owner has installed from it, then gets published by hand (`gh release edit installer --draft=false`). The website shows no download either.
 - **CI checks:** the installer builds and the ISO boots in QEMU (screenshots kept for 7 days). It carries no third-party apps.
 - **Not yet tested:** a full install from the ISO, in a VM or on hardware.
 - **Done when:** a clean VM installs from the SparkOS ISO and first boots with all apps present.
