@@ -57,7 +57,7 @@ the installer, dual boot and your devices are checked for the first time here (P
   it), and check graphics, sound, the printer and network.
 - **Choosing Windows:** press F8 at startup and pick "Windows Boot Manager". If SparkOS's own boot
   menu doesn't list Windows, that's expected for now; F8 always works.
-- Then the day-one checks in [PLAN.md](../PLAN.md) (Phase 5) and the app-by-app answers in
+- Then [first-day.md](first-day.md): the first update, FreeSuite, your WoW interface and the day-one checks. The app-by-app answers are in
   [switching.md](switching.md).
 
 ## If something goes wrong
