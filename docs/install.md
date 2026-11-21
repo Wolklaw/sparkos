@@ -66,6 +66,12 @@ the installer, dual boot and your devices are checked for the first time here (P
    management" screen shows straight away. Choose **Enroll MOK > Continue > Yes**, type the password
    `universalblue` (Universal Blue's documented key password; it lets the SparkOS kernel start with
    Secure Boot on), then **Reboot**. It happens once.
+   - On this PC Secure Boot was **off** (Windows reported it on 21 November), so the screen may
+     not show at all, and SparkOS starts either way. If it does show, enroll anyway: it lets you
+     turn Secure Boot on later.
+   - Turning Secure Boot on later (some Windows games' anti-cheat asks for it): first, in
+     SparkOS, run `ujust enroll-secure-boot-key` in Konsole (password `universalblue`), restart,
+     enroll on the blue screen, then turn Secure Boot on in the BIOS.
    - If it's left alone, the PC restarts after about 5 minutes and the next start only gives
      10 seconds ("Press any key to perform MOK management"). Missed again, SparkOS won't start with
      Secure Boot on: GRUB says "bad shim signature".
