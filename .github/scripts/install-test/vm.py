@@ -366,6 +366,10 @@ def boot(a):
             break
         if state != "done":
             t = vm.norm(vm.ocr())
+            # On the first start MokManager opens straight on its menu (no "press any key")
+            if state == "wait" and "enrollmok" in t and "continueboot" in t:
+                log("MokManager: opened on its menu")
+                mok_seen, state, since = True, "menu", time.time()
             want, keys, nxt = steps[state]
             hit = ("anykey" in t and "mok" in t) if state == "wait" else want in t
             # MokManager waits forever (mokutil --timeout -1); later screens get a blind try
