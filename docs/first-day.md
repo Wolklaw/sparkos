@@ -4,15 +4,12 @@ What to do after [install.md](install.md), in order. It takes about an hour, mos
 
 ## 1. Get the latest SparkOS (5 minutes)
 
-The installer was built on 20 November at 6:29 PM. The fixes merged after it come as one update:
+The installer was rebuilt on 21 November at 3 AM with every fix so far (Spark Media's one window,
+media keys and HEIC photos; Spark Archive's Windows-compatible password zips; FreeSuite opening from
+the menu). SparkOS also builds a new version every day, so check once:
 
-- Spark Media: one window for everything you open, keyboard media keys, iPhone/Android HEIC photos.
-- Spark Archive: password zips that open on any Windows PC, Extract on every part of a split archive.
-- FreeSuite opens from the menu (see 3).
-
-Open **Spark Update** from the menu, press **Check now**, wait until it says the new version is ready,
-then **Restart to update**. If the installer you used was rebuilt after those fixes, Spark Update says
-you're up to date and there's nothing to do.
+Open **Spark Update** from the menu and press **Check now**. If it says you're up to date, there's
+nothing to do. If it downloads a new version, wait until it says it's ready, then **Restart to update**.
 
 ## 2. Spark Welcome
 
@@ -26,8 +23,8 @@ It opens by itself at the first sign-in (later: menu > Spark Welcome).
 
 ## 3. FreeSuite
 
-After the update in step 1, FreeSuite opens from the menu like any app. Before that update, it starts
-but shows no window: start it from Konsole instead:
+FreeSuite opens from the menu like any app (checked on a real Plasma desktop in every build). If it
+ever starts without showing a window, start it from Konsole instead:
 
 ```bash
 /usr/lib/opt/freesuite/freesuite --ozone-platform=x11
