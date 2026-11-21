@@ -247,7 +247,8 @@ def read_entry(path):
 
 def kill_patterns(exec_line):
     """What the app's processes have in their command line: the program's real path, its
-    folder when it has one of its own, and the .py files a /usr/bin wrapper runs."""
+    folder when it has one of its own, and what a small /usr/bin wrapper runs (its .py
+    files, or the program it execs, e.g. /usr/lib/opt/freesuite/freesuite)."""
     words = [w for w in shlex.split(exec_line) if not w.startswith('%')]
     while words and (words[0] == 'env' or '=' in words[0]):
         words.pop(0)
@@ -262,9 +263,14 @@ def kill_patterns(exec_line):
     try:
         if os.path.getsize(real) < 4096:
             with open(real, encoding='utf-8', errors='replace') as f:
-                for path in re.findall(r'(/[\w./-]+\.py)\b', f.read()):
+                for path in re.findall(r'(/[\w.-]+(?:/[\w.-]+)+)', f.read()):
+                    where = os.path.dirname(path)
+                    if (where in ('/usr/bin', '/bin', '/usr/local/bin', '/usr/sbin')
+                            or not os.path.exists(path)):
+                        continue                    # /usr/bin/python3, /usr/bin/env, ...
                     patterns.add(path)
-                    patterns.add(os.path.dirname(path) + '/')
+                    if where.count('/') >= 3:       # its own folder, not /usr/lib itself
+                        patterns.add(where + '/')
     except OSError:
         pass
     return sorted(patterns), program
