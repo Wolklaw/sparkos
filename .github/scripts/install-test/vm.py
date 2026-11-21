@@ -420,6 +420,8 @@ def boot(a):
     words = [w for w in ("sparktest", "spark test", "password", "log in", "login") if w in signin.lower()]
     result(W, "PASS" if dm.startswith("active") else "FAIL", "Sign-in screen is up",
            f"display-manager {dm}; on screen: {', '.join(words) or 'see screenshot'}")
+    tgt = c.get("default_target", "")
+    result(W, "PASS" if tgt == "graphical.target" else "FAIL", "Installed system starts to the graphical sign-in", tgt)
     al = c.get("autologin", "").strip()
     result(W, "PASS" if not al else "FAIL", "Installed system asks for a password (no autologin)",
            "no autologin user set" if not al else f"autologin: {al}")

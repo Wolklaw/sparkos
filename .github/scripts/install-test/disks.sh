@@ -143,6 +143,9 @@ cmp_part() { # kind label
     local kind=$1 what=$2 b=$W/disk-before a=$W/disk-after
     if cmp -s "$b/$kind-entry.json" "$a/$kind-entry.json"; then
         result PASS "$what: partition table entry unchanged" "$(jq -r '"start \(.start), size \(.size) sectors"' "$a/$kind-entry.json")"
+    elif [ "$(jq -c 'del(.name)' "$b/$kind-entry.json")" = "$(jq -c 'del(.name)' "$a/$kind-entry.json")" ]; then
+        result PASS "$what: partition start, size, type and ID unchanged" "$(jq -r '"start \(.start), size \(.size) sectors"' "$a/$kind-entry.json")"
+        result WARN "$what: the installer renamed its GPT label" "\"$(jq -r .name "$b/$kind-entry.json")\" is now \"$(jq -r .name "$a/$kind-entry.json")\" (a label only; nothing reads it)"
     else
         result FAIL "$what: partition table entry changed" "before $(cat "$b/$kind-entry.json") after $(cat "$a/$kind-entry.json")"
     fi
