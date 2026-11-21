@@ -62,7 +62,7 @@ The tests use a fake `/proc` and `/sys` in `tests/fixtures/root`: a Ryzen 7 7800
 
 ## Known gaps
 
-- **Not tried on a SparkOS desktop yet.** The interface was checked on Windows with the test data, and CI runs it under Xvfb; nobody has pressed Ctrl+Shift+Esc on real Plasma 6.8 yet, so it is not confirmed that Plasma registers it, or that nothing else in 6.8 uses it. `--self-test` reports it if anything in `kglobalshortcutsrc` already uses Ctrl+Shift+Esc. Ctrl+Esc (Plasma's System Monitor) is left alone. A `--user` install may need a log out and back in before Plasma picks up the shortcut.
+- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens it from the app menu in a Plasma 6.8 session in a VM, in English and in French, waits for its window, keeps a screenshot and fails on a Python traceback. Nobody has pressed Ctrl+Shift+Esc on real Plasma 6.8 yet, so it is not confirmed that Plasma registers it, or that nothing else in 6.8 uses it. `--self-test` reports it if anything in `kglobalshortcutsrc` already uses Ctrl+Shift+Esc. Ctrl+Esc (Plasma's System Monitor) is left alone. A `--user` install may need a log out and back in before Plasma picks up the shortcut.
 - **No network column per app.** Linux only counts traffic per process with root-level tools (eBPF), so the Apps tab shows network totals on the Performance tab only.
 - **GPU per app** needs a driver that publishes fdinfo counters (AMD, Intel). NVIDIA's driver publishes nothing in `/sys`, so its usage, memory and temperature show as not readable.
 - Bringing the open window forward on Ctrl+Shift+Esc may only flash it in the taskbar, depending on KWin's focus-stealing setting.

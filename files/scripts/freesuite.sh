@@ -44,7 +44,25 @@ chmod 4755 /usr/lib/opt/freesuite/chrome-sandbox
 # Desktop entries, icons, docs (everything under usr/ except the /usr/bin link, made below)
 rm -f "$root/usr/bin/freesuite"
 cp -a "$root/usr/." /usr/
-ln -sfn /usr/lib/opt/freesuite/freesuite /usr/bin/freesuite
+
+# FreeSuite runs under XWayland for now (until FreeSuite shows its window on native Wayland).
+# FreeSuite makes its window hidden and shows it on Electron's ready-to-show, which never comes
+# under native Wayland: the window gets no Wayland role until it is shown, so it is never
+# painted. The boot test saw it (KWin never got a window; WAYLAND_DEBUG showed no
+# get_toplevel, the page itself had loaded); with --ozone-platform=x11 the window is there in
+# under a second. Remove this wrapper, and go back to the link
+#   ln -sfn /usr/lib/opt/freesuite/freesuite /usr/bin/freesuite
+# once a FreeSuite release shows its window without ready-to-show on Linux.
+cat > /usr/bin/freesuite <<'EOF'
+#!/bin/sh
+# SparkOS: FreeSuite under XWayland until it shows its window on native Wayland (files/scripts/freesuite.sh)
+exec /usr/lib/opt/freesuite/freesuite --ozone-platform=x11 "$@"
+EOF
+chmod 0755 /usr/bin/freesuite
+# Every menu entry goes through that wrapper
+sed -i -E 's#^(Exec=|TryExec=)(/usr/lib/opt/freesuite/freesuite|/opt/freesuite/freesuite)\b#\1/usr/bin/freesuite#' \
+  /usr/share/applications/freesuite*.desktop
+grep -H '^Exec=' /usr/share/applications/freesuite*.desktop
 
 # Keep /opt/freesuite working for anything that expects the upstream path.
 cat > /usr/lib/tmpfiles.d/freesuite.conf <<'EOF'
@@ -59,5 +77,6 @@ test -x /usr/lib/opt/freesuite/freesuite
 test -x /usr/lib/opt/freesuite/freesuite-bin
 test -f /usr/share/applications/freesuite.desktop
 test -f /usr/share/applications/freesuite-writer.desktop
+grep -q -- '--ozone-platform=x11' /usr/bin/freesuite
 
 echo "FreeSuite ${FREESUITE_VERSION} installed."

@@ -93,7 +93,7 @@ Spark Run doesn't change `sparkos-open-package`, the recipe or the boot test. To
 
 ## Known gaps
 
-- **Not tried on a SparkOS desktop yet.** CI runs real Wine in a container, with Xvfb in Fedora and with no display in the SparkOS image, using console test programs and silent installers. Nobody has double-clicked a real installer with a wizard on Plasma 6.8 yet.
+- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens its window from the app menu in a Plasma 6.8 session in a VM, in English and in French, keeps a screenshot and fails on a Python traceback. CI runs real Wine in a container, with Xvfb in Fedora and with no display in the SparkOS image, using console test programs and silent installers. Nobody has double-clicked a real installer with a wizard on Plasma 6.8 yet.
 - **Wine itself is the limit.** Programs that need anti-cheat, kernel drivers, the Microsoft Store, .NET Framework features Wine Mono lacks, or newer DirectX than Wine and DXVK offer won't run. The switching guide lists the owner's programs and what to use instead.
 - **The Wine build trusts GitHub and Fedora.** Wine is built by GitHub's runners from Fedora 45's compilers and libraries; the build is reproducible, so anyone can rebuild it and compare the SHA-256, but nobody outside this repository has done so yet. Wine Mono comes from WineHQ and DXVK from the DXVK project's own releases, as before.
 - **No CAPI (ISDN)**: Fedora has no `capi4linux`, so `capi2032.dll` isn't built. Nothing a desktop needs.

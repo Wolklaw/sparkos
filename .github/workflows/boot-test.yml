@@ -35,7 +35,9 @@ on:
         default: false
 
 concurrency:
-  group: boot-test
+  # One queue per branch: main's runs (after builds, Sundays) never cancel a branch test waiting
+  # in line, or the other way round
+  group: boot-test-${{ github.ref }}
   cancel-in-progress: false # a newer build waits for the running test instead of killing it
 
 jobs:
@@ -583,12 +585,25 @@ jobs:
           if grep -nwE 'curl|wget' files/scripts/sparkos-theme.sh; then echo "::error::sparkos-theme.sh downloads something"; exit 1; fi
           grep -q "Theme=sparkos" "$WORK/look.txt"
           grep -q "Name=SparkOS" "$WORK/look.txt"
-          # Sign in once automatically as the test user, to see the real desktop
-          $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "printf \"[Autologin]\nUser=spark\nSession=plasma.desktop\n\" > /etc/plasmalogin.conf.d/zz-boot-test.conf && systemctl restart plasmalogin"'
-          for i in $(seq 1 18); do
-            $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break
-            sleep 5
-          done
+          # Sign in as the test user the way a person does: the password typed into the sign-in
+          # screen (through QEMU's keyboard), so the real PAM stack runs and pam_kwallet opens the
+          # wallet. Autologin only if that fails, because it leaves KWallet without a wallet.
+          sendkeys() { for k in "$@"; do echo "sendkey $k" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null; sleep 0.2; done; }
+          plasma_up() { $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1; }
+          sendkeys shift; sleep 3
+          echo "screendump $WORK/shots/3a-sign-in.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+          sendkeys s p a r k o s minus b o o t minus t e s t ret
+          SIGNIN=password
+          for i in $(seq 1 18); do plasma_up && break; sleep 5; done
+          if ! plasma_up; then
+            echo "::warning::signing in with the password at the sign-in screen didn't start Plasma; using autologin (KWallet has no wallet then)"
+            echo "screendump $WORK/shots/3b-sign-in-failed.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+            SIGNIN=autologin
+            $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "printf \"[Autologin]\nUser=spark\nSession=plasma.desktop\n\" > /etc/plasmalogin.conf.d/zz-boot-test.conf && systemctl restart plasmalogin"'
+            for i in $(seq 1 18); do plasma_up && break; sleep 5; done
+          fi
+          echo "SIGNIN=$SIGNIN" >> "$GITHUB_ENV"
+          echo "Signed in by $SIGNIN"
           sleep 25
           echo "screendump $WORK/shots/3-desktop.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
           $SSH 'pgrep -u spark -a plasmashell; cat ~/.config/plasma-org.kde.plasma.desktop-appletsrc' > "$WORK/desktop-layout.txt" || true
@@ -605,6 +620,63 @@ jobs:
           else
             echo "::error::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"; exit 1
           fi
+
+      # Every preinstalled app opened on the real desktop, in the session the step above signed
+      # in to: started from its menu entry the way Plasma's menu does, KWin must show a window,
+      # no Python traceback, a screenshot of the screen through KWin, then closed. Once in the
+      # session's language, once more in French (Spark apps). .github/scripts/desktop-smoke.py
+      - name: Open every app on the desktop
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        timeout-minutes: 20
+        run: |
+          for i in $(seq 1 24); do $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break; sleep 5; done
+          # Plasma locks the screen after 5 idle minutes; the helper then holds the lock off
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" loginctl unlock-sessions' || true
+          # Apps that keep passwords (FreeSuite) ask KWallet; say what the session has
+          $SSH 'export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus
+                echo "signed in by: '"$SIGNIN"'"
+                echo "kwallet: $(busctl --user call org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet networkWallet 2>&1)"
+                echo "kwallet open: $(busctl --user call org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet isOpen s kdewallet 2>&1)"
+                echo "wallet files: $(ls ~/.local/share/kwalletd/ 2>&1 | tr "\n" " ")"
+                journalctl -b --no-pager -o cat -t pam_kwallet5 -t plasmalogin -t kwalletd6 -t ksecretd 2>/dev/null | grep -i -E "kwallet|secret|wallet" | tail -8' 2>&1 | tee "$WORK/kwallet.txt" || true
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
+            .github/scripts/desktop-smoke.py spark@127.0.0.1:/tmp/desktop-smoke.py
+          EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkUpdate,dev.wolklaw.Soot,freesuite
+          set +e
+          timeout 900 $SSH "rm -rf /tmp/desktop-smoke; python3 /tmp/desktop-smoke.py --out /tmp/desktop-smoke --passes en,fr --expect $EXPECT" 2>&1 | tee "$WORK/desktop-smoke.txt"
+          status=${PIPESTATUS[0]}
+          set -e
+          mkdir -p "$WORK/desktop-screenshots"
+          $SSH 'tar -C /tmp/desktop-smoke -cf - .' | tar -C "$WORK/desktop-screenshots" -xf - || true
+          python3 - "$WORK/desktop-screenshots/results.json" >> "$GITHUB_STEP_SUMMARY" <<'EOF' || true
+          import json, sys
+          data = json.load(open(sys.argv[1]))
+          cell = lambda s: str(s).replace('|', '\\|').replace('\n', ' ')
+          print('### Apps opened on the Plasma desktop (test VM)')
+          print(f"Started from their menu entries with {data['launcher']}; screenshots in the desktop-screenshots artifact.\n")
+          print('| App | Language | Window title | Seconds to open | Result |')
+          print('|---|---|---|---|---|')
+          for r in data['results']:
+              result = 'OK' if r['ok'] else 'fail: ' + r['reason']
+              notes = '; '.join(r.get('notes', []))
+              if notes:
+                  result += f' ({notes})'
+              print(f"| {cell(r['name'])} | {r['pass']} | {cell(r['title'])} | {r['seconds'] if r['seconds'] is not None else '-'} | {cell(result)} |")
+          EOF
+          echo "Signed in to Plasma by $SIGNIN. $(grep '^kwallet open' "$WORK/kwallet.txt" 2>/dev/null)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then
+            grep -E '^-- |^   FAIL' "$WORK/desktop-smoke.txt" | grep -B1 '^   FAIL' | grep '^-- ' | sed 's/^-- /::error::did not open cleanly on the desktop: /' || true
+            echo "::error::desktop app check failed (exit $status); see desktop-smoke.txt and the summary"
+            exit 1
+          fi
+
+      - name: Upload the desktop screenshots
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-screenshots
+          path: /mnt/boot-test/desktop-screenshots/
+          if-no-files-found: warn
 
       - name: Check Spark Update installs a real update
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.SPARK_UPDATE_TEST == 'true' }}

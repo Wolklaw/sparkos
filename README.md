@@ -17,7 +17,7 @@ SparkOS ships only its own apps. Everything else, Steam included, installs from 
 | Look | Dark indigo with a mint accent, Inter and Chakra Petch, a slim top bar and a floating dock, the bot wallpaper, and a SparkOS boot splash, sign-in screen and sign-in splash |
 | Identity | The SparkOS name, the bot logo and the zap startup sound |
 
-Soot, FreeSuite and all five Spark apps are new on Linux. The boot test checks them on every build, but none has been used by hand on a SparkOS desktop yet. To install it next to Windows, see [docs/install.md](docs/install.md). For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
+Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build and opens each one from the app menu on a real SparkOS desktop in a VM, with a screenshot, but none has been used by hand on a SparkOS desktop yet. To install it next to Windows, see [docs/install.md](docs/install.md). For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
 
 Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 

@@ -75,7 +75,7 @@ Keys: Ctrl+F search, Enter open the first result, Esc clear the search or go bac
 
 ## Not done yet
 
-- Not tried by hand on a SparkOS desktop. CI covers the window under Xvfb (with a fake flatpak for most tests, and one real Flathub app installed and removed through the window), and the real queue inside the SparkOS image.
+- Opened on a real SparkOS desktop in CI, not used by hand yet. The boot test opens it from the app menu in a Plasma 6.8 session in a VM, in English and in French, keeps a screenshot and fails on a Python traceback. CI also covers the window under Xvfb (with a fake flatpak for most tests, and one real Flathub app installed and removed through the window), and the real queue inside the SparkOS image.
 - Apps from sources other than Flathub aren't in the catalog: they install from their own `.flatpakref` links.
 - Installs are always for you only; apps installed for everyone can be updated and removed (with a password), not installed.
 - No ratings or download counts: those need Flathub's web API, which the brief rules out.
