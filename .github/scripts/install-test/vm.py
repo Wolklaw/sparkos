@@ -438,6 +438,11 @@ def boot(a):
     else:
         result(W, "INFO", "Secure Boot state", sb)
     result(W, "PASS" if "btrfs" in c.get("root_fs", "") else "WARN", "Root file system is btrfs", c.get("root_fs", ""))
+    up = c.get("update_state", "")
+    result(W, "PASS" if c.get("update_code") == "0" and '"result":"failed"' not in up else "FAIL",
+           "Spark Update's Check now works on the installed system", f"exit {c.get('update_code')}: {up}")
+    bc = c.get("bootc_check", "")
+    result(W, "PASS" if bc.startswith("0") else "FAIL", "bootc upgrade --check accepts the signed image", bc)
     failed = c.get("failed_units", "").strip()
     result(W, "INFO" if not failed else "WARN", "Failed units on the installed system", failed or "none")
     return 0
