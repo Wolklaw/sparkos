@@ -37,7 +37,7 @@ jobs:
             mingw32-nsis msitools python3-pillow file
       - name: Build the test programs
         run: bash files/spark-run/tests/fixtures/build.sh "$PWD/fixtures-out"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: spark-run-fixtures
           path: fixtures-out/
@@ -117,7 +117,7 @@ jobs:
         run: |
           mkdir -p shots
           DISPLAY=:99 python3 files/spark-run/tests/screenshots.py "$PWD/shots"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: spark-run-screenshots
