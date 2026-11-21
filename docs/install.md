@@ -37,22 +37,35 @@ the installer, dual boot and your devices are checked for the first time here (P
 
 1. Restart with the stick in, and press **F8** while the ASUS logo shows to get the boot menu.
    Pick the USB stick (the "UEFI:" entry).
-2. SparkOS starts from the stick (the live session). Open the installer from the desktop.
+2. SparkOS starts from the stick (the live session) and shows a "SparkOS installer" window: click
+   **Install SparkOS**. If it stops at a sign-in screen for "Live System User" instead (older
+   installers), press Enter twice: there is no password.
 3. Language, keyboard and time zone (America/Toronto for Quebec).
 4. **Installation destination: the most important screen.**
    - Select **only the 1 TB NVMe that holds E:** ("Games"). Untick the other NVMe (C:, Windows)
      and the 250 GB SATA drive (D:).
    - Choose automatic partitioning **into the free space** only. Never "reclaim space" or
      "delete all", which erase what's on the drive.
+   - SparkOS makes its own small EFI partition (600 MB) and its system partitions in E:'s free
+     space. Your files on E: and the Windows disk aren't touched (checked byte for byte in a VM).
    - Encryption is optional (you'd type its password at every start).
 5. Create your user and password, then Install. Restart when it's done and take the stick out.
-6. **Secure Boot:** if a blue "Perform MOK management" screen appears on the first restart, choose
-   Enroll MOK > Continue > Yes and type the password `universalblue` (Universal Blue's documented
-   key password; it lets the SparkOS kernel's drivers load with Secure Boot on). It happens once.
+6. **Secure Boot: do this right away.** On the first start after the install, a blue "Perform MOK
+   management" screen shows straight away. Choose **Enroll MOK > Continue > Yes**, type the password
+   `universalblue` (Universal Blue's documented key password; it lets the SparkOS kernel start with
+   Secure Boot on), then **Reboot**. It happens once.
+   - If it's left alone, the PC restarts after about 5 minutes and the next start only gives
+     10 seconds ("Press any key to perform MOK management"). Missed again, SparkOS won't start with
+     Secure Boot on: GRUB says "bad shim signature".
+   - To get the screen back: start the USB stick again, open a terminal (Konsole) and run
+     `sudo mokutil --import /usr/share/ublue-os/sb_pubkey.der`, type `universalblue` twice, restart
+     without the stick and enroll. (Not tried yet; this is the installer's own enrollment step.)
 
 ## First start
 
-- The SparkOS boot splash, the sign-in screen, the zap sound, then **Spark Welcome**: pick your
+- The SparkOS boot splash with "Preparing System", which **restarts the PC once** by itself on the
+  first start (expected, not a failure). Then the boot splash again, the sign-in screen, the zap
+  sound, then **Spark Welcome**: pick your
   game launchers and apps, copy folders from Windows (it reads the Windows drive, never writes to
   it), and check graphics, sound, the printer and network.
 - **Choosing Windows:** press F8 at startup and pick "Windows Boot Manager". If SparkOS's own boot
@@ -62,8 +75,9 @@ the installer, dual boot and your devices are checked for the first time here (P
 
 ## If something goes wrong
 
-- **The PC starts straight into Windows:** use F8 and pick SparkOS ("Fedora" or "SparkOS"), or set
-  it first in the BIOS boot order (Del at the ASUS logo).
+- **The PC starts straight into Windows:** use F8 and pick **"Bazzite"** (that is SparkOS's entry;
+  SparkOS is built on Bazzite), or set it first in the BIOS boot order (Del at the ASUS logo).
+- **"bad shim signature" at startup:** the Secure Boot key wasn't enrolled; see step 6 of "Install".
 - **A bad update:** at startup, pick the previous version in SparkOS's boot menu. Updates never
   remove the version you had.
 - **Windows asks for a BitLocker key:** type the recovery key from step 2 of "Before".

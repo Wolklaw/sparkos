@@ -21,9 +21,9 @@ while true; do
         --text="
 <big><b>SparkOS installer</b></big>
 
-This live session is for installing. Your apps (Soot, FreeSuite, Steam, Heroic,
-Discord and the rest) are on this USB stick and are copied onto the new system,
-so they're ready on the first start, even offline.
+This live session is for installing. SparkOS's own apps (Soot, FreeSuite and
+the Spark apps) are part of the system and are there on the first start.
+Everything else installs from the Store after that.
 
 Games and performance here are not representative: install first." \
         --button="Install SparkOS:10" --button="Edit partitions (GParted):20" --button="Close:0"
