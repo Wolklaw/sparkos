@@ -287,7 +287,22 @@ def install(a):
         vm.ocr("tty9", keep=True)
         vm.type(start_cmd)
     else:
-        time.sleep(5)
+        # What a person sees on the live system: the desktop with the installer prompt, or a
+        # sign-in screen (livesys sets up autologin for SDDM; SparkOS uses Plasma Login)
+        time.sleep(45)
+        t = vm.ocr("live-session", keep=True)
+        if "password" in t.lower():
+            result(a.work, "FAIL", "Live session opens the desktop by itself",
+                   "stops at a sign-in screen for Live System User")
+            vm.keys("ret", delay=25)
+            t2 = vm.ocr("live-after-enter", keep=True)
+            ok = "password" not in t2.lower()
+            result(a.work, "PASS" if ok else "FAIL", "Pressing Enter (empty password) signs in to the live desktop",
+                   "desktop after Enter" if ok else "still at the sign-in screen")
+            time.sleep(20)
+            vm.ocr("live-desktop", keep=True)
+        else:
+            result(a.work, "PASS", "Live session opens the desktop by itself", "no sign-in screen")
         vm.ser.send(start_cmd)
     last = time.time()
     deadline = time.time() + a.timeout * 60

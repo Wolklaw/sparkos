@@ -20,6 +20,11 @@ rpm -q anaconda-core anaconda-live anaconda-webui anaconda-tui shim-x64 grub2-ef
 mokutil --sb-state
 lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,PARTLABEL,SERIAL,MOUNTPOINTS
 efibootmgr -v
+echo "--- live session setup"
+loginctl list-sessions --no-legend
+grep -n -i -A3 "autologin\|sddm\|plasmalogin" /usr/libexec/livesys/sessions.d/livesys-kde | head -40
+ls -la /etc/plasmalogin* /etc/sddm* /usr/lib/plasmalogin* 2>&1 | head -20
+cat /etc/plasmalogin.conf /etc/plasmalogin.conf.d/* /etc/sddm.conf /etc/sddm.conf.d/* 2>/dev/null | head -40
 
 data=$(lsblk -dn -o NAME,SERIAL | awk '$2=="SPARKDATA"{print $1}')
 if [ -z "$data" ]; then
@@ -40,8 +45,7 @@ done
 export PATH=/sbin:/usr/sbin:$PATH
 # liveinst runs Anaconda (through pkexec) with the desktop user's session environment;
 # Anaconda needs that session bus (it inhibits the screensaver first)
-luser=$(loginctl list-sessions --no-legend | awk '$3!="root" && $3!=""{print $3; exit}')
-luser=${luser:-liveuser}
+luser=liveuser # made by livesys
 uid=$(id -u "$luser")
 for _ in $(seq 1 150); do [ -S "/run/user/$uid/bus" ] && break; sleep 2; done
 readarray -t user_environment < <(runuser -u "$luser" -- env XDG_RUNTIME_DIR="/run/user/$uid" systemctl --user show-environment)
