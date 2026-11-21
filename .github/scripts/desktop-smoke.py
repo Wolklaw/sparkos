@@ -660,10 +660,43 @@ def run_app(kwin, app, launcher, session_env, lang, out_dir, number, screenshots
     return result
 
 
-ELECTRON_TRIES = [('started again', []),
-                  ('XWayland (--ozone-platform=x11)', ['--ozone-platform=x11']),
-                  ('no GPU (--disable-gpu)', ['--disable-gpu']),
-                  ('no KWallet (--password-store=basic)', ['--password-store=basic'])]
+TRACE_PORT = 9333
+ELECTRON_TRIES = [('started again', [], {}),
+                  ('XWayland (--ozone-platform=x11)', ['--ozone-platform=x11'], {}),
+                  ('no GPU (--disable-gpu)', ['--disable-gpu'], {}),
+                  ('no KWallet (--password-store=basic)', ['--password-store=basic'], {}),
+                  ('native Wayland, traced (WAYLAND_DEBUG, remote debugging)',
+                   [f'--remote-debugging-port={TRACE_PORT}'], {'WAYLAND_DEBUG': '1'})]
+
+
+def wayland_trace(log_path):
+    """What the app said to KWin: did it make a toplevel window and ever give it pixels?"""
+    counts = {'get_toplevel': 0, 'set_title': 0, 'attach': 0, 'commit': 0, 'ack_configure': 0}
+    titles = []
+    try:
+        with open(log_path, errors='replace') as f:
+            for line in f:
+                if ' -> ' not in line:
+                    continue
+                for key in counts:
+                    if f'.{key}(' in line:
+                        counts[key] += 1
+                if '.set_title(' in line and len(titles) < 5:
+                    titles.append(line.split('.set_title(', 1)[1].strip()[:60])
+    except OSError:
+        return 'no trace'
+    return ', '.join(f'{k} x{v}' for k, v in counts.items()) + (f', titles {titles}' if titles else '')
+
+
+def devtools_pages():
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f'http://127.0.0.1:{TRACE_PORT}/json', timeout=5) as r:
+            pages = json.load(r)
+        return '; '.join(f"{p.get('type')} \"{p.get('title')}\" {p.get('url', '')[:60]}"
+                         for p in pages) or 'no pages'
+    except Exception as exc:                        # noqa: BLE001 - only extra information
+        return f'remote debugging not reachable: {exc}'
 
 
 def diagnose(kwin, app, session_env, out_dir, number):
@@ -681,13 +714,14 @@ def diagnose(kwin, app, session_env, out_dir, number):
                     l.strip() for l in f if l.strip() and not l.startswith('#')))
     except (OSError, UnicodeDecodeError):
         pass
-    for n, (label, flags) in enumerate(ELECTRON_TRIES, 1):
+    for n, (label, flags, extra_env) in enumerate(ELECTRON_TRIES, 1):
         tag = f'diag-{number:02d}-{slug(app)}-{n}'
         kwin.wake()
         before = {w['id'] for w in kwin.script()['windows']}
         before_pids = set(processes(app['patterns']))
         t0 = time.monotonic()
-        start([app['program']] + flags, session_env, os.path.join(out_dir, tag + '.log'))
+        start([app['program']] + flags, dict(session_env, **extra_env),
+              os.path.join(out_dir, tag + '.log'))
         found = None
         while time.monotonic() - t0 < 40 and not found:
             time.sleep(0.5)
@@ -704,6 +738,12 @@ def diagnose(kwin, app, session_env, out_dir, number):
                          f'{time.monotonic() - t0 - SETTLE["other"]:.1f} s ({tag}.png)')
         else:
             lines.append(f'{label}: no window in 40 s')
+        if extra_env.get('WAYLAND_DEBUG'):
+            lines.append(f'  its pages: {devtools_pages()}')
+            trace = os.path.join(out_dir, tag + '.log')
+            lines.append(f'  its Wayland requests: {wayland_trace(trace)}')
+            if os.path.getsize(trace) > 4 << 20:    # keep the artifact small
+                os.truncate(trace, 4 << 20)
         close_app(kwin, app, [found['id']] if found else [], before_pids)
     return lines
 
