@@ -97,12 +97,24 @@ jobs:
             rm -f ./*
             # A file replaced mid-download can stall the transfer: give each try 12 minutes
             if timeout 720 gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" &&
-               sha256sum -c --ignore-missing SHA256SUMS && sh join-iso.sh; then
+               sha256sum -c --ignore-missing SHA256SUMS; then
               break
             fi
             echo "::warning::download or check failed (attempt $attempt); the release may be being replaced"
             sleep 60
           done
+          sha=$(grep -oE '[0-9a-f]{64}' join-iso.sh | head -1)
+          # join-iso.sh as a person runs it (its output kept out of the log: a broken one can
+          # print the ISO), then the ISO's SHA-256 from the join scripts
+          if timeout 600 sh join-iso.sh >"$W/join-iso-sh.log" 2>&1 && echo "$sha  SparkOS-installer.iso" | sha256sum -c -; then
+            printf 'PASS\tjoin-iso.sh joins the parts and checks the SHA-256\t%s\n' "$(tail -1 "$W/join-iso-sh.log" | cut -c1-80)" >>"$W/results.tsv"
+          else
+            printf 'FAIL\tjoin-iso.sh joins the parts and checks the SHA-256\t%s\n' "it does not (fixed in installer-iso.yml; the test joins the parts itself)" >>"$W/results.tsv"
+            cat $(ls SparkOS-installer.iso.part* | sort) >SparkOS-installer.iso
+            echo "$sha  SparkOS-installer.iso" | sha256sum -c -
+          fi
+          rm -f "$W/join-iso-sh.log"
+          grep -q "$sha" join-iso.cmd && printf 'PASS\tjoin-iso.cmd checks the same SHA-256\t%s\n' "${sha:0:16}..." >>"$W/results.tsv"
           test -s SparkOS-installer.iso
           rm -f SparkOS-installer.iso.part*
           gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json body --jq .body | tee "$W/release-notes.md"

@@ -136,7 +136,8 @@ jobs:
           {
             echo '#!/bin/sh'
             echo 'set -e; cd "$(dirname "$0")"'
-            echo "cat $PARTS > $ISO_NAME"
+            # $PARTS is one name per line; unquoted $(echo) puts them on one line
+            echo "cat $(echo $PARTS) > $ISO_NAME"
             echo "echo '$SHA  $ISO_NAME' | sha256sum -c -"
           } > join-iso.sh
           chmod +x join-iso.sh
