@@ -40,7 +40,8 @@ def main(ssh_config: str, host: str, unknown_host: str) -> int:
     assert dummy['state'] == 'running', dummy
     print("verdict 1:", [p.key for p in problems(m, first)] or 'all good')
 
-    time.sleep(2)
+    if (dummy['since_s'] or 0) < 8:
+        time.sleep(8 - (dummy['since_s'] or 0))
     outcome = tr.restart(m, 'user', DUMMY)
     print("restart user unit:", outcome)
     assert outcome.outcome == DONE, outcome
@@ -51,14 +52,17 @@ def main(ssh_config: str, host: str, unknown_host: str) -> int:
     print(f"refresh 2: {DUMMY} {again['state']} for {again['since_s']} s "
           f"(was {dummy['since_s']} s)")
     assert again['state'] == 'running'
-    assert again['since_s'] is not None and again['since_s'] < 5, again
+    assert again['since_s'] is not None and again['since_s'] < 5 <= dummy['since_s'] + 8, again
     assert any('Started' in line or 'Starting' in line for line in again['log']), again['log']
 
     outcome = tr.restart(m, 'system', 'sshd')
     print("restart system unit without passwordless sudo:", outcome)
     assert outcome.outcome == NEEDS_PASSWORD, outcome
 
-    unknown = tr.fetch(config.Machine('unknown key', unknown_host))
+    # a fresh connection: a reused ControlMaster socket for the same server would skip the
+    # host key check altogether (it is the same server, already checked)
+    fresh = SshTransport(extra_options=['-F', ssh_config], multiplex=False)
+    unknown = fresh.fetch(config.Machine('unknown key', unknown_host))
     print("unknown host key:", unknown.problem, unknown.message)
     assert not unknown.ok and unknown.problem == HOSTKEY_UNKNOWN, unknown
 
