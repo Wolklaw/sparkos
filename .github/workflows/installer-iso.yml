@@ -175,11 +175,19 @@ jobs:
             echo "Write the ISO to a USB stick (16 GB or larger) with Fedora Media Writer (Custom image) or Rufus (DD mode)."
             echo "The parts exist because GitHub limits each release file to 2 GiB."
             echo
-            echo "**Apps:** SparkOS ships only its own apps, as part of the system: Soot, FreeSuite, Spark Snip, Spark Media, Spark Welcome, Spark Games, Spark Monitor, Spark Edit, Spark Calc, Spark Archive, Spark Scan, Spark Run, Spark Link, Spark Store and Spark Update."
-            echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm."
+            echo "**Apps:** SparkOS ships only its own apps, as part of the system: Soot, FreeSuite, Spark Launcher, Spark Files, Spark Terminal, Spark Snip, Spark Media, Spark Welcome, Spark Games, Spark Monitor, Spark Edit, Spark Calc, Spark Archive, Spark Scan, Spark Run, Spark Link, Spark Store and Spark Update."
+            echo "Everything else installs from Spark Store, or by double-clicking a downloaded .exe, .AppImage or .rpm."
             if grep -q . /tmp/installer-apps.txt; then
               echo; echo "Extra Flatpaks carried by this installer:"; echo '```'; cat /tmp/installer-apps.txt; echo '```'
             fi
+            echo
+            echo "**Install guide:** [docs/install.md](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/install.md). It installs next to Windows, which stays; you pick the system at power-on. Back up first."
+            echo
+            echo "**Graphics:** AMD and Intel only. An NVIDIA version is in the works and isn't released yet."
+            echo
+            echo "**Tested:** every installer build is installed next to a Windows disk in a VM (separate disks, a shared boot partition, and Secure Boot on), then booted. SparkOS has been installed on one real PC so far, so expect rough edges."
+            echo
+            echo "SparkOS is source-available, not open source: see [LICENSE](https://github.com/$GITHUB_REPOSITORY/blob/main/LICENSE)."
           } > notes.md
           gh release view installer >/dev/null 2>&1 || \
             gh release create installer --draft --target main --title "SparkOS installer" --notes "Building..." --latest=false
