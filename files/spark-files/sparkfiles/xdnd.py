@@ -149,6 +149,10 @@ class XDnd:
             ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_void_p)]
         x.XDefaultRootWindow.restype = ctypes.c_ulong
         x.XDefaultRootWindow.argtypes = [ctypes.c_void_p]
+        x.XTranslateCoordinates.argtypes = [
+            ctypes.c_void_p, ctypes.c_ulong, ctypes.c_ulong, ctypes.c_int, ctypes.c_int,
+            ctypes.POINTER(ctypes.c_int), ctypes.POINTER(ctypes.c_int),
+            ctypes.POINTER(ctypes.c_ulong)]
         x.XQueryPointer.argtypes = [
             ctypes.c_void_p, ctypes.c_ulong, ctypes.POINTER(ctypes.c_ulong),
             ctypes.POINTER(ctypes.c_ulong), ctypes.POINTER(ctypes.c_int),
@@ -391,17 +395,16 @@ class XDnd:
         return bool(self.drag_paths)
 
     def _window_under(self, x: int, y: int) -> Tuple[int, int, int]:
-        """(XDND-aware window under the pointer, where to send to, its version)."""
+        """(XDND-aware window at x, y on the screen, where to send to, its version): the
+        topmost window there, then down through its children until one is XDND-aware."""
         root = self._x.XDefaultRootWindow(self._dpy)
         window = root
         for _ in range(8):
-            r, child = ctypes.c_ulong(), ctypes.c_ulong()
-            rx, ry, wx, wy = ctypes.c_int(), ctypes.c_int(), ctypes.c_int(), ctypes.c_int()
-            mask = ctypes.c_uint()
-            self._x.XQueryPointer(self._dpy, window, ctypes.byref(r), ctypes.byref(child),
-                                  ctypes.byref(rx), ctypes.byref(ry), ctypes.byref(wx),
-                                  ctypes.byref(wy), ctypes.byref(mask))
-            if not child.value:
+            child = ctypes.c_ulong()
+            wx, wy = ctypes.c_int(), ctypes.c_int()
+            ok = self._x.XTranslateCoordinates(self._dpy, root, window, x, y, ctypes.byref(wx),
+                                               ctypes.byref(wy), ctypes.byref(child))
+            if not ok or not child.value:
                 return 0, 0, 0
             window = child.value
             version = self._aware(window)

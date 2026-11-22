@@ -63,7 +63,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Teams, OneNote, Copilot, Amazon Music | **Replaced** | Their web versions, in Soot or Chrome. |
 | PDFgear | **Replaced** | **FreeSuite PDF** (in the image, default for PDFs). |
 | Firefox, Chrome | **Works** | **Soot** (in the image) is the default browser. Chrome and Firefox install from the Store. |
-| Google Drive | **Partly** | Add your Google account in System Settings > Online Accounts and Drive appears in Dolphin (in the image). Unlike the Windows client, it doesn't keep offline copies. For that, use rclone or a paid client such as Insync. |
+| Google Drive | **Partly** | Add your Google account in System Settings > Online Accounts and Drive appears in Dolphin, which is still in the image for this release (start it with `dolphin`; Spark Files doesn't show online accounts yet). Unlike the Windows client, it doesn't keep offline copies. For that, use rclone or a paid client such as Insync. |
 | Discord, Spotify | **Works** | Both install from the Store. |
 | OBS Studio | **Works** | From the Store. |
 | Blender, GIMP, Audacity | **Works** | From the Store. Blender renders on the RX 6800 XT through HIP. |
@@ -94,7 +94,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | VS Code | **Works** | In the image, as a Flatpak. For full access to system tools, open a terminal inside VS Code or use a Distrobox container. |
 | Unity 6 and Unity Hub | **Works** (check) | **Unity Hub** (from the Store) is the community Flatpak. Unity also publishes an official Linux Hub. |
 | Ollama | **Works** | Use the official Linux install or the **Alpaca** app (Flathub). The RX 6800 XT is supported by ROCm. |
-| Claude Code | **Works** | Open **Claude Code** from the app menu, right-click a folder in Dolphin and choose **Open Claude Code here**, or run `sparkos-claude` in a terminal. The first start installs it with Anthropic's official installer (into `~/.local`, updates itself). Run `sparkos-claude-import` once to bring over your Windows `CLAUDE.md`, skills, agents and commands. See [claude-code.md](claude-code.md). |
+| Claude Code | **Works** | Open **Claude Code** from the app menu, right-click a folder in Spark Files and choose **Open Claude Code here**, or run `sparkos-claude` in a terminal. The first start installs it with Anthropic's official installer (into `~/.local`, updates itself). Run `sparkos-claude-import` once to bring over your Windows `CLAUDE.md`, skills, agents and commands. See [claude-code.md](claude-code.md). |
 | Claude desktop app (Chat, Cowork, Code tab) | **No** | Its Linux version is a beta for Ubuntu and Debian only. On SparkOS, use Claude Code (above), and claude.ai in the browser for chat. |
 | Antigravity IDE | **Check** | Look for a Linux download. |
 | Inno Setup (Windows installers for your apps) | **Partly** | Runs under Wine through Spark Run (double-click the .exe). For building and testing Windows releases, a Windows VM in virt-manager is the dependable choice. |

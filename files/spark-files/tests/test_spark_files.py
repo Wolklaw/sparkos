@@ -862,6 +862,58 @@ class Window(TempDir):
         self.pane.view.redraw(now=True)
         self.assertLess(time.monotonic() - start, 0.1)
 
+    def _peer(self, *args):
+        proc = subprocess.Popen([sys.executable, os.path.join(HERE, 'xdnd_peer.py'), *args],
+                                stdout=subprocess.PIPE, text=True)
+        self.addCleanup(lambda: (proc.kill(), proc.wait(), proc.stdout.close()))
+        lines = []
+
+        def read():
+            for line in proc.stdout:
+                lines.append(line.strip())
+        threading.Thread(target=read, daemon=True).start()
+        return proc, lines
+
+    def _place_window(self):
+        self.w.geometry('800x500+0+0')
+        self.pump(0.6)                         # mapped, and marked XDND-aware
+        if not self.app.xdnd.ok:
+            self.skipTest("no XDND here (not X11)")
+
+    def test_drop_from_another_app(self):
+        self._place_window()
+        incoming = self.write('elsewhere/from other app.txt', b'hello')
+        c = self.pane.view.canvas
+        x = c.winfo_rootx() + c.winfo_width() // 2
+        y = c.winfo_rooty() + c.winfo_height() - 20     # empty space: the folder itself
+        proc, lines = self._peer('source', str(x), str(y), incoming)
+        self.wait_for(lambda: 'FINISHED' in lines or 'NO-FINISH' in lines or
+                      'NO-XDND' in lines, timeout=15)
+        self.assertIn('ACCEPTED', lines)
+        self.assertIn('FINISHED', lines)
+        target = self.path('folder', 'from other app.txt')
+        self.wait_for(lambda: os.path.exists(target), timeout=10)
+        self.assertTrue(os.path.exists(incoming))             # copied, not moved
+        self.assertEqual(readb(target), b'hello')
+
+    def test_drag_out_to_another_app(self):
+        self._place_window()
+        proc, lines = self._peer('target', '900', '0')
+        self.wait_for(lambda: 'READY' in lines or 'NO-XDND' in lines, timeout=10)
+        self.assertIn('READY', lines)
+        x = self.app.xdnd
+        self.assertTrue(x.drag_start(self.pane.view.canvas, [self.path('folder/a.txt')]))
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not x.drag_accepted:
+            x.drag_motion(1050, 150, 'copy')
+            self.pump(0.05)
+        self.assertTrue(x.drag_accepted, "the other app didn't accept the drag")
+        self.assertTrue(x.drag_drop())
+        self.wait_for(lambda: any(line.startswith('DROP') for line in lines), timeout=10)
+        drop = next(line for line in lines if line.startswith('DROP'))
+        self.assertEqual(drop, f"DROP copy {self.path('folder/a.txt')}")
+        self.wait_for(lambda: not x.drag_paths, timeout=10)    # XdndFinished came back
+
     def test_properties_and_open_with_open(self):
         from sparkfiles.dialogs import OpenWith, Properties
         d = Properties(self.app, self.w, [self.path('folder/a.txt')])
