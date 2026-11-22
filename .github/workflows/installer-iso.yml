@@ -193,6 +193,14 @@ jobs:
             gh release create installer --draft --target main --title "SparkOS installer" --notes "Building..." --latest=false
           gh release upload installer "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS --clobber
           gh release edit installer --notes-file notes.md --title "SparkOS installer ($(date -u +%Y-%m-%d))"
+          # Point the tag at the commit this ISO was built from, and if the release is already
+          # public, publish it again so GitHub shows this build's date instead of the first one's.
+          # A draft stays a draft: the owner publishes it by hand.
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/installer" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          if [ "$(gh release view installer --json isDraft --jq .isDraft)" = false ]; then
+            gh release edit installer --draft=true
+            gh release edit installer --draft=false --latest
+          fi
           # Remove parts left over from an older, larger ISO
           keep=$(ls "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS)
           gh release view installer --json assets --jq '.assets[].name' | while read -r a; do
