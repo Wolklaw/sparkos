@@ -54,8 +54,8 @@ restarts) ask "Continue?" first.
 | `spark logs [this\|last\|errors]` | The system log of this boot or the one before | `logs-this-boot`, `logs-last-boot` |
 | `spark report [FOLDER]` | One `.tar.gz` with `spark info`, deployments, devices, Vulkan, failed services, crashes, Flatpak apps and both boots' logs. **Nothing is uploaded.** | `get-logs`, `device-info` (those upload to a pastebin) |
 
-`/etc/profile.d/sparkos-brew.sh` puts Homebrew at the end of `PATH` once it's set up (Bazzite
-has its own file for that; this one does nothing there). `sparkos-dev-setup --brew` now points to
+Once it's set up, `/etc/profile.d/brew.sh` puts Homebrew at the end of `PATH` (on Fedora it's
+SparkOS's own, from [files/homebrew](../files/homebrew); on Bazzite, Bazzite's). `sparkos-dev-setup --brew` now points to
 `spark brew` when Homebrew is missing.
 
 ## ujust recipes left out, and why
