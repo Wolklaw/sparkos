@@ -646,8 +646,9 @@ jobs:
           $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
           grep -q 'application/x-ms-dos-executable -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.appimage -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          # Flatpak links: Bazaar on Bazzite (it ships it); Spark Store on Fedora
-          STORE=$([ "$BASE" = bazzite ] && echo io.github.kolunmi.Bazaar || echo dev.wolklaw.SparkStore)
+          # Flatpak links open in Spark Store on both bases (sparkos-defaults.sh; Bazaar, which
+          # Bazzite still ships, is no longer the default since #15)
+          STORE=dev.wolklaw.SparkStore
           grep -q "application/vnd.flatpak.ref -> $STORE.desktop" "$WORK/install-defaults.txt"
           grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
