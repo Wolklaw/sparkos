@@ -458,7 +458,7 @@ jobs:
         continue-on-error: true
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          $SSH 'rpm -q socat bubblewrap kdialog konsole' | tee "$WORK/claude-deps.txt"
+          $SSH 'rpm -q socat bubblewrap kdialog vte291-gtk4 && test -x /usr/bin/spark-terminal' | tee "$WORK/claude-deps.txt"
           ! grep -q 'not installed' "$WORK/claude-deps.txt"
           $SSH 'sparkos-dev-setup --claude && ~/.local/bin/claude --version' 2>&1 | tee "$WORK/claude-install.txt"
           $SSH '~/.local/bin/claude --version' | grep -qiE '[0-9]+\.[0-9]+'
@@ -524,8 +524,8 @@ jobs:
         continue-on-error: true
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # Edit, Calc, Archive, Scan, Run, Link and Store: installed system-wide, each self-test passes
-          for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store; do
+          # Edit, Calc, Archive, Scan, Run, Link, Store and Terminal: installed system-wide, each self-test passes
+          for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal; do
             echo "== $app"
             $SSH "$app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
@@ -709,7 +709,7 @@ jobs:
           APPS=$(sed -n '/^== system Flatpak apps/,/^== flatpak remotes/p' "$WORK/apps.txt" | grep -v '^==' || true)
           [ -z "$APPS" ] || { echo "::error::preinstalled Flatpaks found:"; echo "$APPS"; exit 1; }
           ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight|firefox)-[0-9]' "$WORK/apps.txt"
-          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark >/dev/null && for b in soot freesuite spark-snip spark-media spark-welcome spark-games spark-monitor spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-update; do test -x /usr/bin/$b || exit 1; done && echo "platform and SparkOS apps present"'
+          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark >/dev/null && for b in soot freesuite spark-snip spark-media spark-welcome spark-games spark-monitor spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal spark-update; do test -x /usr/bin/$b || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check the Store
         id: c_store
@@ -752,7 +752,7 @@ jobs:
           grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           # .flatpakref is set to Bazaar (sparkos-defaults.sh), which Fedora doesn't have: printed only
           $SSH 'grep -A2 "\*.exe|\*.msi)" /usr/bin/sparkos-open-package | grep -q "exec spark-run" && command -v spark-run && echo ".exe and .msi open in Spark Run"'
-          $SSH 'test -x /usr/bin/sparkos-open-package && command -v rpm-ostree pkexec kdialog konsole gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub reachable"'
+          $SSH 'test -x /usr/bin/sparkos-open-package && command -v rpm-ostree pkexec kdialog spark-terminal gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub reachable"'
 
       - name: Measure boot time and idle load
         id: c_perf

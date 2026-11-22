@@ -16,4 +16,11 @@ other programs, each under its own license (GPL, LGPL, MIT and others). Their so
 available from Fedora, Bazzite and each project. SparkOS's license does not limit any right
 those licenses give you.
 
+Spark Terminal's terminal emulation (escape codes, Unicode, mouse, colours) is
+[VTE](https://gitlab.gnome.org/GNOME/vte), the GNOME project's terminal library, from Fedora's
+`vte291-gtk4` package. It is LGPL-3.0-or-later; Spark Terminal links to it as a library
+through GObject introspection and does not modify it. Writing a terminal emulator from scratch
+would break programs in ways VTE already handles, the same reason SparkOS uses Mesa and Linux
+rather than its own.
+
 Soot and FreeSuite are separate Wolklaw projects with their own terms.

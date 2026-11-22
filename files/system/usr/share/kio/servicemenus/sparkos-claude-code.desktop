@@ -7,4 +7,4 @@ X-KDE-Priority=TopLevel
 [Desktop Action openClaudeCode]
 Name=Open Claude Code here
 Icon=utilities-terminal
-Exec=konsole --hold --workdir %f -e sparkos-claude %f
+Exec=spark-terminal --hold --workdir %f -e sparkos-claude %f

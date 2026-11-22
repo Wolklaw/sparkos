@@ -22,6 +22,10 @@ menuFont=Inter,10,-1,5,50,0,0,0,0,0
 toolBarFont=Inter,9,-1,5,50,0,0,0,0,0
 smallestReadableFont=Inter,8,-1,5,50,0,0,0,0,0
 fixed=Cascadia Mono,10,-1,5,50,0,0,0,0,0
+# Spark Terminal is the terminal (files/scripts/spark-terminal.sh): Dolphin's "Open Terminal
+# Here" and apps with Terminal=true start it
+TerminalApplication=spark-terminal
+TerminalService=dev.wolklaw.SparkTerminal.desktop
 
 [WM]
 activeFont=Chakra Petch,10,-1,5,63,0,0,0,0,0
@@ -35,7 +39,7 @@ inactiveForeground=179,176,210
 [Icons]
 Theme=breeze-dark
 
-# Konsole reads its default profile from here (as Bazzite set it up)
+# Konsole (kept hidden for one release) reads its default profile from here
 [Desktop Entry]
 DefaultProfile=SparkOS.profile
 
