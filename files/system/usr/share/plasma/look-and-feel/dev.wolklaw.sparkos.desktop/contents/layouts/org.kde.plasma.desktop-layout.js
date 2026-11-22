@@ -51,7 +51,7 @@ dock.addWidget("org.kde.plasma.marginsseparator");
 var pinned = [
     "dev.wolklaw.Soot.desktop",
     "freesuite.desktop",
-    "org.kde.dolphin.desktop",
+    "dev.wolklaw.SparkFiles.desktop",
     "dev.wolklaw.SparkStore.desktop",
     "dev.wolklaw.SparkGames.desktop",
     "org.kde.konsole.desktop"

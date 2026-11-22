@@ -6,12 +6,14 @@
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
 # FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
-# Run, Link, Store and Update). Every other company's or project's app is removed, Bazzite's
+# Run, Link, Store, Files and Update). Every other company's or project's app is removed, Bazzite's
 # included; people install what they want from the Store (Spark Store, or Bazaar next to it). What
 # stays is the platform SparkOS needs to work: Plasma, Dolphin, Konsole, System Settings, Ark (zip
 # support), KDE Connect, the Store, drivers, printing and scanning. Where a Spark app does the job,
 # KDE's own is removed too: Spark Monitor replaces Plasma System Monitor (and takes its shortcuts),
-# Spark Snip replaces Spectacle (it captures through KWin itself). Ark and KDE Connect stay until
+# Spark Snip replaces Spectacle (it captures through KWin itself). Spark Files replaces Dolphin:
+# it is the default file manager and answers "Show in folder"; Dolphin stays installed but out of
+# the menu for one release (files/scripts/spark-files.sh). Ark and KDE Connect stay until
 # Spark Archive and Spark Link are tried on real hardware. Tailscale, a company's VPN service, is
 # removed too.
 #
@@ -153,6 +155,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-run.sh \
         spark-link.sh \
         spark-store.sh \
+        spark-files.sh \
         spark-update.sh \
         sparkos-cleanup.sh \
         sparkos-defaults.sh \
