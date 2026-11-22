@@ -24,7 +24,8 @@ permissions:
   packages: read
 
 concurrency:
-  group: installer-iso
+  # One queue per branch: a branch's test ISOs never wait for, or bump, main's
+  group: installer-iso-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
