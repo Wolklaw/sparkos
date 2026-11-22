@@ -90,7 +90,15 @@ command -v kpackagetool6 >/dev/null || { echo "install.sh: kpackagetool6 not fou
 
 # kpackagetool6 installs, or upgrades when it's already there
 put() {   # $@: extra kpackagetool6 options (-g for system-wide)
-  if kpackagetool6 "$@" -t Plasma/Applet --show "$ID" >/dev/null 2>&1; then
+  # Without -g only this user's copy counts: --show also finds the system-wide one (SparkOS ships it), and
+  # upgrading a package that isn't in the user's folder fails with "package path was deleted manually"
+  local here_already
+  if [ "${1:-}" = -g ]; then
+    kpackagetool6 -g -t Plasma/Applet --show "$ID" >/dev/null 2>&1 && here_already=1
+  else
+    [ -f "${XDG_DATA_HOME:-$HOME/.local/share}/plasma/plasmoids/$ID/metadata.json" ] && here_already=1
+  fi
+  if [ -n "${here_already:-}" ]; then
     kpackagetool6 "$@" -t Plasma/Applet --upgrade "$here/package"
   else
     kpackagetool6 "$@" -t Plasma/Applet --install "$here/package"
