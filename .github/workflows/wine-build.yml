@@ -65,9 +65,9 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: wine-a, path: a }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: wine-b, path: b }
       - name: The two builds must be identical
         run: |
@@ -99,7 +99,7 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: wine-a, path: out }
       - name: Publish the release, or check this build against it
         run: |
