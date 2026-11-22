@@ -86,6 +86,71 @@ fedora)
   # temperatures), tmux, fzf, cabextract (unpacks Windows .cab files; winetricks needs it).
   dnf_install distrobox btop lm_sensors tmux fzf cabextract
 
+  # Package parity: everything else Bazzite has that someone could miss, from Fedora's own
+  # repositories (docs/fedora-base.md, "Package parity", lists each and what was left out).
+  # files/scripts/fedora-parity.sh adds the ones Fedora doesn't package (winetricks, the Nerd
+  # Font symbols, ls-iommu, ...). About 680 MiB in all, 220 of it the compilers, 146 ROCm.
+  # - command-line tools: nvtop (GPU use), fish, just, vim, squashfs-tools, duf, glow, gum, f3
+  #   (fake USB stick check), evtest, lshw, powerstat, stress-ng, usbip, v4l-utils (webcams),
+  #   wmctrl, xdotool, ydotool, xwininfo, wlr-randr, tcpdump, traceroute, ncurses-term (fish's
+  #   terminal list), lzip, unrar, 7zip-standalone (7za), icoutils (Windows icons, for game
+  #   shortcuts), mtools, symlinks, msedit, libinput-utils, libimobiledevice-utils (iPhones),
+  #   libbluray-utils, sbsigntools and grub2-tools-extra (boot files), udica, python3-pip
+  # - yad and zenity: the dialogs winetricks, Proton tools and scripts open
+  dnf_install \
+    nvtop fish just vim-enhanced squashfs-tools duf glow gum f3 evtest lshw powerstat \
+    stress-ng usbip v4l-utils wmctrl xdotool ydotool xwininfo wlr-randr tcpdump traceroute \
+    ncurses-term lzip unrar 7zip-standalone icoutils mtools symlinks msedit libinput-utils \
+    libimobiledevice-utils libbluray-utils sbsigntools grub2-tools-extra udica python3-pip \
+    yad zenity
+  # - gcc, gcc-c++, make: Bazzite has a C/C++ compiler; Rust (cargo links with cc), pip and npm
+  #   packages with native parts, and Claude Code's builds need one
+  dnf_install gcc gcc-c++ make
+  # - disks and system: snapper, btrfs-assistant (snapshots, off until set up, as on Bazzite),
+  #   btrfsmaintenance (scrub and balance timers, off as on Bazzite), bees (btrfs dedup, off),
+  #   gnome-disk-utility (Disks), greenboot (goes back to the previous system after three
+  #   failed boots of an update; fedora-parity.sh sets it up), Cockpit's pages (web admin, for
+  #   Cockpit's own client or container; no web server is installed, as on Bazzite)
+  dnf_install \
+    snapper btrfs-assistant btrfsmaintenance bees gnome-disk-utility \
+    greenboot greenboot-default-health-checks \
+    cockpit-system cockpit-files cockpit-networkmanager cockpit-podman cockpit-storaged
+  # - security keys: sign in or sudo with a YubiKey or other U2F key, and YubiKey's manager
+  dnf_install pam-u2f pamu2fcfg pam_yubico yubikey-manager
+  # - desktop: xdg-native-messaging-proxy (browser extensions talking to apps, for Flatpak
+  #   browsers), flatpak-spawn, dbus-x11 (dbus-launch for older apps), gvfs (trash, network
+  #   folders and phones in GTK apps), wsdd (Windows network discovery), openxr (VR runtime
+  #   loader), libFAudio, libnsl and libxcrypt-compat (older games and Linux programs),
+  #   bluez-cups (Bluetooth printers)
+  dnf_install \
+    xdg-native-messaging-proxy flatpak-spawn dbus-x11 gvfs wsdd openxr libFAudio libnsl \
+    libxcrypt-compat bluez-cups
+  # - sound: alsa-firmware and alsa-tools-firmware (firmware for sound cards that load it, with
+  #   fxload), PipeWire's SOFA spatial audio filter, the CAPS LADSPA plugins (EasyEffects and
+  #   filter chains)
+  dnf_install alsa-firmware alsa-tools-firmware pipewire-module-filter-chain-sofa ladspa-caps-plugins
+  # - AMD GPU compute: ROCm's OpenCL (Blender, DaVinci Resolve, Darktable, AI tools), with
+  #   rocm-clinfo, rocm-smi and amdsmi to check the GPU. Fedora lets every user open /dev/kfd.
+  dnf_install rocm-opencl rocm-clinfo rocm-smi amdsmi
+  # - fonts Bazzite ships: Fira Code, Lato, Twemoji, and Noto for Balinese, Javanese, Sundanese
+  #   and Egyptian hieroglyphs (Noto CJK is already in Kinoite, as variable fonts)
+  dnf_install \
+    fira-code-fonts lato-fonts twitter-twemoji-fonts google-noto-sans-balinese-fonts \
+    google-noto-sans-javanese-fonts google-noto-sans-sundanese-fonts \
+    google-noto-sans-egyptian-hieroglyphs-fonts
+  # - text recognition in the languages Bazzite has (English and French come with Spark Scan)
+  dnf_install \
+    tesseract-langpack-ces tesseract-langpack-chi_sim tesseract-langpack-chi_sim_vert \
+    tesseract-langpack-chi_tra tesseract-langpack-chi_tra_vert tesseract-langpack-deu \
+    tesseract-langpack-ell tesseract-langpack-ita tesseract-langpack-jpn \
+    tesseract-langpack-jpn_vert tesseract-langpack-nld tesseract-langpack-pol \
+    tesseract-langpack-por tesseract-langpack-rus tesseract-langpack-spa tesseract-langpack-tur
+  # From RPM Fusion free and Cisco, like the video codecs above: HEIC photos (iPhone pictures;
+  # Fedora's libheif can't decode HEVC), aptX for Bluetooth headphones, and OpenH264 for
+  # Firefox-based browsers
+  dnf_install libheif-freeworld pipewire-codec-aptx
+  dnf_install --enablerepo=fedora-cisco-openh264 mozilla-openh264
+
   # Tuning Bazzite has (files/scripts/fedora-tuning.sh sets the rest up), from Fedora:
   # vkBasalt (Vulkan post-processing layer, off unless ENABLE_VKBASALT=1) and python3-pyinotify
   # (for ds-inhibit, the DualSense touchpad fix in files/ds-inhibit)

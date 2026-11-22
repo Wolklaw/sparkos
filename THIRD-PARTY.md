@@ -38,4 +38,8 @@ dongle's firmware in that image is Microsoft's, extracted unchanged from its Win
 packages; it is not under an open-source license, and is redistributed the way the xone project
 and other Linux distributions do.
 
+The Fedora image also downloads, unchanged and checked by SHA-256 while it builds, the
+`winetricks` script 20260125 (LGPL-2.1-or-later) and Nerd Fonts' Symbols Nerd Font 3.5.1 with
+its fontconfig file (MIT). Their license texts are in `/usr/share/licenses/sparkos-parity/`.
+
 Soot and FreeSuite are separate Wolklaw projects with their own terms.

@@ -352,6 +352,72 @@ zstd, `sysctl net.ipv4.tcp_congestion_control` says `bbr`, `dmemcg-booster` and 
 booster run and `/sys/fs/cgroup/dmem.capacity` lists the GPU's VRAM, a DualSense's touchpad
 stops moving the pointer while Steam is open, and that no SELinux `execmem` denials show up.
 
+## Package parity
+
+Added 2026-11-22. The owner's rule for the move: anything Bazzite gives today, the Fedora image
+gives too. Method: `rpm -qa` on the owner's PC (SparkOS on Bazzite) against the Fedora image with
+everything above already in it: 598 package names missing. Most are libraries that come with
+something else, or the same thing under another name (negativo17 splits FFmpeg into
+`libavcodec`, `libavformat`, ...; RPM Fusion's `ffmpeg-libs` holds them). The rest is below.
+[build_files/packages.sh](../build_files/packages.sh) installs the Fedora packages (step 4);
+[files/scripts/fedora-parity.sh](../files/scripts/fedora-parity.sh) (step 5) adds what Fedora
+doesn't package. Nothing changes on the Bazzite base.
+
+**Size:** +676 MiB installed (206 MiB download), measured with dnf in a container of the Fedora
+image; 221 MiB of it is the C/C++ compiler and 146 MiB ROCm's OpenCL. The files from
+`fedora-parity.sh` add 6 MiB. The Fedora image stays well under Bazzite's (9.4 GB against 12.5 GB
+before this).
+
+| Bazzite has | On the Fedora image | Why |
+|---|---|---|
+| nvtop, fish, just, vim-enhanced, squashfs-tools, duf, glow, gum, f3, evtest, lshw, powerstat, stress-ng, usbip, v4l-utils, wmctrl, xdotool, ydotool, xwininfo, wlr-randr, tcpdump, traceroute, ncurses-term, lzip, icoutils, mtools, symlinks, msedit, libinput-utils, libimobiledevice-utils, libbluray-utils, sbsigntools, grub2-tools-extra, udica, python3-pip | Fedora's packages | Command-line tools someone may already use. 169 MiB with yad and zenity. |
+| yad, zenity | Fedora's packages | The dialogs winetricks, Proton tools and scripts open. |
+| `rar` (negativo17) | Fedora's `unrar`, and `7zip-standalone` (`7za`) | Extracting RAR files works with these and with the 7-Zip already in the image; creating RAR needs RARLAB's paid program. |
+| `winetricks` (a loose file) | Upstream's script 20260125, SHA-256 checked, the same file as Bazzite's | Fedora's package requires Wine itself (1.6 GiB with its Windows libraries); Proton and umu bring their own Wine. |
+| gcc, gcc-c++, make (there with `kernel-devel`) | Fedora's packages, 221 MiB | A C/C++ compiler for Rust (cargo links with `cc`), pip and npm packages with native code, and Claude Code's builds. `kernel-devel` is left out: the kernel modules are built in their own stage. |
+| snapper, btrfs-assistant, btrfsmaintenance, bees | Fedora's packages, off as on Bazzite | On the owner's PC snapper has no configuration and the btrfs timers are off; they are there to turn on. |
+| gnome-disk-utility | Fedora's package | Disks: formatting, SMART data, disk images. |
+| greenboot, greenboot-default-health-checks | Fedora's packages, with Bazzite's settings (`files/fedora-parity/greenboot.conf`); both services on | Running on the owner's PC: after an update, three failed boots in a row go back to the previous system. The DNS and update-server checks are off, as on Bazzite, so a PC that boots offline isn't a failed boot. |
+| cockpit-system, -files, -networkmanager, -podman, -storaged | Fedora's packages | Cockpit's web admin pages, used through Cockpit's client or container. No web server is installed, as on Bazzite. |
+| pam-u2f, pamu2fcfg, pam_yubico, yubikey-manager | Fedora's packages | Sign in or `sudo` with a YubiKey or another U2F key. |
+| xdg-native-messaging-proxy, flatpak-spawn, dbus-x11, gvfs, wsdd, openxr, libFAudio, libnsl, libxcrypt-compat, bluez-cups (`terra-bluez-cups`) | Fedora's packages | Browser extensions that talk to apps (Flatpak browsers), `dbus-launch`, trash and network folders in GTK apps, Windows network discovery, the OpenXR loader for VR, older games and Linux programs, Bluetooth printers. |
+| alsa-firmware, alsa-tools-firmware (with fxload) | Fedora's packages | Firmware for sound cards that load it. `alsa-sof-firmware` (Intel SOF) was already in Kinoite. |
+| pipewire-module-filter-chain-sofa, ladspa-caps-plugins | Fedora's packages | Spatial audio filter, EasyEffects' and filter chains' plugins. |
+| pipewire-libs-extra (negativo17: aptX, LC3plus) | RPM Fusion's `pipewire-codec-aptx` | aptX for Bluetooth headphones. LC3plus isn't packaged anywhere else; plain LC3 is in Fedora's PipeWire. |
+| libheif with HEVC (negativo17: libde265 and others) | RPM Fusion's `libheif-freeworld` | HEIC photos (iPhone pictures). Fedora's libheif can't decode them. |
+| mozilla-openh264 | Fedora's Cisco repository | H.264 video calls in Soot (Firefox's engine), through `MOZ_GMP_PATH` in `/etc/profile.d/gmpopenh264.sh`. |
+| rocm-opencl, rocm-runtime, rocm-comgr, rocm-clinfo, rocm-smi, amdsmi | Fedora's packages, 146 MiB | OpenCL on the AMD GPU for Blender, DaVinci Resolve, Darktable and AI tools. Checked: `rocm-clinfo` lists the AMD platform; `/dev/kfd` is open to all users on both bases. HIP (`rocm-hip`) isn't on Bazzite either. |
+| fira-code-fonts, lato-fonts, twitter-twemoji-fonts, Noto Sans Balinese, Javanese, Sundanese, Egyptian hieroglyphs | Fedora's packages | Fonts web pages and apps ask for by name. |
+| google-noto-sans-cjk-fonts (static) | **Not added** | Kinoite has the same Chinese, Japanese and Korean glyphs as variable fonts (`google-noto-sans-cjk-vf-fonts`); the static set is 130 MiB more. |
+| nerd-fonts (COPR) | Symbols Nerd Font 3.5.1 from upstream, SHA-256 checked, with Nerd Fonts' fontconfig file | Prompt icons (Starship, oh-my-posh, `eza --icons`) in any monospace font. The same files as Bazzite's (same SHA-256). |
+| tesseract-langpack-* (ces, chi_sim, chi_tra and their _vert, deu, ell, ita, jpn, jpn_vert, nld, pol, por, rus, spa, tur) | Fedora's packages, 45 MiB | Text recognition in those languages. English and French come with Spark Scan. |
+| `ls-iommu` (Terra) | `files/fedora-parity/ls-iommu`, a small script | Lists IOMMU groups for GPU passthrough. |
+| `boot-windows`, `protontricks`, `protontricks-launch`, `pulseaudio` (link to `true`), `edit` (link to msedit) (loose files) | SparkOS's own: `boot-windows` runs `spark windows`; the protontricks commands run Flathub's Protontricks or say how to get it; the two links as on Bazzite | Names people type. `pulseaudio --check` succeeds for games and launchers that look for it (PipeWire plays its part). |
+| ntfs-3g, ntfsprogs, exfatprogs, dosfstools; kernel `ntfs3` | Already in Kinoite | The owner's NTFS drives mount with the kernel's `ntfs3` on Bazzite today; Fedora's kernel has `ntfs3.ko` too. |
+| Nova's libraries (llama-server with Vulkan, PySide6 with Qt WebEngine) | Nothing missing | `ldd` over every program and library in Nova's install, run in the Fedora image, finds the same short list of unresolved optional Qt plugins (SQL drivers, Wayland compositor, PDF) as in the Bazzite image. |
+
+**Not added** (one line each):
+
+- `edk2-ovmf`, `lxc`: virtual machine firmware and LXC without a hypervisor or service using them (QEMU and libvirt aren't on Bazzite either; `lxc` is off). Virtual machine apps from Flathub bring their own.
+- `cosign` (Sigstore, 145 MiB): signature checks on updates are done by the container tools themselves (`signing.sh`'s policy); cosign is only needed to sign, which the build does.
+- `webapp-manager`, `rom-properties` (Terra): not in Fedora; another project's app, and ROM thumbnails for Dolphin (Spark Files is the file manager).
+- `plasma-oxygen`, `oxygen-sounds`, `oxygen-icon-theme`, `oxygen-cursor-themes` (165 MiB): an old KDE look; SparkOS uses its own theme and icons.
+- `perl` (the full set): `perl-interpreter` and what scripts need are there; the rest came with ScopeBuddy and `perl-CPAN`.
+- `openrazer`, `xwiimote-ng`, `linux-cec`, `libcec`, `inputattach-cec-units`, `nct6687d`, `uld` (Samsung/HP laser printer driver, negativo17), `intel-opencl`, `intel-vaapi-driver`: hardware the owner doesn't have (AMD GPUs have no HDMI-CEC).
+- `framework-system`, `fw-fanctrl`, `fw-ectool`, `ayaneo-platform`, `jupiter-sd-mounting-btrfs`, `steamdeck-kde-presets-desktop`, `cardwire`, `system76-*`, `sc0710`, `t150`, `gcadapter_oc`, `sd0`, `gameclass`, `cec-control`: Framework laptops, handhelds, Steam Deck, laptop GPU switching.
+- `bazaar`, `krunner-bazaar`, `krunner-yafti`, `bazzite-portal`, `ublue-os-*`, `terra-release*`, `umu-wrapper`, `copr` (a `dnf5 copr` shortcut), Bazzite's rollback and Steam helpers: Bazzite's and Universal Blue's own; Spark Store, Spark Update and `spark` cover them.
+- `cage`, `bpfrag`, `cicpoffs`, `qt6-controllable`, `ScopeBuddy`, `vulkan-low-latency-layer`, `scx-*`, `bpftune`, `ryzenadj`: Terra extras Bazzite doesn't turn on, or skipped in [Performance and tuning](#performance-and-tuning).
+- `kernel-devel`, `tesseract-devel`, `leptonica-devel`, `*-srpm-macros`, `redhat-rpm-config`, `annobin`: build-only.
+- `webkit2gtk4.1`, `webkitgtk6.0`, `gtksourceview4/5`, `gnome-desktop3`, `libdex`, `python3-pydantic`, `python3-protobuf`, `python3-moddb`, `python3-pypresence`, `python3-icoextract`, `python3-gbinder`, `apr-util-*`: libraries that only came with apps SparkOS removes on Bazzite too (Lutris, Waydroid, Bazaar, yafti).
+- `libcamera-tools`, `libcamera-gstreamer`: the C920 is a UVC camera and works through V4L2 and PipeWire's camera plugin (already in Kinoite).
+
+**Checked in containers of `sparkos-fedora`** (2026-11-22): every package resolves from Fedora,
+RPM Fusion free and Cisco's repository; `fedora-parity.sh` runs to the end (checksums match,
+fontconfig finds Symbols Nerd Font, both greenboot services enabled); `ls-iommu` lists the
+PC's groups; `winetricks --version` reports 20260125 with Bazzite's SHA-256; `pulseaudio --check`
+succeeds; `rocm-clinfo` finds the AMD platform. **Needs the real PC:** `rocm-clinfo` listing the
+RX 6800 XT, a HEIC photo opening, greenboot clearing `boot_counter` after a good boot.
+
 ## What still ties the prototype to someone else
 
 - **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one

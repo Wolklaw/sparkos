@@ -80,7 +80,8 @@ COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
 # 4. Packages (build_files/packages.sh lists each one and why). On Bazzite: remove the other
 #    projects' apps it ships, Tailscale and Universal Blue's updater. On Fedora: add what Bazzite
 #    brought (printing, scanning, ImageMagick, the gaming layer, distrobox, btop, tmux and other
-#    tools, umu-run from Terra for this one package) and RPM Fusion free's FFmpeg and Mesa video
+#    tools, compilers, ROCm OpenCL, fonts, greenboot, umu-run from Terra for this one package;
+#    docs/fedora-base.md "Package parity") and RPM Fusion free's FFmpeg and Mesa video
 #    decode, so H.264/H.265 play. Then, on both, the SparkOS list (Claude Code's
 #    sandbox, kdialog, FUSE 2 for AppImages, Inter, the libraries Androidbox needs).
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
@@ -107,6 +108,9 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      zram, I/O schedulers, btrfs reclaim, stop timeouts, memlock, ds-inhibit, VRAM booster)
 #    - fedora-homebrew (Fedora only): Homebrew on PATH and completion in bash, zsh and fish,
 #      when Homebrew is installed (Bazzite's own files do this there)
+#    - fedora-parity (Fedora only): what Bazzite has that Fedora doesn't package, as SparkOS's
+#      own (winetricks, the Nerd Font symbols, ls-iommu, boot-windows, protontricks), and
+#      greenboot's settings (back to the previous system after three failed boots)
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
 #      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
@@ -128,6 +132,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         "-|fedora-gaming.sh" \
         "-|fedora-tuning.sh" \
         "-|fedora-homebrew.sh" \
+        "-|fedora-parity.sh" \
         soot.sh \
         freesuite.sh \
         spark-snip.sh \

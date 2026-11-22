@@ -1,0 +1,4 @@
+#!/usr/bin/bash
+# boot-windows: restart into Windows once. Bazzite ships a command by this name; on SparkOS it is
+# `spark windows`, which finds the Windows Boot Manager entry and asks before restarting.
+exec /usr/bin/spark windows "$@"
