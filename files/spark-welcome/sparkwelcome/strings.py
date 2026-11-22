@@ -54,7 +54,7 @@ EN: Dict[str, str] = {
     'welcome.scan': "scanning to PDF, with searchable text",
     'welcome.run': "Windows programs (.exe and .msi)",
     'welcome.link': "your phone and this PC, through Soot's phone app",
-    'welcome.store': "apps from Flathub, next to Bazaar",
+    'welcome.store': "apps from Flathub, and the Spark apps",
     'welcome.update': "updates and going back to the previous version",
     'welcome.how': "How this works",
     'welcome.skip': "Each page can be skipped. Nothing is installed or copied until you click "
@@ -291,7 +291,7 @@ FR: Dict[str, str] = {
     'welcome.scan': "numérisation en PDF, avec texte cherchable",
     'welcome.run': "programmes Windows (.exe et .msi)",
     'welcome.link': "votre téléphone et ce PC, avec l'application mobile de Soot",
-    'welcome.store': "applications de Flathub, à côté de Bazaar",
+    'welcome.store': "applications de Flathub, et les applications Spark",
     'welcome.update': "mises à jour et retour à la version précédente",
     'welcome.how': "Comment ça marche",
     'welcome.skip': "Chaque page peut être sautée. Rien n'est installé ni copié avant que vous "

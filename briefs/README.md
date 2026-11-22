@@ -30,6 +30,7 @@ every optional Spark app is listed and can be installed or removed with a click.
 | [spark-files.md](spark-files.md) | Spark Files: SparkOS's own file manager (replaces Dolphin) | Brief written 2026-11-22, not started |
 | [spark-terminal.md](spark-terminal.md) | Spark Terminal: SparkOS's own terminal on the VTE library (replaces Konsole) | Brief written 2026-11-22, not started |
 | [spark-launcher.md](spark-launcher.md) | Spark Launcher: SparkOS's own app menu and dock button (replaces Kickoff) | Brief written 2026-11-22, not started |
+| [sparkos-icons.md](sparkos-icons.md) | SparkOS's own icon theme over Breeze Dark, in four batches (taskbar, folders, file types, tray), one session and PR each | Brief written 2026-11-22, not started |
 | [build-without-bluebuild.md](build-without-bluebuild.md) | SparkOS built from its own Containerfile, side by side with the BlueBuild build | Merged ([#15](https://github.com/Wolklaw/sparkos/pull/15)); the real build uses the Containerfile since 2026-11-20 ([docs/building.md](../docs/building.md)) |
 
 ## Optional apps install on their own
