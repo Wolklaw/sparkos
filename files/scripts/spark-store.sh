@@ -3,9 +3,9 @@
 # from the Flathub catalog flatpak keeps on the PC. Its source lives in this repo at
 # files/spark-store.
 #
-# This only installs it. It doesn't take over from Bazaar: the Store entry on the taskbar and
-# the defaults for .flatpakref and .flatpakrepo files and appstream:// links stay with Bazaar
-# until the owner decides to retire it (sparkos-defaults.sh and the taskbar layout).
+# This installs it. Its menu entry takes appstream:// links; sparkos-defaults.sh makes it the
+# default for .flatpakref and .flatpakrepo files, and the taskbar layout pins it. Bazaar, where
+# the base still has it, is only a fallback.
 #
 # install.sh --deps installs it system-wide, copies every Spark app's spark-app.json and icon
 # (files/spark-*/) into /usr/lib/spark-store/spark-apps, and runs --self-test. The build

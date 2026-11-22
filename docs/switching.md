@@ -6,7 +6,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 - **Partly**: works with limits.
 - **No**: keep Windows (dual boot or a Windows VM) for it.
 
-"In the image" means SparkOS ships it already: only SparkOS's own apps (Soot, FreeSuite, Spark Snip, Spark Media) and the system itself. "From the Store" means you install it with one click from the Store (Bazaar). "Check" means I couldn't confirm it, and you should test it before you rely on it.
+"In the image" means SparkOS ships it already: only SparkOS's own apps (Soot, FreeSuite, Spark Snip, Spark Media) and the system itself. "From the Store" means you install it with one click from Spark Store. "Check" means I couldn't confirm it, and you should test it before you rely on it.
 
 **Installing apps:** a store with an Install button, or double-click what you downloaded (`.exe`, `.AppImage`, `.rpm`). See [installing-apps.md](installing-apps.md).
 
