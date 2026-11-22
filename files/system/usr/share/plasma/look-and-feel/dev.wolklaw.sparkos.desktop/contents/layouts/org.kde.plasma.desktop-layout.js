@@ -1,6 +1,7 @@
 // SparkOS default desktop: a slim top bar (SparkOS menu, tray, clock) and a floating,
-// centred dock with the launcher and pinned apps. Used only for a user's first login;
-// after that the user's own panel setup is kept.
+// centred dock with the launcher and pinned apps. Both menus are Spark Launcher
+// (files/spark-launcher), SparkOS's own app menu, in place of Plasma's Kickoff. Used only
+// for a user's first login; after that the user's own panel setup is kept.
 
 var wallpaper = "/usr/share/wallpapers/SparkOS";
 var desktops = desktopsForActivity(currentActivity());
@@ -17,7 +18,7 @@ top.height = Math.round(gridUnit * 1.8);
 top.floating = false;
 top.hiding = "none";
 
-var menu = top.addWidget("org.kde.plasma.kickoff");
+var menu = top.addWidget("dev.wolklaw.sparklauncher");
 menu.currentConfigGroup = ["General"];
 menu.writeConfig("icon", "sparkos");
 menu.writeConfig("menuLabel", "SPARKOS");
@@ -41,7 +42,7 @@ dock.lengthMode = "fit";
 dock.alignment = "center";
 dock.hiding = "none";
 
-var launcher = dock.addWidget("org.kde.plasma.kickoff");
+var launcher = dock.addWidget("dev.wolklaw.sparklauncher");
 launcher.currentConfigGroup = ["General"];
 launcher.writeConfig("icon", "sparkos");
 

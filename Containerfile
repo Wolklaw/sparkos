@@ -6,7 +6,7 @@
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
 # FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
-# Run, Link, Store, Files and Update). Every other company's or project's app is removed, Bazzite's
+# Run, Link, Store, Launcher, Files and Update). Every other company's or project's app is removed, Bazzite's
 # included; people install what they want from the Store (Spark Store, or Bazaar next to it). What
 # stays is the platform SparkOS needs to work: Plasma, Dolphin, Konsole, System Settings, Ark (zip
 # support), KDE Connect, the Store, drivers, printing and scanning. Where a Spark app does the job,
@@ -127,6 +127,7 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
 #    - sparkos-apps: no preinstalled third-party apps (empties Bazzite's first-boot list, drops the Portal)
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
+#      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
 #      Update is the one updater: its timer downloads and stages updates daily (engine "spark";
 #      until 2026-11-20 Universal Blue's uupd did the downloading)
 #    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
@@ -156,6 +157,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-link.sh \
         spark-store.sh \
         spark-files.sh \
+        spark-launcher.sh \
         spark-update.sh \
         sparkos-cleanup.sh \
         sparkos-defaults.sh \
