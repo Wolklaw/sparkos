@@ -57,10 +57,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Runners since 2026-11-22 have one 72 GB disk (no separate /mnt). The pulled image,
+      # image-builder's working tree and the qcow2 need more than the 45 GB left free, so the
+      # same cleanup installer-iso.yml uses (large packages and the swap file too)
       - name: Free disk space
+        uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
+        with:
+          tool-cache: true
+
+      - name: Make the work folder
         run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
-                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          # What the action above leaves: toolchains this test never uses
+          sudo rm -rf /usr/lib/jvm /usr/local/lib/node_modules /usr/local/julia* /usr/share/miniconda \
+                      /opt/az /opt/microsoft /opt/google /opt/pipx /usr/local/share/chromium \
+                      /usr/local/share/powershell /usr/local/aws-cli /usr/local/share/vcpkg
           sudo docker system prune -af >/dev/null || true
           sudo mkdir -p "$WORK" && sudo chown "$USER" "$WORK"
           df -h / /mnt
