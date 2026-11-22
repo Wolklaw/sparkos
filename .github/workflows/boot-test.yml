@@ -360,6 +360,13 @@ jobs:
           grep -qx '1' "$WORK/spark-files-takeover.txt" || { echo "::error::Dolphin is still in the menu"; exit 1; }
           grep -qx 'dev.wolklaw.SparkFiles.desktop' "$WORK/spark-files-takeover.txt" || { echo "::error::folders don't open in Spark Files"; exit 1; }
 
+      - name: Check the SparkOS icon theme
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # installed, over Breeze Dark, and the default for a new user (files/scripts/sparkos-icons.sh)
+          $SSH 'kreadconfig6 --group Icons --key Theme; sed -n "s/^Inherits=//p" /usr/share/icons/SparkOS/index.theme; test -s /usr/share/icons/SparkOS/places/scalable/folder.svg && echo folder' | tee "$WORK/icons.txt"
+          diff <(printf 'SparkOS\nbreeze-dark,hicolor\nfolder\n') "$WORK/icons.txt" || { echo "::error::SparkOS is not the icon theme"; exit 1; }
+
       - name: Check the other Spark apps
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |

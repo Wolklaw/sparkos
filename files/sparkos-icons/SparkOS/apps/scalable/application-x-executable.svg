@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Generic app (no icon of its own): an empty window. SparkOS icon theme, 48 grid. -->
+  <rect x="4.5" y="4.5" width="39" height="39" rx="3" fill="#141233" stroke="#ece9ff" stroke-opacity="0.22"/>
+  <!-- the slip: magenta 2 left, cyan 2 right, mint on top -->
+  <rect x="10.25" y="13.25" width="23.5" height="21.5" fill="none" stroke="#ff2e88" stroke-width="2.5"/>
+  <rect x="14.25" y="13.25" width="23.5" height="21.5" fill="none" stroke="#22d8ff" stroke-width="2.5"/>
+  <rect x="12.25" y="13.25" width="23.5" height="21.5" fill="#141233" stroke="#9be8b8" stroke-width="2.5"/>
+  <rect x="12" y="13" width="24" height="6" fill="#9be8b8"/>
+  <rect x="16" y="24" width="10" height="2" fill="#b3b0d2"/>
+  <rect x="16" y="28" width="15" height="2" fill="#b3b0d2"/>
+</svg>

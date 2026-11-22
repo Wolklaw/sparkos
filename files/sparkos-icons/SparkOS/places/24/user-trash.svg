@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Trash, empty, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <path d="M5 8 H17 L16 20 H6 Z" fill="#2c2870"/>
+  <rect x="8" y="10" width="1" height="8" fill="#b3b0d2"/>
+  <rect x="10.5" y="10" width="1" height="8" fill="#b3b0d2"/>
+  <rect x="13" y="10" width="1" height="8" fill="#b3b0d2"/>
+  <rect x="8" y="2" width="6" height="2" fill="#9be8b8"/>
+  <rect x="2" y="5" width="17" height="2" fill="#ff2e88"/>
+  <rect x="4" y="5" width="17" height="2" fill="#22d8ff"/>
+  <rect x="3" y="5" width="16" height="2" fill="#9be8b8"/>
+</svg>

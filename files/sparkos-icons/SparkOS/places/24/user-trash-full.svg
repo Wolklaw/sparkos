@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Trash, full, drawn for 22 px, shown at 24 with a 1 px margin: paper above the bin. -->
+  <path d="M6 9 L8 3 L12 5 L11 9 Z" fill="#b9a6ff"/>
+  <path d="M10 9 L13 2 L17 5 L16 9 Z" fill="#f4c95d"/>
+  <path d="M5 8 H17 L16 20 H6 Z" fill="#2c2870"/>
+  <rect x="8" y="10" width="1" height="8" fill="#b3b0d2"/>
+  <rect x="10.5" y="10" width="1" height="8" fill="#b3b0d2"/>
+  <rect x="13" y="10" width="1" height="8" fill="#b3b0d2"/>
+  <rect x="3" y="7" width="17" height="2" fill="#ff2e88"/>
+  <rect x="5" y="7" width="17" height="2" fill="#22d8ff"/>
+  <rect x="4" y="7" width="16" height="2" fill="#9be8b8"/>
+</svg>

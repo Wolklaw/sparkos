@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Generic app, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <rect x="0.5" y="0.5" width="21" height="21" rx="2" fill="#141233" stroke="#ece9ff" stroke-opacity="0.22"/>
+  <rect x="3.5" y="5.5" width="14" height="11" fill="none" stroke="#ff2e88"/>
+  <rect x="5.5" y="5.5" width="14" height="11" fill="none" stroke="#22d8ff"/>
+  <rect x="4.5" y="5.5" width="14" height="11" fill="#141233" stroke="#9be8b8"/>
+  <rect x="4" y="5" width="15" height="3" fill="#9be8b8"/>
+  <rect x="7" y="10" width="5" height="1" fill="#b3b0d2"/>
+  <rect x="7" y="12" width="8" height="1" fill="#b3b0d2"/>
+</svg>

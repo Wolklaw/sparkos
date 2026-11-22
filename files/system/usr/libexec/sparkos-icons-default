@@ -1,0 +1,21 @@
+#!/bin/sh
+# Once per user, at sign-in: a user whose own settings still say Breeze Dark (the icon theme
+# SparkOS used before it had its own, often written there by applying the SparkOS look) moves
+# to the SparkOS icon theme. Any other choice is left alone, and it never runs again for that
+# user, so picking Breeze Dark again later sticks. Takes effect from the next sign-in.
+stamp="${XDG_STATE_HOME:-$HOME/.local/state}/sparkos/icons-default-1"
+[ -e "$stamp" ] && exit 0
+[ -d /usr/share/icons/SparkOS ] || exit 0
+conf="${XDG_CONFIG_HOME:-$HOME/.config}/kdeglobals"
+if [ -f "$conf" ]; then
+  # the Theme key of the [Icons] group, from the user's own file only (not /etc/xdg)
+  current=$(awk '/^\[/{g=($0=="[Icons]")} g&&/^Theme=/{sub(/^Theme=/,"");print;exit}' "$conf")
+  if [ "$current" = "breeze-dark" ]; then
+    # drop the line so the system default (/etc/xdg/kdeglobals: SparkOS) applies. Not
+    # kwriteconfig6 --delete: that writes Theme[$d], which hides the system default too.
+    tmp="$conf.sparkos-icons.$$"
+    awk '/^\[/{g=($0=="[Icons]")} !(g&&/^Theme=/)' "$conf" > "$tmp" && cat "$tmp" > "$conf"
+    rm -f "$tmp"
+  fi
+fi
+mkdir -p "$(dirname "$stamp")" && : > "$stamp"
