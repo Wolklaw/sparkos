@@ -96,11 +96,19 @@ jobs:
             test ! -e /usr/bin/spark-bench
 
             echo "--- self-test and unit tests on the image'"'"'s Python"
+            # the image'"'"'s /etc/skel already has ~/.var, so compare before and after rather
+            # than expect it to be missing
+            snap() { as "find ~/.config/MangoHud ~/.var ~/.local/share/flatpak -printf \"%p %s %T@\n\" 2>/dev/null | sort; true"; }
+            before=$(snap)
             as "~/.local/bin/spark-bench --version"
             as "~/.local/bin/spark-bench --self-test"
-            as "test ! -e ~/.config/MangoHud"
             as "cd ~/spark-bench && python3 -m unittest discover -s tests -v"
-            as "test ! -e ~/.config/MangoHud && test ! -e ~/.var"
+            after=$(snap)
+            if [ "$before" != "$after" ]; then
+              echo "the self-test or the tests changed the real home:"
+              diff <(printf "%s\n" "$before") <(printf "%s\n" "$after") || true
+              exit 1
+            fi
 
             echo "--- uninstall (with a background watcher unit Spark Bench wrote)"
             as "cd ~/.local/lib/spark-bench && python3 -c \"from sparkbench import core, watch; core.write_text(watch.unit_path(), watch.unit_text(watch.command()))\""
