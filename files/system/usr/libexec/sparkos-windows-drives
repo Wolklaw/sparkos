@@ -192,12 +192,14 @@ def owner(user=None, passwd="/etc/passwd"):
             log(f"user={user} in the conf doesn't exist; using the first account")
     best = None
     try:
-        for line in open(passwd, encoding="utf-8", errors="replace"):
-            f = line.split(":")
-            if len(f) > 3 and f[2].isdigit() and 1000 <= int(f[2]) < 60000 and (best is None or int(f[2]) < best[0]):
-                best = (int(f[2]), int(f[3]))
+        with open(passwd, encoding="utf-8", errors="replace") as lines:
+            rows = lines.read().splitlines()
     except OSError:
-        pass
+        rows = []
+    for line in rows:
+        f = line.split(":")
+        if len(f) > 3 and f[2].isdigit() and 1000 <= int(f[2]) < 60000 and (best is None or int(f[2]) < best[0]):
+            best = (int(f[2]), int(f[3]))
     return best or (0, 0)
 
 
