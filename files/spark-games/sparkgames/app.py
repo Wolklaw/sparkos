@@ -20,7 +20,7 @@ from .core import (Game, home, load_settings, log, mtime, open_uri, reduced_moti
                    save_settings, setup_logging, spawn, which)
 from .strings import tr
 
-STORE_DESKTOP = 'io.github.kolunmi.Bazaar.desktop'
+STORE_DESKTOP = 'dev.wolklaw.SparkStore.desktop'
 FOCUS_CHECK = 2.0          # seconds between looks at the launchers' files on window focus
 PAD_KEYS = {'up': 'Up', 'down': 'Down', 'left': 'Left', 'right': 'Right', 'a': 'Return',
             'b': 'Escape', 'y': 'slash', 'start': 'space'}
