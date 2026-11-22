@@ -10,8 +10,9 @@ every day, and booted with the same boot test. Before that it had its own BlueBu
 own copy of the checks, which fell behind main (it missed the icon theme, the Caps Lock fix, the new
 boot splash and the sign-in screen change). Two of the gaps below are fixed by that change:
 **H.265** (RPM Fusion free's FFmpeg and Mesa video decode are now in the image) and **Spark
-Update's image name** (it knows `sparkos-fedora`). The measurements below are from the prototype
-runs of 2026-11-20 and haven't been redone.
+Update's image name** (it knows `sparkos-fedora`). Since the same day, **`ujust`** is replaced by
+SparkOS's own `spark` command and **Homebrew** sets up with `spark brew` ([spark-cli.md](spark-cli.md)).
+The measurements below are from the prototype runs of 2026-11-20 and haven't been redone.
 
 Measured on 2026-11-20 with Kinoite 45, Bazzite `stable` (F45.20261117) and
 `ghcr.io/wolklaw/sparkos:latest` built from main at 53f54a8, which has all 13 Spark apps and the
@@ -154,8 +155,8 @@ fixes, template files), `uupd` (updates, daily at 04:00), `brew-setup` (Homebrew
 | **Signing** | BlueBuild's signing module + `sparkos-signing-fix.sh`; Bazzite's `/usr/lib/bootc/install/20-bazzite.toml` makes installs deploy as `ostree-image-signed` | The same signing module and fix, and SparkOS's own `20-sparkos.toml` with the same setting | Nothing: one file. Without it (first prototype run) the test install deployed as `ostree-unverified-registry`, which never checks signatures. | BlueBuild's module |
 | **Updates** | `uupd` (Universal Blue) downloads, daily at 04:00; Spark Update adds the notification, the window and roll back | Spark Update does it all: with no `uupd` in the image, `spark-update.sh` turns on its own timer (every 6 hours, stages the new image, updates Flatpak apps). Measured: enabled and active, no other updater on. Its staging hasn't been tried against a newer image. | Nothing new: Spark Update already ships. Its built-in image name would need changing only for a separately named image like this one. | None |
 | **The Store** | Bazaar (Universal Blue COPR), with Spark Store installed next to it | Bazaar isn't available in Fedora. Spark Store is installed and `.flatpakref` files already open in it (measured); Kinoite's Discover is there too. | Point the dock's Bazaar pin and `sparkos-open-package`'s "open the Store" button at Spark Store, which the owner plans anyway when Bazaar retires. | None |
-| **Homebrew** (`sparkos-dev-setup --brew`) | Bazzite ships a Homebrew tarball and a first-boot service | Not present: `sparkos-dev-setup --brew` says Homebrew isn't ready | Either own a small setup service and pin Homebrew's installer, or drop Homebrew for Node/Python/GitHub CLI/JDK in a Toolbox (Kinoite has `toolbox`) or from Flathub. Claude Code itself installs fine (`sparkos-dev-setup --claude` passed). | Homebrew, or nothing |
-| **ujust, rollback helper, motd** | Universal Blue | Gone | Nothing SparkOS's own files use them. Rollback is in the boot menu either way; Spark Update covers the rest. | None |
+| **Homebrew** (`sparkos-dev-setup --brew`) | Bazzite ships a Homebrew tarball and a first-boot service | Not present: `sparkos-dev-setup --brew` says Homebrew isn't ready. Since 2026-11-22, `spark brew` installs it on request with Homebrew's own installer, pinned to one commit and checked by SHA-256 (tested in a container, not yet in the boot test), and `/etc/profile.d/sparkos-brew.sh` adds it to PATH | Done the light way: no service, no tarball in the image; Homebrew only on PCs that ask for it. Bumping the pinned installer now and then. Claude Code itself installs fine (`sparkos-dev-setup --claude` passed). | Homebrew, when asked for |
+| **ujust, rollback helper, motd** | Universal Blue | Gone. **Since 2026-11-22 SparkOS has its own `spark` command** ([spark-cli.md](spark-cli.md)), on both bases: update, rollback, pin, kernel arguments, initramfs, boot menu, services, SSH, cleaning, logs and a bug-report bundle, Homebrew and containers. | Nothing SparkOS's own files use them. Rollback is in the boot menu either way; Spark Update covers the rest. The handheld, Nvidia/Intel and app-installer recipes aren't carried over (list in spark-cli.md). | None |
 | **Fedora's first-boot wizard** | Not in Bazzite | `plasma-setup` opened "Welcome to Plasma Desktop, Begin Setup" before the SparkOS sign-in on the first test boot, though a user existed. `fedora-apps.sh` now removes it. | Nothing. | None |
 
 ### Video with RPM Fusion
@@ -196,8 +197,8 @@ passed on Fedora unchanged. Suggested path for Release 3:
 2. **Store and updates:** already covered. Spark Update runs on its own timer when `uupd` is
    missing (measured); before switching, run its staging once against a newer image. Spark Store
    takes `.flatpakref` files; the dock pin and the "open the Store" button need pointing at it.
-3. **Homebrew:** owner's call: keep it with a small setup service SparkOS owns, or move
-   `sparkos-dev-setup`'s tools to a Toolbox. Claude Code doesn't need it.
+3. **Homebrew:** `spark brew` sets it up on request (since 2026-11-22). Still the owner's call
+   whether `sparkos-dev-setup`'s tools should move to a Toolbox instead. Claude Code doesn't need it.
 4. **Small things to own:** `game-devices-udev` rules, pinned like Valve's.
 5. **Skip unless needed:** xone and the other out-of-tree kernel modules.
 6. **Before switching:** try the prototype on the real PC (games, the GPU, controllers, video

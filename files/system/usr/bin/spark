@@ -1,0 +1,746 @@
+#!/usr/bin/bash
+# spark: SparkOS's own system commands, in place of Universal Blue's `ujust` (which plain Fedora
+# doesn't have). Plain bash, no `just`. Works on both bases (Bazzite and Fedora Kinoite).
+#
+#   spark help                 list the commands
+#   spark help COMMAND         what one command does
+#   spark --dry-run COMMAND    show what would change, change nothing
+#   spark --yes COMMAND        don't ask "Continue?" (for scripts)
+#
+# Commands that change the system ask for the admin password: sudo in a terminal, pkexec
+# (a password window) otherwise. Each one prints the command it runs first. docs/spark-cli.md
+# lists them and the ujust recipes they replace.
+set -euo pipefail
+
+SPARK_CLI_VERSION=1
+DRY_RUN=0
+ASSUME_YES=0
+
+# ── Output and running things ──
+
+say() { printf '%s\n' "$*"; }
+warn() { printf 'spark: %s\n' "$*" >&2; }
+die() { printf 'spark: %s\n' "$*" >&2; exit 1; }
+quote() { local out='' a; for a in "$@"; do out+=" $(printf '%q' "$a")"; done; printf '%s' "${out# }"; }
+
+# A change made as the user (stops, deletes, restarts). Printed, then run; only printed in a dry run.
+run() {
+  if [ "$DRY_RUN" = 1 ]; then say "would run: $(quote "$@")"; return 0; fi
+  say "> $(quote "$@")"
+  "$@"
+}
+
+# A change that needs admin rights. sudo in a terminal, pkexec otherwise.
+run_root() {
+  if [ "$DRY_RUN" = 1 ]; then say "would run as admin: $(quote "$@")"; return 0; fi
+  as_root "$@"
+}
+
+# Admin rights for reading only: runs in a dry run too.
+as_root() {
+  if [ "$(id -u)" = 0 ]; then
+    "$@"
+  elif [ -t 0 ] && command -v sudo >/dev/null 2>&1; then
+    say "Needs admin rights (sudo asks for your password): $(quote "$@")"
+    sudo -- "$@"
+  elif command -v pkexec >/dev/null 2>&1; then
+    say "Needs admin rights (a password window opens): $(quote "$@")"
+    pkexec "$@"
+  else
+    die "needs admin rights and neither sudo nor pkexec is here: $(quote "$@")"
+  fi
+}
+
+# Write a file as admin (stdin is the content).
+write_root() {
+  local file=$1 content
+  content=$(cat)
+  if [ "$DRY_RUN" = 1 ]; then
+    say "would write $file:"; printf '%s\n' "$content" | sed 's/^/    /'; return 0
+  fi
+  printf '%s\n' "$content" | as_root tee "$file" >/dev/null
+  say "Wrote $file"
+}
+
+# Ask before a change. --yes answers yes; a dry run doesn't ask.
+confirm() {
+  [ "$ASSUME_YES" = 1 ] && return 0
+  if [ "$DRY_RUN" = 1 ]; then say "$1 [y/N] (dry run: not asking)"; return 0; fi
+  [ -t 0 ] || die "this needs a yes. Run it in a terminal, or add --yes."
+  local answer
+  read -r -p "$1 [y/N] " answer
+  case "$answer" in
+    [Yy]|[Yy][Ee][Ss]) return 0 ;;
+    *) say "Nothing changed."; exit 0 ;;
+  esac
+}
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# The deployment commands need a booted ostree system. In a dry run (and in tests in a container)
+# they go on and only print.
+require_ostree() {
+  [ -e /run/ostree-booted ] && return 0
+  if [ "$DRY_RUN" = 1 ]; then
+    say "(not a booted SparkOS system: no /run/ostree-booted. Dry run, so carrying on.)"
+    return 0
+  fi
+  die "this isn't a booted SparkOS system (no /run/ostree-booted)."
+}
+
+need_uefi() {
+  [ -d /sys/firmware/efi ] && return 0
+  [ "$DRY_RUN" = 1 ] && { say "(this system didn't start through UEFI. Dry run, so carrying on.)"; return 0; }
+  die "$1 needs a PC started through UEFI; this one started in legacy BIOS mode."
+}
+
+need_terminal() { [ -t 0 ] || [ "$DRY_RUN" = 1 ] || die "$1 needs a terminal (it asks questions)."; }
+
+# One field of /etc/os-release, e.g. os_field VERSION_ID
+os_field() { sed -n "s/^$1=//p" /etc/os-release 2>/dev/null | head -1 | sed -E 's/^"(.*)"$/\1/'; }
+
+# The booted image, e.g. ostree-image-signed:docker://ghcr.io/wolklaw/sparkos-fedora:latest
+booted_image_ref() {
+  [ -e /run/ostree-booted ] || return 0
+  rpm-ostree status --json --booted 2>/dev/null \
+    | jq -r '.deployments[0]["container-image-reference"] // empty' 2>/dev/null || true
+}
+
+is_deployment_index() { [[ $1 =~ ^[0-9]+$ ]]; }
+
+# ── The commands ──
+# Each command: cmd_NAME, a line in COMMANDS (name;arguments;one-line description; a line with
+# only a name and ';' is a group heading) and, if it
+# needs more words, a HELP_NAME text.
+
+COMMANDS=(
+  "System and updates;"
+  "info;;Show the SparkOS version, hardware, drivers and disks"
+  "status;;List the installed versions (deployments) and their numbers"
+  "update;;Download and stage the next SparkOS now, then update your Flatpak apps"
+  "rollback;;Start the previous version at the next restart"
+  "pin;[NUMBER];Keep a version installed so updates never remove it"
+  "unpin;NUMBER;Let updates remove a pinned version again"
+  "boot-default;NUMBER;Pick which installed version starts by default"
+  "clean;;Remove unused container images, Flatpak runtimes and cached downloads"
+  "verify;;Check that updates are signature-checked, and fix it if not"
+  "overrides;;List the files in /etc you changed compared with the image"
+  "Boot and kernel;"
+  "kargs;[add|remove ARG...];Show, add or remove kernel arguments (from the next restart)"
+  "initramfs;[status|regenerate|reset];Build the initramfs on this PC, or go back to the image's"
+  "grub-menu;[status|always|hide|auto];Show or hide the boot menu"
+  "bios;;Restart into the firmware (UEFI/BIOS) settings"
+  "windows;;Restart into Windows once"
+  "watchdog;[status|on|off];Turn the hardware watchdog on or off"
+  "sysrq;[status|on|off];Turn the Alt+SysRq emergency keys (REISUB) on or off"
+  "Services;"
+  "service;NAME [status|on|off|start|stop|restart];Turn a system service on or off"
+  "ssh;[status|on|off|once];Allow or stop SSH connections to this PC"
+  "Gaming and sound;"
+  "stop-proton;;Stop every Wine and Proton process (a game stuck on close)"
+  "audio-restart;;Restart PipeWire, the sound system, for your session"
+  "audio-channels;[status|on|off];Add or remove the Game, Voice, Browser and Music outputs"
+  "Developer tools;"
+  "brew;;Set up Homebrew if it isn't there"
+  "box;[list|new NAME [IMAGE]|enter NAME|rm NAME];Make and use Linux containers (Toolbox or Distrobox)"
+  "Problems;"
+  "logs;[this|last|errors];Show the system log of this boot or the one before"
+  "report;[FOLDER];Gather logs and system details into one file for a bug report"
+)
+
+declare -A HELP
+
+# ---- info ----
+cmd_info() {
+  local name version ref
+  name=$(os_field PRETTY_NAME); version=$(os_field VERSION)
+  say "System:      ${name:-unknown}"
+  say "Version:     ${version:-unknown}"
+  say "Base:        $(os_field ID) $(os_field VERSION_ID)"
+  ref=$(booted_image_ref)
+  [ -n "$ref" ] && say "Image:       $ref"
+  say "Kernel:      $(uname -r)"
+  say "Kernel args: $(cat /proc/cmdline 2>/dev/null || echo unknown)"
+  local dmi=/sys/class/dmi/id
+  if [ -r "$dmi/board_name" ]; then
+    say "Board:       $(cat "$dmi/board_vendor" 2>/dev/null) $(cat "$dmi/board_name" 2>/dev/null)"
+    say "Firmware:    $(cat "$dmi/bios_version" 2>/dev/null) ($(cat "$dmi/bios_date" 2>/dev/null))"
+  fi
+  say "CPU:         $(LC_ALL=C lscpu 2>/dev/null | sed -n 's/^Model name: *//p' | head -1)"
+  if have lspci; then
+    lspci 2>/dev/null | sed -nE 's/^[^ ]+ (VGA compatible|3D|Display) controller: /GPU:         /p' || true
+  fi
+  if have glxinfo && [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+    glxinfo -B 2>/dev/null | sed -n 's/^OpenGL renderer string: /Renderer:    /p; s/^OpenGL core profile version string: /OpenGL:      /p' || true
+  else
+    say "Mesa:        $(rpm -q --qf '%{VERSION}' mesa-dri-drivers 2>/dev/null || echo unknown)"
+  fi
+  say "Memory:      $(free -h 2>/dev/null | awk '/^Mem:/ {print $3 " used of " $2}')"
+  df -h --output=target,size,used,avail / /var/home 2>/dev/null | awk 'NR>1 {printf "Disk %-7s %s, %s used, %s free\n", $1":", $2, $3, $4}' | sort -u || true
+  if have mokutil; then say "Secure Boot: $(mokutil --sb-state 2>/dev/null | head -1 || echo unknown)"; fi
+  [ -n "${XDG_SESSION_TYPE:-}" ] && say "Session:     ${XDG_CURRENT_DESKTOP:-?} on $XDG_SESSION_TYPE"
+  if have spark-update && [ -e /run/ostree-booted ]; then
+    say ""
+    spark-update --status 2>/dev/null || true
+  fi
+}
+
+# ---- status ----
+HELP[status]="The numbers are the ones pin, unpin and boot-default take. 0 is the one that starts
+next; a staged update (waiting for a restart) is listed first."
+cmd_status() {
+  require_ostree
+  [ -e /run/ostree-booted ] || return 0
+  rpm-ostree status --json | jq -r '
+    .deployments | to_entries[] | .key as $i | .value |
+    "\($i)  \(.version // "?")  \(.timestamp | strftime("%Y-%m-%d %H:%M"))  " +
+    ([ (if .booted then "running now" else empty end),
+       (if .staged then "staged, starts after a restart" else empty end),
+       (if .pinned then "pinned" else empty end) ] | join(", ")) +
+    "\n   \(.["container-image-reference"] // .origin // "")"'
+}
+
+# ---- update ----
+HELP[update]="Runs Spark Update's \"Check now\" (spark-update-now@stage.service): it downloads the next
+SparkOS, if there is one, and stages it for the next restart. It never restarts the PC. Then it
+updates the Flatpak apps installed for you only (Spark Update's own run updates the system ones).
+The Spark Update window (in the menu) shows what changed."
+cmd_update() {
+  require_ostree
+  if ! systemctl cat spark-update-now@stage.service >/dev/null 2>&1; then
+    die "Spark Update isn't installed (no spark-update-now@stage.service)."
+  fi
+  say "Checking for a new SparkOS (Spark Update). This can take a while if there is one."
+  run systemctl start --wait spark-update-now@stage.service
+  if have flatpak && [ -n "$(flatpak list --user --columns=application 2>/dev/null)" ]; then
+    say "Updating your own Flatpak apps:"
+    run flatpak update --user -y --noninteractive
+  fi
+  if [ "$DRY_RUN" = 0 ] && have spark-update; then spark-update --status || true; fi
+}
+
+# ---- rollback ----
+HELP[rollback]="Spark Update does it (spark-update --rollback): the version before this one starts at the
+next restart. A downloaded update waiting for a restart is dropped first. Nothing else is
+deleted: run it again to undo it."
+cmd_rollback() {
+  require_ostree
+  have spark-update || die "Spark Update isn't installed."
+  confirm "Start the previous SparkOS version at the next restart?"
+  run spark-update --rollback
+}
+
+# ---- pin / unpin / boot-default ----
+HELP[pin]="With no number, pins the version running now. See the numbers with: spark status"
+cmd_pin() {
+  require_ostree
+  local which=${1:-booted}
+  is_deployment_index "$which" || [[ $which =~ ^(booted|pending|rollback)$ ]] \
+    || die "pin takes a number from 'spark status'."
+  run_root ostree admin pin "$which"
+}
+cmd_unpin() {
+  require_ostree
+  local which=${1:-}
+  is_deployment_index "$which" || die "unpin takes a number from 'spark status'."
+  run_root ostree admin pin --unpin "$which"
+}
+HELP[boot-default]="Makes installed version NUMBER (see 'spark status') the one that starts by default, from
+the next restart. To go back one version, 'spark rollback' does the same thing."
+cmd_boot-default() {
+  require_ostree
+  local which=${1:-}
+  is_deployment_index "$which" || die "boot-default takes a number from 'spark status'."
+  confirm "Start version $which by default from the next restart?"
+  run_root ostree admin set-default "$which"
+}
+
+# ---- clean ----
+HELP[clean]="Removes container images no container uses (podman), Flatpak runtimes no app uses,
+rpm-ostree's cached downloads and temporary files, and Homebrew's old downloads if Homebrew is
+set up. Installed versions (deployments), apps and containers stay."
+cmd_clean() {
+  confirm "Remove unused container images, unused Flatpak runtimes and cached downloads?"
+  if have podman; then run podman image prune --all --force; fi
+  if have flatpak; then run flatpak uninstall --unused -y --noninteractive; fi
+  if [ -e /run/ostree-booted ] || [ "$DRY_RUN" = 1 ]; then run_root rpm-ostree cleanup --base --repomd; fi
+  if [ -x /home/linuxbrew/.linuxbrew/bin/brew ]; then
+    run /home/linuxbrew/.linuxbrew/bin/brew autoremove
+    run /home/linuxbrew/.linuxbrew/bin/brew cleanup
+  fi
+  [ "$DRY_RUN" = 1 ] || say "Done. Space now: $(df -h --output=avail /var 2>/dev/null | tail -1 | tr -d ' ') free."
+}
+
+# ---- verify ----
+HELP[verify]="Updates should come from SparkOS's signed image (ostree-image-signed:...), so a tampered
+image is refused. If this PC follows the image without checking signatures (an
+ostree-unverified-registry: install), this offers to switch to the signed one: same image, same
+version, signatures checked from the next update on."
+cmd_verify() {
+  require_ostree
+  local ref
+  ref=$(booted_image_ref)
+  if [ -z "$ref" ]; then
+    [ "$DRY_RUN" = 1 ] && ref="ostree-unverified-registry:ghcr.io/wolklaw/sparkos:latest" \
+      && say "(dry run on a non-SparkOS system: pretending the image is $ref)"
+    [ -n "$ref" ] || die "can't tell which image this PC follows (rpm-ostree status)."
+  fi
+  say "This PC follows: $ref"
+  case "$ref" in
+    ostree-image-signed:*)
+      say "Updates are signature-checked."
+      local name=${ref##*/}; name=${name%%[:@]*}
+      if [ -f "/etc/pki/containers/$name.pub" ]; then say "Key: /etc/pki/containers/$name.pub"
+      else warn "but the key /etc/pki/containers/$name.pub is missing: updates will fail until it's back."; fi
+      ;;
+    ostree-unverified-registry:*|ostree-unverified-image:*)
+      local image=${ref#ostree-unverified-registry:}; image=${image#ostree-unverified-image:}
+      image=${image#docker://}
+      case "$image" in
+        ghcr.io/wolklaw/*) ;;
+        *) say "That isn't a SparkOS image, so there's nothing to switch to."; return 0 ;;
+      esac
+      say "Updates are NOT signature-checked."
+      confirm "Switch to the signed image ostree-image-signed:docker://$image?"
+      run_root rpm-ostree rebase "ostree-image-signed:docker://$image"
+      say "Restart to finish. Updates are checked against SparkOS's key from then on."
+      ;;
+    *) say "Not a container image install; nothing to check." ;;
+  esac
+}
+
+# ---- overrides ----
+HELP[overrides]="Compares /etc with the image's defaults (ostree admin config-diff). M is a changed
+file, A one you added, D one you deleted. Updates keep your changes; a changed file doesn't get
+the image's new version of it."
+cmd_overrides() {
+  require_ostree
+  [ -e /run/ostree-booted ] || return 0
+  as_root ostree admin config-diff | grep -vE ' (passwd|group|shadow|gshadow|subuid|subgid)-?$| machine-id$| adjtime$| hostname$| localtime$| locale\.conf$| vconsole\.conf$| \.updated$| (ssh/ssh_host_|NetworkManager/system-connections/|pki/|containers/)' || true
+}
+
+# ---- kargs ----
+HELP[kargs]="  spark kargs                 show this boot's kernel arguments
+  spark kargs add ARG...      add them (skips ones already there)
+  spark kargs remove ARG...   remove them (skips ones not there)
+Changes start with the next restart. Example: spark kargs add amdgpu.dcfeaturemask=0x402
+(AMD HDMI 2.1 features; can flicker on some screens). SparkOS's own (rhgb quiet splash, from the
+image) come back with the next update if removed here."
+cmd_kargs() {
+  local action=${1:-show}; shift || true
+  case "$action" in
+    show|status|list)
+      if [ -e /run/ostree-booted ]; then rpm-ostree kargs; else cat /proc/cmdline; fi ;;
+    add|remove)
+      [ $# -gt 0 ] || die "kargs $action needs at least one argument, e.g. spark kargs $action nowatchdog"
+      require_ostree
+      local args=() a
+      for a in "$@"; do
+        if [ "$action" = add ]; then args+=("--append-if-missing=$a"); else args+=("--delete-if-present=$a"); fi
+      done
+      confirm "$( [ "$action" = add ] && echo Add || echo Remove ) kernel arguments $* (from the next restart)?"
+      run_root rpm-ostree kargs "${args[@]}"
+      ;;
+    *) die "kargs takes add or remove (see: spark help kargs)" ;;
+  esac
+}
+
+# ---- initramfs ----
+HELP[initramfs]="The initramfs (the small system that starts the PC and shows the boot splash) comes
+built in the image. 'regenerate' builds it on this PC instead, from the next restart and again
+after every update, which makes updates slower; use it when you changed something it needs (a
+driver option in /etc/modprobe.d, a disk to unlock). 'reset' goes back to the image's."
+cmd_initramfs() {
+  local action=${1:-status}
+  require_ostree
+  case "$action" in
+    status) [ -e /run/ostree-booted ] && rpm-ostree initramfs ;;
+    regenerate|on) run_root rpm-ostree initramfs --enable ;;
+    reset|off) run_root rpm-ostree initramfs --disable ;;
+    *) die "initramfs takes status, regenerate or reset" ;;
+  esac
+  return 0
+}
+
+# ---- grub-menu ----
+HELP[grub-menu]="  always   show the boot menu every time
+  auto     hide it after a good boot, but show it if Windows or another system is installed
+  hide     hide it after a good boot (hold Shift or press Esc while starting to see it)
+It's GRUB's menu_auto_hide setting (grub2-editenv)."
+cmd_grub-menu() {
+  local action=${1:-status} env=/boot/grub2/grubenv
+  local -a set_cmd
+  case "$action" in
+    status)
+      local value
+      value=$(as_root grub2-editenv "$env" list 2>/dev/null | sed -n 's/^menu_auto_hide=//p') || true
+      case "$value" in
+        '') say "Boot menu: always shown (menu_auto_hide not set)" ;;
+        0) say "Boot menu: always shown" ;;
+        1) say "Boot menu: hidden after a good boot, shown when another system is installed" ;;
+        2) say "Boot menu: hidden after a good boot (Shift or Esc while starting shows it)" ;;
+        *) say "Boot menu: menu_auto_hide=$value (unknown value)" ;;
+      esac
+      return 0 ;;
+    always) set_cmd=(grub2-editenv "$env" unset menu_auto_hide) ;;
+    auto)   set_cmd=(grub2-editenv "$env" set menu_auto_hide=1) ;;
+    hide)   set_cmd=(grub2-editenv "$env" set menu_auto_hide=2) ;;
+    *) die "grub-menu takes status, always, auto or hide" ;;
+  esac
+  if [ "$DRY_RUN" = 1 ]; then
+    say "would run as admin: $(quote "${set_cmd[@]}") (opening /boot for writing first if it's read-only)"
+    return 0
+  fi
+  # /boot can be mounted read-only: open it for the one write, then close it again
+  # shellcheck disable=SC2016  # $1.. are expanded by the inner shell
+  as_root sh -c 'ro=0; if findmnt -no OPTIONS /boot 2>/dev/null | grep -qE "(^|,)ro(,|$)"; then ro=1; mount -o remount,rw /boot; fi
+    "$@"; s=$?; [ $ro = 1 ] && mount -o remount,ro /boot; exit $s' sh "${set_cmd[@]}"
+}
+
+# ---- bios / windows ----
+cmd_bios() {
+  need_uefi "restarting into the firmware settings"
+  confirm "Restart now into the firmware settings? Save your work first."
+  run systemctl reboot --firmware-setup
+}
+HELP[windows]="Finds the Windows Boot Manager in the PC's UEFI boot entries, makes it start once at the
+next restart (efibootmgr --bootnext), then restarts. The restart after that comes back to
+SparkOS."
+cmd_windows() {
+  need_uefi "restarting into Windows"
+  have efibootmgr || die "efibootmgr isn't installed."
+  local entry
+  entry=$(efibootmgr 2>/dev/null | sed -nE 's/^Boot([0-9A-Fa-f]{4})\*? +Windows Boot Manager.*/\1/p' | head -1) || true
+  if [ -z "$entry" ]; then
+    [ "$DRY_RUN" = 1 ] || die "no Windows Boot Manager among the UEFI boot entries."
+    entry=0000; say "(dry run: no Windows entry found, using $entry to show the steps)"
+  fi
+  confirm "Restart into Windows now (boot entry $entry, this once)? Save your work first."
+  run_root efibootmgr --bootnext "$entry"
+  run systemctl reboot
+}
+
+# ---- watchdog ----
+HELP[watchdog]="The watchdog restarts the PC if the system freezes completely. Turning it off saves a few
+interrupts (some prefer that for gaming) and stops the AMD sp5100_tco (or Intel iTCO_wdt) driver
+from loading. Changes start with the next restart."
+cmd_watchdog() {
+  local action=${1:-status} module=sp5100_tco
+  grep -q GenuineIntel /proc/cpuinfo 2>/dev/null && module=iTCO_wdt
+  case "$action" in
+    status)
+      if grep -qE '(^| )nowatchdog( |$)' /proc/cmdline; then say "Watchdog: off"; else say "Watchdog: on"; fi ;;
+    on)  require_ostree; run_root rpm-ostree kargs --delete-if-present=nowatchdog --delete-if-present="modprobe.blacklist=$module" ;;
+    off) require_ostree; run_root rpm-ostree kargs --append-if-missing=nowatchdog --append-if-missing="modprobe.blacklist=$module" ;;
+    *) die "watchdog takes status, on or off" ;;
+  esac
+}
+
+# ---- sysrq ----
+HELP[sysrq]="With it on, holding Alt+SysRq (Print Screen) and typing R E I S U B restarts a frozen PC
+safely. Fedora allows only part of it by default (kernel.sysrq=16). 'on' allows all (1) in
+/etc/sysctl.d/90-sparkos-sysrq.conf; 'off' removes that file."
+cmd_sysrq() {
+  local action=${1:-status} file=/etc/sysctl.d/90-sparkos-sysrq.conf
+  case "$action" in
+    status)
+      say "kernel.sysrq = $(cat /proc/sys/kernel/sysrq 2>/dev/null || echo unknown) ($( [ -f "$file" ] && echo "all keys on, $file" || echo "system default"))" ;;
+    on)
+      echo "kernel.sysrq = 1" | write_root "$file"
+      run_root sysctl -q kernel.sysrq=1 ;;
+    off)
+      run_root rm -f "$file"
+      run_root systemctl restart systemd-sysctl.service ;;
+    *) die "sysrq takes status, on or off" ;;
+  esac
+}
+
+# ---- service / ssh ----
+HELP[service]="  status    is it on, is it running
+  on        start it now and at every start-up (enable --now)
+  off       stop it now and not at start-up (disable --now)
+  start, stop, restart    for now only
+System services only; your own are 'systemctl --user'."
+cmd_service() {
+  local name=${1:-} action=${2:-status}
+  [ -n "$name" ] || die "service needs a name, e.g. spark service sshd on"
+  case "$action" in
+    status)
+      local enabled active
+      enabled=$(systemctl is-enabled "$name" 2>/dev/null) || true
+      active=$(systemctl is-active "$name" 2>/dev/null) || true
+      say "$name: ${enabled:-unknown} at start-up, ${active:-unknown} now" ;;
+    on)  run_root systemctl enable --now "$name" ;;
+    off) run_root systemctl disable --now "$name" ;;
+    start|stop|restart) run_root systemctl "$action" "$name" ;;
+    *) die "service takes status, on, off, start, stop or restart" ;;
+  esac
+}
+HELP[ssh]="  on     allow SSH now and at every start-up
+  off    stop it and keep it off
+  once   allow it until the next restart only
+Sign in with your SparkOS user name and password."
+cmd_ssh() {
+  local action=${1:-status}
+  case "$action" in
+    status)
+      cmd_service sshd status
+      if have ip; then
+        say "Addresses: $(ip -4 -brief addr show scope global 2>/dev/null | awk '{print $3}' | cut -d/ -f1 | paste -sd' ')"
+      fi ;;
+    on)   cmd_service sshd on; say "Connect with: ssh $USER@$(hostname)" ;;
+    off)  cmd_service sshd off ;;
+    once) run_root systemctl disable sshd; run_root systemctl start sshd ;;
+    *) die "ssh takes status, on, off or once" ;;
+  esac
+}
+
+# ---- stop-proton ----
+PROTON_PROCESSES=(pv-bwrap pressure-vessel reaper explorer.exe rpcss.exe plugplay.exe services.exe
+  svchost.exe winedevice.exe wineserver)
+HELP[stop-proton]="Kills (SIGKILL) the Wine and Proton helper processes of your session: wineserver,
+pressure-vessel and the Windows services they run. Use it when a game won't close or won't start
+again; press Stop in Steam afterwards if it still shows the game running. Unsaved game progress
+is lost."
+cmd_stop-proton() {
+  local found
+  found=$(pgrep -u "$(id -u)" -a -x "$(IFS='|'; echo "${PROTON_PROCESSES[*]}")" || true)
+  if [ -z "$found" ]; then say "No Wine or Proton processes are running."; return 0; fi
+  say "Running:"; printf '%s\n' "$found" | sed 's/^/  /'
+  confirm "Stop them all?"
+  run pkill -KILL -u "$(id -u)" -x "$(IFS='|'; echo "${PROTON_PROCESSES[*]}")"
+}
+
+# ---- audio ----
+cmd_audio-restart() {
+  run systemctl --user restart pipewire.service pipewire-pulse.service wireplumber.service
+}
+AUDIO_CHANNELS_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/pipewire/pipewire.conf.d/sparkos-audio-channels.conf"
+HELP[audio-channels]="Adds four extra outputs, Game, Voice, Browser and Music, that all play through your
+normal speakers or headset. Send each app to one (in the volume settings) and you can record or
+stream them separately, for example as separate tracks in OBS. Starts after you sign in again.
+The file: $AUDIO_CHANNELS_FILE"
+cmd_audio-channels() {
+  local action=${1:-status} n
+  case "$action" in
+    status)
+      if [ -f "$AUDIO_CHANNELS_FILE" ]; then say "Game, Voice, Browser and Music outputs: on"; else say "Game, Voice, Browser and Music outputs: off"; fi ;;
+    on)
+      if [ "$DRY_RUN" = 1 ]; then say "would write $AUDIO_CHANNELS_FILE (four PipeWire loopback outputs)"; return 0; fi
+      mkdir -p "$(dirname "$AUDIO_CHANNELS_FILE")"
+      {
+        say "# SparkOS: Game, Voice, Browser and Music outputs (spark audio-channels). Remove with:"
+        say "#   spark audio-channels off"
+        say "context.modules = ["
+        for n in Game Voice Browser Music; do
+          cat <<EOF
+    { name = libpipewire-module-loopback
+        args = {
+            node.description = "$n"
+            capture.props = {
+                node.name      = "sparkos_${n,,}_output"
+                media.class    = "Audio/Sink"
+                audio.position = [ FL FR ]
+            }
+            playback.props = {
+                node.name      = "sparkos_${n,,}_playback"
+                audio.position = [ FL FR ]
+                node.passive   = true
+            }
+        }
+    }
+EOF
+        done
+        say "]"
+      } > "$AUDIO_CHANNELS_FILE"
+      say "Wrote $AUDIO_CHANNELS_FILE. The outputs appear after you sign in again (or: spark audio-restart)." ;;
+    off)
+      run rm -f "$AUDIO_CHANNELS_FILE"
+      say "They go away after you sign in again (or: spark audio-restart)." ;;
+    *) die "audio-channels takes status, on or off" ;;
+  esac
+}
+
+# ---- brew ----
+# Homebrew's own installer, pinned to one commit and checked, so what runs is what was read.
+# To update: take the newest commit of github.com/Homebrew/install and its install.sh's SHA-256.
+BREW_INSTALLER_COMMIT=c9c975046f78e6e6d662deb801bd461ebd6a54ed
+BREW_INSTALLER_SHA256=8fd2f1a5287a7c2e3d7362924c677edcc04c5a0e16448c77132d056bc88cf1ed
+BREW_PREFIX=/home/linuxbrew/.linuxbrew
+HELP[brew]="Homebrew installs command-line tools into /home/linuxbrew, for your user, without changing
+the system. On Bazzite it ships in the image and this only unpacks it; on Fedora this downloads
+Homebrew's official installer (pinned to commit ${BREW_INSTALLER_COMMIT:0:7} and checked), which
+asks for your password once to make /home/linuxbrew. Then: sparkos-dev-setup --brew installs
+SparkOS's developer tools from it."
+cmd_brew() {
+  if [ -x "$BREW_PREFIX/bin/brew" ]; then
+    say "Homebrew is set up: $("$BREW_PREFIX/bin/brew" --version 2>/dev/null | head -1) in $BREW_PREFIX"
+    have brew || say "Open a new terminal to use it (or: eval \"\$($BREW_PREFIX/bin/brew shellenv)\")"
+    return 0
+  fi
+  if [ -f /usr/share/homebrew.tar.zst ] && systemctl cat brew-setup.service >/dev/null 2>&1; then
+    say "Homebrew ships in this image; unpacking it (brew-setup.service)."
+    run_root systemctl start brew-setup.service
+    [ "$DRY_RUN" = 1 ] || say "Done. Open a new terminal to use brew."
+    return 0
+  fi
+  [ "$(id -u)" != 0 ] || die "run this as your own user, not as root: Homebrew belongs to one user."
+  need_terminal "spark brew"
+  have curl || die "curl isn't installed."
+  have git || die "git isn't installed (Homebrew needs it)."
+  say "Homebrew isn't set up. This downloads Homebrew's installer (commit ${BREW_INSTALLER_COMMIT:0:7})"
+  say "and runs it. It asks for your password once, to make $BREW_PREFIX for you."
+  confirm "Install Homebrew?"
+  local url="https://raw.githubusercontent.com/Homebrew/install/$BREW_INSTALLER_COMMIT/install.sh"
+  if [ "$DRY_RUN" = 1 ]; then
+    say "would download $url"
+    say "would check its SHA-256 is $BREW_INSTALLER_SHA256"
+    say "would run: bash install.sh"
+    return 0
+  fi
+  local tmp; tmp=$(mktemp -d)
+  # shellcheck disable=SC2064  # expand now: the folder is known now
+  trap "rm -rf '$tmp'" EXIT
+  curl -fsSL --proto '=https' -o "$tmp/install.sh" "$url"
+  echo "$BREW_INSTALLER_SHA256  $tmp/install.sh" | sha256sum -c --quiet - \
+    || die "the installer isn't the one SparkOS checked (SHA-256 differs). Nothing was installed."
+  bash "$tmp/install.sh"
+  [ -x "$BREW_PREFIX/bin/brew" ] || die "Homebrew didn't install. See the messages above."
+  say ""
+  say "Homebrew is set up. Open a new terminal to use brew (SparkOS adds it to the end of PATH, so"
+  say "it never replaces system commands). Next: sparkos-dev-setup --brew"
+}
+
+# ---- box ----
+HELP[box]="  spark box                     list your containers
+  spark box new NAME [IMAGE]    make one (default image: Fedora's toolbox image, same version)
+  spark box enter NAME          open a shell in it
+  spark box rm NAME             delete it and what's inside (your home folder is shared, it stays)
+Uses Distrobox when it's installed, Toolbox otherwise. A container is a normal Linux system
+where 'dnf install' works, without changing SparkOS."
+box_tool() { if have distrobox; then echo distrobox; elif have toolbox; then echo toolbox; else die "neither Toolbox nor Distrobox is installed."; fi; }
+cmd_box() {
+  local action=${1:-list} tool
+  tool=$(box_tool)
+  case "$action" in
+    list) if [ "$tool" = distrobox ]; then distrobox list; else toolbox list --containers; fi ;;
+    new)
+      local name=${2:-} image=${3:-}
+      [ -n "$name" ] || die "box new needs a name, e.g. spark box new dev"
+      [ -n "$image" ] || image="registry.fedoraproject.org/fedora-toolbox:$(os_field VERSION_ID)"
+      if [ "$tool" = distrobox ]; then run distrobox create --yes --name "$name" --image "$image"
+      else run toolbox create --image "$image" "$name"; fi
+      [ "$DRY_RUN" = 1 ] || say "Made $name. Open it with: spark box enter $name" ;;
+    enter)
+      [ -n "${2:-}" ] || die "box enter needs a name (see: spark box)"
+      if [ "$DRY_RUN" = 1 ]; then say "would run: $tool enter $(quote "$2")"; return 0; fi
+      exec "$tool" enter "$2" ;;
+    rm|remove)
+      [ -n "${2:-}" ] || die "box rm needs a name (see: spark box)"
+      confirm "Delete the container $2 and everything installed in it?"
+      if [ "$tool" = distrobox ]; then run distrobox rm --force "$2"; else run toolbox rm --force "$2"; fi ;;
+    *) die "box takes list, new, enter or rm" ;;
+  esac
+}
+
+# ---- logs / report ----
+cmd_logs() {
+  case "${1:-this}" in
+    this)   journalctl --no-hostname -b 0 ;;
+    last)   journalctl --no-hostname -b -1 ;;
+    errors) journalctl --no-hostname -b 0 -p err ;;
+    *) die "logs takes this, last or errors" ;;
+  esac
+}
+HELP[report]="Writes sparkos-report-DATE.tar.gz in FOLDER (your home folder if not given): what 'spark info'
+shows, the installed versions, kernel arguments, PCI and USB devices, Vulkan's summary, failed
+services, crashes, Flatpak apps, and the system log of this boot and the one before. Nothing is
+uploaded. Read it before you share it: logs can contain your user name, device names and
+network names."
+cmd_report() {
+  local folder=${1:-$HOME} stamp work out
+  [ -d "$folder" ] || die "no folder $folder"
+  stamp=$(date +%Y%m%d-%H%M%S)
+  out="$folder/sparkos-report-$stamp.tar.gz"
+  if [ "$DRY_RUN" = 1 ]; then say "would write $out"; return 0; fi
+  work=$(mktemp -d)
+  # shellcheck disable=SC2064
+  trap "rm -rf '$work'" EXIT
+  local dir="$work/sparkos-report-$stamp"
+  mkdir -p "$dir"
+  say "Gathering into $out ..."
+  collect() { local file=$1; shift; { say "\$ $(quote "$@")"; "$@" 2>&1 || true; } > "$dir/$file"; }
+  cmd_info > "$dir/info.txt" 2>&1 || true
+  [ -e /run/ostree-booted ] && collect deployments.txt rpm-ostree status -v
+  collect cmdline.txt cat /proc/cmdline
+  have lspci && collect pci.txt lspci -nnk
+  have lsusb && collect usb.txt lsusb
+  have vulkaninfo && collect vulkan.txt vulkaninfo --summary
+  collect failed-services.txt systemctl --failed --no-pager
+  have coredumpctl && collect crashes.txt coredumpctl list --no-pager --since=-7d
+  have flatpak && collect flatpak.txt flatpak list --columns=application,version,branch,installation
+  collect journal-this-boot.txt journalctl --no-hostname --no-pager -b 0
+  collect journal-last-boot.txt journalctl --no-hostname --no-pager -b -1
+  tar -czf "$out" -C "$work" "sparkos-report-$stamp"
+  say "Wrote $out ($(du -h "$out" | cut -f1)). Nothing was uploaded."
+  say "Read it before sharing: logs can contain your user name, device names and network names."
+}
+
+# ── help ──
+
+cmd_help() {
+  local want=${1:-} line name args desc
+  if [ -n "$want" ]; then
+    for line in "${COMMANDS[@]}"; do
+      IFS=';' read -r name args desc <<<"$line"
+      [ "$name" = "$want" ] || continue
+      [ -n "$desc" ] || continue
+      say "spark $name${args:+ $args}"
+      say "  $desc"
+      if [ -n "${HELP[$name]:-}" ]; then say ""; say "${HELP[$name]}"; fi
+      return 0
+    done
+    die "no command '$want'. See: spark help"
+  fi
+  say "spark: SparkOS's system commands. Usage: spark [--dry-run] [--yes] COMMAND [ARGS]"
+  say "Without an action, commands that take one (on/off...) show the current state."
+  for line in "${COMMANDS[@]}"; do
+    IFS=';' read -r name args desc <<<"$line"
+    if [ -z "$desc" ]; then say ""; say "$name"; continue; fi
+    printf '  %-16s %s\n' "$name" "$desc"
+  done
+  say ""
+  say "  --dry-run   show what would change, change nothing"
+  say "  --yes       answer yes to \"Continue?\" questions"
+  say "More about one command: spark help COMMAND"
+}
+
+main() {
+  local args=() a
+  for a in "$@"; do
+    case "$a" in
+      --dry-run) DRY_RUN=1 ;;
+      --yes|-y) ASSUME_YES=1 ;;
+      --version) say "spark $SPARK_CLI_VERSION ($(os_field PRETTY_NAME))"; exit 0 ;;
+      *) args+=("$a") ;;
+    esac
+  done
+  set -- "${args[@]+"${args[@]}"}"
+  local cmd=${1:-help}; shift || true
+  case "$cmd" in
+    help|-h|--help) cmd_help "$@"; return ;;
+  esac
+  case "${1:-}" in -h|--help) cmd_help "$cmd"; return ;; esac
+  local line name
+  for line in "${COMMANDS[@]}"; do
+    IFS=';' read -r name _ <<<"$line"
+    if [ "$name" = "$cmd" ] && declare -F "cmd_$cmd" >/dev/null; then
+      [ "$DRY_RUN" = 1 ] && say "Dry run: nothing will change."
+      "cmd_$cmd" "$@"
+      return
+    fi
+  done
+  die "no command '$cmd'. See: spark help"
+}
+
+main "$@"
