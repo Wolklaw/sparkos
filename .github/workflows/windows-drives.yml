@@ -1,0 +1,69 @@
+name: windows-drives
+# Tests sparkos-windows-drives, the boot service that mounts the Windows drives at /var/mnt/<letter>:
+# unit tests, then a real run on the runner's kernel (ntfs3) against a disk image built like a Windows PC's drives:
+# C: with the registry file that names the letters, D: "Scrap" (read-only by the conf), E: "Games" with a Git repository.
+# The same disk is attached to the VM in boot-test.yml, which checks the service in the real image.
+on:
+  push:
+    paths:
+      - "files/system/usr/libexec/sparkos-windows-drives"
+      - "files/system/usr/lib/systemd/system/sparkos-windows-drives.service"
+      - "files/system/etc/sparkos/windows-drives.conf"
+      - ".github/scripts/windows-drives/**"
+      - ".github/workflows/windows-drives.yml"
+  pull_request:
+    paths:
+      - "files/system/usr/libexec/sparkos-windows-drives"
+      - "files/system/usr/lib/systemd/system/sparkos-windows-drives.service"
+      - "files/system/etc/sparkos/windows-drives.conf"
+      - ".github/scripts/windows-drives/**"
+      - ".github/workflows/windows-drives.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Unit tests
+        run: python3 -m unittest discover -s .github/scripts/windows-drives -v
+
+      - name: The kernel's ntfs3 driver and the NTFS tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ntfs-3g gdisk >/dev/null
+          sudo modprobe ntfs3 || { sudo apt-get install -y -qq "linux-modules-extra-$(uname -r)" >/dev/null && sudo modprobe ntfs3; }
+          grep -w ntfs3 /proc/filesystems
+
+      - name: A disk like a Windows PC's drives
+        run: |
+          sudo bash .github/scripts/windows-drives/make_disk.sh "$RUNNER_TEMP/windows.img"
+          echo "LOOP=$(sudo losetup -fP --show "$RUNNER_TEMP/windows.img")" >> "$GITHUB_ENV"
+          sleep 2; lsblk -o NAME,FSTYPE,LABEL,PARTUUID
+
+      - name: Run the service's script twice (the second run must change nothing)
+        run: |
+          printf 'D ro\n* rw\nuser=%s\n' "$USER" > "$RUNNER_TEMP/windows-drives.conf"
+          export SPARKOS_WINDOWS_DRIVES_CONF="$RUNNER_TEMP/windows-drives.conf"
+          sudo -E python3 files/system/usr/libexec/sparkos-windows-drives
+          sudo bash .github/scripts/windows-drives/check_mounts.sh "$USER"
+          sudo cp /run/sparkos/windows-drives.json "$RUNNER_TEMP/first.json"
+          sudo -E python3 files/system/usr/libexec/sparkos-windows-drives
+          sudo diff "$RUNNER_TEMP/first.json" /run/sparkos/windows-drives.json
+
+      - name: The conf decides read-only per letter
+        run: |
+          sudo umount /var/mnt/c /var/mnt/d /var/mnt/e
+          printf 'E ro\nC off\n* rw\nuser=%s\n' "$USER" > "$RUNNER_TEMP/windows-drives.conf"
+          sudo SPARKOS_WINDOWS_DRIVES_CONF="$RUNNER_TEMP/windows-drives.conf" python3 files/system/usr/libexec/sparkos-windows-drives
+          findmnt -n -o OPTIONS /var/mnt/e | grep -q '^ro'
+          ! findmnt /var/mnt/c
+          sudo python3 -c "import json; r={x['letter']: x for x in json.load(open('/run/sparkos/windows-drives.json'))}; assert r['E']['mode'] == 'ro' and r['C']['mode'] == 'off' and r['D']['mode'] == 'rw', r"
+
+      - name: Clean up
+        if: always()
+        run: |
+          sudo umount /var/mnt/c /var/mnt/d /var/mnt/e 2>/dev/null || true
+          [ -n "${LOOP:-}" ] && sudo losetup -d "$LOOP" || true
