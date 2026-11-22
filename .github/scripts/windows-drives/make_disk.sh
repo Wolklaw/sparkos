@@ -13,12 +13,17 @@ command -v sgdisk >/dev/null || { apt-get install -y -qq gdisk >/dev/null || dnf
 
 rm -f "$out"
 truncate -s 640M "$out"
-sgdisk -q -n1:0:+256M -t1:0700 -n2:0:+128M -t2:0700 -n3:0:0 -t3:0700 "$out"
+sgdisk -n1:0:+256M -t1:0700 -n2:0:+128M -t2:0700 -n3:0:0 -t3:0700 "$out" >/dev/null
+sgdisk -p "$out" | tail -4
 loop=$(losetup -fP --show "$out")
 trap 'umount -q /tmp/make-disk-mnt 2>/dev/null || true; losetup -d "$loop"' EXIT
 # the partition nodes (loop0p1...) appear a moment later; partx asks the kernel again if they don't
-for i in $(seq 1 50); do [ -b "${loop}p3" ] && break; [ "$i" = 20 ] && partx -u "$loop" 2>/dev/null; sleep 0.2; done
-[ -b "${loop}p3" ] || { echo "no partitions on $loop"; lsblk "$loop"; exit 1; }
+for i in $(seq 1 50); do
+  [ -b "${loop}p3" ] && break
+  if [ "$i" = 20 ]; then partx -a "$loop" || partprobe "$loop" || true; fi
+  sleep 0.2
+done
+[ -b "${loop}p3" ] || { echo "no partitions on $loop"; lsblk "$loop"; ls -l /dev/loop0* /sys/block/"${loop#/dev/}"/ 2>&1 | head -30; exit 1; }
 mkfs.ntfs -Q -q "${loop}p1"
 mkfs.ntfs -Q -q -L Scrap "${loop}p2"
 mkfs.ntfs -Q -q -L Games "${loop}p3"
