@@ -176,7 +176,12 @@ cmd_info() {
     say "Mesa:        $(rpm -q --qf '%{VERSION}' mesa-dri-drivers 2>/dev/null || echo unknown)"
   fi
   say "Memory:      $(free -h 2>/dev/null | awk '/^Mem:/ {print $3 " used of " $2}')"
-  df -h --output=target,size,used,avail / /var/home 2>/dev/null | awk 'NR>1 {printf "Disk %-7s %s, %s used, %s free\n", $1":", $2, $3, $4}' | sort -u || true
+  # On an image / is a small read-only composefs mount; the system disk is /sysroot. One line
+  # per disk (/sysroot and /var/home are usually the same filesystem).
+  local sysroot=/
+  [ -d /sysroot ] && mountpoint -q /sysroot && sysroot=/sysroot
+  df -h --output=source,target,size,used,avail "$sysroot" /var/home 2>/dev/null \
+    | awk 'NR>1 && !seen[$1]++ { if ($2 == "/sysroot") $2 = "/"; printf "Disk %-7s %s, %s used, %s free\n", $2":", $3, $4, $5}' || true
   if have mokutil; then say "Secure Boot: $(mokutil --sb-state 2>/dev/null | head -1 || echo unknown)"; fi
   [ -n "${XDG_SESSION_TYPE:-}" ] && say "Session:     ${XDG_CURRENT_DESKTOP:-?} on $XDG_SESSION_TYPE"
   if have spark-update && [ -e /run/ostree-booted ]; then
