@@ -7,8 +7,8 @@ icons too.
 ## Why
 
 The Spark apps have their own icons, but most of what the owner looks at every day still comes from Breeze
-or from the apps' authors: the app launcher button, Dolphin, Konsole, Bazaar, folders, file types, the system
-tray. Next to Soot, FreeSuite and Spark Games on the taskbar they look like they belong to another system.
+or from other apps' authors: System Settings, folders, file types, the system tray. (Dolphin, Konsole, Bazaar
+and the launcher are being replaced by Spark apps instead.) Next to Soot, FreeSuite and Spark Games on the taskbar they look like they belong to another system.
 
 ## What
 
@@ -19,8 +19,9 @@ its own session and its own PR.
 1. **Theme and the taskbar** (do this first): the theme folder, `index.theme`, the build step that installs it,
    the default setting for new users and the existing user, a short style sheet (`docs/icons.md`: grid, stroke
    widths, the palette from the house style, how the slip is used, sizes) and the icons you see first:
-   the app launcher button (`start-here` and Bazzite's own name for it), Dolphin, Konsole, Bazaar, System
-   Settings, Steam, the Trash, and the default folder icon.
+   System Settings, Steam (when installed), the Trash, the default folder icon, and the generic app icon.
+   Not Dolphin, Konsole, Bazaar or the launcher button: Spark Files, Spark Terminal, Spark Store and Spark
+   Launcher replace those apps, and bring their own icons.
 2. **Folders and places:** Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Games, the Windows
    drives (SparkOS mounts them at /var/mnt/<letter>), network, removable drives, and the Dolphin sidebar.
 3. **File types:** the ones the owner opens most: text, code (Python, JS/TS, HTML, CSS, shell, C#), archives,
