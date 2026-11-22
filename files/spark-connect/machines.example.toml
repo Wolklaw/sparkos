@@ -1,0 +1,47 @@
+# Spark Connect machine list: an example with made-up names.
+#
+# Copy it to ~/.config/spark-connect/machines.toml (on Windows:
+# %APPDATA%\spark-connect\machines.toml) and put in your own machines. Spark Connect only
+# reads that file; it never writes it. Press F5 in the window after changing it.
+#
+# host is anything `ssh <host>` accepts: an alias from ~/.ssh/config is easiest, or
+# user@address. Spark Connect connects with your own ssh, key and known_hosts, never asks for a
+# password, and stops if a host key is unknown or has changed.
+
+[[machine]]
+name = "Main server"
+host = "main-server"                      # an alias in ~/.ssh/config
+# port = 22
+kind = "linux"                            # the only kind for now
+transport = "ssh"                         # the only transport for now
+units = ["caddy", "example-portal"]       # system units to watch
+user_units = ["cloudflared"]              # systemctl --user units to watch
+# Only these get a Restart button. System units restart through `sudo -n`: if sudo wants a
+# password, nothing runs and Spark Connect offers a terminal instead.
+restartable = ["example-portal", "user:cloudflared"]
+known_failed = ["old-backup*"]            # failed units you already know about
+tunnel = "user:cloudflared"
+# Named in the confirmation before the tunnel restarts, because they all drop for a moment.
+tunnel_hostnames = ["example.org", "www.example.org", "app.example.org"]
+# Health URLs fetched on the server itself (127.0.0.1 or localhost only), for endpoints that
+# aren't public. Spark Connect never reads a key file to reach a protected public URL.
+local_checks = { api = "http://127.0.0.1:8000/health" }
+
+[[machine]]
+name = "Standby laptop"
+host = "standby"
+user_units = ["failover-watchdog", "failover-netmon", "cloudflared"]
+
+[machine.failover]
+dir = "~/failover"                        # incidents/ in here is listed, read only
+active_unit = "user:cloudflared"          # running only after the standby has taken over
+netmon_log = "monitor.log"               # last lines shown, relative to dir
+failback = "~/failover/hand-back.sh"     # typed in a terminal for you, never run by itself
+
+[[site]]
+name = "example.org"
+url = "https://example.org/"
+
+[[site]]
+name = "app.example.org"
+url = "https://app.example.org/"

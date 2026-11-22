@@ -1,0 +1,221 @@
+name: spark-connect
+# Spark Connect is an optional Spark app: it is not in the image, it installs per user without
+# root. Nothing here connects to a real machine: SSH is tested against a throwaway container
+# with a throwaway key.
+#
+# fedora:  self-test, unit and UI tests under Xvfb (English and French) in a Fedora container,
+#          with the system-wide install.
+# probe:   the probe script itself in plain fedora:latest and ubuntu:24.04 containers (no
+#          systemd there): valid JSON with the expected keys, clean exit.
+# ssh:     sshd and systemd in a container, a dummy user unit, a throwaway key; refresh through
+#          the real ssh client, restart the dummy unit, sudo's password refusal, an unknown host
+#          key refused, a journal tail.
+# windows: the unit tests on windows-latest (Python from the runner, Windows' own OpenSSH).
+# sparkos: inside the published SparkOS image, install.sh --user as a normal user, the
+#          self-test and the unit tests on the image's Python, uninstall, nothing left behind.
+on:
+  push:
+    paths:
+      - "files/spark-connect/**"
+      - ".github/workflows/spark-connect.yml"
+  pull_request:
+    paths:
+      - "files/spark-connect/**"
+      - ".github/workflows/spark-connect.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system-wide (with --deps)
+        run: bash files/spark-connect/install.sh --deps
+
+      - name: Self-test
+        run: spark-connect --self-test --config files/spark-connect/machines.example.toml
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
+            dejavu-sans-mono-fonts bash
+          cd files/spark-connect
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        run: |
+          cd files/spark-connect
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        image: ["registry.fedoraproject.org/fedora:latest", "docker.io/library/ubuntu:24.04"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the probe in ${{ matrix.image }}
+        run: |
+          # the settings Spark Connect puts above the probe, then the probe, on stdin
+          { printf "SC_UNITS='ssh cron' SC_USER_UNITS=dummy SC_TUNNEL=user:cloudflared\n"
+            printf "SC_FAILOVER_DIR='~/failover' SC_ACTIVE_UNIT=user:cloudflared SC_NETMON_LOG=m.log\n"
+            printf "SC_LOCAL_URLS=api=http://127.0.0.1:9/\n"
+            cat files/spark-connect/sparkconnect/probe.sh; } > with-settings.sh
+          docker run --rm -i "${{ matrix.image }}" sh -s < files/spark-connect/sparkconnect/probe.sh > bare.json
+          echo "exit $?"
+          docker run --rm -i "${{ matrix.image }}" sh -s < with-settings.sh > settings.json
+          echo "exit $?"
+          head -c 600 bare.json; echo
+
+      - name: Check the output
+        run: |
+          python3 files/spark-connect/tests/check_probe_output.py bare.json --expect-no-systemd
+          python3 files/spark-connect/tests/check_probe_output.py settings.json --expect-no-systemd
+
+  ssh:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build a throwaway server (sshd, systemd, a dummy user unit)
+        run: |
+          mkdir -p box
+          ssh-keygen -q -t ed25519 -N '' -C throwaway -f box/key
+          cp box/key.pub box/authorized_keys
+          cat > box/Containerfile <<'EOF'
+          FROM registry.fedoraproject.org/fedora:latest
+          RUN dnf -y install --setopt=install_weak_deps=False systemd openssh-server sudo \
+                procps-ng iproute && dnf clean all
+          RUN useradd -m tester && mkdir -p /home/tester/.ssh \
+                /home/tester/.config/systemd/user/default.target.wants /var/lib/systemd/linger \
+              && touch /var/lib/systemd/linger/tester
+          COPY authorized_keys /home/tester/.ssh/authorized_keys
+          RUN printf '[Unit]\nDescription=Spark Connect test unit\n[Service]\nExecStart=/bin/sh -c "echo dummy up; exec sleep infinity"\n[Install]\nWantedBy=default.target\n' \
+                > /home/tester/.config/systemd/user/spark-dummy.service \
+              && ln -s ../spark-dummy.service /home/tester/.config/systemd/user/default.target.wants/ \
+              && chown -R tester: /home/tester && chmod 700 /home/tester/.ssh \
+              && chmod 600 /home/tester/.ssh/authorized_keys \
+              && systemctl enable sshd
+          CMD ["/sbin/init"]
+          EOF
+          sudo podman build -q -t sc-box box
+          sudo podman run -d --name sc-box --systemd=always -p 127.0.0.1:2222:22 sc-box
+          for i in $(seq 1 60); do
+            ssh-keyscan -p 2222 -t ed25519 127.0.0.1 2>/dev/null | grep -q ssh-ed25519 && break
+            sleep 1
+          done
+
+      - name: ssh config with a known and an unknown host key
+        run: |
+          # This is the throwaway container we just built, so the test trusts its key here.
+          ssh-keyscan -p 2222 -t ed25519 127.0.0.1 2>/dev/null > box/known_hosts
+          : > box/empty_known_hosts
+          cat > box/ssh_config <<EOF
+          Host box
+            HostName 127.0.0.1
+            Port 2222
+            User tester
+            IdentityFile $PWD/box/key
+            IdentitiesOnly yes
+            UserKnownHostsFile $PWD/box/known_hosts
+          Host box-unknown
+            HostName 127.0.0.1
+            Port 2222
+            User tester
+            IdentityFile $PWD/box/key
+            IdentitiesOnly yes
+            UserKnownHostsFile $PWD/box/empty_known_hosts
+          EOF
+          ssh -F box/ssh_config -o BatchMode=yes box 'systemctl --user is-active spark-dummy' || {
+            sudo podman exec sc-box journalctl -n 80 --no-pager; exit 1; }
+
+      - name: End to end through the real ssh client
+        env:
+          XDG_CACHE_HOME: ${{ runner.temp }}/cache
+        run: python3 files/spark-connect/tests/e2e_ssh.py "$PWD/box/ssh_config" box box-unknown
+
+      - name: Server log on failure
+        if: failure()
+        run: sudo podman exec sc-box journalctl -n 120 --no-pager || true
+
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: Self-test
+        run: py -3.13 files/spark-connect/spark_connect.py --self-test --config files/spark-connect/machines.example.toml
+      - name: Tests
+        working-directory: files/spark-connect
+        run: py -3.13 -m unittest discover -s tests -v
+
+  sparkos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: Install, self-test, uninstall as a normal user
+        run: |
+          sudo podman run --rm -v "$PWD/files/spark-connect:/src:ro" "$IMAGE" bash -euo pipefail -c '
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            cp -r /src "$home/spark-connect"
+            chown -R tester: "$home/spark-connect"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester \
+                    LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+            usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+
+            echo "--- install --user"
+            as "bash ~/spark-connect/install.sh --user"
+            as "test -x ~/.local/bin/spark-connect"
+            as "grep -q \"^Exec=$home/.local/bin/spark-connect$\" ~/.local/share/applications/dev.wolklaw.SparkConnect.desktop"
+            as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkConnect.png"
+            as "test -f ~/.local/lib/spark-connect/sparkconnect/probe.sh"
+            test ! -e /usr/bin/spark-connect
+
+            echo "--- self-test and unit tests on the image'"'"'s Python"
+            as "~/.local/bin/spark-connect --version"
+            as "~/.local/bin/spark-connect --self-test"
+            as "test ! -e ~/.config/spark-connect/machines.toml"
+            as "cd ~/spark-connect && python3 -m unittest discover -s tests -v"
+
+            echo "--- uninstall"
+            as "bash ~/spark-connect/install.sh --user --uninstall"
+            left=$(as "find ~/.local -iname \"*spark*connect*\" -o -iname \"*SparkConnect*\"" || true)
+            left=$(printf "%s\n" "$left" | grep -v "/.local/state/spark-connect" || true)
+            if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
+            usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+            [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
+            echo "installed, tested and removed without root"
+          '

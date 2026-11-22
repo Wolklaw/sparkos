@@ -1,0 +1,32 @@
+{
+  "id": "dev.wolklaw.SparkConnect",
+  "slug": "spark-connect",
+  "name": "Spark Connect",
+  "name_fr": "Spark Connect",
+  "summary": "See your home servers on one screen and fix them over SSH: services, health, tunnel, failover and websites.",
+  "summary_fr": "Voir vos serveurs sur un seul écran et les réparer par SSH : services, état, tunnel, bascule et sites web.",
+  "version": "0.1.0",
+  "installed_size_kb": 260,
+  "icon": "icons/spark-connect-256.png",
+  "categories": ["Network", "System", "Monitor"],
+  "needs": {
+    "root": false,
+    "commands": ["python3", "ssh"],
+    "python": ">=3.11",
+    "python_modules": ["tkinter", "tomllib"],
+    "optional": {
+      "konsole": "Open terminal and Failback (another terminal program works too)",
+      "notify-send": "desktop notifications when a machine or site goes wrong"
+    },
+    "system": "Linux or Windows 10/11 (OpenSSH client); the servers need only sh, systemd and the usual tools of a stock Ubuntu or Fedora server"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-connect --self-test",
+    "windows": "py spark_connect.py"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-connect"
+}

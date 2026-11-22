@@ -1,0 +1,374 @@
+"""Every sentence the interface shows, in English and in French. The PC's language picks the
+table (lang.py); t('key', name=...) fills in the blanks."""
+
+from .lang import local_units, ui_language
+
+EN = {
+    # header and status
+    'status.watching': "WATCHING {n} MACHINES",
+    'status.watching_one': "WATCHING 1 MACHINE",
+    'status.refreshing': "REFRESHING",
+    'status.paused': "PAUSED WHILE HIDDEN",
+    'status.no_config': "NO MACHINES YET",
+    'status.config_error': "MACHINE LIST HAS AN ERROR",
+    'status.crashed': "SOMETHING WENT WRONG",
+    'status.restarted': "RESTARTED {unit} ON {machine}",
+    'status.copied': "REPORT COPIED",
+
+    # overview
+    'overview.machines': "Machines",
+    'overview.sites': "Websites",
+    'overview.no_sites': "No websites in the machine list.",
+    'overview.empty_title': "No machines yet",
+    'overview.empty_body': "Spark Connect reads its machine list from\n{path}\n\nThat file "
+                           "doesn't exist yet. Copy machines.example.toml from\n{example}\n"
+                           "there, put in your own machines, and press F5. Spark Connect "
+                           "never writes that file.",
+    'overview.error_title': "The machine list has an error",
+    'overview.error_body': "{error}\n\nIn {path}. Fix it and press F5.",
+    'card.up': "UP",
+    'card.down': "DOWN",
+    'card.trouble': "TROUBLE",
+    'card.waiting': "WAITING",
+    'card.uptime': "UP FOR",
+    'card.load': "LOAD",
+    'card.memory': "MEMORY",
+    'card.disk': "DISK",
+    'card.temp': "TEMP",
+    'card.more': "+{n} more",
+    'site.checking': "checking",
+
+    # verdicts
+    'verdict.ok': "All good",
+    'verdict.waiting': "Waiting for the first refresh",
+    'verdict.unreachable': "Unreachable since {since}",
+    'verdict.hostkey_changed': "Host key changed: check it before connecting",
+    'verdict.hostkey_unknown': "Host key not known yet: connect once in a terminal",
+    'verdict.auth': "SSH key not accepted",
+    'verdict.bad_output': "The probe's answer couldn't be read",
+    'verdict.no_ssh': "ssh is not installed on this PC",
+    'verdict.error': "SSH failed: {message}",
+    'verdict.no_systemd': "No systemd: services can't be read",
+    'verdict.unit_failed': "{unit} failed",
+    'verdict.units_failed': "{n} units failed",
+    'verdict.unit_restarting': "{unit} restarting",
+    'verdict.unit_stopped': "{unit} stopped",
+    'verdict.unit_missing': "{unit} not found",
+    'verdict.tunnel_down': "Tunnel down ({unit} not running)",
+    'verdict.tunnel_reconnecting': "{unit} reconnecting (no connections)",
+    'verdict.taken_over': "Standby has taken over: it is serving the sites",
+    'verdict.failover_missing': "Failover folder not found",
+    'verdict.disk_full': "Disk {pct} full ({mount})",
+    'verdict.memory_low': "Memory nearly full ({pct} free)",
+    'verdict.hot': "Running hot: {c}",
+    'verdict.check_failed': "Health check {name}: {why}",
+
+    # machine view
+    'tab.services': "Services",
+    'tab.health': "Health",
+    'tab.tunnel': "Tunnel",
+    'tab.failover': "Failover",
+    'tab.logs': "Logs",
+    'machine.refreshed': "REFRESHED {time}",
+    'machine.no_data': "No data from this machine yet.",
+    'machine.ssh_said': "ssh said: {message}",
+    'machine.fingerprint': "Host key ssh was shown: {fp}",
+    'machine.hostkey_help': "Spark Connect never accepts a host key. Open a terminal, check "
+                            "the key against the server's own (ssh-keygen -lf on the server), "
+                            "and accept it there yourself if it is right.",
+    'services.watched': "Watched units",
+    'services.other_failed': "Other failed units",
+    'services.known_failed': "known failed, ignored",
+    'services.none': "No units listed for this machine in the config.",
+    'services.for': "for {time}",
+    'services.restarts': "{n} restarts",
+    'services.no_log': "no log lines (the journal may need the adm group to read)",
+    'state.running': "RUNNING",
+    'state.failed': "FAILED",
+    'state.restarting': "RESTARTING",
+    'state.stopped': "STOPPED",
+    'state.missing': "NOT FOUND",
+    'state.unknown': "UNKNOWN",
+    'scope.system': "SYSTEM",
+    'scope.user': "USER",
+    'health.os': "System",
+    'health.cpu': "CPU",
+    'health.load': "Load",
+    'health.memory': "Memory",
+    'health.swap': "Swap",
+    'health.disks': "Disks",
+    'health.temps': "Temperatures",
+    'health.network': "Network",
+    'health.boot': "Last reboot",
+    'health.uptime': "Up for",
+    'health.cpus': "{n} CPUs",
+    'health.used_of': "{used} used of {total}",
+    'health.free_of': "{pct} full, {free} free of {total}",
+    'health.rx_tx': "in {rx} · out {tx}",
+    'health.rate_next': "rate after the next refresh",
+    'tunnel.none': "No tunnel set for this machine in the config.",
+    'tunnel.state': "State",
+    'tunnel.connections': "Connections",
+    'tunnel.hostnames': "Sites behind it",
+    'tunnel.connected': "CONNECTED",
+    'tunnel.no_conns': "NO CONNECTIONS",
+    'tunnel.down': "NOT RUNNING",
+    'tunnel.conns_unknown': "unknown (ss can't see it)",
+    'tunnel.no_hostnames': "none listed in the config",
+    'failover.standing_by': "STANDING BY",
+    'failover.taken_over': "TAKEN OVER",
+    'failover.taken_over_note': "This machine is serving the sites. It stays live until "
+                                "someone runs the failback.",
+    'failover.standing_by_note': "The main server is serving the sites.",
+    'failover.unknown': "Can't tell: no active_unit in the config.",
+    'failover.incidents': "Last incidents",
+    'failover.no_incidents': "No incident files.",
+    'failover.netmon': "Network monitor, last lines",
+    'failover.no_netmon': "No network monitor log set in the config, or it isn't there.",
+    'failover.failback': "Failback command",
+    'failover.no_failback': "No failback command in the config.",
+    'logs.unit': "Unit",
+    'logs.filter': "Filter",
+    'logs.start': "Follow",
+    'logs.stop': "Stop",
+    'logs.pick': "Pick a unit to follow its journal live.",
+    'logs.following': "FOLLOWING {unit}",
+
+    # actions
+    'action.back': "Overview",
+    'action.terminal': "Open terminal",
+    'action.report': "Copy report",
+    'action.refresh': "Refresh",
+    'action.restart': "Restart",
+    'action.logs': "Logs",
+    'action.failback': "Failback…",
+    'action.failback_open': "Open terminal",
+    'action.cancel': "Cancel",
+    'confirm.restart_title': "Restart {unit} on {machine}?",
+    'confirm.restart_body': "This restarts {unit} on {machine}. It stops for a moment and "
+                            "starts again.",
+    'confirm.runs': "Runs: {command}",
+    'confirm.touches_unit': "Touches: only {unit}. Nothing else is stopped or changed.",
+    'confirm.tunnel_sites': "Every site behind this tunnel drops for a few seconds: {sites}",
+    'confirm.tunnel_unlisted': "Every site behind this tunnel drops for a few seconds. The "
+                               "config doesn't list them (tunnel_hostnames).",
+    'confirm.sudo': "A system unit goes through sudo -n: if sudo asks for a password, nothing "
+                    "runs and Spark Connect offers a terminal instead. It never asks for, "
+                    "types or stores a password.",
+    'confirm.terminal_title': "Open a terminal on {machine}?",
+    'confirm.terminal_body': "Opens a terminal window logged in to {machine}.",
+    'confirm.terminal_touches': "Touches: nothing by itself. What you type there runs on "
+                                "the server.",
+    'confirm.failback_title': "Fail back from {machine}?",
+    'confirm.failback_body': "Opens a terminal on the standby with the failback command typed "
+                             "but not run. Press Enter there to run it, or Ctrl+C to drop it.",
+    'confirm.typed': "Typed, not run: {command}\nOn: {machine}",
+    'confirm.failback_touches': "Touches: the failback script decides; usually it hands the "
+                                "sites back to the main server and stops the standby's "
+                                "tunnel.",
+    'result.restarted': "Restarted {unit} on {machine}.",
+    'result.needs_password_title': "sudo wants a password",
+    'result.needs_password': "sudo on {machine} asks for a password to restart {unit}, so "
+                             "nothing ran. Spark Connect doesn't type passwords. Open a "
+                             "terminal and run it there?",
+    'result.failed_title': "Restart failed",
+    'result.failed': "Restarting {unit} on {machine} didn't work:\n{message}",
+    'result.no_terminal': "No terminal program found (Konsole, xterm…).",
+    'result.no_terminal_title': "No terminal",
+
+    # alerts
+    'alert.back': "Back to normal: {text}",
+}
+
+FR = {
+    'status.watching': "{n} MACHINES SURVEILLÉES",
+    'status.watching_one': "1 MACHINE SURVEILLÉE",
+    'status.refreshing': "ACTUALISATION",
+    'status.paused': "EN PAUSE (FENÊTRE CACHÉE)",
+    'status.no_config': "AUCUNE MACHINE",
+    'status.config_error': "ERREUR DANS LA LISTE",
+    'status.crashed': "QUELQUE CHOSE A MAL TOURNÉ",
+    'status.restarted': "{unit} REDÉMARRÉ SUR {machine}",
+    'status.copied': "RAPPORT COPIÉ",
+
+    'overview.machines': "Machines",
+    'overview.sites': "Sites web",
+    'overview.no_sites': "Aucun site dans la liste des machines.",
+    'overview.empty_title': "Aucune machine",
+    'overview.empty_body': "Spark Connect lit sa liste de machines dans\n{path}\n\nCe "
+                           "fichier n'existe pas encore. Copiez-y machines.example.toml de\n"
+                           "{example}\nmettez-y vos machines, puis appuyez sur F5. Spark "
+                           "Connect n'écrit jamais ce fichier.",
+    'overview.error_title': "La liste des machines a une erreur",
+    'overview.error_body': "{error}\n\nDans {path}. Corrigez-la et appuyez sur F5.",
+    'card.up': "EN LIGNE",
+    'card.down': "HORS LIGNE",
+    'card.trouble': "PROBLÈME",
+    'card.waiting': "EN ATTENTE",
+    'card.uptime': "EN MARCHE",
+    'card.load': "CHARGE",
+    'card.memory': "MÉMOIRE",
+    'card.disk': "DISQUE",
+    'card.temp': "TEMP.",
+    'card.more': "+{n} autres",
+    'site.checking': "vérification",
+
+    'verdict.ok': "Tout va bien",
+    'verdict.waiting': "En attente de la première lecture",
+    'verdict.unreachable': "Injoignable depuis {since}",
+    'verdict.hostkey_changed': "Clé d'hôte changée : vérifiez-la avant de vous connecter",
+    'verdict.hostkey_unknown': "Clé d'hôte inconnue : connectez-vous une fois dans un terminal",
+    'verdict.auth': "Clé SSH refusée",
+    'verdict.bad_output': "La réponse de la sonde est illisible",
+    'verdict.no_ssh': "ssh n'est pas installé sur ce PC",
+    'verdict.error': "Échec SSH : {message}",
+    'verdict.no_systemd': "Pas de systemd : services illisibles",
+    'verdict.unit_failed': "{unit} en échec",
+    'verdict.units_failed': "{n} unités en échec",
+    'verdict.unit_restarting': "{unit} redémarre",
+    'verdict.unit_stopped': "{unit} arrêté",
+    'verdict.unit_missing': "{unit} introuvable",
+    'verdict.tunnel_down': "Tunnel coupé ({unit} arrêté)",
+    'verdict.tunnel_reconnecting': "{unit} se reconnecte (aucune connexion)",
+    'verdict.taken_over': "La machine de secours a pris le relais : elle sert les sites",
+    'verdict.failover_missing': "Dossier de bascule introuvable",
+    'verdict.disk_full': "Disque plein à {pct} ({mount})",
+    'verdict.memory_low': "Mémoire presque pleine ({pct} libre)",
+    'verdict.hot': "Température élevée : {c}",
+    'verdict.check_failed': "Vérification {name} : {why}",
+
+    'tab.services': "Services",
+    'tab.health': "État",
+    'tab.tunnel': "Tunnel",
+    'tab.failover': "Bascule",
+    'tab.logs': "Journaux",
+    'machine.refreshed': "LU À {time}",
+    'machine.no_data': "Aucune donnée de cette machine pour l'instant.",
+    'machine.ssh_said': "ssh a répondu : {message}",
+    'machine.fingerprint': "Clé d'hôte montrée par ssh : {fp}",
+    'machine.hostkey_help': "Spark Connect n'accepte jamais une clé d'hôte. Ouvrez un "
+                            "terminal, comparez la clé avec celle du serveur (ssh-keygen -lf "
+                            "sur le serveur) et acceptez-la vous-même si elle est bonne.",
+    'services.watched': "Unités surveillées",
+    'services.other_failed': "Autres unités en échec",
+    'services.known_failed': "échec connu, ignoré",
+    'services.none': "Aucune unité listée pour cette machine dans la configuration.",
+    'services.for': "depuis {time}",
+    'services.restarts': "{n} redémarrages",
+    'services.no_log': "aucune ligne de journal (lire le journal peut demander le groupe adm)",
+    'state.running': "EN MARCHE",
+    'state.failed': "EN ÉCHEC",
+    'state.restarting': "REDÉMARRE",
+    'state.stopped': "ARRÊTÉ",
+    'state.missing': "INTROUVABLE",
+    'state.unknown': "INCONNU",
+    'scope.system': "SYSTÈME",
+    'scope.user': "UTILISATEUR",
+    'health.os': "Système",
+    'health.cpu': "Processeur",
+    'health.load': "Charge",
+    'health.memory': "Mémoire",
+    'health.swap': "Swap",
+    'health.disks': "Disques",
+    'health.temps': "Températures",
+    'health.network': "Réseau",
+    'health.boot': "Dernier démarrage",
+    'health.uptime': "En marche depuis",
+    'health.cpus': "{n} processeurs",
+    'health.used_of': "{used} utilisés sur {total}",
+    'health.free_of': "plein à {pct}, {free} libres sur {total}",
+    'health.rx_tx': "entrée {rx} · sortie {tx}",
+    'health.rate_next': "débit à la prochaine lecture",
+    'tunnel.none': "Aucun tunnel pour cette machine dans la configuration.",
+    'tunnel.state': "État",
+    'tunnel.connections': "Connexions",
+    'tunnel.hostnames': "Sites derrière",
+    'tunnel.connected': "CONNECTÉ",
+    'tunnel.no_conns': "AUCUNE CONNEXION",
+    'tunnel.down': "ARRÊTÉ",
+    'tunnel.conns_unknown': "inconnu (ss ne le voit pas)",
+    'tunnel.no_hostnames': "aucun dans la configuration",
+    'failover.standing_by': "EN ATTENTE",
+    'failover.taken_over': "RELAIS PRIS",
+    'failover.taken_over_note': "Cette machine sert les sites. Elle le reste jusqu'à ce que "
+                                "quelqu'un lance le retour (failback).",
+    'failover.standing_by_note': "Le serveur principal sert les sites.",
+    'failover.unknown': "Impossible à dire : pas d'active_unit dans la configuration.",
+    'failover.incidents': "Derniers incidents",
+    'failover.no_incidents': "Aucun fichier d'incident.",
+    'failover.netmon': "Moniteur réseau, dernières lignes",
+    'failover.no_netmon': "Pas de journal du moniteur réseau dans la configuration, ou "
+                          "introuvable.",
+    'failover.failback': "Commande de retour",
+    'failover.no_failback': "Aucune commande de retour dans la configuration.",
+    'logs.unit': "Unité",
+    'logs.filter': "Filtre",
+    'logs.start': "Suivre",
+    'logs.stop': "Arrêter",
+    'logs.pick': "Choisissez une unité pour suivre son journal en direct.",
+    'logs.following': "SUIVI DE {unit}",
+
+    'action.back': "Vue d'ensemble",
+    'action.terminal': "Ouvrir un terminal",
+    'action.report': "Copier le rapport",
+    'action.refresh': "Actualiser",
+    'action.restart': "Redémarrer",
+    'action.logs': "Journal",
+    'action.failback': "Retour…",
+    'action.failback_open': "Ouvrir le terminal",
+    'action.cancel': "Annuler",
+    'confirm.restart_title': "Redémarrer {unit} sur {machine} ?",
+    'confirm.restart_body': "Ceci redémarre {unit} sur {machine}. Il s'arrête un instant puis "
+                            "repart.",
+    'confirm.runs': "Lance : {command}",
+    'confirm.touches_unit': "Touche : seulement {unit}. Rien d'autre n'est arrêté ni modifié.",
+    'confirm.tunnel_sites': "Chaque site derrière ce tunnel tombe quelques secondes : {sites}",
+    'confirm.tunnel_unlisted': "Chaque site derrière ce tunnel tombe quelques secondes. La "
+                               "configuration ne les liste pas (tunnel_hostnames).",
+    'confirm.sudo': "Une unité système passe par sudo -n : si sudo demande un mot de passe, "
+                    "rien n'est lancé et Spark Connect propose un terminal. Il ne demande, ne "
+                    "tape et ne garde jamais de mot de passe.",
+    'confirm.terminal_title': "Ouvrir un terminal sur {machine} ?",
+    'confirm.terminal_body': "Ouvre une fenêtre de terminal connectée à {machine}.",
+    'confirm.terminal_touches': "Touche : rien en soi. Ce que vous y tapez s'exécute sur le "
+                                "serveur.",
+    'confirm.failback_title': "Revenir depuis {machine} ?",
+    'confirm.failback_body': "Ouvre un terminal sur la machine de secours avec la commande de "
+                             "retour tapée mais pas lancée. Appuyez sur Entrée pour la lancer, "
+                             "ou Ctrl+C pour l'abandonner.",
+    'confirm.typed': "Tapée, pas lancée : {command}\nSur : {machine}",
+    'confirm.failback_touches': "Touche : ce que fait le script de retour ; d'habitude il "
+                                "rend les sites au serveur principal et arrête le tunnel de "
+                                "secours.",
+    'result.restarted': "{unit} redémarré sur {machine}.",
+    'result.needs_password_title': "sudo demande un mot de passe",
+    'result.needs_password': "sudo sur {machine} demande un mot de passe pour redémarrer "
+                             "{unit}, donc rien n'a été lancé. Spark Connect ne tape pas de "
+                             "mot de passe. Ouvrir un terminal pour le faire ?",
+    'result.failed_title': "Le redémarrage a échoué",
+    'result.failed': "Le redémarrage de {unit} sur {machine} n'a pas marché :\n{message}",
+    'result.no_terminal': "Aucun terminal trouvé (Konsole, xterm…).",
+    'result.no_terminal_title': "Pas de terminal",
+
+    'alert.back': "Revenu à la normale : {text}",
+}
+
+_TABLE = FR if ui_language() == 'fr' else EN
+
+
+def t(key: str, **kw) -> str:
+    text = _TABLE.get(key) or EN.get(key) or key
+    return text.format(**kw) if kw else text
+
+
+def verdict_text(problem) -> str:
+    """The sentence for a probe.Problem, numbers written the PC's way."""
+    from . import core
+    args = dict(problem.args)
+    if 'since' in args:
+        args['since'] = core.clock(args['since'])
+    if 'pct' in args:
+        args['pct'] = core.pct(args['pct'])
+    if 'c' in args:
+        args['c'] = core.temp(args['c'])
+    return local_units(t('verdict.' + problem.key, **args))
