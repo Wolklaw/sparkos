@@ -300,17 +300,71 @@ would fail to load (the system still boots). To turn it on later:
    choose a password, reboot, and confirm in the blue MOK manager screen. Bazzite asks for the
    same step with Universal Blue's key.
 
+## Performance and tuning
+
+Added 2026-11-22. Bazzite tunes the system with packages and loose config files that plain
+Kinoite doesn't have. Each one was checked on the owner's PC (Bazzite, read only: `rpm -qf`, the
+active values in `/proc` and `/sys`, the services' state) and against the Fedora image. On the
+Fedora base, [files/scripts/fedora-tuning.sh](../files/scripts/fedora-tuning.sh) (step 5) writes
+SparkOS's own config, and [build_files/packages.sh](../build_files/packages.sh) installs the
+packages. Nothing changes on the Bazzite base.
+
+| Bazzite item | On the Fedora image | Why |
+|---|---|---|
+| `kernel.split_lock_mitigate=0`, `vm.max_map_count`, inotify limits | Already in `fedora-gaming.sh` | Same values. |
+| Network sysctls (`75-networking.conf`: BBR, `tcp_mtu_probing=1`, IPv6 privacy addresses) | `/usr/lib/sysctl.d/75-sparkos-network.conf`, and `tcp_bbr` loads at boot | Fedora's default is CUBIC; Fedora builds BBR as a module. |
+| zram (`/etc/systemd/zram-generator.conf`: zstd, half the RAM up to 16 GiB) | `/usr/lib/systemd/zram-generator.conf.d/50-sparkos.conf`, same values | Fedora's default is lzo-rle and at most 8 GiB; the owner's PC has 32 GiB, so 16 GiB of zram as today. Swappiness stays at 60 on both. |
+| I/O schedulers (`60-schedulers.rules`) | `/usr/lib/udev/rules.d/60-sparkos-io-scheduler.rules`: kyber for SSDs and NVMe, BFQ for hard drives and SD cards | Fedora's own rule gives every `sd*` disk BFQ (SSDs too) and leaves NVMe on `none`. The owner's two NVMe drives and SATA SSD run kyber today. Bazzite's SD-card line matched partitions, which have no scheduler; SparkOS's matches the disk. |
+| CPU governor and EPP, Bazzite's `*-bazzite` tuned profiles, `ppd.conf` | Nothing to add: Fedora's `tuned` and `tuned-ppd` are already on, with Fedora's profiles | Bazzite's profiles are Fedora's plus a sched_ext mode switch (does nothing while `scx_loader` is off) and Wi-Fi/USB power saving in "power saver". On a desktop the result is the same: amd-pstate `active`, `powersave` governor, EPP `balance_performance`, boost on. |
+| Transparent huge pages | Nothing to add | Fedora's kernel defaults (`madvise`, defrag `madvise`, shmem `never`) are the values on the owner's PC. |
+| Kernel argument `bluetooth.disable_ertm=1` (`bazzite-hardware-setup`) | `options bluetooth disable_ertm=1` in `/usr/lib/modprobe.d/sparkos-bluetooth.conf` | For Xbox controllers over Bluetooth. Fedora builds Bluetooth as a module, so a module option does it without touching the kernel command line. No other Bazzite kernel argument is set on this PC. |
+| Stop timeout 15 s (`/etc/systemd/{system,user}.conf.d/timeout.conf`) | `/usr/lib/systemd/{system,user}.conf.d/50-sparkos-timeout.conf` | Fedora waits 45 s for a stuck service at shutdown. |
+| `memlock` 2 GiB (`/etc/security/limits.d/memlock.conf`) | `/etc/security/limits.d/90-sparkos-memlock.conf` | Fedora's limit is 8 MiB; emulators (RPCS3) and some VR and anti-cheat software need more. |
+| btrfs reclaim (`btrfs-reclaim.conf`) | `/usr/lib/tmpfiles.d/sparkos-btrfs-reclaim.conf` | The root disk is btrfs; reclaiming half-empty data chunks avoids "disk full" while space is free. |
+| fstrim drop-in (`workaround-no-root-trim.conf`) | `/usr/lib/systemd/system/fstrim.service.d/50-sparkos-mounted.conf` | `/` is read-only in `/etc/fstab` on an image system; trim what's mounted instead (Fedora Atomic tracker issue 81). |
+| `dmemcg-booster`, `plasma-foreground-booster-dmemcg`, `kcgroups-dmemcg` | **From Terra** (build time only, like `umu-launcher`), `dmemcg-booster-system` and `-user` enabled | Running on the owner's PC today: when VRAM is full, the focused app keeps its video memory and background apps are moved out first (and get less CPU). Fedora's kernel supports it as is: `CONFIG_CGROUP_DMEM=y`, amdgpu registers its VRAM and TTM has the protection code. Fedora doesn't package the two programs; writing SparkOS's own would mean a D-Bus/cgroup daemon plus a KWin window tracker, so Terra's packages (1 MiB) are used. Fedora's `plasma-workspace.target` already starts the foreground booster. |
+| `ds-inhibit` (Universal Blue COPR) | Copied into `files/ds-inhibit` (Valve, BSD-2-Clause), `ds-inhibit.service` enabled | While Steam has a DualShock 4 or DualSense open, the touchpad stops moving the mouse pointer. A 170-line Python script; `python3-pyinotify` is Fedora's. |
+| `vkBasalt` | Fedora's package | 1.8 MiB, off unless `ENABLE_VKBASALT=1`. Reaches games started from Spark Games (`umu-run` on the system); Flatpak Steam, Heroic and Lutris use Flathub's VulkanLayer extensions instead. |
+| `obs-studio-plugin-vkcapture` (hook libraries) | **Skipped** | In Fedora, but its weak dependencies pull in OBS, CEF and WebKit (about 500 MiB); OBS isn't installed, and Flatpak games use Flathub's OBS capture layer. |
+| sched_ext (`scx-scheds`, `scx-tools`, `scx_loader`) | **Skipped** | Shipped but off on Bazzite: `scx_loader` is disabled and `/sys/kernel/sched_ext/state` is `disabled`, so the PC runs the normal kernel scheduler. Fedora's kernel can run it (`CONFIG_SCHED_CLASS_EXT=y`, BTF on); Fedora's own `scx_rusty`/`scx_layered`/`scx_rustland` are 2024 builds, and `scx_lavd`/`scx_bpfland` are only in Terra. Can be added later if wanted. |
+| `bpftune` | **Skipped** | Shipped but disabled on Bazzite; not in Fedora. |
+| `vulkan-low-latency-layer` | **Skipped** | Terra only, version 0.2, off unless `LOW_LATENCY_LAYER=1`; Bazzite doesn't turn it on. |
+| `ryzenadj` | **Skipped** | Not in Fedora (Universal Blue COPR). Made for laptop APUs; a desktop 7800X3D is tuned in the BIOS. The `ryzen_smu` module it uses is built (see Kernel modules). |
+| ScopeBuddy | **Skipped** | A gamescope launch wrapper from Terra; nothing in SparkOS or the owner's setup uses it. gamescope itself is installed. |
+| `ublue-os-selinux-workarounds` | **Skipped** | One SELinux rule (`kernel_t` execmem on composefs). The Fedora image's VM boot test had no failure from it; look for `execmem` denials on the real PC. |
+| `80-gpu-reset.rules` | **Skipped** | Matches `RESET=1` uevents from a SteamOS kernel patch. Neither the OGC kernel (no `drm_sysfs_reset_event`) nor Fedora's sends them, so the rule does nothing on Bazzite either; KWin recovers from GPU resets on its own. |
+| NetworkManager | Nothing to add | Bazzite adds no NetworkManager config for this PC (only broadcom-wl's); Wi-Fi uses NetworkManager with wpa_supplicant on both. |
+| Other Bazzite files (`mt7921` ASPM, Framework charge control, Valve LEDs, CEC, coredump 5 days, journald persistent, incus/libvirt) | **Skipped** | Hardware the PC doesn't have (the Wi-Fi is a Realtek RTL8852BE), not performance, or already Fedora's default (journald keeps logs because `/var/log/journal` exists). |
+
+`/usr/share/sparkos/fedora-base/tuning-layer.txt` in the image records the packages and values,
+and the build stops if a package, file, kernel option or enabled service is missing.
+
+**Checked in containers of `sparkos-fedora`** (not yet in a built image): the packages resolve
+(Terra limited to its four packages, nothing else from it); `fedora-tuning.sh` runs to the end;
+`systemd-analyze verify` passes for `ds-inhibit`, `dmemcg-booster-system` and `fstrim`;
+`udevadm verify` passes and the rule sorts after Fedora's; the manager reads
+`DefaultTimeoutStopSec=15s` for system and user; the zram generator makes 16000 MB on 32 GiB of
+RAM and stops at 16384 MB on 64 GiB; the tmpfiles lines parse; `bluetooth` has the
+`disable_ertm` option; `ds-inhibit` starts.
+
+**Needs the real PC:** that kyber is active on the NVMe and SATA drives, `/dev/zram0` is 16 GiB
+zstd, `sysctl net.ipv4.tcp_congestion_control` says `bbr`, `dmemcg-booster` and the foreground
+booster run and `/sys/fs/cgroup/dmem.capacity` lists the GPU's VRAM, a DualSense's touchpad
+stops moving the pointer while Steam is open, and that no SELinux `execmem` denials show up.
+
 ## What still ties the prototype to someone else
 
 - **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one
   big, stable upstream instead of Fedora plus Bazzite plus the repositories Bazzite pulls in.
 - **Cisco's OpenH264**, through Fedora's own repository, for H.264.
+- **Valve's `ds-inhibit`**, copied into `files/ds-inhibit`.
 - **Device rules** from game-devices-udev, udev-joystick-blacklist and Oversteer, copied into
   `files/device-rules` (Valve's come from Fedora's `steam-devices` since 2026-11-22).
 - **Flathub**, for every app users install. Same as today.
 - **RPM Fusion free**, for FFmpeg and Mesa video decode (H.265, and H.264/H.265 on the GPU). In the
   image since 2026-11-22.
-- **Terra**, for `umu-launcher` only (Fedora doesn't package it), at build time; the repository
+- **Terra**, for `umu-launcher` and the VRAM booster (`dmemcg-booster`,
+  `plasma-foreground-booster-dmemcg`, `kcgroups-dmemcg`) only (Fedora doesn't package them), at build time; the repository
   isn't left on the system, so updates to it come with each image build.
 - **RPM Fusion free** also for `akmod-v4l2loopback`, built into a kmod package for the image's kernel.
 - **The kernel modules' own projects** (zenergy, ryzen_smu, xonedo, hid-fanatecff, new-lg4ff,

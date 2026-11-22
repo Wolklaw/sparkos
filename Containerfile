@@ -103,6 +103,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      Portal; Fedora: removes Kinoite's RPM apps)
 #    - fedora-gaming (Fedora only): the device rules Fedora doesn't package (controllers,
 #      not-a-joystick list, wheels; files/device-rules), uinput, gaming sysctls
+#    - fedora-tuning (Fedora only): Bazzite's system tuning as SparkOS config (network sysctls,
+#      zram, I/O schedulers, btrfs reclaim, stop timeouts, memlock, ds-inhibit, VRAM booster)
 #    - fedora-homebrew (Fedora only): Homebrew on PATH and completion in bash, zsh and fish,
 #      when Homebrew is installed (Bazzite's own files do this there)
 #    - soot, freesuite: the browser and the office apps, latest releases
@@ -124,6 +126,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         "sparkos-identity.sh|fedora-identity.sh" \
         "sparkos-apps.sh|fedora-apps.sh" \
         "-|fedora-gaming.sh" \
+        "-|fedora-tuning.sh" \
         "-|fedora-homebrew.sh" \
         soot.sh \
         freesuite.sh \

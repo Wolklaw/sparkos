@@ -1,0 +1,8 @@
+ds-inhibit, written by Valve (Vicki Pfau) for SteamOS. BSD-2-Clause licence, text in LICENSE
+next to this file.
+
+ds-inhibit and ds-inhibit.service are copied unchanged from Bazzite's ds-inhibit package
+(0.0.git.7588.352f6387-2.fc45, Universal Blue's COPR), which packages Valve's SteamOS file.
+SHA-256:
+  ds-inhibit          c5a4d5d6e792019e5ee93a432efb4833a51917f37bf4c0d91ad1c8919cfe9697
+  ds-inhibit.service  f9b72d192bb4f4206ec2ffe3745ed4d74b3e61d3fb169252328c32a9756c4728
