@@ -477,9 +477,9 @@ README say so. Unit tests cover it; the VM test checks it for real.
   not SparkOS; the real boot test boots with UEFI.
 - **The notification and the window**: they need a signed-in desktop. The window doesn't show the
   hold yet (it says "up to date"); `spark-update --status` does.
-- `mcelog.service` fails at every boot ("CPU is unsupported") with `-cpu host` on the 7800X3D. It's
-  Fedora's package and is enabled on the Bazzite image too, so not new with this base; it's
-  harmless but shows as a failed unit.
+- `mcelog.service` failed at every boot in the VM ("CPU is unsupported"). On the PC it is skipped
+  because `edac_mce_amd` is loaded, and Bazzite adds `ConditionVirtualization=no`. The Fedora image
+  now has the same condition (`fedora-tuning.sh`), so it no longer fails in VMs either.
 
 ## What still ties the prototype to someone else
 

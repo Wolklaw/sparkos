@@ -68,6 +68,12 @@ ExecStart=
 ExecStart=/usr/bin/fstrim --listed-in /proc/self/mountinfo --verbose --quiet-unsupported
 EOS
 
+# mcelog only in a real machine (Bazzite's override): in a VM there is no AMD EDAC driver, so its
+# own "skip on AMD" condition doesn't apply and it fails with "CPU is unsupported" at every boot.
+# On the PC it is already skipped because edac_mce_amd is loaded.
+mkdir -p /usr/lib/systemd/system/mcelog.service.d
+printf '[Unit]\nConditionVirtualization=no\n' > /usr/lib/systemd/system/mcelog.service.d/50-sparkos-no-vm.conf
+
 # Shutdown doesn't wait 45 s for a stuck service: 15 s, as on Bazzite
 for scope in system user; do
   printf '[Manager]\nDefaultTimeoutStopSec=15s\n' \
@@ -108,7 +114,8 @@ for f in /usr/lib/sysctl.d/75-sparkos-network.conf /usr/lib/udev/rules.d/60-spar
   /usr/lib/systemd/system/fstrim.service.d/50-sparkos-mounted.conf \
   /usr/lib/systemd/system.conf.d/50-sparkos-timeout.conf /usr/lib/systemd/user.conf.d/50-sparkos-timeout.conf \
   /etc/security/limits.d/90-sparkos-memlock.conf /usr/lib/modprobe.d/sparkos-bluetooth.conf \
-  /usr/lib/modules-load.d/sparkos-tcp-bbr.conf /usr/bin/ds-inhibit; do
+  /usr/lib/modules-load.d/sparkos-tcp-bbr.conf /usr/bin/ds-inhibit \
+  /usr/lib/systemd/system/mcelog.service.d/50-sparkos-no-vm.conf; do
   test -s "$f" || { echo "missing $f"; exit 1; }
 done
 kver=$(rpm -q kernel-core --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' | tail -1)
