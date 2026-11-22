@@ -1,0 +1,64 @@
+# Spark Files
+
+The SparkOS file manager, in Dolphin's place. Folders open in it, it's on the dock, and "Show in folder" in Soot, FreeSuite, Plasma's notifications and most other apps lands in it with the file selected. Dolphin stays installed, out of the menu, for one release as a fallback; removing it is a separate change once Spark Files has been used daily.
+
+It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
+
+## What it does
+
+- **Browse.** A sidebar with your folders (Home, Desktop, Documents, Downloads, Pictures, Music, Videos, Games when `~/Games` exists, in the names your desktop's language uses), the Windows drives SparkOS mounts at `/var/mnt/<letter>` (shown as C:, D:... with their label and how full they are), USB sticks and SD cards (with Eject; one plugged in but not mounted yet is listed greyed out, and a click mounts it), pinned folders and the Trash. A path bar you click (one button per folder) or type in (click its empty end, or Ctrl+L; Tab completes folder names). Back, forward, up (Alt+Left, Alt+Right, Alt+Up, and the mouse's side buttons).
+- **List and grid** (Ctrl+1, Ctrl+2). The list has Name, Size, Modified and Type; click a heading to sort, again to reverse. Narrow panes drop Type, then the date. The grid shows thumbnails of photos and videos; Ctrl+wheel or Ctrl+plus/minus changes the tile size. Sorting is natural (file2 before file10) and ignores case and accents; folders come first unless you turn that off.
+- **Hidden files** with Ctrl+H (or Ctrl+.). The status line says how many are hidden.
+- **Thumbnails** are made in the background, newest request first (what's on screen now), and kept in the freedesktop cache (`~/.cache/thumbnails`), the same one Dolphin and Spark Media use. Videos take a frame from 10% in through GStreamer. Photos over 200 MB get an icon instead.
+- **Preview pane** (F11): a large thumbnail, the first lines of a text file, what a folder holds, type, size, date.
+- **Open** with the default app (double-click or Enter), **Open with** (the apps for that type, or any app, with "always use this one"), open folders in a new tab (middle-click) or window.
+- **Copy, cut, paste** (Ctrl+C, Ctrl+X, Ctrl+V) through the desktop's clipboard, in the formats Dolphin and GTK apps use, so you can copy in one and paste in the other. **Drag and drop** between views, tabs, split panes, windows and onto sidebar places; on the same drive it moves, onto another drive it copies (Shift moves, Ctrl copies either way); a label next to the pointer says which. Drag a folder onto the sidebar's empty part to pin it. Dragging out to other apps and in from them uses XDND (see "How it works").
+- **Rename** with F2 in place (the name is selected without its extension; Tab moves on to the next one), several at once with a batch rename (`Trip ##` numbers them 01, 02...; `*` is the old name; or find and replace), with a live preview that refuses names used twice or already taken.
+- **New folder** (Ctrl+Shift+N), **new file** (empty, or from `~/Templates`).
+- **Trash** (Delete), with **Ctrl+Z** to put it back; the Trash view lists where each item came from, puts items back (asking if the name is taken by then), and empties. Files on another drive go to that drive's own trash folder, as the freedesktop spec says, so trashing never copies gigabytes across drives; on a drive without one (read-only, or not yours) it offers to delete for good. **Delete for good** (Shift+Delete) always asks first.
+- **Undo** (Ctrl+Z) the last rename, move (drag or cut and paste), trash, or new empty folder or file.
+- **Long jobs.** Copies, moves, deletes and trashing run in the background, one row each in a panel at the bottom with progress, speed and time left, **pause** and **cancel**. A name already taken asks: replace, skip, keep both (`name (2).txt`), or stop, with "do the same for the other clashes in this job". Folders onto a folder of the same name merge. A cancelled copy never leaves half a file. What couldn't be done is listed at the end; the rest goes through.
+- **Search.** Typing in a folder filters it (every word must appear, any order; `*.jpg` works as a pattern). Ctrl+F then Enter searches by name in every folder below, in the background, results coming in as they're found, with a column saying where each one is.
+- **Tabs** (Ctrl+T, Ctrl+W, Ctrl+Tab, Ctrl+Shift+T reopens the last one closed) and a **split view** (F3), with "Copy to / Move to (other side)" in the right-click menu.
+- **Watching.** A folder updates by itself when something in it changes (GIO file monitors; changes in bursts reload once). A drive unplugged while you're in it takes you to the nearest folder still there.
+- **Properties** (Alt+Enter): type, size (counted in the background for folders, hard links once), what a folder contains, dates, owner, permissions (owner, group, others; "can run as a program" for files), how full a drive is, which app opens it (with Change).
+- **Right-click actions other apps add** through KDE's service menus (`share/kio/servicemenus`): Spark Archive's Compress and Extract, Spark Link's "Send to phone", "Open Claude Code here". Spark Files reads the same files Dolphin does, so they appear in both without either app knowing about the other.
+- **Open a terminal here** (Shift+F4): Spark Terminal (`spark-terminal --workdir`) when it's installed, Konsole until then.
+- **Copy path** (Ctrl+Shift+C).
+
+File open and save dialogs inside other apps are Plasma's and aren't part of this app.
+
+## How it works
+
+- **The view draws only what's on screen.** One Tk canvas per pane; a folder of 10,000 or 100,000 files costs the same to scroll as ten. Reading a folder is a plain `os.scandir` in a worker thread; sorting uses a key computed once per file. On a GitHub runner (Fedora, Xvfb), a folder of 10,000 files is on screen in about 0.1 s, a redraw after a long scroll takes 3 ms, sorting again 4 ms (`spark-files --bench FOLDER`).
+- **GIO in its own thread.** Folder watching, the D-Bus names, plugged-in drives and mounting run in a GLib main loop in a background thread. Results come back to Tk's thread through a queue and one byte on a pipe that Tk watches, so nothing polls: an idle window uses no CPU.
+- **One process per session.** `spark-files FOLDER` hands the folder to the running copy over D-Bus (`dev.wolklaw.SparkFiles`) and returns at once. The running copy also owns `org.freedesktop.FileManager1`, the name every app calls for "Show in folder" (`ShowItems`, `ShowFolders`, `ShowItemProperties`). When nothing is running, D-Bus starts `spark-files --service` for either name; it quits after 15 seconds if no window was asked for, and when its last window closes (after any running copy or move has finished).
+- **Drag and drop with other apps** is XDND, the X11 protocol every X and XWayland app speaks (KWin carries it to and from Wayland apps). Tk doesn't do it itself. Receiving: Spark Files marks its windows `XdndAware`, and a generic event handler registered in Tk's C library (through ctypes) copies the XDND messages out of Tk's event loop; the dropped file list is read with Tk's own `selection get`. Sending: when a drag leaves Spark Files' windows, Spark Files owns the drag selection with Tk's `selection own` and talks to the window under the pointer over a second small X connection made with libX11. Without X11 (or if any of that can't be set up) drag and drop stays inside Spark Files.
+- **The Trash** follows the freedesktop Trash spec itself (`~/.local/share/Trash`, and `.Trash-<uid>` at the top of other drives), so items trashed here can be restored from Dolphin or GNOME and the other way round.
+- **Timers die with their widgets.** Python 3.15's Tkinter names a callback after its function, so a timer left pending on a destroyed widget can end up calling a newer callback that got the same name. Every Spark Files widget that sets timers cancels them when it's destroyed (`Timers` in `ui.py`).
+
+## Install
+
+On SparkOS it is in the image (`files/scripts/spark-files.sh` installs it with `install.sh --deps`, removes Dolphin's FileManager1 activation file so there is only one, and hides Dolphin from the menu; `sparkos-defaults.sh` makes it the default for folders; the dock pins it).
+
+Anywhere else, for one user, no root:
+
+    bash install.sh --user             # into ~/.local, with the D-Bus files for "Show in folder"
+    bash install.sh --user --default   # and make it your default file manager
+    bash install.sh --user --uninstall # remove exactly that (Dolphin is the default again)
+
+System-wide: `sudo bash install.sh --deps`. It needs Python 3 with tkinter, Pillow (with its Tk module, or without: it falls back to PNG data), PyGObject, and optionally GStreamer for video thumbnails. `spark-files --self-test` says what's there and copies, moves, renames, trashes and restores in a temporary folder.
+
+Settings: `~/.config/spark-files/settings.json`. Log: `~/.local/state/spark-files/spark-files.log`.
+
+## Tests
+
+    python3 -m unittest discover -s files/spark-files/tests -v
+
+The file operations (copy, move across drives, clashes, pause and cancel, permissions), the Trash, sorting and filtering, thumbnails and the freedesktop cache, service menus, search and URI lists need no display. The window tests (navigation, filtering, keyboard selection, rename in place, clipboard copy and cut, trash and undo, the Trash view, watching, split view, tabs, grid, search, drag and drop, 10,000 files in under a second, properties, menus) need a display; the D-Bus test (FileManager1.ShowItems opens the folder with the file selected, and `spark-files FOLDER` hands over) needs a session bus. CI (`.github/workflows/spark-files.yml`) runs all of them under Xvfb in `dbus-run-session`, in English and in French, plus the speed check, on Fedora and inside the SparkOS image (`tests/user_install_check.sh`). The boot test checks it is the file manager in a real Plasma session (`.github/scripts/spark-files-check.sh`).
+
+## Not done yet
+
+- Not yet tried on the owner's PC. Dragging to and from Wayland-native apps (Dolphin, Soot) relies on KWin's XWayland bridge; CI tests it only between two X apps (both directions, `tests/xdnd_peer.py`).
+- No network places or online accounts (KIO's `smb:`, `sftp:`, Google Drive): Dolphin still has them for this release.
+- No undo for copies or for "delete for good".

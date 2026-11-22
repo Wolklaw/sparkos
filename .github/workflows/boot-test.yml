@@ -346,6 +346,20 @@ jobs:
           $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
 
+      - name: Check Spark Files
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # The file manager in Dolphin's place: installed, self-test passes, the only
+          # org.freedesktop.FileManager1 provider ("Show in folder"), Dolphin out of the menu
+          $SSH 'spark-files --version; ls -l /usr/bin/spark-files /usr/share/applications/dev.wolklaw.SparkFiles.desktop /usr/share/dbus-1/services/dev.wolklaw.SparkFiles*.service'
+          $SSH 'spark-files --self-test' 2>&1 | tee "$WORK/spark-files-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-files-self-test.txt"
+          $SSH 'grep -lx "Name=org.freedesktop.FileManager1" /usr/share/dbus-1/services/*.service; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.dolphin.desktop; xdg-mime query default inode/directory' | tee "$WORK/spark-files-takeover.txt"
+          [ "$(grep -c 'FileManager1' "$WORK/spark-files-takeover.txt")" = 1 ] || { echo "::error::more than one FileManager1 provider"; exit 1; }
+          grep -qx '/usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service' "$WORK/spark-files-takeover.txt"
+          grep -qx '1' "$WORK/spark-files-takeover.txt" || { echo "::error::Dolphin is still in the menu"; exit 1; }
+          grep -qx 'dev.wolklaw.SparkFiles.desktop' "$WORK/spark-files-takeover.txt" || { echo "::error::folders don't open in Spark Files"; exit 1; }
+
       - name: Check the other Spark apps
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
@@ -532,7 +546,7 @@ jobs:
           ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
           ! grep -q 'bazzite-portal' "$WORK/apps.txt"
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -711,7 +725,7 @@ jobs:
                 journalctl -b --no-pager -o cat -t pam_kwallet5 -t plasmalogin -t kwalletd6 -t ksecretd 2>/dev/null | grep -i -E "kwallet|secret|wallet" | tail -8' 2>&1 | tee "$WORK/kwallet.txt" || true
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
             .github/scripts/desktop-smoke.py spark@127.0.0.1:/tmp/desktop-smoke.py
-          EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkUpdate,dev.wolklaw.Soot,freesuite
+          EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkFiles,dev.wolklaw.SparkUpdate,dev.wolklaw.Soot,freesuite
           set +e
           timeout 900 $SSH "rm -rf /tmp/desktop-smoke; python3 /tmp/desktop-smoke.py --out /tmp/desktop-smoke --passes en,fr --expect $EXPECT" 2>&1 | tee "$WORK/desktop-smoke.txt"
           status=${PIPESTATUS[0]}
@@ -739,6 +753,15 @@ jobs:
             echo "::error::desktop app check failed (exit $status); see desktop-smoke.txt and the summary"
             exit 1
           fi
+
+      # In the signed-in session: folders, xdg-open and "Show in folder" reach Spark Files
+      - name: Check Spark Files is the file manager
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        timeout-minutes: 5
+        run: |
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
+            .github/scripts/spark-files-check.sh spark@127.0.0.1:/tmp/spark-files-check.sh
+          $SSH 'bash /tmp/spark-files-check.sh' 2>&1 | tee "$WORK/spark-files-session.txt"
 
       - name: Upload the desktop screenshots
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

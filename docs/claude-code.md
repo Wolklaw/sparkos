@@ -16,7 +16,7 @@ SparkOS is set up so Claude Code is a click away. Claude Code itself comes from 
 
 | To | Do |
 |---|---|
-| Open Claude Code in a project | Right-click the folder in Dolphin and choose **Open Claude Code here** |
+| Open Claude Code in a project | Right-click the folder in Spark Files and choose **Open Claude Code here** |
 | Pick a folder (starts at the last one) | App menu: **Claude Code** |
 | From a terminal | `sparkos-claude` (current folder or a picker) or `sparkos-claude ~/path/to/project` |
 | Update | Nothing to do: Claude Code updates itself |

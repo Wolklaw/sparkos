@@ -1,0 +1,111 @@
+name: spark-files
+# Spark Files, the SparkOS file manager (in place of Dolphin). files/scripts/spark-files.sh is
+# the image build step.
+#
+# fedora:  runs the image build step in a plain Fedora container (default for folders checked
+#          too), then the self-test, the unit, window and D-Bus tests under Xvfb in a session
+#          bus as a normal user, in English and in French, and measures opening a folder of
+#          10,000 files.
+# sparkos: inside the published SparkOS image, installs it for a normal user with
+#          install.sh --user (no root), runs the self-test and the tests on the image's own
+#          Python, Tk and GIO, uninstalls it, and checks nothing is left behind.
+on:
+  push:
+    paths:
+      - "files/spark-files/**"
+      - "files/scripts/spark-files.sh"
+      - ".github/workflows/spark-files.yml"
+  pull_request:
+    paths:
+      - "files/spark-files/**"
+      - "files/scripts/spark-files.sh"
+      - ".github/workflows/spark-files.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install (the image build step)
+        run: |
+          # stand-ins for Dolphin's FileManager1 activation file and menu entry (the real ones
+          # are in Bazzite; installing Dolphin here would pull in half of KDE), so the takeover
+          # is tested too
+          mkdir -p /usr/share/dbus-1/services /usr/share/applications
+          printf '[D-BUS Service]\nName=org.freedesktop.FileManager1\nExec=/usr/bin/dolphin --daemon\n' \
+            > /usr/share/dbus-1/services/org.kde.dolphin.FileManager1.service
+          printf '[Desktop Entry]\nType=Application\nName=Dolphin\nExec=dolphin %%u\nMimeType=inode/directory;\n' \
+            > /usr/share/applications/org.kde.dolphin.desktop
+          CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-files.sh
+          test ! -e /usr/share/dbus-1/services/org.kde.dolphin.FileManager1.service
+          test "$(grep -lx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/*.service)" = \
+            /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service
+          grep -q '^NoDisplay=true' /usr/share/applications/org.kde.dolphin.desktop
+
+      - name: Self-test
+        run: spark-files --self-test
+
+      - name: Tests (Xvfb, session bus, as a normal user)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
+            shared-mime-info util-linux dbus-daemon gstreamer1-plugins-good
+          useradd -m tester
+          cp -r files/spark-files /home/tester/spark-files
+          chown -R tester: /home/tester/spark-files
+          # a normal user, so the permission tests mean something (root can read anything)
+          for lang in en fr; do
+            echo "::group::SPARK_LANG=$lang"
+            setpriv --reuid=tester --regid=tester --init-groups env -i HOME=/home/tester \
+              USER=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 SPARK_LANG=$lang \
+              bash -c 'cd ~/spark-files && xvfb-run -a -s "-screen 0 1920x1080x24" dbus-run-session -- python3 -m unittest discover -s tests -v'
+            echo "::endgroup::"
+          done
+
+      - name: Speed (a folder of 10,000 files)
+        run: |
+          nproc; grep -m1 'model name' /proc/cpuinfo || true
+          mkdir -p /tmp/many && for i in $(seq 1 10000); do : > "/tmp/many/file $i.txt"; done
+          export XDG_CONFIG_HOME=/tmp/b/config XDG_STATE_HOME=/tmp/b/state XDG_CACHE_HOME=/tmp/b/cache
+          for i in 1 2 3; do
+            xvfb-run -a -s "-screen 0 1920x1080x24" spark-files --bench /tmp/many | tee -a bench.txt
+          done
+          { echo '### Spark Files speed (GitHub runner, Fedora, Xvfb)'; echo '```'; cat bench.txt; echo '```'; } \
+            >> "$GITHUB_STEP_SUMMARY"
+          # the brief's rule: 10,000 files listed in under a second
+          awk '/items shown/ { if ($6 + 0 >= 1.0) { print "too slow: " $0; bad = 1 } } END { exit bad }' bench.txt
+
+  sparkos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: Install, test, measure, uninstall as a normal user
+        run: |
+          sudo podman run --rm -v "$PWD/files/spark-files:/src:ro" "$IMAGE" \
+            bash -euo pipefail /src/tests/user_install_check.sh | tee sparkos.txt
+          { echo '### Spark Files inside the SparkOS image'; echo '```';
+            grep -A5 'bench, Python' sparkos.txt || echo "(no bench: no xvfb-run in the image)"
+            echo '```'; } >> "$GITHUB_STEP_SUMMARY"

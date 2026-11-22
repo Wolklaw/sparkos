@@ -88,6 +88,7 @@ modules:
       - spark-run.sh
       - spark-link.sh
       - spark-store.sh
+      - spark-files.sh # the file manager; sparkos-defaults.sh checks it is installed
       - spark-terminal.sh
       - spark-launcher.sh # the app menu; the SparkOS layout uses it instead of Kickoff
       - spark-update.sh # Fedora has no uupd, so Spark Update runs its own timer (the script's fallback)

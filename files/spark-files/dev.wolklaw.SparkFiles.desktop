@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Files
+Name[fr]=Spark Files
+GenericName=File manager
+GenericName[fr]=Gestionnaire de fichiers
+Comment=Browse, copy, move and find your files and drives
+Comment[fr]=Parcourir, copier, déplacer et retrouver vos fichiers et lecteurs
+Exec=spark-files %U
+Icon=dev.wolklaw.SparkFiles
+Terminal=false
+Categories=System;FileTools;FileManager;Core;
+Keywords=files;folders;file manager;explorer;browse;copy;move;drive;usb;trash;dolphin;fichiers;dossiers;explorateur;lecteur;corbeille;
+Keywords[fr]=fichiers;dossiers;gestionnaire de fichiers;explorateur;parcourir;copier;déplacer;lecteur;clé usb;corbeille;
+StartupWMClass=SparkFiles
+MimeType=inode/directory;x-scheme-handler/trash;
+Actions=new-window;trash;
+
+[Desktop Action new-window]
+Name=New window
+Name[fr]=Nouvelle fenêtre
+Exec=spark-files
+
+[Desktop Action trash]
+Name=Trash
+Name[fr]=Corbeille
+Exec=spark-files trash:///

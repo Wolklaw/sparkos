@@ -39,8 +39,8 @@ For World of Warcraft that's `WTF` (settings, key bindings, add-on settings) and
 
 1. In **Lutris** (installed in step 2): search "Battle.net", install it with the official script,
    sign in, install the game. Don't start it yet; quit Battle.net.
-2. Open **Dolphin**. Your Windows drives are under **Devices** on the left; click one to open it
-   (it may ask for your password). Find the game's folder, for example
+2. Open **Spark Files** (the folder icon on the dock). Your Windows drives are under **Drives**
+   on the left as C:, D: and so on; click one to open it. Find the game's folder, for example
    `World of Warcraft/_retail_/`.
 3. Copy `WTF` and `Interface` into the new install's `_retail_` folder, replacing what's there.
    With Lutris's script that is usually
@@ -63,7 +63,9 @@ updates what it needs.
 - [ ] A game controller works in Spark Games' big-screen mode.
 - [ ] Double-click a Windows `.exe` installer: Spark Run offers to install it.
 - [ ] Spark Media plays a song, the keyboard's play/pause key works, a phone photo opens.
-- [ ] Dolphin's right-click menu has Extract and Compress (Spark Archive).
+- [ ] Spark Files opens your folders and Windows drives, and its right-click menu has Extract and
+      Compress (Spark Archive).
+- [ ] "Show in folder" in Soot's downloads opens Spark Files with the file selected.
 - [ ] Spark Update's notification appears after the next update is downloaded.
 
 ## If something goes wrong
