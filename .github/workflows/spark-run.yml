@@ -30,14 +30,14 @@ jobs:
     container: registry.fedoraproject.org/fedora:latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Tools
         run: |
           dnf -y install --setopt=install_weak_deps=False mingw64-gcc mingw32-gcc \
             mingw32-nsis msitools python3-pillow file
       - name: Build the test programs
         run: bash files/spark-run/tests/fixtures/build.sh "$PWD/fixtures-out"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: spark-run-fixtures
           path: fixtures-out/
@@ -49,7 +49,7 @@ jobs:
     container: registry.fedoraproject.org/fedora:latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install (the image build step)
         run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-run.sh
@@ -74,7 +74,7 @@ jobs:
           fi
           exit $status
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: spark-run-fixtures
           path: fixtures
@@ -117,7 +117,7 @@ jobs:
         run: |
           mkdir -p shots
           DISPLAY=:99 python3 files/spark-run/tests/screenshots.py "$PWD/shots"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: spark-run-screenshots
@@ -135,7 +135,7 @@ jobs:
     env:
       IMAGE: ghcr.io/wolklaw/sparkos:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -150,7 +150,7 @@ jobs:
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: spark-run-fixtures
           path: fixtures
