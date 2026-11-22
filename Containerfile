@@ -37,6 +37,16 @@ RUN --mount=type=bind,source=files/sparkos-capslock,target=/src \
     gcc -O2 -Wall -Wextra -Werror -std=gnu11 -D_FORTIFY_SOURCE=3 -fstack-protector-strong \
         -o /sparkos-capslock /src/sparkos-capslock.c $(pkg-config --cflags --libs libevdev)
 
+# 0b. Fedora base only: the out-of-tree kernel modules Bazzite ships prebuilt for its own kernel
+#     (zenergy, ryzen_smu, v4l2loopback, xone, the racing wheel drivers, vhba), compiled here
+#     against kernel-devel of the exact kernel in the base, from pinned, checksummed sources
+#     (build_files/kmods.sh). Step 4b puts them in the image. On Bazzite this stage is empty.
+FROM ${BASE_IMAGE} AS kmods-build
+ARG SPARKOS_BASE=bazzite
+RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
+    --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
+    /tmp/build_files/kmods.sh build "${SPARKOS_BASE}"
+
 FROM ${BASE_IMAGE}
 
 ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
@@ -77,6 +87,14 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
     /tmp/build_files/packages.sh "${SPARKOS_BASE}"
+
+# 4b. Fedora base only: the kernel modules from step 0b into /usr/lib/modules/<kernel>/extra, with
+#     their firmware, udev rules and boot-time loading, then depmod. Stops the build if the
+#     image's kernel isn't the one they were built for. Nothing happens on Bazzite.
+RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
+    --mount=type=bind,from=kmods-build,source=/kmods,target=/tmp/kmods \
+    --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
+    /tmp/build_files/kmods.sh install "${SPARKOS_BASE}"
 
 # 5. SparkOS's own scripts (files/scripts), in this order:
 #    "a|b" means a on Bazzite, b on Fedora; "-" is nothing (build_files/run-scripts.sh)
