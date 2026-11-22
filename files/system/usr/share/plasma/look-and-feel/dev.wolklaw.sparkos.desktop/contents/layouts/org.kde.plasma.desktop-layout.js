@@ -52,7 +52,7 @@ var pinned = [
     "dev.wolklaw.Soot.desktop",
     "freesuite.desktop",
     "org.kde.dolphin.desktop",
-    "io.github.kolunmi.Bazaar.desktop",
+    "dev.wolklaw.SparkStore.desktop",
     "dev.wolklaw.SparkGames.desktop",
     "org.kde.konsole.desktop"
 ];

@@ -186,13 +186,17 @@ file="${1:-}"
 name=$(basename "$file")
 
 open_store() {
-  for d in /usr/share/applications /var/lib/flatpak/exports/share/applications; do
+  if command -v spark-store >/dev/null 2>&1; then
+    spark-store >/dev/null 2>&1 &
+    return
+  fi
+  for d in /usr/share/applications /var/lib/flatpak/exports/share/applications; do   # Bazaar, while it's still there
     if [ -f "$d/io.github.kolunmi.Bazaar.desktop" ]; then
       gio launch "$d/io.github.kolunmi.Bazaar.desktop" >/dev/null 2>&1 &
       return
     fi
   done
-  kdialog --sorry "The Store (Bazaar) isn't installed."
+  kdialog --sorry "Spark Store isn't installed."
 }
 
 case "${name,,}" in

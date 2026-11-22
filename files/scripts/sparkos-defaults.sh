@@ -41,7 +41,7 @@ add sparkos-open-package.desktop \
   application/vnd.appimage application/x-iso9660-appimage \
   application/x-rpm application/x-redhat-package-manager \
   application/vnd.debian.binary-package application/x-deb
-add io.github.kolunmi.Bazaar.desktop \
+add dev.wolklaw.SparkStore.desktop \
   application/vnd.flatpak.ref application/vnd.flatpak.repo                   # Flatpak links open in the Store
 
 add freesuite-writer.desktop \

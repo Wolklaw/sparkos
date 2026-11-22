@@ -212,11 +212,11 @@ def open_settings(module: Optional[str] = None) -> bool:
     return launch(cmd) if cmd else False
 
 
-STORE_ID = 'io.github.kolunmi.Bazaar'
+STORE_ID = 'dev.wolklaw.SparkStore'
 
 
 def open_store() -> bool:
-    """The Store (Bazaar), the way sparkos-open-package opens it."""
+    """Spark Store, the way sparkos-open-package opens it."""
     for folder in ('/usr/share/applications', '/var/lib/flatpak/exports/share/applications',
                    os.path.expanduser('~/.local/share/flatpak/exports/share/applications')):
         entry = os.path.join(folder, f'{STORE_ID}.desktop')
@@ -224,7 +224,7 @@ def open_store() -> bool:
             cmd = first_available(['gio', 'launch', entry], ['gtk-launch', STORE_ID])
             if cmd:
                 return launch(cmd)
-    return launch(['flatpak', 'run', STORE_ID]) if shutil.which('flatpak') else False
+    return launch(['spark-store']) if shutil.which('spark-store') else False
 
 
 def app_installed(desktop_id: str, command: str = '') -> bool:
