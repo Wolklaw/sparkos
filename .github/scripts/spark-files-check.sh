@@ -42,7 +42,7 @@ gdbus call --session --dest org.freedesktop.FileManager1 --object-path /org/free
   --method org.freedesktop.FileManager1.ShowItems "['file:///etc/os-release']" "" >/dev/null
 wait_log "showing /etc with /etc/os-release selected" 30
 owner=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
-  --method org.freedesktop.DBus.GetConnectionUnixProcessID org.freedesktop.FileManager1 | tr -dc '0-9')
+  --method org.freedesktop.DBus.GetConnectionUnixProcessID org.freedesktop.FileManager1 | sed -E 's/^\(uint32 ([0-9]+),\)$/\1/')
 cmd=$(tr '\0' ' ' < "/proc/$owner/cmdline")
 echo "org.freedesktop.FileManager1 is pid $owner: $cmd"
 case "$cmd" in *spark_files.py*) ;; *) echo "FileManager1 isn't Spark Files"; exit 1 ;; esac
