@@ -243,18 +243,42 @@ def install(a):
     vm = VM(a, "install")
     fw = "UEFI with Secure Boot on" if a.sb else "UEFI (Secure Boot off)"
     vm.start()
-    # Stop GRUB's 5 s countdown: tap Up until its menu is on screen
+    # Stop GRUB's 5 s countdown: tap Up until its menu is on screen. GRUB also draws on the
+    # serial port, which is read without a pause; reading the screen (tesseract) takes seconds
+    # without taps, long enough for the countdown to run out, and the live desktop's own
+    # "Install SparkOS" then looked like the menu. So: the serial port first, the screen only
+    # as a fallback, and only GRUB's second entry counts there. If the countdown still runs
+    # out, restart the VM and try again.
     seen = False
-    deadline = time.time() + 180
-    i = 0
-    while time.time() < deadline and vm.alive():
-        vm.keys("up", delay=0.3)
-        i += 1
-        if i % 6 == 0:
-            t = vm.norm(vm.ocr())
-            if "installsparkos" in t:
+    for attempt in range(1, 4):
+        base = len(vm.ser.text())
+        deadline = time.time() + 180
+        i = 0
+        missed = False
+        while time.time() < deadline and vm.alive():
+            vm.keys("up", delay=0.3)
+            i += 1
+            s = vm.ser.text()[base:]
+            if "Booting `" in s:
+                missed = True
+                break
+            if "highlighted entry" in s or "entry is highlighted" in s:
+                # Keep tapping past the whole countdown, then check it did not boot
+                vm.keys(*["up"] * 20, delay=0.3)
+                time.sleep(1)
+                if "Booting `" in vm.ser.text()[base:]:
+                    missed = True
+                else:
+                    seen = True
+                break
+            if i % 30 == 0 and "basicgraphicsmode" in vm.norm(vm.ocr()):
                 seen = True
                 break
+        if seen or not missed or not vm.alive():
+            break
+        log(f"GRUB's countdown ran out before the menu was stopped (attempt {attempt}); restarting the VM")
+        vm.shot("grub-missed")
+        vm.qmp.cmd("system_reset")
     vm.ocr("grub-menu", keep=True)
     if not seen:
         result(a.work, "FAIL", f"ISO boots from a USB stick ({fw})", "GRUB menu not seen in 3 min")
