@@ -91,6 +91,23 @@ jobs:
           sudo podman run --rm localhost/sparkos:build bootc container lint 2>&1 | tee lint.txt || true
           { echo "### bootc container lint"; echo '```'; tail -40 lint.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Check the optional Spark apps are sources only
+        run: |
+          # Each optional Spark app (no files/scripts/<slug>.sh installs it) is in
+          # /usr/share/spark-store/sources for the Store to install per user, and not installed
+          # system-wide by any build step.
+          optional=$(bash files/spark-store/install.sh --optional)
+          test -n "$optional"
+          for slug in $optional; do
+            id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "files/$slug/spark-app.json")
+            sudo podman run --rm localhost/sparkos:build sh -euc "
+              test -f /usr/share/spark-store/sources/$slug/install.sh
+              test -f /usr/share/spark-store/sources/$slug/spark-app.json
+              test ! -e /usr/lib/$slug && test ! -e /usr/bin/$slug
+              test ! -e /usr/share/applications/$id.desktop
+              echo '$slug: source shipped, not installed'"
+          done
+
       - name: Work out the tags
         id: tags
         if: github.event_name != 'pull_request'

@@ -139,9 +139,14 @@ EN = {
     'spark.about': "About this Spark app",
     'spark.in_image': "Part of SparkOS: it updates with the system.",
     'spark.in_image_short': "Part of SparkOS",
-    'spark.for_you': "Installs for you only. No password.",
-    'spark.no_source': "Not available to install yet: how optional Spark apps are downloaded "
-                       "isn't decided.",
+    'spark.for_you': "Installs for you only, from this PC. No password.",
+    'spark.no_source': "Can't be installed: its files aren't on this PC.",
+    'spark.note_source': "It installs from the copy on this PC ({folder}) into "
+                         "~/.local/lib/{slug}. Nothing is downloaded: getting newer versions "
+                         "between system updates isn't built yet.",
+    'spark.note_no_source': "The optional Spark apps that come with SparkOS install from the "
+                            "PC. This one isn't on this PC, and downloading apps isn't built "
+                            "yet.",
     'spark.note_image': "It comes with SparkOS and updates with the system, so it can't be "
                         "removed here.",
     'spark.note_user': "Installed for you in ~/.local/lib/{slug}.",
@@ -461,9 +466,14 @@ FR = {
     'spark.about': "À propos de cette application Spark",
     'spark.in_image': "Fait partie de SparkOS : elle se met à jour avec le système.",
     'spark.in_image_short': "Fait partie de SparkOS",
-    'spark.for_you': "S'installe pour vous seulement. Sans mot de passe.",
-    'spark.no_source': "Pas encore installable : la façon de télécharger les applications "
-                       "Spark optionnelles n'est pas décidée.",
+    'spark.for_you': "S'installe pour vous seulement, depuis ce PC. Sans mot de passe.",
+    'spark.no_source': "Pas installable : ses fichiers ne sont pas sur ce PC.",
+    'spark.note_source': "Elle s'installe depuis la copie sur ce PC ({folder}) dans "
+                         "~/.local/lib/{slug}. Rien n'est téléchargé : obtenir des versions plus "
+                         "récentes entre les mises à jour du système n'est pas encore fait.",
+    'spark.note_no_source': "Les applications Spark optionnelles fournies avec SparkOS "
+                            "s'installent depuis le PC. Celle-ci n'est pas sur ce PC, et le "
+                            "téléchargement d'applications n'est pas encore fait.",
     'spark.note_image': "Elle vient avec SparkOS et se met à jour avec le système : elle ne "
                         "peut pas être désinstallée ici.",
     'spark.note_user': "Installée pour vous dans ~/.local/lib/{slug}.",

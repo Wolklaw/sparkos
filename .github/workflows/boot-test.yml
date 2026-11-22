@@ -376,6 +376,9 @@ jobs:
             $SSH "$app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
           done
+          # Optional Spark apps: only their sources ship, for the Store to install per user
+          grep -q '(not installed, can install from /usr/share/spark-store/sources/spark-space)$' "$WORK/spark-store-self-test.txt" || { echo "::error::Spark Space's source isn't in the image"; exit 1; }
+          $SSH 'test ! -e /usr/bin/spark-space && echo "Spark Space: source only, not installed"'
           # Extract/Compress in Dolphin's right-click menu; Send to phone too
           $SSH 'ls /usr/share/kio/servicemenus/ | grep -i -E "spark"' | tee "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"

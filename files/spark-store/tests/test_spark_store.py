@@ -450,6 +450,50 @@ class SparkAppTests(unittest.TestCase):
             self.assertTrue(app.name and app.summary, path)
         self.assertIn(os.path.join(REPO_FILES, 'spark-store', 'spark-app.json'), paths)
 
+    @unittest.skipUnless(LINUX and shutil.which('bash'), "needs bash")
+    @unittest.skipUnless(os.path.isdir(os.path.join(REPO_FILES, 'scripts')),
+                         "needs the repo's files/scripts")
+    def test_optional_apps_and_their_sources(self):
+        """install.sh --optional lists the apps no image build step installs, and --sources
+        copies each one's folder, without its tests and dev-only files, to install from."""
+        script = os.path.join(APP_DIR, 'install.sh')
+        scripts = os.path.join(REPO_FILES, 'scripts')
+        out = subprocess.run(['bash', script, '--optional'], capture_output=True, text=True,
+                             timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        optional = out.stdout.split()
+        self.assertIn('spark-space', optional)
+        for path in glob.glob(os.path.join(REPO_FILES, 'spark-*', 'install.sh')):
+            slug = os.path.basename(os.path.dirname(path))
+            if not os.path.isfile(os.path.join(REPO_FILES, slug, 'spark-app.json')):
+                continue
+            built = os.path.isfile(os.path.join(scripts, slug + '.sh'))
+            self.assertEqual(slug in optional, not built, slug)
+
+        dest = os.path.join(TMP, 'sources')
+        out = subprocess.run(['bash', script, '--sources', dest], capture_output=True,
+                             text=True, timeout=120)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(sorted(os.listdir(dest)), sorted(optional))
+        for slug in optional:
+            folder = os.path.join(dest, slug)
+            for name in ('install.sh', 'spark-app.json', 'README.md'):
+                self.assertTrue(os.path.isfile(os.path.join(folder, name)), (slug, name))
+            for name in ('tests', 'make_icons.py', '__pycache__'):
+                self.assertEqual(glob.glob(os.path.join(folder, '**', name), recursive=True),
+                                 [], (slug, name))
+            app = sparkapps.read_file(os.path.join(folder, 'spark-app.json'))
+            self.assertEqual(app.slug, slug)
+        old = os.environ['SPARK_STORE_SOURCES'], os.environ['SPARK_STORE_SPARK_DIRS']
+        os.environ['SPARK_STORE_SOURCES'] = os.environ['SPARK_STORE_SPARK_DIRS'] = dest
+        try:
+            space = next(a for a in sparkapps.discover() if a.slug == 'spark-space')
+        finally:
+            os.environ['SPARK_STORE_SOURCES'], os.environ['SPARK_STORE_SPARK_DIRS'] = old
+        self.assertEqual(space.source, os.path.join(dest, 'spark-space'))
+        self.assertEqual(sparkapps.install_command(space),
+                         ['bash', os.path.join(dest, 'spark-space', 'install.sh'), '--user'])
+
     def test_own_apps_fallback(self):
         old = os.environ.pop('SPARK_STORE_SPARK_DIRS')
         try:
@@ -1010,7 +1054,8 @@ class UITests(unittest.TestCase):
         s.root.update()
         pages = [('home', None), ('installed', None), ('updates', None), ('queue', None),
                  ('app', 'org.example.Paint'), ('app', 'com.example.Chat'),
-                 ('app', 'net.example.Blocks'), ('app', s.spark_by_id['dev.wolklaw.SparkAlpha'])]
+                 ('app', 'net.example.Blocks'), ('app', s.spark_by_id['dev.wolklaw.SparkAlpha']),
+                 ('app', self.hello())]
         for page, arg in pages:
             if page == 'app':
                 s.open_app(arg)
@@ -1028,8 +1073,27 @@ class UITests(unittest.TestCase):
         texts = self.texts(s.pages['app'].inner)
         self.assertIn(T('chip.spark'), texts)
         self.assertTrue(said('spark.no_source', texts))            # nothing to install from
+        self.assertTrue(said('spark.note_no_source', texts))
         self.assertTrue(said('perm.spark', texts))
         self.assertIn(local_units('420.0 KB'), texts)
+
+    def hello(self):
+        """The test app whose source folder is on this PC (fixtures/sources)."""
+        hello = sparkapps.read_file(os.path.join(FIXTURES, 'sources', 'spark-hello',
+                                                 'spark-app.json'))
+        sparkapps.refresh_state(hello)
+        return hello
+
+    def test_spark_app_page_with_a_source(self):
+        s = self.store
+        hello = self.hello()
+        self.assertTrue(hello.source)
+        s.open_app(hello)
+        texts = self.texts(s.pages['app'].inner)
+        self.assertIn(T('btn.install'), texts)
+        self.assertTrue(said('spark.for_you', texts))
+        self.assertTrue(said('spark.note_source', texts, folder=hello.source, slug='spark-hello'))
+        self.assertFalse(said('spark.no_source', texts))
 
     def test_installed_updates_and_queue_pages(self):
         s = self.store

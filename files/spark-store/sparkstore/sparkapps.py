@@ -7,9 +7,11 @@ Each Spark app describes itself in a spark-app.json next to its code. The Store 
   2. the installed apps: /usr/lib/<slug>/ (in the image) and ~/.local/lib/<slug>/ (per user).
 
 An app that isn't installed can be installed for you only when its source folder (install.sh
-and spark-app.json) is on this PC. How Spark apps will be downloaded (release tarballs checked
-against SHA256SUMS, or the owner's own Flatpak repository) isn't decided yet, so nothing is
-downloaded here."""
+and spark-app.json) is on this PC: ~/.local/share/spark-store/sources/<slug>, or
+/usr/share/spark-store/sources/<slug>, where the SparkOS image puts every optional Spark app
+(install.sh --sources). The Store runs its install.sh --user, which copies it into your home;
+the source folder is only read. Downloading newer versions between system updates isn't built,
+so nothing is downloaded here."""
 
 import glob
 import json

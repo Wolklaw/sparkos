@@ -780,6 +780,10 @@ class AppPage:
             lines.append(t('spark.note_image'))
         elif sp.installed == 'user':
             lines.append(t('spark.note_user', slug=sp.slug))
+        elif sp.source:
+            lines.append(t('spark.note_source', folder=sp.source, slug=sp.slug))
+        else:
+            lines.append(t('spark.note_no_source'))
         optional = sp.needs.get('optional_commands') or sp.needs.get('optional_programs') or \
             list((sp.needs.get('optional') or {}).keys())
         if optional:

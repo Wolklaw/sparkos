@@ -48,10 +48,18 @@ the way the image build does. Each optional app must install for one user with n
 - Keep the system-wide mode (`install.sh --deps`, root) too, so the owner can still decide to move an
   app into the image later.
 - A machine-readable `spark-app.json` in the app folder (id, name, one-line description, version,
-  size, what it needs) so the Portal can list it without running it.
-- How the Portal will fetch apps (GitHub release tarballs checked against SHA256SUMS like FreeSuite, or
-  the owner's own Flatpak repository) is not decided. Don't build either yet; just keep the app
-  self-contained in its folder so both are possible.
+  size, what it needs) so Spark Store can list it without running it.
+- An app is optional when no image build step installs it: there is no `files/scripts/spark-<name>.sh`.
+  Don't add one for an optional app. The image build ships its folder read-only at
+  `/usr/share/spark-store/sources/spark-<name>` (without `tests/` and `make_icons.py`), installs
+  nothing of it, and Spark Store's Install button runs `install.sh --user` from there for the person
+  who clicks; Remove runs `install.sh --user --uninstall`. So `install.sh --user` must work from a
+  read-only folder: write nothing next to itself (compile Python files in the copy under `~/.local`),
+  and copy everything the app needs. See the "Optional Spark apps" section of
+  [files/spark-store/README.md](../files/spark-store/README.md).
+- New versions reach people with SparkOS updates. Downloading apps between updates (GitHub release
+  tarballs checked against SHA256SUMS like FreeSuite, or the owner's own Flatpak repository) is not
+  decided and not built; keep the app self-contained in its folder so both stay possible.
 
 ## What SparkOS is
 
