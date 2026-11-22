@@ -264,7 +264,7 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           # Installed, with no missing libraries
-          $SSH 'ls -l /usr/bin/soot /usr/bin/freesuite; readlink -f /usr/bin/soot /usr/bin/freesuite; ls -l /var/opt/freesuite'
+          $SSH 'set -e; ls -l /usr/bin/soot /usr/bin/freesuite; readlink -f /usr/bin/soot /usr/bin/freesuite; ls -l /var/opt/freesuite'
           # The engine's own libraries (libmozsandbox, libgkcodecs, ...) sit next to libxul.so with
           # no RPATH: the firefox binary loads them from its folder first (dependentlibs.list), so
           # ldd looks there too. Anything still missing would be missing at run time.
@@ -290,6 +290,7 @@ jobs:
           curl -fsSL -o "$WORK/smoke-test.py" "https://raw.githubusercontent.com/Wolklaw/Soot/$SOOT_RELEASE/linux/smoke-test.py"
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 "$WORK/smoke-test.py" spark@127.0.0.1:/tmp/smoke-test.py
           $SSH 'python3 /tmp/smoke-test.py --soot /usr/bin/soot' 2>&1 | tee "$WORK/soot-smoke-test.txt"
+          [ "${PIPESTATUS[0]}" = 0 ] || { echo "::error::Soot's smoke test failed"; exit 1; }
 
       - name: Check printing, scanning and devices
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -298,7 +299,8 @@ jobs:
           if grep -q 'not installed' "$WORK/devices.txt"; then
             echo "::error::a printing, scanning or device package is not installed"; exit 1
           fi
-          $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
+          # One unit at a time: with several, is-enabled succeeds when any one of them is enabled
+          $SSH 'set -e; ls /usr/lib/cups/backend/driverless; for u in cups.socket avahi-daemon.service bluetooth.service; do s=$(systemctl is-enabled $u); echo "$u: $s"; done'
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
 
       - name: Check the out-of-tree kernel modules
@@ -323,7 +325,7 @@ jobs:
           # zenergy only loads on a Ryzen it knows (the runner's CPU may not be one): check it's
           # there and for this kernel
           $SSH 'test "$(modinfo -F vermagic zenergy | cut -d" " -f1)" = "$(uname -r)" && echo "zenergy is for $(uname -r)"'
-          $SSH 'ls /dev/video* /dev/vhba_ctl; ls /usr/lib/firmware/ | grep -E "^(xone|xow)_dongle"'
+          $SSH 'set -e; ls /dev/video* /dev/vhba_ctl; ls /usr/lib/firmware/ | grep -E "^(xone|xow)_dongle"'
 
       - name: Check the startup sound
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -335,8 +337,8 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           $SSH 'rpm -q socat bubblewrap kdialog vte291-gtk4 && test -x /usr/bin/spark-terminal' | tee "$WORK/claude-deps.txt"
-          if grep -q 'not installed' "$WORK/claude-deps.txt"; then
-            echo "::error::a package Claude Code needs is not installed"; exit 1
+          if [ "${PIPESTATUS[0]}" != 0 ] || grep -q 'not installed' "$WORK/claude-deps.txt"; then
+            echo "::error::a package Claude Code needs is not installed, or Spark Terminal is missing"; exit 1
           fi
           $SSH 'set -e; for f in /usr/bin/sparkos-claude /usr/bin/sparkos-claude-import /usr/bin/sparkos-dev-setup; do test -x $f || { echo "missing $f"; exit 1; }; done
                 test -f /usr/share/applications/sparkos-claude-code.desktop
@@ -352,8 +354,9 @@ jobs:
         # the user, D: read-only by the shipped conf, and /run/sparkos/windows-drives.json (what Nova reads) lists them
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          $SSH 'systemctl is-active sparkos-windows-drives.service; journalctl -b -u sparkos-windows-drives --no-pager -o cat' \
+          $SSH 'state=$(systemctl is-active sparkos-windows-drives.service); echo "$state"; journalctl -b -u sparkos-windows-drives --no-pager -o cat; [ "$state" = active ]' \
             | tee "$WORK/windows-drives.txt"
+          [ "${PIPESTATUS[0]}" = 0 ] || { echo "::error::sparkos-windows-drives.service is not active"; exit 1; }
           $SSH 'bash -s spark' < .github/scripts/windows-drives/check_mounts.sh 2>&1 | tee -a "$WORK/windows-drives.txt"
           test "${PIPESTATUS[0]}" = 0
 
@@ -361,18 +364,19 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           # Installed, shortcuts registered, Spectacle gone (Spark Snip captures through KWin)
-          $SSH 'spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
+          $SSH 'set -e; spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
           $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop' | tee "$WORK/shortcuts.txt"
           grep -q 'SparkSnip.desktop:X-KDE-Shortcuts=Print,Meta+Shift+S' "$WORK/shortcuts.txt"
           if $SSH 'rpm -q spectacle'; then echo "::error::Spectacle is back in the image"; exit 1; fi
           # OCR in English and French, and a test video through each installed encoder
           $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
+          [ "${PIPESTATUS[0]}" = 0 ] || { echo "::error::Spark Snip's self-test failed"; exit 1; }
 
       - name: Check Spark Media
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Photos, videos and music open in Spark Media out of the box
-          $SSH 'spark-media --version; ls -l /usr/bin/spark-media /usr/share/applications/dev.wolklaw.SparkMedia.desktop'
+          $SSH 'set -e; spark-media --version; ls -l /usr/bin/spark-media /usr/share/applications/dev.wolklaw.SparkMedia.desktop'
           $SSH 'for m in image/jpeg image/png image/heic image/webp video/mp4 video/x-matroska video/webm audio/mpeg audio/flac audio/mp4 audio/ogg; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/media-defaults.txt"
           if grep -v -- '-> dev.wolklaw.SparkMedia.desktop$' "$WORK/media-defaults.txt"; then
             echo "::error::these types don't open in Spark Media"; exit 1
@@ -385,14 +389,14 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Opens once at each new user's first login (autostart), then stays in the menu
-          $SSH 'spark-welcome --version; ls -l /usr/bin/spark-welcome /usr/share/applications/dev.wolklaw.SparkWelcome.desktop /etc/xdg/autostart/dev.wolklaw.SparkWelcome.desktop'
+          $SSH 'set -e; spark-welcome --version; ls -l /usr/bin/spark-welcome /usr/share/applications/dev.wolklaw.SparkWelcome.desktop /etc/xdg/autostart/dev.wolklaw.SparkWelcome.desktop'
           $SSH 'spark-welcome --self-test' 2>&1 | tee "$WORK/spark-welcome-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-welcome-self-test.txt"
 
       - name: Check Spark Games
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          $SSH 'spark-games --version; ls -l /usr/bin/spark-games /usr/share/applications/dev.wolklaw.SparkGames.desktop'
+          $SSH 'set -e; spark-games --version; ls -l /usr/bin/spark-games /usr/share/applications/dev.wolklaw.SparkGames.desktop'
           $SSH 'spark-games --self-test' 2>&1 | tee "$WORK/spark-games-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-games-self-test.txt"
 
@@ -400,7 +404,7 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Task manager on Ctrl+Shift+Esc; the self-test reads the live /proc and /sys
-          $SSH 'spark-monitor --version; ls -l /usr/bin/spark-monitor; grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkMonitor.desktop'
+          $SSH 'set -e; spark-monitor --version; ls -l /usr/bin/spark-monitor; grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkMonitor.desktop'
           $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
 
@@ -409,7 +413,7 @@ jobs:
         run: |
           # The file manager in Dolphin's place: installed, self-test passes, the only
           # org.freedesktop.FileManager1 provider ("Show in folder"), Dolphin out of the menu
-          $SSH 'spark-files --version; ls -l /usr/bin/spark-files /usr/share/applications/dev.wolklaw.SparkFiles.desktop /usr/share/dbus-1/services/dev.wolklaw.SparkFiles*.service'
+          $SSH 'set -e; spark-files --version; ls -l /usr/bin/spark-files /usr/share/applications/dev.wolklaw.SparkFiles.desktop /usr/share/dbus-1/services/dev.wolklaw.SparkFiles*.service'
           $SSH 'spark-files --self-test' 2>&1 | tee "$WORK/spark-files-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-files-self-test.txt"
           $SSH 'grep -lx "Name=org.freedesktop.FileManager1" /usr/share/dbus-1/services/*.service; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.dolphin.desktop; xdg-mime query default inode/directory' | tee "$WORK/spark-files-takeover.txt"
@@ -431,7 +435,7 @@ jobs:
           # Edit, Calc, Archive, Scan, Run, Link, Store and Terminal: installed system-wide, each self-test passes
           for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal; do
             echo "== $app"
-            $SSH "$app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
+            $SSH "set -e; $app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
           done
           # Extract/Compress in Dolphin's right-click menu; Send to phone too
@@ -455,7 +459,7 @@ jobs:
         run: |
           # updates never stop: exactly one updater on (Spark Update's own timer; Universal Blue's
           # uupd is gone) and the notification timer on
-          $SSH 'spark-update --version; systemctl is-enabled spark-update.timer; systemctl is-active spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
+          $SSH 'set -e; spark-update --version; systemctl is-enabled spark-update.timer; systemctl is-active spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
           $SSH 'rpm -q uupd bazzite-updater 2>&1; systemctl list-unit-files --no-legend "uupd*"; cat /usr/libexec/uupd-update 2>&1' | tee "$WORK/spark-update-uupd.txt"
           grep -q 'package uupd is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::uupd is installed"; exit 1; }
           grep -q 'package bazzite-updater is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::bazzite-updater is installed"; exit 1; }
@@ -855,6 +859,7 @@ jobs:
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
             .github/scripts/spark-files-check.sh spark@127.0.0.1:/tmp/spark-files-check.sh
           $SSH 'bash /tmp/spark-files-check.sh' 2>&1 | tee "$WORK/spark-files-session.txt"
+          [ "${PIPESTATUS[0]}" = 0 ] || { echo "::error::Spark Files is not the file manager in the session (see spark-files-session.txt)"; exit 1; }
 
       - name: Upload the desktop screenshots
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

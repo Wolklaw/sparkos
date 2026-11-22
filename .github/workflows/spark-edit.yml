@@ -96,6 +96,8 @@ jobs:
         run: |
           sudo podman run --rm -v "$PWD/files/spark-edit:/src:ro" "$IMAGE" \
             bash -euo pipefail /src/tests/user_install_check.sh | tee sparkos.txt
+          status=${PIPESTATUS[0]}
           { echo '### Spark Edit inside the SparkOS image'; echo '```';
             grep -A12 'bench, Python' sparkos.txt || echo "(no bench: no xvfb-run in the image)"
             echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"
