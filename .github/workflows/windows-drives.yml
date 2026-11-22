@@ -43,7 +43,7 @@ jobs:
           echo "LOOP=$(sudo losetup -fP --show "$RUNNER_TEMP/windows.img")" >> "$GITHUB_ENV"
           sleep 2; lsblk -o NAME,FSTYPE,LABEL,PARTUUID
 
-      - name: Run the service's script (twice: the second run must change nothing)
+      - name: Run the service's script twice (the second run must change nothing)
         run: |
           printf 'D ro\n* rw\nuser=%s\n' "$USER" > "$RUNNER_TEMP/windows-drives.conf"
           export SPARKOS_WINDOWS_DRIVES_CONF="$RUNNER_TEMP/windows-drives.conf"
