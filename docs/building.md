@@ -14,10 +14,11 @@ builds ran side by side and were compared (see [Before the switch](#before-the-s
 
 | # | Step | What it does |
 |---|---|---|
+| 0 | `FROM … AS capslock-build` | compiles [sparkos-capslock](../files/sparkos-capslock) (Caps Lock toggles when pressed) on the same base with `gcc` and `libevdev-devel`; only the program goes into the image, in step 4 |
 | 1 | `FROM ghcr.io/ublue-os/bazzite@sha256:…` | the base: the workflow resolves `bazzite:stable` to a digest when the build starts and records it in the labels |
 | 2 | `COPY cosign.pub` | the public key updates are checked against, as `/etc/pki/containers/sparkos.pub` |
 | 3 | [pre-build.sh](../build_files/pre-build.sh) | makes `/opt` a link to `/usr/lib/opt` during the build, so things installed in `/opt` land in the image |
-| 4 | [copy-files.sh](../build_files/copy-files.sh) | copies `files/system/*` into the image root |
+| 4 | [copy-files.sh](../build_files/copy-files.sh) | copies `files/system/*` into the image root, then `sparkos-capslock` from step 0 to `/usr/libexec` |
 | 5 | `dnf` | removes 16 packages (other projects' apps, and the KDE apps a Spark app replaces) and installs 23; the Containerfile says why each one is there |
 | 6 | [run-scripts.sh](../build_files/run-scripts.sh) | runs SparkOS's 20 scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files` |
 | 7 | [flathub.sh](../build_files/flathub.sh) | two services, `system-flatpak-setup` and `user-flatpak-setup`, that add Flathub at boot and at login ([flathub-setup](../build_files/flathub-setup), 40 lines of shell); installs no apps |

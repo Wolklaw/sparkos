@@ -706,6 +706,37 @@ jobs:
           path: /mnt/boot-test/desktop-screenshots/
           if-no-files-found: warn
 
+      - name: Check Caps Lock turns on and off when pressed
+        # sparkos-capslock runs for the VM's PS/2 keyboard (started by udev) and the desktop reads its
+        # copy. QEMU presses Caps Lock and holds it 1.5 s, twice; .github/scripts/caps-lock/caps_test.py
+        # in the VM watches the copy and the keyboard's Caps Lock light, which KWin sets: the light
+        # must be on during the first hold and off during the second (Linux alone turns it off only
+        # when the key comes up). The sign-in above typed the password through the same keyboard.
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          $SSH 'systemctl list-units --no-legend --all "sparkos-capslock@*"; journalctl -b -o cat --no-pager -u "sparkos-capslock@*" | tail -20; grep -A4 -E "AT Translated" /proc/bus/input/devices' \
+            | tee "$WORK/caps-lock.txt"
+          grep -qE '^ *sparkos-capslock@event[0-9]+\.service +loaded active running' "$WORK/caps-lock.txt" \
+            || { echo "::error::sparkos-capslock isn't running for the keyboard"; exit 1; }
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
+            .github/scripts/caps-lock/caps_test.py spark@127.0.0.1:/tmp/caps_test.py
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" python3 /tmp/caps_test.py vm --seconds 12' > "$WORK/caps-lock-vm.txt" 2>&1 &
+          watcher=$!
+          for i in $(seq 1 30); do grep -q '^READY' "$WORK/caps-lock-vm.txt" 2>/dev/null && break; sleep 0.5; done
+          sleep 1
+          echo "sendkey caps_lock 1500" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null
+          sleep 4
+          echo "sendkey caps_lock 1500" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null
+          set +e; wait "$watcher"; status=$?; set -e
+          cat "$WORK/caps-lock-vm.txt" | tee -a "$WORK/caps-lock.txt"
+          [ "$status" = 0 ] || { echo "::error::Caps Lock didn't turn on and off at the press (see caps-lock.txt)"; exit 1; }
+          # The documented way back to Linux's behaviour masks every keyboard's instance
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" systemctl mask sparkos-capslock@.service >/dev/null 2>&1
+                echo "masked: $(systemctl show -P LoadState sparkos-capslock@event99.service)"
+                echo sparkos-boot-test | sudo -S -p "" systemctl unmask sparkos-capslock@.service >/dev/null 2>&1
+                echo "unmasked: $(systemctl show -P LoadState sparkos-capslock@event99.service)"' | tee -a "$WORK/caps-lock.txt"
+          grep -qx 'masked: masked' "$WORK/caps-lock.txt" || { echo "::error::systemctl mask sparkos-capslock@.service doesn't turn it off"; exit 1; }
+
       - name: Check Spark Update installs a real update
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.SPARK_UPDATE_TEST == 'true' }}
         run: |

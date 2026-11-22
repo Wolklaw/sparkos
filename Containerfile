@@ -19,6 +19,16 @@
 #   sudo podman build -t localhost/sparkos:test .
 
 ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
+
+# 0. sparkos-capslock, compiled on the same base so it links against the image's own libevdev.
+#    Only the program is copied into the image (step 3b); the compiler stays in this stage.
+FROM ${BASE_IMAGE} AS capslock-build
+RUN --mount=type=bind,source=files/sparkos-capslock,target=/src \
+    --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
+    dnf -y --setopt=install_weak_deps=False install gcc libevdev-devel pkgconf-pkg-config && \
+    gcc -O2 -Wall -Wextra -Werror -std=gnu11 -D_FORTIFY_SOURCE=3 -fstack-protector-strong \
+        -o /sparkos-capslock /src/sparkos-capslock.c $(pkg-config --cflags --libs libevdev)
+
 FROM ${BASE_IMAGE}
 
 ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
@@ -40,6 +50,10 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/copy-files.sh system /
+
+# 3b. Caps Lock turns on and off when pressed, like Windows (files/sparkos-capslock). udev starts
+#     sparkos-capslock@<device>.service for each physical keyboard (80-sparkos-capslock.rules).
+COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
 
 # 4. Packages: remove, then install (weak dependencies on).
 #    Removed:
