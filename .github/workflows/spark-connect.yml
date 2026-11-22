@@ -91,7 +91,7 @@ jobs:
           cp box/key.pub box/authorized_keys
           cat > box/Containerfile <<'EOF'
           FROM registry.fedoraproject.org/fedora:latest
-          RUN dnf -y install --setopt=install_weak_deps=False systemd dbus-broker \
+          RUN dnf -y install --setopt=install_weak_deps=False systemd systemd-pam dbus-broker \
                 openssh-server sudo procps-ng iproute && dnf clean all \
               && systemctl enable dbus-broker
           RUN useradd -m tester && mkdir -p /home/tester/.ssh \
