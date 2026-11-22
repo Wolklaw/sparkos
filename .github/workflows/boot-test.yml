@@ -55,7 +55,7 @@ jobs:
       WORK: /mnt/boot-test
       FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Runners since 2026-11-22 have one 72 GB disk (no separate /mnt). The pulled image,
       # image-builder's working tree and the qcow2 need more than the 45 GB left free, so the
@@ -700,7 +700,7 @@ jobs:
 
       - name: Upload the desktop screenshots
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: desktop-screenshots
           path: /mnt/boot-test/desktop-screenshots/
@@ -771,7 +771,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: boot-test-results
           path: |

@@ -38,7 +38,7 @@ jobs:
     container: registry.fedoraproject.org/fedora:45@sha256:f236063d5a7a15e76ff034f2be5fa6f7a8922fcb655093ad972a1f196b14a007
     timeout-minutes: 240
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Build Wine from WineHQ's source
         env:
           CONTAINER_IMAGE: ${{ env.BUILD_IMAGE }}
@@ -53,7 +53,7 @@ jobs:
             exit "$status"
           fi
           echo "whole job step: $(( ($(date +%s) - start) / 60 )) min" | tee -a out/build-info.txt
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: wine-${{ matrix.run }}
           path: out/
@@ -64,10 +64,10 @@ jobs:
     needs: build
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with: { name: wine-a, path: a }
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with: { name: wine-b, path: b }
       - name: The two builds must be identical
         run: |
@@ -98,8 +98,8 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
         with: { name: wine-a, path: out }
       - name: Publish the release, or check this build against it
         run: |

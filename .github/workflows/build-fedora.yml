@@ -171,7 +171,7 @@ jobs:
 
       - name: Upload
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bases
           path: /mnt/bases/
@@ -281,7 +281,7 @@ jobs:
 
       - name: Upload
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: container
           path: /mnt/container/
@@ -297,7 +297,7 @@ jobs:
     env:
       WORK: /mnt/boot-test
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
@@ -847,7 +847,7 @@ jobs:
 
       - name: Upload results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: boot-test-fedora-results
           path: |
@@ -967,7 +967,7 @@ jobs:
 
       - name: Upload
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: boot-time-${{ matrix.image }}
           path: |
