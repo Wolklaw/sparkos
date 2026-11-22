@@ -263,7 +263,9 @@ class WindowTest(unittest.TestCase):
 
     def test_title_from_the_program(self):
         window, pane = self.open()
-        self.type(pane, "printf '\\e]0;my-title\\a'")
+        # sleep, so the shell's prompt (which sets its own title on some systems) doesn't
+        # come back and replace it while we look
+        self.type(pane, "printf '\\e]0;my-title\\a'; sleep 10")
         self.assertTrue(wait(lambda: window.current_tab().label.get_label() == 'my-title'),
                         window.current_tab().label.get_label())
         self.assertIn('my-title', window.get_title())
