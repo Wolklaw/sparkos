@@ -1,0 +1,12 @@
+52 1 0:43 / / ro,relatime shared:1 - overlay composefs ro,seclabel,lowerdir+=/run/ostree/.private/cfsroot-lower
+48 52 0:37 /root/ostree/deploy/default/deploy/abc.0/etc /etc rw,relatime shared:2 - btrfs /dev/nvme1n1p4 rw,seclabel,ssd,subvolid=258,subvol=/root
+49 52 0:37 /root /sysroot ro,relatime shared:3 - btrfs /dev/nvme1n1p4 rw,seclabel,ssd,subvolid=258,subvol=/root
+50 52 0:37 /root/ostree/deploy/default/var /var rw,relatime shared:4 - btrfs /dev/nvme1n1p4 rw,seclabel,ssd,subvolid=258,subvol=/root
+51 50 0:37 /home /var/home rw,relatime shared:5 - btrfs /dev/nvme1n1p4 rw,seclabel,ssd,subvolid=256,subvol=/home
+53 52 0:31 / /run rw,nosuid,nodev shared:17 - tmpfs tmpfs rw,seclabel,mode=755
+62 52 0:27 / /proc rw,nosuid,nodev,noexec,relatime shared:16 - proc proc rw
+54 52 259:9 / /boot rw,relatime shared:6 - ext4 /dev/nvme1n1p3 rw,seclabel
+70 50 259:1 / /var/mnt/c rw,relatime shared:40 - ntfs3 /dev/nvme0n1p3 rw,uid=1000,gid=1000,iocharset=utf8
+71 50 8:2 / /var/mnt/d ro,relatime shared:41 - ntfs3 /dev/sda2 ro,uid=1000,gid=1000,iocharset=utf8
+72 50 8:17 / /var/mnt/my\040disk rw,relatime shared:42 - ext4 /dev/sdb1 rw,seclabel
+73 52 0:60 / /var/lib/containers/storage/overlay/x/merged rw - overlay overlay rw

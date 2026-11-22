@@ -1,0 +1,11 @@
+[
+  {"letter": "D", "label": "Scrap", "device": "/dev/sda2",
+   "partuuid": "00000000-0000-0000-0000-000000000002", "mountpoint": "/var/mnt/d", "mode": "ro",
+   "problem": ""},
+  {"letter": "E", "label": "Games", "device": "/dev/nvme1n1p1",
+   "partuuid": "00000000-0000-0000-0000-000000000001", "mountpoint": "/var/mnt/e", "mode": "off",
+   "problem": "Windows didn't shut down fully (Fast Startup), so it isn't mounted."},
+  {"letter": "C", "label": "", "device": "/dev/nvme0n1p3",
+   "partuuid": "00000000-0000-0000-0000-000000000003", "mountpoint": "/var/mnt/c", "mode": "rw",
+   "problem": ""}
+]

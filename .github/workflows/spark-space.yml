@@ -1,0 +1,103 @@
+name: spark-space
+# Spark Space is an optional Spark app: it is not in the image, it installs per user without
+# root. Every test scans and trashes only inside temporary folders.
+#
+# fedora:  system-wide install, self-test, unit and UI tests under Xvfb (English and French).
+# sparkos: inside the published SparkOS image, install.sh --user as a normal user, the
+#          self-test and the unit tests on the image's Python, uninstall, nothing left behind.
+on:
+  push:
+    paths:
+      - "files/spark-space/**"
+      - ".github/workflows/spark-space.yml"
+  pull_request:
+    paths:
+      - "files/spark-space/**"
+      - ".github/workflows/spark-space.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system-wide (with --deps)
+        run: bash files/spark-space/install.sh --deps
+
+      - name: Self-test
+        run: spark-space --self-test
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
+            dejavu-sans-mono-fonts bash
+          cd files/spark-space
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        run: |
+          cd files/spark-space
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+  sparkos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: Install, self-test, uninstall as a normal user
+        run: |
+          sudo podman run --rm -v "$PWD/files/spark-space:/src:ro" "$IMAGE" bash -euo pipefail -c '
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            cp -r /src "$home/spark-space"
+            chown -R tester: "$home/spark-space"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester \
+                    LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+            usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+
+            echo "--- install --user"
+            as "bash ~/spark-space/install.sh --user"
+            as "test -x ~/.local/bin/spark-space"
+            as "grep -q \"^Exec=$home/.local/bin/spark-space$\" ~/.local/share/applications/dev.wolklaw.SparkSpace.desktop"
+            as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkSpace.png"
+            as "test -f ~/.local/lib/spark-space/sparkspace/app.py"
+            test ! -e /usr/bin/spark-space
+
+            echo "--- self-test and unit tests on the image'"'"'s Python"
+            as "~/.local/bin/spark-space --version"
+            as "~/.local/bin/spark-space --self-test"
+            as "cd ~/spark-space && python3 -m unittest discover -s tests -v"
+
+            echo "--- uninstall"
+            as "bash ~/spark-space/install.sh --user --uninstall"
+            left=$(as "find ~/.local -iname \"*spark*space*\" -o -iname \"*SparkSpace*\"" || true)
+            left=$(printf "%s\n" "$left" | grep -v "/.local/state/spark-space" || true)
+            if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
+            usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+            [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
+            echo "installed, tested and removed without root"
+          '
