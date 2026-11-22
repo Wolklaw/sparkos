@@ -10,6 +10,7 @@ authors gave them.
 | `files/device-rules/game-devices-udev/` (controller udev rules, Fedora image only) | game-devices-udev 1.1 by Fabian Bornschein (codeberg.org/fabiscafe/game-devices-udev), unchanged | MIT, text in [files/device-rules/game-devices-udev/LICENSE](files/device-rules/game-devices-udev/LICENSE) |
 | `files/device-rules/udev-joystick-blacklist/` (Fedora image only) | udev-joystick-blacklist by denilsonsa (github.com/denilsonsa/udev-joystick-blacklist), unchanged | Public domain |
 | `files/device-rules/oversteer/` (Logitech wheel udev rule, Fedora image only) | Oversteer by berarma (github.com/berarma/oversteer), unchanged | GPL-3.0, text in [files/device-rules/oversteer/LICENSE](files/device-rules/oversteer/LICENSE) |
+| `files/ds-inhibit/` (DualShock 4/DualSense touchpad fix, Fedora image only) | ds-inhibit by Valve (Vicki Pfau), from SteamOS, as packaged for Bazzite; unchanged | BSD-2-Clause, text in [files/ds-inhibit/LICENSE](files/ds-inhibit/LICENSE) |
 
 ## In the SparkOS image
 

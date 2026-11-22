@@ -5,7 +5,7 @@
 # Both bases get the same SparkOS list. Each base then gets what differs:
 #   bazzite  removes other projects' apps that Bazzite ships, and Universal Blue's updater
 #   fedora   adds what Bazzite brought and Fedora Kinoite doesn't (ImageMagick, printing,
-#            scanning, the gaming layer, device rules, everyday tools, umu-run) and full video
+#            scanning, the gaming layer, device rules, everyday tools, umu-run, tuning) and full video
 #            playback from RPM Fusion free
 set -euo pipefail
 
@@ -86,10 +86,18 @@ fedora)
   # temperatures), tmux, fzf, cabextract (unpacks Windows .cab files; winetricks needs it).
   dnf_install distrobox btop lm_sensors tmux fzf cabextract
 
-  # umu-run, which Spark Games uses to start Windows games with Proton. Fedora doesn't package
-  # umu-launcher; Terra (Fyra Labs, which builds Bazzite's copy) does, for Fedora 45. The Terra
-  # repository is used for this one package and isn't left on the system, so Terra's Mesa and
-  # other builds never replace Fedora's. Its signing key is checked against Terra's fingerprint.
+  # Tuning Bazzite has (files/scripts/fedora-tuning.sh sets the rest up), from Fedora:
+  # vkBasalt (Vulkan post-processing layer, off unless ENABLE_VKBASALT=1) and python3-pyinotify
+  # (for ds-inhibit, the DualSense touchpad fix in files/ds-inhibit)
+  dnf_install vkBasalt python3-pyinotify
+
+  # From Terra (Fyra Labs, which builds Bazzite's copies), because Fedora doesn't package them:
+  # - umu-launcher: umu-run, which Spark Games uses to start Windows games with Proton
+  # - dmemcg-booster, plasma-foreground-booster-dmemcg and its library kcgroups-dmemcg: Valve's
+  #   and KDE's VRAM protection for the focused game (fedora-tuning.sh turns it on)
+  # The Terra repository is used for these packages only (includepkgs) and isn't left on the
+  # system, so Terra's Mesa and other builds never replace Fedora's. Its signing key is checked
+  # against Terra's fingerprint.
   terra_url="https://repos.fyralabs.com/terra${fedora}"
   terra_fpr=C2AC02124AF114F086592E3C8DDE7D14C1C23D8C   # "Terra 45 <security@fyralabs.com>"
   GNUPGHOME=$(mktemp -d)
@@ -100,13 +108,14 @@ fedora)
     || { echo "Terra's key isn't ${terra_fpr} (new Fedora release? update terra_fpr)"; exit 1; }
   dnf_install \
     --repofrompath="terra,${terra_url}" --setopt=terra.gpgcheck=1 \
-    --setopt=terra.gpgkey=file:///tmp/terra.asc --setopt=terra.includepkgs=umu-launcher \
-    umu-launcher
+    --setopt=terra.gpgkey=file:///tmp/terra.asc \
+    --setopt=terra.includepkgs=umu-launcher,dmemcg-booster,kcgroups-dmemcg,plasma-foreground-booster-dmemcg \
+    umu-launcher dmemcg-booster plasma-foreground-booster-dmemcg
   # dnf imported Terra's key into rpm's keyring; nothing else in the image should trust it
   rpmkeys --delete "${terra_fpr,,}"
   rm -rf /tmp/terra.asc "$GNUPGHOME"
   unset GNUPGHOME
-  rpm -q umu-launcher
+  rpm -q umu-launcher dmemcg-booster plasma-foreground-booster-dmemcg kcgroups-dmemcg
   ;;
 *)
   echo "unknown base '$base' (bazzite or fedora)"; exit 1 ;;
