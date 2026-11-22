@@ -79,7 +79,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
   - **Wallpaper:** the dark field with the bot large and faint, and one slipped magenta/cyan scan line.
   - **App launcher:** search first, then pinned apps, recent files and the power buttons.
   - **Sign-in screen:** a big glitch clock and a sign-in card.
-  - **Boot splash:** the bot, the spaced-out wordmark and a thin progress line.
+  - **Boot splash:** the bot hammering its anvil (a 2 s loop of one blow, on every screen), the spaced-out wordmark and a thin progress line.
   - **Logo:** the SparkOS bot (`branding/`), with its animation timed to the zap startup sound at sign-in.
   - **Accent:** mint by default.
   - **Still needed:** real app icons in place of the lettered tiles.

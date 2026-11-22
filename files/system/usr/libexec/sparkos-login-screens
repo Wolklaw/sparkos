@@ -1,0 +1,42 @@
+#!/usr/bin/bash
+# Give the sign-in screen the same monitor layout as the desktop: which screen is the main one,
+# where each sits, rotation, resolution and refresh rate.
+#
+# The sign-in screen (Plasma Login Manager) runs its own KWin as the "plasmalogin" user and reads
+# that user's own ~/.config/kwinoutputconfig.json. With none, KWin falls back to defaults: no
+# rotation, and the main screen picked by connector order, which can change from boot to boot.
+# Login Screen settings can copy the file over ("Apply Plasma Settings"), but only when someone
+# clicks it, and again after every layout change. This runs at each boot, before the sign-in
+# screen, and copies the layout of the user who changed their screens most recently.
+set -euo pipefail
+
+greeter_home=$(getent passwd plasmalogin | cut -d: -f6)
+[ -n "$greeter_home" ] && [ -d "$greeter_home" ] || { echo "no plasmalogin user, nothing to do"; exit 0; }
+
+newest=""
+newest_time=0
+while IFS=: read -r _ _ uid _ _ home _; do
+  [ "$uid" -ge 1000 ] && [ "$uid" -lt 60000 ] || continue
+  f="$home/.config/kwinoutputconfig.json"
+  [ -f "$f" ] && [ ! -L "$f" ] || continue
+  t=$(stat -c %Y "$f")
+  if [ "$t" -gt "$newest_time" ]; then newest="$f"; newest_time="$t"; fi
+done < <(getent passwd)
+
+[ -n "$newest" ] || { echo "no user has a saved screen layout yet"; exit 0; }
+
+# Only copy a real layout file: small, and valid JSON
+size=$(stat -c %s "$newest")
+[ "$size" -gt 0 ] && [ "$size" -lt 1048576 ] || { echo "skipping $newest: unexpected size $size"; exit 0; }
+python3 -I -c 'import json, sys; json.load(open(sys.argv[1]))' "$newest" \
+  || { echo "skipping $newest: not valid JSON"; exit 0; }
+
+dest="$greeter_home/.config/kwinoutputconfig.json"
+if [ -f "$dest" ] && cmp -s "$newest" "$dest"; then
+  echo "sign-in screen already has the layout from $newest"
+  exit 0
+fi
+install -d -o plasmalogin -g plasmalogin -m 0755 "$greeter_home/.config"
+install -o plasmalogin -g plasmalogin -m 0644 "$newest" "$dest"
+restorecon -F "$greeter_home/.config" "$dest" 2>/dev/null || true
+echo "sign-in screen now uses the screen layout from $newest"

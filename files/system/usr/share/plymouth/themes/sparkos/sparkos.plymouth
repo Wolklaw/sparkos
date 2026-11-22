@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=SparkOS
-Description=The SparkOS bot and wordmark on a dark field, with a thin mint progress line
+Description=The SparkOS bot hammering its anvil over the wordmark on a dark field, with a thin mint progress line
 ModuleName=two-step
 
 [two-step]
@@ -11,10 +11,11 @@ DialogHorizontalAlignment=.5
 DialogVerticalAlignment=.75
 TitleHorizontalAlignment=.5
 TitleVerticalAlignment=.75
+# The bot and wordmark (throbber-*.png, looping) are centred here, on every screen
 HorizontalAlignment=.5
-VerticalAlignment=.70
-WatermarkHorizontalAlignment=.5
-WatermarkVerticalAlignment=.42
+VerticalAlignment=.44
+ProgressBarHorizontalAlignment=.5
+ProgressBarVerticalAlignment=.70
 Transition=none
 TransitionDuration=0.0
 BackgroundStartColor=0x05040f
@@ -27,19 +28,23 @@ DialogClearsFirmwareBackground=true
 MessageBelowAnimation=true
 
 [boot-up]
+UseAnimation=true
 UseEndAnimation=false
 UseFirmwareBackground=false
 UseProgressBar=true
 
 [shutdown]
+UseAnimation=true
 UseEndAnimation=false
 UseFirmwareBackground=false
 
 [reboot]
+UseAnimation=true
 UseEndAnimation=false
 UseFirmwareBackground=false
 
 [updates]
+UseAnimation=true
 SuppressMessages=true
 ProgressBarShowPercentComplete=true
 UseProgressBar=true
@@ -47,6 +52,7 @@ Title=Installing updates
 SubTitle=Keep your computer on
 
 [system-upgrade]
+UseAnimation=true
 SuppressMessages=true
 ProgressBarShowPercentComplete=true
 UseProgressBar=true
@@ -54,6 +60,7 @@ Title=Upgrading SparkOS
 SubTitle=Keep your computer on
 
 [firmware-upgrade]
+UseAnimation=true
 SuppressMessages=true
 ProgressBarShowPercentComplete=true
 UseProgressBar=true
@@ -61,6 +68,7 @@ Title=Upgrading firmware
 SubTitle=Keep your computer on
 
 [system-reset]
+UseAnimation=true
 SuppressMessages=true
 ProgressBarShowPercentComplete=true
 UseProgressBar=true

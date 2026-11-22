@@ -71,9 +71,9 @@ magick "$WALL/3840x2160.png" -resize 1920x1080 -quality 90 "$LNF/previews/fullsc
 render "$BOT" 560 "$LNF/splash/images/bot.png"
 cp "$LNF/splash/images/bot.png" "$LNF/previews/splash.png"
 
-# --- boot splash (Plymouth): the bot over the spaced wordmark, with the magenta/cyan slip
+# --- boot splash (Plymouth): the bot hammering the anvil over the spaced wordmark, with the
+# magenta/cyan slip, on every screen
 PLY=/usr/share/plymouth/themes/sparkos
-render "$BOT" 240 "$WORK/bot-boot.png"
 word() { magick -background none -fill "$1" -font "$CHAKRA_BOLD" -pointsize 34 -kerning 11 label:SPARKOS "$2"; }
 word '#f1efff' "$WORK/w.png"
 word '#ff2e88' "$WORK/wa.png"
@@ -83,8 +83,20 @@ magick \
   \( "$WORK/wa.png" -alpha on -channel A -evaluate multiply 0.9 +channel -repage +6+0 \) \
   \( "$WORK/w.png" -repage +3+0 \) \
   -background none -layers merge +repage "$WORK/wordmark.png"
-magick "$WORK/bot-boot.png" -background none -gravity center \
-  \( -size 1x26 xc:none \) "$WORK/wordmark.png" -append "$PLY/watermark.png"
+# Plymouth's two-step plugin loops "throbber" frames and always plays the whole set in 2.0 s,
+# however many frames there are (THROBBER_DURATION in plymouth's ply-throbber.c). So one loop is
+# one hammer blow from the sign-in splash animation (bot.gif, 25 fps): the hammer held up for
+# 21 frames, then GIF frames 25-53 (raised, the blow with its sparks, the rebound, raised again).
+# 50 frames x 0.04 s = 2.0 s, the same speed as the sign-in splash.
+magick "$LNF/splash/images/bot.gif" -coalesce -resize 240x240 "$WORK/gif-%03d.png"
+test -s "$WORK/gif-053.png" || { echo "bot.gif is shorter than the boot splash loop needs"; exit 1; }
+n=0
+for i in $(printf '25 %.0s' $(seq 21)) $(seq 25 53); do
+  n=$((n + 1))
+  magick "$WORK/gif-$(printf %03d "$i").png" -background none -gravity center \
+    \( -size 1x26 xc:none \) "$WORK/wordmark.png" -append +repage "$PLY/throbber-$(printf %04d "$n").png"
+done
+test "$n" -eq 50
 # Password and dialog pieces (for encrypted disks) from Fedora's spinner theme
 for f in bullet.png entry.png lock.png capslock.png keyboard.png keymap-render.png; do
   if [ -f "/usr/share/plymouth/themes/spinner/$f" ]; then cp "/usr/share/plymouth/themes/spinner/$f" "$PLY/"; fi
@@ -122,7 +134,7 @@ dracut --no-hostonly --kver "$KVER" --reproducible --zstd -v --add ostree --forc
   "/usr/lib/modules/$KVER/initramfs.img" > "$WORK/dracut.log" 2>&1 || { tail -40 "$WORK/dracut.log"; exit 1; }
 chmod 0600 "/usr/lib/modules/$KVER/initramfs.img"
 lsinitrd "/usr/lib/modules/$KVER/initramfs.img" > "$WORK/initrd.txt"
-grep -q 'plymouth/themes/sparkos/watermark.png' "$WORK/initrd.txt" || { echo "SparkOS boot splash is not in the initramfs"; exit 1; }
+grep -q 'plymouth/themes/sparkos/throbber-0050.png' "$WORK/initrd.txt" || { echo "SparkOS boot splash is not in the initramfs"; exit 1; }
 grep -q 'Theme=sparkos' <(lsinitrd -f etc/plymouth/plymouthd.conf "/usr/lib/modules/$KVER/initramfs.img") \
   || { echo "initramfs plymouthd.conf does not select sparkos"; exit 1; }
 
@@ -137,7 +149,7 @@ for f in \
   "$LNF/layouts/org.kde.plasma.desktop-layout.js" \
   "$LNF/splash/Splash.qml" "$LNF/splash/images/bot.png" "$LNF/splash/images/bot.gif" "$LNF/previews/preview.png" \
   "$WALL/3840x2160.png" /usr/share/wallpapers/SparkOS/metadata.json \
-  "$PLY/sparkos.plymouth" "$PLY/watermark.png" \
+  "$PLY/sparkos.plymouth" "$PLY/throbber-0001.png" "$PLY/throbber-0050.png" \
   /usr/share/icons/hicolor/256x256/apps/sparkos.png /usr/share/pixmaps/sparkos-logo.png \
   /usr/share/konsole/SparkOS.profile /usr/share/konsole/SparkOS.colorscheme; do
   test -s "$f" || { echo "missing $f"; exit 1; }
