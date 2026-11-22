@@ -1,0 +1,14 @@
+Oversteer, https://github.com/berarma/oversteer
+Commit 7f6b3ad8ebedb23b8d5c3d32e63ae653f4d02480, file data/udev/99-logitech-wheel-perms.rules,
+unchanged. GPL-3.0: text in LICENSES/GPL-3.0.txt in the SparkOS repository, installed as
+/usr/share/licenses/sparkos-device-rules/oversteer/LICENSE.
+
+The same file as in Universal Blue's oversteer-udev 0.0.git.415.7f6b3ad8 package on Bazzite. It
+lets the signed-in user change a Logitech racing wheel's settings (rotation range, force feedback,
+LEDs), for example from Oversteer on Flathub, without root. It matches only the wheels' product
+IDs, so Logitech mice, keyboards and webcams are untouched.
+
+Left out: the package's other two files. 99-thrustmaster-wheel-perms.rules and
+99-fanatec-wheel-perms.rules only act on out-of-tree drivers (hid-tmff2, hid-t150,
+hid-fanatecff) that Fedora's kernel doesn't have; the Fanatec one otherwise just makes every
+Fanatec USB device writable by every user.

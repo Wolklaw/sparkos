@@ -1,0 +1,6 @@
+game-devices-udev 1.1, https://codeberg.org/fabiscafe/game-devices-udev (tag 1.1)
+Copyright (c) 2017-2026 Fabian Bornschein. MIT licence, text in LICENSE next to this file.
+
+The files in the project's src/ folder, unchanged, renamed with the 71- prefix its meson.build
+gives them by default. The same files as Terra's game-devices-udev 1.1-1.fc45 package on Bazzite.
+Left out: the project's modules-load.d file (uinput), which fedora-gaming.sh already writes.

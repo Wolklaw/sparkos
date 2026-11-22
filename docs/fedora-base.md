@@ -10,7 +10,8 @@ every day, and booted with the same boot test. Before that it had its own BlueBu
 own copy of the checks, which fell behind main (it missed the icon theme, the Caps Lock fix, the new
 boot splash and the sign-in screen change). Two of the gaps below are fixed by that change:
 **H.265** (RPM Fusion free's FFmpeg and Mesa video decode are now in the image) and **Spark
-Update's image name** (it knows `sparkos-fedora`). The measurements below are from the prototype
+Update's image name** (it knows `sparkos-fedora`). Bazzite's device rules (controllers, RGB,
+wheels, ntsync) were added the same day; see [Device rules](#device-rules). The measurements below are from the prototype
 runs of 2026-11-20 and haven't been redone.
 
 **Closed after that (2026-11-22), not yet measured in a built image:**
@@ -54,7 +55,7 @@ a separate BlueBuild recipe, `recipes/recipe-fedora.yml`). What differs from the
 | [build_files/packages.sh](../build_files/packages.sh) | On Fedora: what Bazzite brought that SparkOS uses (printing, scanning, ImageMagick, gamescope, MangoHud, GameMode), RPM Fusion free's FFmpeg and `mesa-va-drivers-freeworld`, and Cisco's real OpenH264 in place of Kinoite's empty `noopenh264` stand-in. Then the same list as on Bazzite. |
 | [files/scripts/fedora-identity.sh](../files/scripts/fedora-identity.sh) | "SparkOS" as the system name and boot entry. Replaces `sparkos-identity.sh`, which checks for `ID=bazzite`. |
 | [files/scripts/fedora-apps.sh](../files/scripts/fedora-apps.sh) | The app policy on Kinoite: removes Firefox, KWrite, Filelight and the other apps Kinoite installs as RPMs, Spectacle and Plasma System Monitor (as on Bazzite), plus Fedora's first-boot wizard, crash reporter and third-party repository switch. Replaces `sparkos-apps.sh`, which empties Bazzite's lists. |
-| [files/scripts/fedora-gaming.sh](../files/scripts/fedora-gaming.sh) | Valve's Steam controller and VR udev rules (from Valve's own repository, pinned and checksummed), `uinput` at boot, and Bazzite's gaming kernel settings. |
+| [files/scripts/fedora-gaming.sh](../files/scripts/fedora-gaming.sh) | The device rules Fedora doesn't package, from [files/device-rules](../files/device-rules) (see [Device rules](#device-rules)), `uinput` at boot, and Bazzite's gaming kernel settings. |
 | [files/scripts/fedora-homebrew.sh](../files/scripts/fedora-homebrew.sh) | Homebrew on PATH and its completion in bash, zsh and fish, when Homebrew is installed (on Bazzite, Universal Blue's files do this). |
 | [build_files/signing.sh](../build_files/signing.sh) | Shared. On Fedora it also writes `20-sparkos.toml`, the install setting that makes a fresh install check signatures (Bazzite has its own). |
 | [.github/workflows/build-fedora.yml](../.github/workflows/build-fedora.yml) | Runs build.yml with `base: fedora`, then boot-test.yml on the result. By hand, with "compare", it also compares the three images, looks inside the built image, and boots both images twice to compare boot time. |
@@ -163,8 +164,9 @@ fixes, template files), `uupd` (updates, daily at 04:00), `brew-setup` (Homebrew
 | **Hardware video decode (VA-API)** | Terra's Mesa decodes H.264 and H.265 on the GPU | Fedora builds Mesa with Mesa's default, patent-free codecs only: no H.264/H.265 on the GPU. Software decoding of H.264 still works (OpenH264). | Not measurable in the VM (no AMD GPU). RPM Fusion has a `mesa-va-drivers-freeworld` package that adds them; see the RPM Fusion results below. | RPM Fusion (or Terra) |
 | **FFmpeg and codecs** | negativo17's full FFmpeg | Fedora's `ffmpeg-free` + Cisco's OpenH264 (from Fedora's `fedora-cisco-openh264` repo, swapped in for Kinoite's empty `noopenh264`). Measured by encoding and decoding: **H.264, AAC and MP3 decode; H.265 does not.** | One swap: `dnf swap ffmpeg-free ffmpeg` from RPM Fusion. Measured below. | RPM Fusion (or negativo17) |
 | **gamescope, MangoHud, GameMode** | Terra's gamescope 3.17.0 and MangoHud 0.8.4; no GameMode | Fedora's gamescope 3.16.31, MangoHud 0.8.3~rc1, GameMode 1.8.2 | Nothing; Fedora's are one release behind Terra's. | Fedora |
-| **Steam controller and VR rules** | `steam-devices` (Terra), Valve commit 22ec85e | The same Valve files at the same commit 22ec85e, fetched from Valve's repository and checked by SHA-256 | A pinned commit to bump now and then. | Valve's files (MIT), no package repository |
-| **More controller rules** | `game-devices-udev` (Terra): permissions for 8BitDo, PowerA, Hori, Nacon, wheels and so on | Not added | Small: the rules are MIT-licensed text files at codeberg.org/fabiscafe/game-devices-udev; the same pin-and-checksum approach as Valve's. | That project's files |
+| **Steam controller and VR rules** | `steam-devices` (Fedora's package), Valve commit 22ec85e | Fedora's `steam-devices` package, the same files (since 2026-11-22; before that fetched from Valve's repository at the same commit) | Nothing. | Fedora |
+| **More device rules** | `game-devices-udev`, `udev-joystick-blacklist-rm` (Terra), `oversteer-udev` (Universal Blue), `openrgb-udev-rules`, `solaar-udev` (Fedora) | All of them since 2026-11-22; see [Device rules](#device-rules) | Small: three upstream rule sets kept in `files/device-rules`, to refresh now and then. | Fedora, and those projects' files |
+| **ntsync** (Wine and Proton's NT sync driver) | `ntsync-autoload` (Fedora's package) loads it at boot | The same package since 2026-11-22; Fedora's kernel has the module (`ntsync.ko`) | Nothing. | Fedora |
 | **Gaming kernel settings** | `kernel.split_lock_mitigate=0`, `vm.max_map_count=2147483642`, inotify limits | The same values in `/usr/lib/sysctl.d/70-sparkos-gaming.conf` | Nothing; 4 lines. | None |
 | **Hardware setup service** | `bazzite-hardware-setup` (328 lines), which reboots the PC once on first boot | None | For a desktop AMD PC, a few kernel arguments at most (listed above); none was needed to boot and pass the checks in the VM. The rest is for handhelds and laptops SparkOS doesn't target. | None |
 | **Firmware** | Fedora's `linux-firmware` (449 MB) plus a few extras | Fedora's `linux-firmware` 20261019 (438 MB), `amd-gpu-firmware`, `amd-ucode-firmware` | Nothing for this PC. | Fedora |
@@ -188,12 +190,36 @@ Measured in a throwaway container from the prototype image (run 3):
   14 MiB download, +53 MiB**, with nothing removed (dry run). Whether the GPU then decodes can only
   be checked on real AMD hardware.
 
+## Device rules
+
+Added 2026-11-22. udev rules decide which devices the signed-in user may open without root
+(controllers for Steam, RGB controllers for OpenRGB, a wheel's settings). Bazzite ships them as
+eight packages; this is what the Fedora image does for each, checked against the owner's devices
+(Keychron V5, Logitech G502 SE HERO, HyperX QuadCast, FiiO E10, Logitech C920, ASUS AURA and NZXT
+RGB controllers, AMD GPU):
+
+| Bazzite's package | On the Fedora image | Why |
+|---|---|---|
+| `steam-devices` | Fedora's package | Steam and Steam Input on controllers and VR headsets. Same Valve files as before (commit 22ec85e, same SHA-256), so the download in `fedora-gaming.sh` is gone. |
+| `openrgb-udev-rules` | Fedora's package | Lists the owner's ASUS AURA (0b05:19af) and NZXT (1e71:2012) controllers, so OpenRGB works without root. |
+| `solaar-udev` | Fedora's package | Logitech receivers and devices, the G502 included, for Solaar. |
+| `ntsync-autoload` | Fedora's package | Loads `ntsync` at boot (Fedora's kernel has it; `/dev/ntsync` is open to all users). Wine and Proton use it for faster Windows sync. |
+| `game-devices-udev` (Terra) | Copied into `files/device-rules/game-devices-udev` (1.1, MIT) | Not in Fedora or RPM Fusion. Gives Steam and browsers raw access to many controllers (8BitDo, PowerA, Hori, Nacon, PDP, Thrustmaster, ...). Its `uinput` modules file is left out (`fedora-gaming.sh` already loads it). |
+| `udev-joystick-blacklist-rm` (Terra) | Copied into `files/device-rules/udev-joystick-blacklist` (public domain) | Not in Fedora or RPM Fusion. The kernel reports some keyboards and mice as joysticks; this hides those. **The owner's Keychron V5 (3434:0351) is on the list**: without it, games and Steam can see the keyboard as a controller. |
+| `oversteer-udev` (Universal Blue COPR) | Only the Logitech wheel file, in `files/device-rules/oversteer` (GPL-3.0) | Not in Fedora. Lets Oversteer (Flathub) change a Logitech wheel's range and force feedback. The Thrustmaster and Fanatec files are left out: they only act on drivers Fedora's kernel doesn't have. |
+| `ublue-os-media-automount-udev` | **Not added** | Not device rules: a service that mounts internal ext4 and btrfs partitions at boot. On this PC it mounts nothing (its log: every other drive is NTFS or FAT, or in fstab), and SparkOS doesn't need it. |
+
+The copied files are unchanged from their projects; each folder's `SOURCE` says where from, at
+which version and under which licence, and both go to `/usr/share/licenses/sparkos-device-rules`.
+The QuadCast, E10 and C920 are standard USB audio and video devices and need no rules.
+
 ## What still ties the prototype to someone else
 
 - **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one
   big, stable upstream instead of Fedora plus Bazzite plus the repositories Bazzite pulls in.
 - **Cisco's OpenH264**, through Fedora's own repository, for H.264.
-- **Valve's** udev rules, as two pinned files.
+- **Device rules** from game-devices-udev, udev-joystick-blacklist and Oversteer, copied into
+  `files/device-rules` (Valve's come from Fedora's `steam-devices` since 2026-11-22).
 - **Flathub**, for every app users install. Same as today.
 - **RPM Fusion free**, for FFmpeg and Mesa video decode (H.265, and H.264/H.265 on the GPU). In the
   image since 2026-11-22.
@@ -219,7 +245,8 @@ passed on Fedora unchanged. Suggested path for Release 3:
 3. **Homebrew:** the shell setup is SparkOS's own since 2026-11-22, so an installed Homebrew keeps
    working after the switch. Still the owner's call: ship Homebrew itself and its update timers,
    or leave installing it to Homebrew's installer. Claude Code doesn't need it.
-4. **Small things to own:** `game-devices-udev` rules, pinned like Valve's.
+4. **Small things to own:** the device rules in `files/device-rules` (done 2026-11-22; refresh
+   them from their projects now and then).
 5. **Skip unless needed:** xone and the other out-of-tree kernel modules.
 6. **Before switching:** try the prototype on the real PC (games, the GPU, controllers, video
    decode on the GPU), which a VM can't test. Later boot times swapped between runs 2 and 4

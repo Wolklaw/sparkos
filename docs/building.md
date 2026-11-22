@@ -42,14 +42,16 @@ The same Containerfile also builds SparkOS on plain Fedora Kinoite, the test ima
 
 - step 5, [packages.sh](../build_files/packages.sh): on Fedora, instead of removing Bazzite's apps,
   it adds what Bazzite brought (printing, scanning, ImageMagick, gamescope, MangoHud, GameMode,
-  distrobox, btop, tmux and other tools, and `umu-run` from Terra for that one package) and RPM
-  Fusion free's FFmpeg and Mesa video decode, so H.264 and H.265 play
+  distrobox, btop, tmux and other tools, `umu-run` from Terra for that one package, and Fedora's
+  device rule packages: `steam-devices`, `openrgb-udev-rules`, `solaar-udev`, `ntsync-autoload`)
+  and RPM Fusion free's FFmpeg and Mesa video decode, so H.264 and H.265 play
 - step 6: an entry `a.sh|b.sh` in the script list runs `a.sh` on Bazzite and `b.sh` on Fedora, and
   `-` means nothing. Fedora gets [fedora-identity.sh](../files/scripts/fedora-identity.sh),
-  [fedora-apps.sh](../files/scripts/fedora-apps.sh) (removes Kinoite's apps) and
-  [fedora-gaming.sh](../files/scripts/fedora-gaming.sh) (Valve's controller rules, `uinput`, gaming
-  kernel settings) and [fedora-homebrew.sh](../files/scripts/fedora-homebrew.sh) (Homebrew on PATH
-  in bash, zsh and fish, when it's installed)
+  [fedora-apps.sh](../files/scripts/fedora-apps.sh) (removes Kinoite's apps),
+  [fedora-gaming.sh](../files/scripts/fedora-gaming.sh) (the device rules Fedora doesn't package,
+  from [files/device-rules](../files/device-rules), `uinput`, gaming kernel settings) and
+  [fedora-homebrew.sh](../files/scripts/fedora-homebrew.sh) (Homebrew on PATH in bash, zsh and
+  fish, when it's installed)
 
 [build-fedora.yml](../.github/workflows/build-fedora.yml) runs build.yml with `base: fedora` on the
 same pushes as the real build and every day at 06:30 UTC, then runs boot-test.yml on the result
