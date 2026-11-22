@@ -1,0 +1,34 @@
+{
+  "id": "dev.wolklaw.SparkBench",
+  "slug": "spark-bench",
+  "name": "Spark Bench",
+  "name_fr": "Spark Bench",
+  "summary": "Set up MangoHud recording with one Fix (and Undo), get a sound and a notification when a run starts and ends, see each run's FPS and lows, and compare with Windows PresentMon runs.",
+  "summary_fr": "Configurer l'enregistrement MangoHud en un clic (et l'annuler), avoir un son et une notification au début et à la fin d'une séance, voir les IPS et les bas de chaque séance, et comparer avec des séances PresentMon de Windows.",
+  "version": "0.1.0",
+  "installed_size_kb": 240,
+  "icon": "icons/spark-bench-256.png",
+  "categories": ["Game", "Utility"],
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "mangohud": "records the frame times (SparkOS has it)",
+      "flatpak": "checks and sets up MangoHud for the Flatpak Steam",
+      "notify-send": "the start and stop notifications",
+      "pw-play": "the start and stop sounds (paplay or canberra-gtk-play work too)",
+      "systemctl": "the background watcher (a systemd user service)"
+    },
+    "system": "Linux"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-bench --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-bench"
+}

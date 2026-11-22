@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Bench
+Name[fr]=Spark Bench
+GenericName=Game benchmark
+GenericName[fr]=Benchmark de jeux
+Comment=Set up MangoHud recording, hear when a run starts and ends, and compare FPS with Windows
+Comment[fr]=Configurer l'enregistrement MangoHud, entendre le début et la fin d'une séance, et comparer les IPS avec Windows
+Exec=spark-bench
+Icon=dev.wolklaw.SparkBench
+Terminal=false
+Categories=Game;Utility;
+Keywords=benchmark;fps;mangohud;presentmon;frametime;performance;gaming;steam;windows;compare;jeu;performances;comparer;
+StartupWMClass=SparkBench
+SingleMainWindow=true
