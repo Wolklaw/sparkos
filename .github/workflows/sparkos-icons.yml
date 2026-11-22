@@ -12,12 +12,14 @@ on:
       - "files/sparkos-icons/**"
       - "files/scripts/sparkos-icons.sh"
       - "files/system/usr/libexec/sparkos-icons-default"
+      - "files/system/etc/xdg/autostart/sparkos-icons-default.desktop"
       - ".github/workflows/sparkos-icons.yml"
   pull_request:
     paths:
       - "files/sparkos-icons/**"
       - "files/scripts/sparkos-icons.sh"
       - "files/system/usr/libexec/sparkos-icons-default"
+      - "files/system/etc/xdg/autostart/sparkos-icons-default.desktop"
       - ".github/workflows/sparkos-icons.yml"
   workflow_dispatch:
 
@@ -46,8 +48,11 @@ jobs:
         run: |
           # what files/system puts in place before the scripts run (Containerfile step 3)
           install -D -m 0644 files/system/etc/xdg/kdeglobals /etc/xdg/kdeglobals
-          install -D -m 0755 files/system/usr/libexec/sparkos-icons-default /usr/libexec/sparkos-icons-default
+          # copied 0644 on purpose: the build step must set the mode itself, as in the image
+          install -D -m 0644 files/system/usr/libexec/sparkos-icons-default /usr/libexec/sparkos-icons-default
+          install -D -m 0644 files/system/etc/xdg/autostart/sparkos-icons-default.desktop /etc/xdg/autostart/sparkos-icons-default.desktop
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/sparkos-icons.sh
+          test -x /usr/libexec/sparkos-icons-default
           test -L /usr/share/icons/SparkOS/places/scalable/inode-directory.svg
 
       - name: Per-user switch from Breeze Dark
