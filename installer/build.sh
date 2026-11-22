@@ -63,7 +63,18 @@ else
     # installer-iso.yml mounts its registry login here for the build only (private packages)
     auth=()
     [ -r /run/ghcr-auth/auth.json ] && auth=(--authfile /run/ghcr-auth/auth.json)
-    podman pull "${auth[@]}" "$INSTALL_IMAGE_PAYLOAD"
+    if [ -n "${INSTALL_IMAGE_DIGEST:-}" ]; then
+        # The build pinned this digest: pull exactly it (the tag may have moved since), and
+        # keep the tag name, which the kickstart and the installed system follow
+        podman pull "${auth[@]}" "${INSTALL_IMAGE_PAYLOAD%:*}@$INSTALL_IMAGE_DIGEST"
+        podman tag "${INSTALL_IMAGE_PAYLOAD%:*}@$INSTALL_IMAGE_DIGEST" "$INSTALL_IMAGE_PAYLOAD"
+    else
+        podman pull "${auth[@]}" "$INSTALL_IMAGE_PAYLOAD"
+    fi
+fi
+if [ -n "${INSTALL_IMAGE_DIGEST:-}" ]; then
+    got=$(podman image inspect "$INSTALL_IMAGE_PAYLOAD" --format '{{.Digest}}')
+    [ "$got" = "$INSTALL_IMAGE_DIGEST" ] || { echo "::error::installer holds $got, expected $INSTALL_IMAGE_DIGEST"; exit 1; }
 fi
 
 echo "Copying installer system files..."

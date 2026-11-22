@@ -8,8 +8,11 @@ ARG INSTALL_IMAGE_PAYLOAD=${INSTALL_IMAGE_PAYLOAD:-ghcr.io/wolklaw/sparkos:lates
 FROM $BASE_IMAGE
 ARG BASE_IMAGE
 ARG INSTALL_IMAGE_PAYLOAD
+# Optional: the digest INSTALL_IMAGE_PAYLOAD must be (installer-iso.yml pins it)
+ARG INSTALL_IMAGE_DIGEST=""
 RUN --mount=type=bind,source=./.,target=/src \
     env \
     BASE_IMAGE="$BASE_IMAGE" \
     INSTALL_IMAGE_PAYLOAD="$INSTALL_IMAGE_PAYLOAD" \
+    INSTALL_IMAGE_DIGEST="$INSTALL_IMAGE_DIGEST" \
     /src/build.sh
