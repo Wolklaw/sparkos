@@ -8,13 +8,14 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 - **Phase 0: done.** Repo `Wolklaw/sparkos` is public, the cosign key is in `SIGNING_SECRET` (a local copy is in the git-ignored `cosign.key`), and the first CI build passed in about 5 minutes. `ghcr.io/wolklaw/sparkos:latest` is public, and its signature verifies against `cosign.pub`.
 - **Phase 1: done in CI.** The boot-test workflow boots every build in QEMU/KVM on GitHub. Local VirtualBox testing on this PC froze because Windows' Memory Integrity holds the CPU's virtualization. [docs/vm-test.md](docs/vm-test.md) stays as the manual path for a PC without that.
 - Renamed from WolkOS to SparkOS on 2026-11-19: the repo is now `Wolklaw/sparkos` (GitHub redirects the old URL) and the image is `ghcr.io/wolklaw/sparkos`. The old `ghcr.io/wolklaw/wolkos` image is no longer updated. The local folder is still named `WolkOS`.
+- **SparkOS for NVIDIA (2026-11-22):** a second image, `ghcr.io/wolklaw/sparkos-nvidia`, built daily from the same Containerfile on Bazzite's `bazzite-nvidia-open` (NVIDIA's open kernel modules: GeForce RTX 20 series and newer, GTX 16), signed with the same key, with its own installer (`SparkOS-NVIDIA-installer.iso`). The boot and install tests run it in a VM without an NVIDIA card, so the driver is checked to be present, matching and accepted by Secure Boot, never to work: **untested on NVIDIA hardware** until someone installs it. GTX 10 series and older would need Bazzite's `bazzite-nvidia` (NVIDIA's older closed driver, LTS kernel) as a third image; not built.
 - Note: only the visible name changes to SparkOS. `ID=bazzite` and Bazzite's `image-info.json` stay as they are, because Bazzite's own tools read them. Bazzite's rollback helper therefore offers stock Bazzite images, which is a fine way out if SparkOS ever breaks.
 
 ## Starting point (checked on this PC, 2026-11-19)
 
 | | Found | What it means |
 |---|---|---|
-| GPU | AMD Radeon RX 6800 XT | Best case for Linux. Open drivers come in the kernel, so no NVIDIA variant is needed. |
+| GPU | AMD Radeon RX 6800 XT | Best case for Linux. Open drivers come in the kernel, so this PC needs no NVIDIA variant. Other people's PCs do: SparkOS for NVIDIA exists since 2026-11-22 (see Status), untested on NVIDIA hardware. |
 | CPU / RAM | Ryzen 7 7800X3D, 32 GB | No constraints. |
 | Disks | Two 1 TB NVMe drives (Windows; games) and a SATA SSD for scratch files (stays as is) | SparkOS shares the games drive: Windows shrank it and SparkOS uses the freed space (dual boot, installed 21 Nov 2026). |
 | Board | ASUS PRIME X670-P WIFI | Should have three M.2 slots, two of them in use. Confirm in the manual before buying a drive. |

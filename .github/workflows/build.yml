@@ -1,6 +1,10 @@
 name: build
-# Builds SparkOS from the Containerfile, signs it with SparkOS's key and publishes it to
-# ghcr.io/wolklaw/sparkos. docs/building.md explains each step.
+# Builds SparkOS from the Containerfile, signs it with SparkOS's key and publishes it, twice:
+#   ghcr.io/wolklaw/sparkos         from Bazzite (AMD and Intel graphics)
+#   ghcr.io/wolklaw/sparkos-nvidia  from Bazzite's bazzite-nvidia-open (NVIDIA's open kernel
+#                                   modules: GeForce RTX 20 series and newer, GTX 16)
+# One job per image, side by side; one failing doesn't stop the other. docs/building.md explains
+# each step.
 #
 # Tags (the same ones BlueBuild used, so nothing that reads them changes):
 #   main (push, the daily schedule, or Run workflow): <commit>-45, YYYYMMDD-45, YYYYMMDD, 45, latest
@@ -31,17 +35,26 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || github.ref }}
   cancel-in-progress: true
 
-env:
-  IMAGE_REPO: ghcr.io/wolklaw/sparkos
-
 jobs:
   build:
-    name: Build, sign and publish
+    name: Build, sign and publish (${{ matrix.name }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
       contents: read
       packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: sparkos
+            base: ghcr.io/ublue-os/bazzite:stable
+          - name: sparkos-nvidia
+            base: ghcr.io/ublue-os/bazzite-nvidia-open:stable
+    env:
+      IMAGE_NAME: ${{ matrix.name }}
+      IMAGE_REPO: ghcr.io/wolklaw/${{ matrix.name }}
+      BASE: ${{ matrix.base }}
     steps:
       - uses: actions/checkout@v4
 
@@ -56,8 +69,10 @@ jobs:
       - name: Find the Bazzite base
         id: base
         run: |
-          BASE=$(sed -n 's/^ARG BASE_IMAGE=//p' Containerfile | head -1)
-          test -n "$BASE"
+          # The plain build's base must be the Containerfile's default (what a local build uses)
+          if [ "$IMAGE_NAME" = sparkos ]; then
+            [ "$BASE" = "$(sed -n 's/^ARG BASE_IMAGE=//p' Containerfile | head -1)" ] || { echo "::error::build.yml and the Containerfile name different bases"; exit 1; }
+          fi
           for i in 1 2 3 4 5; do
             DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://$BASE") && break
             echo "inspect failed, retry $i"; sleep $((i*15))
@@ -70,7 +85,6 @@ jobs:
 
       - name: Build the image
         env:
-          BASE: ${{ steps.base.outputs.name }}
           BASE_DIGEST: ${{ steps.base.outputs.digest }}
         run: |
           # Pulled by digest, so the base is exactly the one recorded in the labels
@@ -78,7 +92,9 @@ jobs:
           sudo podman build \
             --file Containerfile \
             --build-arg BASE_IMAGE="${BASE%:*}@$BASE_DIGEST" \
+            --build-arg BASE_NAME="$BASE" \
             --build-arg BASE_DIGEST="$BASE_DIGEST" \
+            --build-arg IMAGE_NAME="$IMAGE_NAME" \
             --build-arg REVISION="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag localhost/sparkos:build \

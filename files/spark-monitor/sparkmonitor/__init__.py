@@ -8,7 +8,7 @@ APP_NAME = "Spark Monitor"
 APP_SLUG = "spark-monitor"       # command, folders, log names
 APP_CLASS = "SparkMonitor"       # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkMonitor"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 SHORTCUT = "Ctrl+Shift+Esc"
 
 INTERVAL_MS = 1000               # one sample a second while the window is visible

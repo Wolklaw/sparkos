@@ -24,6 +24,20 @@ TEST_SOUNDS = ('/usr/share/sounds/freedesktop/stereo/audio-test-signal.oga',
 VENDORS = {'0x1002': 'AMD', '0x10de': 'NVIDIA', '0x8086': 'Intel', '0x1af4': 'virtual',
            '0x15ad': 'VMware', '0x1234': 'virtual', '0x80ee': 'VirtualBox'}
 
+# The two SparkOS builds; release.json says which one this is (spark-update --write-release)
+RELEASE_FILE = '/usr/share/sparkos/release.json'
+STANDARD_IMAGE = 'ghcr.io/wolklaw/sparkos'
+NVIDIA_IMAGE = 'ghcr.io/wolklaw/sparkos-nvidia'
+# NVIDIA device IDs from 0x1e00 up are Turing (GeForce RTX 20, GTX 16) and newer: the cards
+# NVIDIA's open kernel module (SparkOS for NVIDIA) runs. Older ones need NVIDIA's closed module.
+TURING_FIRST_DEVICE = 0x1e00
+# Fix buttons that switch builds: a terminal shows the download (a few GB), then restart
+SWITCH_COMMANDS = {
+    'switch_nvidia': ['rpm-ostree', 'rebase', f'ostree-image-signed:docker://{NVIDIA_IMAGE}:latest'],
+    'switch_standard': ['rpm-ostree', 'rebase',
+                        f'ostree-image-signed:docker://{STANDARD_IMAGE}:latest'],
+}
+
 
 @dataclass
 class Check:
@@ -72,6 +86,64 @@ def drm_cards(root: str = '/sys/class/drm') -> List[Tuple[str, str, str]]:
             driver = ''
         cards.append((name, VENDORS.get(vendor, vendor or '?'), driver))
     return cards
+
+
+def pci_display(root: str = '/sys/bus/pci/devices') -> List[Tuple[str, str, int, str]]:
+    """(slot, vendor, device id, kernel driver) for each display controller on the PCI bus,
+    with or without a driver: an NVIDIA card whose driver didn't load isn't in /sys/class/drm."""
+    found = []
+    for path in sorted(glob.glob(os.path.join(root, '*'))):
+        try:
+            with open(os.path.join(path, 'class'), encoding='ascii') as f:
+                if not f.read().strip().startswith('0x03'):    # 0x03xxxx: display controller
+                    continue
+            with open(os.path.join(path, 'vendor'), encoding='ascii') as f:
+                vendor = f.read().strip()
+            with open(os.path.join(path, 'device'), encoding='ascii') as f:
+                device = int(f.read().strip(), 16)
+        except (OSError, ValueError):
+            continue
+        try:
+            driver = os.path.basename(os.readlink(os.path.join(path, 'driver')))
+        except OSError:
+            driver = ''
+        found.append((os.path.basename(path), VENDORS.get(vendor, vendor or '?'), device, driver))
+    return found
+
+
+def sparkos_build(path: str = RELEASE_FILE) -> str:
+    """'nvidia' or 'standard' from the image this SparkOS was built as (release.json),
+    '' when it can't tell."""
+    try:
+        with open(path, encoding='utf-8') as f:
+            image = json.load(f).get('image', '')
+    except (OSError, ValueError, AttributeError):
+        return ''
+    return {NVIDIA_IMAGE: 'nvidia', STANDARD_IMAGE: 'standard'}.get(image, '')
+
+
+def nvidia_advice(pci: List[Tuple[str, str, int, str]],
+                  build: str) -> Optional[Tuple[str, List[Tuple[str, str]]]]:
+    """When the NVIDIA cards and the SparkOS build don't go together: (string key, fix
+    buttons). The key names a summary ('<key>') and a detail ('<key>.detail'). None when
+    there's nothing to say (no NVIDIA card on the standard build, or NVIDIA's driver loaded)."""
+    nvidia = [p for p in pci if p[1] == 'NVIDIA']
+    newer = [p for p in nvidia if p[2] >= TURING_FIRST_DEVICE]
+    to_nvidia = [(t('fix.switch_nvidia'), 'switch_nvidia')]
+    to_standard = [(t('fix.switch_standard'), 'switch_standard')]
+    if build == 'standard' and nvidia:
+        if newer:
+            return 'check.graphics.nv_standard', to_nvidia
+        return 'check.graphics.nv_old', []
+    if build == 'nvidia':
+        if not nvidia:
+            return 'check.graphics.nv_none', to_standard
+        if any(p[3] == 'nvidia' for p in nvidia):
+            return None
+        if not newer:
+            return 'check.graphics.nv_old_on_nvidia', to_standard
+        return 'check.graphics.nv_noload', []
+    return None
 
 
 def parse_wpctl_sinks(text: str) -> List[str]:
@@ -149,6 +221,11 @@ def parse_rpm_ostree(text: str) -> Optional[Dict[str, object]]:
 # ─── The checks ───────────────────────────────────────────────
 
 def check_graphics() -> Check:
+    title = t('check.graphics')
+    advice = nvidia_advice(pci_display(), sparkos_build())
+    if advice:
+        key, fixes = advice
+        return Check('graphics', title, WARN, t(key), t(key + '.detail'), fixes)
     cards = [c for c in drm_cards() if c[2]]
     gpus = []
     vulkan_ran = False
@@ -157,7 +234,6 @@ def check_graphics() -> Check:
         vulkan_ran = code == 0
         gpus = parse_vulkan_summary(out) if code == 0 else []
     real = [g for g in gpus if 'CPU' not in g.get('deviceType', '').upper()]
-    title = t('check.graphics')
     if real:
         gpu = real[0]
         driver = gpu.get('driverName') or gpu.get('driverInfo') or '?'

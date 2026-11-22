@@ -94,8 +94,12 @@ EN = {
     'perf.per_thread': "Each thread, last 60 s",
     'perf.not_readable': "not readable",
     'perf.unreadable_gpu': "This GPU's driver doesn't publish usage in /sys.",
-    'perf.nvidia_note': "NVIDIA's driver doesn't publish usage, memory or temperature in /sys. "
-                        "nvidia-smi can show them; Spark Monitor doesn't run it every second.",
+    'perf.nvidia_note': "NVIDIA's driver doesn't publish usage, memory or temperature in /sys, "
+                        "and nvidia-smi, which reads them, isn't here.",
+    'perf.nvidia_smi_note': "Read from nvidia-smi every 2 seconds while the card is awake "
+                            "(NVIDIA's driver publishes nothing in /sys).",
+    'perf.nouveau_note': "This card runs on nouveau, the open driver, which doesn't publish "
+                         "usage. SparkOS for NVIDIA has NVIDIA's driver.",
     'perf.intel_note': "Intel's driver doesn't publish GPU usage in /sys; clock is shown.",
     'perf.unknown_gpu': "Unknown GPU",
 
@@ -221,8 +225,11 @@ FR = {
     'perf.not_readable': "illisible",
     'perf.unreadable_gpu': "Le pilote de ce GPU ne publie pas son utilisation dans /sys.",
     'perf.nvidia_note': "Le pilote NVIDIA ne publie pas l'utilisation, la mémoire ni la "
-                        "température dans /sys. nvidia-smi peut les montrer; Spark Monitor ne "
-                        "le lance pas à chaque seconde.",
+                        "température dans /sys, et nvidia-smi, qui les lit, n'est pas là.",
+    'perf.nvidia_smi_note': "Lu avec nvidia-smi toutes les 2 secondes quand la carte est "
+                            "éveillée (le pilote NVIDIA ne publie rien dans /sys).",
+    'perf.nouveau_note': "Cette carte fonctionne avec nouveau, le pilote libre, qui ne publie "
+                         "pas son utilisation. SparkOS pour NVIDIA a le pilote de NVIDIA.",
     'perf.intel_note': "Le pilote Intel ne publie pas l'utilisation du GPU dans /sys; la "
                        "fréquence est affichée.",
     'perf.unknown_gpu': "GPU inconnu",

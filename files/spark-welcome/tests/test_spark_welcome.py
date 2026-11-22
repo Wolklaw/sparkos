@@ -609,6 +609,57 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(result.status, checks.OK)
         self.assertIn('RX 7800 XT', result.summary)
 
+    @unittest.skipUnless(sys.platform.startswith('linux'), "PCI slot names have ':' in them")
+    def test_pci_display_and_build(self):
+        root = tempfile.mkdtemp()
+        for slot, cls, vendor, device, driver in (
+                ('0000:01:00.0', '0x030000', '0x10de', '0x2684', ''),        # RTX 4090, no driver
+                ('0000:00:02.0', '0x030000', '0x8086', '0x46a6', 'i915'),
+                ('0000:00:1f.3', '0x040300', '0x8086', '0x51c8', 'snd_hda_intel')):
+            folder = os.path.join(root, slot)
+            os.makedirs(folder)
+            for name, value in (('class', cls), ('vendor', vendor), ('device', device)):
+                with open(os.path.join(folder, name), 'w', encoding='ascii') as f:
+                    f.write(value + '\n')
+            if driver and hasattr(os, 'symlink'):
+                try:
+                    os.symlink(os.path.join(root, 'drivers', driver), os.path.join(folder, 'driver'))
+                except OSError:
+                    pass                              # Windows without symlink rights
+        found = checks.pci_display(root)
+        self.assertEqual([(s, v, d) for s, v, d, _drv in found],
+                         [('0000:00:02.0', 'Intel', 0x46a6), ('0000:01:00.0', 'NVIDIA', 0x2684)])
+        release = os.path.join(root, 'release.json')
+        for image, build in (('ghcr.io/wolklaw/sparkos-nvidia', 'nvidia'),
+                             ('ghcr.io/wolklaw/sparkos', 'standard'), ('other', '')):
+            with open(release, 'w', encoding='utf-8') as f:
+                json.dump({'image': image}, f)
+            self.assertEqual(checks.sparkos_build(release), build)
+        self.assertEqual(checks.sparkos_build(os.path.join(root, 'missing.json')), '')
+
+    def test_nvidia_advice(self):
+        rtx = ('0000:01:00.0', 'NVIDIA', 0x2684, '')
+        gtx1060 = ('0000:01:00.0', 'NVIDIA', 0x1c03, 'nouveau')
+        amd = ('0000:03:00.0', 'AMD', 0x73bf, 'amdgpu')
+        advice = checks.nvidia_advice
+        self.assertIsNone(advice([amd], 'standard'))
+        self.assertIsNone(advice([rtx], ''))                     # not SparkOS: say nothing
+        self.assertEqual(advice([rtx, amd], 'standard')[0], 'check.graphics.nv_standard')
+        self.assertEqual(advice([rtx], 'standard')[1][0][1], 'switch_nvidia')
+        self.assertEqual(advice([gtx1060], 'standard'), ('check.graphics.nv_old', []))
+        self.assertIsNone(advice([rtx[:3] + ('nvidia',)], 'nvidia'))
+        self.assertEqual(advice([rtx], 'nvidia'), ('check.graphics.nv_noload', []))
+        self.assertEqual(advice([gtx1060], 'nvidia')[0], 'check.graphics.nv_old_on_nvidia')
+        self.assertEqual(advice([amd], 'nvidia')[1][0][1], 'switch_standard')
+        for key in ('switch_nvidia', 'switch_standard'):
+            self.assertEqual(checks.SWITCH_COMMANDS[key][:2], ['rpm-ostree', 'rebase'])
+        with mock.patch.object(checks, 'pci_display', return_value=[rtx]), \
+                mock.patch.object(checks, 'sparkos_build', return_value='standard'):
+            result = checks.check_graphics()
+        self.assertEqual(result.status, checks.WARN)
+        self.assertIn('NVIDIA', result.summary)
+        self.assertTrue(result.detail)
+
 
 # ─── First login, strings, packaging ──────────────────────────
 

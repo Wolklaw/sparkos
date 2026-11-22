@@ -122,6 +122,9 @@ def self_test(src: Source) -> int:
         return 1
 
     sysm = system.SystemSampler(src)
+    if sysm.nvsmi:                           # NVIDIA's numbers, read once now (no thread wait)
+        sysm.nvsmi.read_once()
+        print(f"nvidia-smi: {sysm.nvsmi.error or f'{len(sysm.nvsmi.latest)} card(s) read'}")
     sysm.sample(time.monotonic())
     time.sleep(0.3)
     snap = sysm.sample(time.monotonic(), full=True)
@@ -143,7 +146,7 @@ def self_test(src: Source) -> int:
         readable = [name for name, value in (
             ('usage', g.busy), ('video memory', g.vram_total), ('clock', g.clock_mhz),
             ('temperature', g.temp), ('hotspot', g.temp_hot), ('power', g.power_w),
-            ('fan', g.fan_rpm)) if value is not None]
+            ('fan', g.fan_rpm if g.fan_rpm is not None else g.fan_pct)) if value is not None]
         print(f"gpu:       {g.card} {g.name} [{g.vendor:04x}:{g.device:04x}]: readable: "
               f"{', '.join(readable) or 'nothing'}" + (f" ({g.note})" if g.note else ""))
     for d in sysm.disks:

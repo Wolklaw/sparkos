@@ -173,6 +173,33 @@ EN: Dict[str, str] = {
     'check.graphics.none': "No graphics driver found.",
     'check.graphics.none.detail': "The system sees no graphics card with a driver loaded. "
                                   "In a virtual machine this is normal.",
+    'check.graphics.nv_standard': "NVIDIA card found, but this SparkOS is the one for AMD and "
+                                  "Intel.",
+    'check.graphics.nv_standard.detail': "The card runs on nouveau, the open driver, which is "
+                                         "slow for games. SparkOS for NVIDIA has NVIDIA's "
+                                         "driver. Switching downloads a few GB in a terminal; "
+                                         "restart when it's done. Your files and apps stay.",
+    'check.graphics.nv_old': "NVIDIA card older than the GTX 16 and RTX 20 series found.",
+    'check.graphics.nv_old.detail': "It runs on nouveau, the open driver, which is slow for "
+                                    "games. SparkOS for NVIDIA doesn't help here: its driver "
+                                    "only supports the GTX 16, RTX 20 and newer cards.",
+    'check.graphics.nv_none': "This is SparkOS for NVIDIA, but no NVIDIA card is plugged in.",
+    'check.graphics.nv_none.detail': "Everything still works. The AMD and Intel version fits "
+                                     "this PC better: switching downloads a few GB in a "
+                                     "terminal; restart when it's done.",
+    'check.graphics.nv_noload': "NVIDIA's driver didn't load.",
+    'check.graphics.nv_noload.detail': "If Secure Boot is on, the driver's key (Universal "
+                                       "Blue's) may not be enrolled: run \"ujust enroll-secure-boot-key\" in a "
+                                       "terminal, restart and choose Enroll MOK (password "
+                                       "universalblue). Otherwise, restarting after an update "
+                                       "often fixes this.",
+    'check.graphics.nv_old_on_nvidia': "This NVIDIA card is too old for the driver in SparkOS "
+                                       "for NVIDIA.",
+    'check.graphics.nv_old_on_nvidia.detail': "NVIDIA's open driver only supports the GTX 16, "
+                                              "RTX 20 and newer cards. The AMD and Intel "
+                                              "version runs it on nouveau, the open driver: "
+                                              "switching downloads a few GB in a terminal; "
+                                              "restart when it's done.",
     'check.sound': "Sound",
     'check.sound.ok': "Sound goes to {device}.",
     'check.sound.ok.detail': "{count} output device(s). Play the test sound to hear it.",
@@ -215,6 +242,8 @@ EN: Dict[str, str] = {
     'fix.add_printer': "Add a printer",
     'fix.network_settings': "Network settings",
     'fix.bluetooth_settings': "Bluetooth settings",
+    'fix.switch_nvidia': "Switch to SparkOS for NVIDIA",
+    'fix.switch_standard': "Switch to SparkOS for AMD and Intel",
 
     # 6. done
     'done.title': "You're set",
@@ -418,6 +447,38 @@ FR: Dict[str, str] = {
     'check.graphics.none': "Aucun pilote graphique trouvé.",
     'check.graphics.none.detail': "Le système ne voit aucune carte graphique avec un pilote "
                                   "chargé. Dans une machine virtuelle, c'est normal.",
+    'check.graphics.nv_standard': "Carte NVIDIA trouvée, mais ce SparkOS est la version pour "
+                                  "AMD et Intel.",
+    'check.graphics.nv_standard.detail': "La carte fonctionne avec nouveau, le pilote libre, "
+                                         "qui est lent pour les jeux. SparkOS pour NVIDIA a le "
+                                         "pilote de NVIDIA. Passer à SparkOS pour NVIDIA "
+                                         "télécharge quelques Go dans un terminal; redémarrez "
+                                         "ensuite. Vos fichiers et vos applications restent.",
+    'check.graphics.nv_old': "Carte NVIDIA d'avant les GTX 16 et RTX 20 trouvée.",
+    'check.graphics.nv_old.detail': "Elle fonctionne avec nouveau, le pilote libre, qui est "
+                                    "lent pour les jeux. SparkOS pour NVIDIA ne l'aide pas : "
+                                    "son pilote ne prend en charge que les GTX 16, les RTX 20 "
+                                    "et les cartes plus récentes.",
+    'check.graphics.nv_none': "C'est SparkOS pour NVIDIA, mais aucune carte NVIDIA n'est "
+                              "branchée.",
+    'check.graphics.nv_none.detail': "Tout fonctionne quand même. La version pour AMD et "
+                                     "Intel convient mieux à ce PC : la passer télécharge "
+                                     "quelques Go dans un terminal; redémarrez ensuite.",
+    'check.graphics.nv_noload': "Le pilote NVIDIA ne s'est pas chargé.",
+    'check.graphics.nv_noload.detail': "Si le Secure Boot est activé, la clé du pilote (celle "
+                                       "d'Universal Blue) n'est peut-être pas inscrite : lancez « ujust "
+                                       "enroll-secure-boot-key » dans un terminal, redémarrez "
+                                       "et choisissez Enroll MOK (mot de passe universalblue). "
+                                       "Sinon, redémarrer après une mise à jour règle souvent "
+                                       "le problème.",
+    'check.graphics.nv_old_on_nvidia': "Cette carte NVIDIA est trop ancienne pour le pilote de "
+                                       "SparkOS pour NVIDIA.",
+    'check.graphics.nv_old_on_nvidia.detail': "Le pilote ouvert de NVIDIA ne prend en charge "
+                                              "que les GTX 16, les RTX 20 et les cartes plus "
+                                              "récentes. La version pour AMD et Intel la fait "
+                                              "fonctionner avec nouveau, le pilote libre : la "
+                                              "passer télécharge quelques Go dans un terminal; "
+                                              "redémarrez ensuite.",
     'check.sound': "Son",
     'check.sound.ok': "Le son sort par {device}.",
     'check.sound.ok.detail': "{count} périphérique(s) de sortie. Faites jouer le son de test "
@@ -465,6 +526,8 @@ FR: Dict[str, str] = {
     'fix.add_printer': "Ajouter une imprimante",
     'fix.network_settings': "Réglages du réseau",
     'fix.bluetooth_settings': "Réglages Bluetooth",
+    'fix.switch_nvidia': "Passer à SparkOS pour NVIDIA",
+    'fix.switch_standard': "Passer à SparkOS pour AMD et Intel",
 
     # 6. done
     'done.title': "C'est prêt",

@@ -14,6 +14,10 @@ name: installer-install-test
 #   shared-esp             one disk: Windows EFI partition + NTFS (half the disk) + free space
 #   two-disks              the owner's PC: a Windows disk, and a data disk with NTFS + free space
 #   two-disks-secure-boot  the same with Secure Boot on (Microsoft keys, like a Windows 11 PC)
+# The first three install SparkOS-installer.iso. nvidia-two-disks-secure-boot installs
+# SparkOS-NVIDIA-installer.iso the same way; the VM has no NVIDIA card, so it checks the install,
+# the signed image it follows, and that NVIDIA's kernel module is signed with the key MokManager
+# enrolled. It can't show the driver working: NVIDIA hardware is untested here.
 on:
   workflow_dispatch:
     inputs:
@@ -53,14 +57,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { leg: shared-esp, layout: shared-esp, sb: false }
-          - { leg: two-disks, layout: two-disks, sb: false }
-          - { leg: two-disks-secure-boot, layout: two-disks, sb: true }
+          - { leg: shared-esp, layout: shared-esp, sb: false, variant: sparkos, suffix: "", iso: SparkOS-installer.iso }
+          - { leg: two-disks, layout: two-disks, sb: false, variant: sparkos, suffix: "", iso: SparkOS-installer.iso }
+          - { leg: two-disks-secure-boot, layout: two-disks, sb: true, variant: sparkos, suffix: "", iso: SparkOS-installer.iso }
+          - { leg: nvidia-two-disks-secure-boot, layout: two-disks, sb: true, variant: sparkos-nvidia, suffix: "-nvidia", iso: SparkOS-NVIDIA-installer.iso }
     env:
       RELEASE: ${{ inputs.release || 'installer' }}
       LAYOUT: ${{ matrix.layout }}
       SB: ${{ matrix.sb && '--sb' || '' }}
       T: .github/scripts/install-test
+      VARIANT: ${{ matrix.variant }}
+      SUFFIX: ${{ matrix.suffix }}
+      ISO_NAME: ${{ matrix.iso }}
     steps:
       - uses: actions/checkout@v4
 
@@ -100,50 +108,54 @@ jobs:
           mkdir -p "$W/iso" && cd "$W/iso"
           # Which ISO: an installer-iso run's artifact (asked for, the run that triggered this,
           # or the newest successful build of this branch when it isn't main), else the release
-          has_iso() { [ -n "$1" ] && gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/artifacts" --jq '.artifacts[] | select(.name=="installer-iso" and .expired==false) | .id' | grep -q .; }
+          ART="installer-iso$SUFFIX"
+          has_iso() { [ -n "$1" ] && gh api "repos/$GITHUB_REPOSITORY/actions/runs/$1/artifacts" --jq ".artifacts[] | select(.name==\"$ART\" and .expired==false) | .id" | grep -q .; }
           run="${{ inputs.iso_run }}"
           [ -z "$run" ] && [ "$GITHUB_EVENT_NAME" = workflow_run ] && run="${{ github.event.workflow_run.id }}"
           if [ -z "$run" ] && [ "$GITHUB_REF_NAME" != main ]; then
             run=$(gh run list -R "$GITHUB_REPOSITORY" -w installer-iso -b "$GITHUB_REF_NAME" -s success -L 1 --json databaseId --jq '.[0].databaseId // empty')
           fi
           has_iso "$run" || run=""
-          # Same steps as a person: download every file, check them, run join-iso.sh
+          # Same steps as a person: download this installer's files, check them, run its join script
+          JOIN="join-iso$SUFFIX"
+          SUMS="SHA256SUMS$SUFFIX"
           for attempt in 1 2 3 4 5 6; do
             rm -f ./*
             # A file replaced mid-download can stall the transfer: give each try 12 minutes
             if [ -n "$run" ]; then
-              timeout 720 gh run download "$run" -R "$GITHUB_REPOSITORY" -n installer-iso -D . && sha256sum -c --ignore-missing SHA256SUMS && break
+              timeout 720 gh run download "$run" -R "$GITHUB_REPOSITORY" -n "$ART" -D . && sha256sum -c --ignore-missing "$SUMS" && break
             else
-              timeout 720 gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" && sha256sum -c --ignore-missing SHA256SUMS && break
+              timeout 720 gh release download "$RELEASE" -R "$GITHUB_REPOSITORY" -p "$ISO_NAME.part*" -p "$JOIN.cmd" -p "$JOIN.sh" -p "$SUMS" && sha256sum -c --ignore-missing "$SUMS" && break
             fi
             echo "::warning::download or check failed (attempt $attempt); the release may be being replaced"
             sleep 60
           done
-          sha=$(grep -oE '[0-9a-f]{64}' join-iso.sh | head -1)
-          # join-iso.sh as a person runs it (its output kept out of the log: a broken one can
+          sha=$(grep -oE '[0-9a-f]{64}' "$JOIN.sh" | head -1)
+          # The join script as a person runs it (its output kept out of the log: a broken one can
           # print the ISO), then the ISO's SHA-256 from the join scripts
-          if timeout 600 sh join-iso.sh >"$W/join-iso-sh.log" 2>&1 && echo "$sha  SparkOS-installer.iso" | sha256sum -c -; then
-            printf 'PASS\tjoin-iso.sh joins the parts and checks the SHA-256\t%s\n' "$(tail -1 "$W/join-iso-sh.log" | cut -c1-80)" >>"$W/results.tsv"
+          if timeout 600 sh "$JOIN.sh" >"$W/join-iso-sh.log" 2>&1 && echo "$sha  $ISO_NAME" | sha256sum -c -; then
+            printf 'PASS\t%s joins the parts and checks the SHA-256\t%s\n' "$JOIN.sh" "$(tail -1 "$W/join-iso-sh.log" | cut -c1-80)" >>"$W/results.tsv"
           else
-            printf 'FAIL\tjoin-iso.sh joins the parts and checks the SHA-256\t%s\n' "it does not (fixed in installer-iso.yml; the test joins the parts itself)" >>"$W/results.tsv"
-            cat $(ls SparkOS-installer.iso.part* | sort) >SparkOS-installer.iso
-            echo "$sha  SparkOS-installer.iso" | sha256sum -c -
+            printf 'FAIL\t%s joins the parts and checks the SHA-256\t%s\n' "$JOIN.sh" "it does not (fixed in installer-iso.yml; the test joins the parts itself)" >>"$W/results.tsv"
+            cat $(ls "$ISO_NAME".part* | sort) >"$ISO_NAME"
+            echo "$sha  $ISO_NAME" | sha256sum -c -
           fi
           rm -f "$W/join-iso-sh.log"
-          grep -q "$sha" join-iso.cmd && printf 'PASS\tjoin-iso.cmd checks the same SHA-256\t%s\n' "${sha:0:16}..." >>"$W/results.tsv"
-          test -s SparkOS-installer.iso
-          rm -f SparkOS-installer.iso.part*
+          grep -q "$sha" "$JOIN.cmd" && printf 'PASS\t%s checks the same SHA-256\t%s\n' "$JOIN.cmd" "${sha:0:16}..." >>"$W/results.tsv"
+          test -s "$ISO_NAME"
+          rm -f "$ISO_NAME".part*
           if [ -n "$run" ]; then
             echo "From installer-iso run $run" | tee "$W/release-notes.md"
             grep -oE 'sha256:[0-9a-f]{64}' image-digest.txt | head -1 >"$W/expected-digest" || true
             name="installer-iso run $run ($(gh run view "$run" -R "$GITHUB_REPOSITORY" --json headBranch,createdAt --jq '.headBranch + ", " + .createdAt'))"
           else
             gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json body --jq .body | tee "$W/release-notes.md"
-            grep -oE 'sha256:[0-9a-f]{64}' "$W/release-notes.md" | head -1 >"$W/expected-digest" || true
+            # The digest on the line that names this installer's image
+            grep -F "ghcr.io/wolklaw/$VARIANT:latest" "$W/release-notes.md" | grep -oE 'sha256:[0-9a-f]{64}' | head -1 >"$W/expected-digest" || true
             name="release: $(gh release view "$RELEASE" -R "$GITHUB_REPOSITORY" --json name --jq .name)"
           fi
-          echo "ISO=$W/iso/SparkOS-installer.iso" >>"$GITHUB_ENV"
-          printf 'INFO\tInstaller ISO\t%s\n' "$name, sha256 $(sha256sum SparkOS-installer.iso | cut -c1-16)..., image $(cut -c1-19 "$W/expected-digest")..." >>"$W/results.tsv"
+          echo "ISO=$W/iso/$ISO_NAME" >>"$GITHUB_ENV"
+          printf 'INFO\tInstaller ISO\t%s\n' "$ISO_NAME from $name, sha256 $(sha256sum "$ISO_NAME" | cut -c1-16)..., image $(cut -c1-19 "$W/expected-digest")..." >>"$W/results.tsv"
           ls -l
 
       - name: Look inside the ISO
@@ -180,7 +192,8 @@ jobs:
       - name: Boot the installed disk without the ISO
         run: |
           /usr/bin/python3 "$T/vm.py" boot --work "$W" --layout "$LAYOUT" $SB \
-            --expect-digest "$(cat "$W/expected-digest" 2>/dev/null)"
+            --expect-digest "$(cat "$W/expected-digest" 2>/dev/null)" \
+            --expect-image "ghcr.io/wolklaw/$VARIANT"
           cat "$W/installed-check.txt" | tr -d '\r' || true
 
       - name: Check nothing that was on the disks changed

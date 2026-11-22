@@ -29,7 +29,7 @@ for var in ('XDG_STATE_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'):
     os.environ[var] = tempfile.mkdtemp(prefix=f'spark-update-{var.lower()}-')
 os.environ['SPARK_UPDATE_REDUCED_MOTION'] = '1'
 
-from sparkupdate import IMAGE, STATE_PATH, VERSION, core, release  # noqa: E402
+from sparkupdate import IMAGE, NVIDIA_IMAGE, STATE_PATH, VERSION, core, release  # noqa: E402
 from sparkupdate import guard, notify, settings, status, updater  # noqa: E402
 from sparkupdate.cli import main as cli_main, other_updaters, self_test  # noqa: E402
 from sparkupdate.core import Env  # noqa: E402
@@ -758,6 +758,26 @@ class CliTests(unittest.TestCase):
         self.assertEqual(code, 0, out)
         self.assertIn('not booted from an image here', out)
         self.assertIn(f'image:     {IMAGE} (from /etc/containers/policy.json', out)
+
+    def test_self_test_on_the_nvidia_build(self):
+        root = make_root()
+        write(root, '/status/rpm-ostree.json', json.dumps(fixture('rpm-ostree-staged.json'))
+              .replace('ghcr.io/wolklaw/sparkos:', 'ghcr.io/wolklaw/sparkos-nvidia:'))
+        code, out = self.run_cli('--self-test', '--root', root)
+        self.assertEqual(code, 0, out)
+        self.assertIn(f'image:     {NVIDIA_IMAGE} (from rpm-ostree status)', out)
+        write(root, '/status/rpm-ostree.json', json.dumps(fixture('rpm-ostree-staged.json'))
+              .replace('ghcr.io/wolklaw/sparkos:', 'ghcr.io/someone/other:'))
+        code, out = self.run_cli('--self-test', '--root', root)
+        self.assertEqual(code, 1, out)                  # SparkOS following someone else's image
+        self.assertIn('expected ghcr.io/wolklaw/sparkos or ghcr.io/wolklaw/sparkos-nvidia', out)
+
+    def test_write_release_records_the_build(self):
+        path = os.path.join(tempfile.mkdtemp(), 'release.json')
+        with redirect_stdout(io.StringIO()):
+            self.assertEqual(cli_main(['--write-release', path, '--image', NVIDIA_IMAGE]), 0)
+        with open(path, encoding='utf-8') as f:
+            self.assertEqual(json.load(f)['image'], NVIDIA_IMAGE)
 
     def system_install(self, root):
         write(root, '/usr/lib/systemd/system/spark-update.timer', '')

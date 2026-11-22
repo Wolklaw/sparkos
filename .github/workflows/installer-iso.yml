@@ -1,14 +1,19 @@
 name: installer-iso
-# Builds the SparkOS installer (live ISO), boots it once in a VM,
-# and uploads it to the "installer" release in parts under 2 GiB (GitHub's limit per
-# release file), with a join script for Windows and Linux. The release is a draft (not
-# public) until the owner publishes it by hand; this workflow never publishes it.
+# Builds the SparkOS installers (live ISOs), boots each once in a VM, and uploads them to the
+# "installer" release in parts under 2 GiB (GitHub's limit per release file), with join scripts
+# for Windows and Linux:
+#   SparkOS-installer.iso         ghcr.io/wolklaw/sparkos         AMD and Intel graphics
+#   SparkOS-NVIDIA-installer.iso  ghcr.io/wolklaw/sparkos-nvidia  NVIDIA graphics (RTX 20 and newer, GTX 16)
+# Each ISO is built in its own job and kept as a run artifact (installer-iso, installer-iso-nvidia)
+# for installer-install-test.yml. On main, the publish job uploads both to the release once both
+# built: a release never has one new ISO and one missing. This workflow never creates a public
+# release, never publishes a draft and never changes a release's visibility.
 # Adapted from Bazzite's build_iso.yml (github.com/ublue-os/bazzite, Apache-2.0).
 on:
   workflow_dispatch:
     inputs:
       publish:
-        description: Publish to the installer release (main only); otherwise keep the ISO as a run artifact
+        description: Publish to the installer release (main only); otherwise keep the ISOs as run artifacts
         type: boolean
         default: true
   schedule:
@@ -22,14 +27,25 @@ concurrency:
   group: installer-iso
   cancel-in-progress: false
 
-env:
-  IMAGE: ghcr.io/wolklaw/sparkos:latest
-  ISO_NAME: SparkOS-installer.iso
-
 jobs:
   iso:
+    name: iso (${{ matrix.variant }})
     runs-on: ubuntu-24.04
     timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: sparkos
+            iso: SparkOS-installer.iso
+            suffix: ""
+          - variant: sparkos-nvidia
+            iso: SparkOS-NVIDIA-installer.iso
+            suffix: "-nvidia"
+    env:
+      IMAGE: ghcr.io/wolklaw/${{ matrix.variant }}:latest
+      ISO_NAME: ${{ matrix.iso }}
+      SUFFIX: ${{ matrix.suffix }}
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
@@ -108,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: installer-boot
+          name: installer-boot${{ matrix.suffix }}
           path: |
             /tmp/iso-shots/
             /tmp/iso-serial.log
@@ -118,15 +134,15 @@ jobs:
         run: |
           ISO="${{ steps.build.outputs.iso-dest }}"
           mkdir -p out && mv "$ISO" "out/$ISO_NAME" && cd out
-          sha256sum "$ISO_NAME" > iso.sha256
-          SHA=$(cut -d' ' -f1 iso.sha256)
+          sha256sum "$ISO_NAME" > "iso$SUFFIX.sha256"
+          SHA=$(cut -d' ' -f1 "iso$SUFFIX.sha256")
           split -b 1900M -d -a 2 "$ISO_NAME" "$ISO_NAME.part"
           rm "$ISO_NAME"
           PARTS=$(ls "$ISO_NAME".part* | sort)
-          sha256sum $PARTS iso.sha256 > SHA256SUMS
+          sha256sum $PARTS "iso$SUFFIX.sha256" > "SHA256SUMS$SUFFIX"
           {
             echo '@echo off'
-            echo 'rem Joins the SparkOS installer parts into SparkOS-installer.iso and checks it.'
+            echo "rem Joins the SparkOS installer parts into $ISO_NAME and checks it."
             echo 'cd /d "%~dp0"'
             echo "echo Joining $(echo $PARTS | wc -w) parts..."
             echo "copy /b $(echo $PARTS | sed 's/ /+/g') $ISO_NAME >nul || goto failed"
@@ -137,56 +153,95 @@ jobs:
             echo ':failed'
             echo 'echo Something is wrong: a part is missing or damaged. Download the parts again.'
             echo 'pause & exit /b 1'
-          } | sed 's/$/\r/' > join-iso.cmd
+          } | sed 's/$/\r/' > "join-iso$SUFFIX.cmd"
           {
             echo '#!/bin/sh'
             echo 'set -e; cd "$(dirname "$0")"'
             # $PARTS is one name per line; unquoted $(echo) puts them on one line
             echo "cat $(echo $PARTS) > $ISO_NAME"
             echo "echo '$SHA  $ISO_NAME' | sha256sum -c -"
-          } > join-iso.sh
-          chmod +x join-iso.sh
+          } > "join-iso$SUFFIX.sh"
+          chmod +x "join-iso$SUFFIX.sh"
           cp /tmp/image-digest image-digest.txt
+          cp /tmp/installer-apps.txt installer-apps.txt
+          echo "$IMAGE" > image.txt
           ls -lh
 
-      # Builds from other branches (and publish=false) are kept as an artifact for
-      # installer-install-test.yml instead of replacing the release
+      # Every build keeps its ISO as a run artifact: installer-install-test.yml installs it, and
+      # the publish job below uploads it to the release
       - name: Keep the ISO as a run artifact
-        if: github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && !inputs.publish)
         uses: actions/upload-artifact@v4
         with:
-          name: installer-iso
+          name: installer-iso${{ matrix.suffix }}
           path: out/
           compression-level: 0
           retention-days: 3
 
-      - name: Publish to the installer release
-        if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)
-        env:
-          GH_TOKEN: ${{ github.token }}
+  publish:
+    name: Publish to the installer release
+    needs: iso
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || inputs.publish)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Make room
+        run: sudo mkdir -p /mnt/out && sudo chown "$USER" /mnt/out && df -h / /mnt
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-iso
+          path: /mnt/out/sparkos
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: installer-iso-nvidia
+          path: /mnt/out/sparkos-nvidia
+
+      - name: Check both ISOs
         run: |
-          cd out
-          SIZE=$(awk '{s+=$1} END {printf "%.1f", s/1024/1024/1024}' < <(stat -c %s "$ISO_NAME".part*))
+          cd /mnt/out
+          (cd sparkos && sha256sum -c SHA256SUMS) && (cd sparkos-nvidia && sha256sum -c SHA256SUMS-nvidia)
+          ls -lR
+
+      - name: Upload and write the notes
+        run: |
+          cd /mnt/out
+          size() { awk '{s+=$1} END {printf "%.1f", s/1024/1024/1024}' < <(stat -c %s "$1"/*.part*); }
+          files() { (cd "$1" && ls *.part* join-iso*.cmd join-iso*.sh SHA256SUMS*); }
           {
-            echo "The SparkOS installer, built $(date -u +%Y-%m-%d) from \`$IMAGE\` (\`$(cat /tmp/image-digest)\`)."
+            echo "The SparkOS installers, built $(date -u +%Y-%m-%d). There are two: pick the one for your graphics card."
             echo
-            echo "**Download all the files below**, then run \`join-iso.cmd\` (Windows) or \`join-iso.sh\` (Linux)."
-            echo "It joins the parts into \`$ISO_NAME\` ($SIZE GiB) and checks its SHA-256."
+            echo "**AMD or Intel graphics:** \`SparkOS-installer.iso\` ($(size sparkos) GiB), from \`$(cat sparkos/image.txt)\` (\`$(cat sparkos/image-digest.txt)\`)."
+            echo "Download the files without \`NVIDIA\` or \`nvidia\` in their name: \`SparkOS-installer.iso.part*\`, \`join-iso.cmd\`, \`join-iso.sh\`, \`SHA256SUMS\`."
+            echo
+            echo "**NVIDIA graphics (GeForce RTX 20 series and newer, GTX 16 series):** \`SparkOS-NVIDIA-installer.iso\` ($(size sparkos-nvidia) GiB), from \`$(cat sparkos-nvidia/image.txt)\` (\`$(cat sparkos-nvidia/image-digest.txt)\`), with NVIDIA's driver."
+            echo "Download the files with \`NVIDIA\` or \`nvidia\` in their name: \`SparkOS-NVIDIA-installer.iso.part*\`, \`join-iso-nvidia.cmd\`, \`join-iso-nvidia.sh\`, \`SHA256SUMS-nvidia\`."
+            echo "Not tested on NVIDIA hardware yet: CI installs it in a VM, which has no NVIDIA card. GeForce GTX 10 series and older cards don't work with this driver; on those, use the AMD and Intel installer (the card then runs on nouveau, the open driver, which is slow for games)."
+            echo
+            echo "Then run the join script (\`.cmd\` on Windows, \`.sh\` on Linux). It joins the parts into the ISO and checks its SHA-256."
             echo "Write the ISO to a USB stick (16 GB or larger) with Fedora Media Writer (Custom image) or Rufus (DD mode)."
             echo "The parts exist because GitHub limits each release file to 2 GiB."
             echo
             echo "**Apps:** SparkOS ships only its own apps, as part of the system: Soot, FreeSuite, Spark Snip, Spark Media, Spark Welcome, Spark Games, Spark Monitor, Spark Edit, Spark Calc, Spark Archive, Spark Scan, Spark Run, Spark Link, Spark Store and Spark Update."
-            echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm."
-            if grep -q . /tmp/installer-apps.txt; then
-              echo; echo "Extra Flatpaks carried by this installer:"; echo '```'; cat /tmp/installer-apps.txt; echo '```'
-            fi
+            echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm. The NVIDIA installer adds only NVIDIA's driver and its tools."
+            for v in sparkos sparkos-nvidia; do
+              if grep -q . "$v/installer-apps.txt"; then
+                echo; echo "Extra Flatpaks carried by the $v installer:"; echo '```'; cat "$v/installer-apps.txt"; echo '```'
+              fi
+            done
           } > notes.md
+          cat notes.md
           gh release view installer >/dev/null 2>&1 || \
             gh release create installer --draft --target main --title "SparkOS installer" --notes "Building..." --latest=false
-          gh release upload installer "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS --clobber
+          for v in sparkos sparkos-nvidia; do
+            (cd "$v" && gh release upload installer $(files .) --clobber)
+          done
           gh release edit installer --notes-file notes.md --title "SparkOS installer ($(date -u +%Y-%m-%d))"
           # Remove parts left over from an older, larger ISO
-          keep=$(ls "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS)
+          keep=$( (files sparkos; files sparkos-nvidia) | xargs -n1 basename)
           gh release view installer --json assets --jq '.assets[].name' | while read -r a; do
             grep -qxF "$a" <<<"$keep" || gh release delete-asset installer "$a" --yes
           done

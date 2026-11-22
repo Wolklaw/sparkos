@@ -413,8 +413,21 @@ def boot(a):
     result(W, "PASS" if c.get("name", "").startswith("SparkOS") else "FAIL", "os-release says SparkOS",
            f"NAME={c.get('name')} ID={c.get('id')} VERSION_ID={c.get('version')}")
     img, dig = c.get("booted_image", ""), c.get("booted_digest", "")
-    result(W, "PASS" if img.startswith("ghcr.io/wolklaw/sparkos") else "FAIL",
-           "bootc follows the signed SparkOS image", f"{c.get('booted_transport')}:{img}")
+    want = a.expect_image or "ghcr.io/wolklaw/sparkos"
+    result(W, "PASS" if img.rsplit(":", 1)[0] == want else "FAIL",
+           "bootc follows the signed SparkOS image", f"{c.get('booted_transport')}:{img} (expected {want})")
+    if want.endswith("-nvidia"):
+        lic = c.get("nvidia_license", "")
+        result(W, "PASS" if lic == "Dual MIT/GPL" else "FAIL", "NVIDIA's open kernel module is installed",
+               f"{c.get('nvidia_module') or 'no nvidia.ko'}, license {lic or '?'}, signer {c.get('nvidia_signer') or '?'}")
+        probe = c.get("nvidia_modprobe", "")
+        if "Key was rejected" in probe:
+            result(W, "FAIL", "Secure Boot accepts NVIDIA's kernel module", probe)
+        elif probe.startswith("0") or "No such device" in probe:
+            result(W, "PASS", "Secure Boot accepts NVIDIA's kernel module",
+                   f"{probe} (no NVIDIA card in the VM, so the driver stops there)")
+        else:
+            result(W, "WARN", "Secure Boot accepts NVIDIA's kernel module", probe or "not tried")
     if a.expect_digest:
         result(W, "PASS" if dig == a.expect_digest else "FAIL", "Booted image is the one the ISO was built from",
                f"{dig[:19]}... (release notes: {a.expect_digest[:19]}...)")
@@ -456,6 +469,7 @@ def main():
     ap.add_argument("--iso")
     ap.add_argument("--sb", action="store_true")
     ap.add_argument("--expect-digest", default="")
+    ap.add_argument("--expect-image", default="", help="the image the installed system must follow")
     ap.add_argument("--timeout", type=int, default=120, help="install minutes")
     a = ap.parse_args()
     sys.exit(install(a) if a.phase == "install" else boot(a))

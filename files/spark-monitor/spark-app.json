@@ -5,7 +5,7 @@
   "name_fr": "Spark Monitor",
   "summary": "Task manager: see what your PC is doing and end apps that stopped responding. Ctrl+Shift+Esc opens it.",
   "summary_fr": "Gestionnaire des tâches : voir ce que fait votre PC et fermer les applications qui ne répondent plus. Ctrl+Maj+Échap l'ouvre.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "installed_size_kb": 420,
   "icon": "icons/spark-monitor-256.png",
   "categories": ["System", "Monitor"],

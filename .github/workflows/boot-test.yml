@@ -1,5 +1,9 @@
 name: boot-test
-# Boots the published SparkOS image in a real VM (QEMU + KVM) and checks it.
+# Boots the published SparkOS images in a real VM (QEMU + KVM) and checks them: one leg for
+# ghcr.io/wolklaw/sparkos, one for ghcr.io/wolklaw/sparkos-nvidia. The VM has no NVIDIA card, so
+# the NVIDIA leg checks what a VM can: it boots and passes the same checks, the driver's packages
+# and kernel modules are there and match, nouveau is kept off. NVIDIA's driver never loads in
+# the VM: NVIDIA hardware is not tested here.
 #
 # Quick run (after every image build): system name and update signing, only SparkOS's own apps
 # present, Spark Media, and boot/idle measurements.
@@ -25,6 +29,11 @@ on:
         description: Image tag to test (a branch build is br-<branch>-<Fedora version>)
         type: string
         default: latest
+      variant:
+        description: Which image to test
+        type: choice
+        options: [both, sparkos, sparkos-nvidia]
+        default: both
       update_from:
         description: Install this tag first, then update to the tested one the way a PC does (empty = install the tested tag directly)
         type: string
@@ -42,14 +51,21 @@ concurrency:
 
 jobs:
   boot:
+    name: boot (${{ matrix.variant }})
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     permissions:
       contents: read
       packages: read
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.variant != 'both' && format('["{0}"]', inputs.variant) || '["sparkos", "sparkos-nvidia"]') }}
     env:
-      IMAGE: ghcr.io/wolklaw/sparkos:${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
+      VARIANT: ${{ matrix.variant }}
+      IMAGE_REPO: ghcr.io/wolklaw/${{ matrix.variant }}
+      IMAGE: ghcr.io/wolklaw/${{ matrix.variant }}:${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
       UPDATE_FROM: ${{ github.event_name == 'workflow_dispatch' && inputs.update_from || '' }}
       SPARK_UPDATE_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.spark_update_test }}
       WORK: /mnt/boot-test
@@ -92,7 +108,7 @@ jobs:
           # Update test: the disk is installed from UPDATE_FROM, then updated to IMAGE
           INSTALL=$IMAGE
           if [ -n "$UPDATE_FROM" ]; then
-            INSTALL=ghcr.io/wolklaw/sparkos:$UPDATE_FROM
+            INSTALL=$IMAGE_REPO:$UPDATE_FROM
             for i in 1 2 3 4 5; do sudo podman pull -q "$INSTALL" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
             sudo podman image inspect "$INSTALL" --format '{{.Digest}} {{.Created}}'
           fi
@@ -101,9 +117,9 @@ jobs:
           # the registry is an update for it
           if [ "$SPARK_UPDATE_TEST" = true ]; then
             [ -z "$UPDATE_FROM" ] || { echo "::error::use update_from or spark_update_test, not both"; exit 1; }
-            [ "$IMAGE" != ghcr.io/wolklaw/sparkos:latest ] || { echo "::error::spark_update_test needs a branch image (image_tag)"; exit 1; }
-            sudo podman tag "$IMAGE" ghcr.io/wolklaw/sparkos:latest
-            INSTALL=ghcr.io/wolklaw/sparkos:latest
+            [ "$IMAGE" != "$IMAGE_REPO:latest" ] || { echo "::error::spark_update_test needs a branch image (image_tag)"; exit 1; }
+            sudo podman tag "$IMAGE" "$IMAGE_REPO:latest"
+            INSTALL=$IMAGE_REPO:latest
           fi
           echo "INSTALL=$INSTALL" >> "$GITHUB_ENV"
           echo "Installing $INSTALL, testing $IMAGE"
@@ -228,13 +244,53 @@ jobs:
           $SSH 'cat /etc/os-release' | tee "$WORK/os-release.txt"
           grep -q '^NAME="SparkOS"$' "$WORK/os-release.txt"
           $SSH 'rpm-ostree status' | tee "$WORK/rpm-ostree-status.txt"
-          grep -q 'ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
-          grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
-          # The policy entry must match the (lowercase) image name exactly, or updates aren't verified
-          $SSH 'jq -c ".transports.docker[\"ghcr.io/wolklaw/sparkos\"]" /etc/containers/policy.json; ls -l /etc/pki/containers/' | tee "$WORK/policy.txt"
-          grep -q '"sigstoreSigned"' "$WORK/policy.txt"
+          grep -q "ostree-image-signed:docker://$IMAGE_REPO:" "$WORK/rpm-ostree-status.txt"
+          # The policy entries must match the (lowercase) image names exactly, or updates aren't
+          # verified. Both builds trust both images (same key), so a PC can switch between them.
+          $SSH 'for i in sparkos sparkos-nvidia; do jq -c ".transports.docker[\"ghcr.io/wolklaw/$i\"]" /etc/containers/policy.json; cat /etc/containers/registries.d/Wolklaw-$i.yaml; done; ls -l /etc/pki/containers/' | tee "$WORK/policy.txt"
+          [ "$(grep -c '"sigstoreSigned"' "$WORK/policy.txt")" = 2 ] || { echo "::error::expected signing entries for sparkos and sparkos-nvidia"; exit 1; }
+          [ "$(grep -c 'use-sigstore-attachments: true' "$WORK/policy.txt")" = 2 ]
           grep -q 'sparkos.pub' "$WORK/policy.txt"
           $SSH 'rpm -q steam lutris gamescope mangohud 2>&1; flatpak --version'
+          # Spark Welcome and Spark Update read which build this is from release.json
+          $SSH 'jq -r .image /usr/share/sparkos/release.json' | tee "$WORK/release-image.txt"
+          grep -qx "$IMAGE_REPO" "$WORK/release-image.txt" || { echo "::error::release.json names another image"; exit 1; }
+
+      # The VM has no NVIDIA card: NVIDIA's driver can't load here. What can be checked is that
+      # the driver is there, matches the kernel, is the open module, and that nouveau stays off.
+      - name: Check the graphics driver
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          $SSH 'set +e
+                echo "== packages"; rpm -q kmod-nvidia nvidia-driver 2>&1
+                echo "== with the driver (shown only)"; rpm -qa "nvidia*" "*-nvidia*" supergfxctl | sort | tr "\n" " "; echo
+                k=$(uname -r); echo "== kernel $k"
+                m=$(modinfo -n nvidia 2>/dev/null); echo "module: ${m:-none}"
+                [ -n "$m" ] && echo "license: $(modinfo -F license nvidia)" && echo "version: $(modinfo -F version nvidia)" && echo "signer: $(modinfo -F signer nvidia)"
+                echo "driver: $(rpm -q --qf "%{VERSION}" nvidia-driver 2>/dev/null)"
+                for x in nvidia-drm nvidia-modeset nvidia-uvm; do echo "$x: $(modinfo -n $x 2>/dev/null || echo none)"; done
+                echo "== loaded"; lsmod | grep -E "^(nvidia|nouveau)" || echo "no nvidia or nouveau module loaded"
+                echo "== cmdline"; cat /proc/cmdline
+                echo "== vulkan icd"; ls /usr/share/vulkan/icd.d/
+                echo "== nvidia-smi"; command -v nvidia-smi && nvidia-smi -L 2>&1 | head -2
+                echo "== failed units"; systemctl --failed --no-legend --plain
+                echo "== spark-monitor"; spark-monitor --self-test 2>&1 | grep -E "^(gpu|nvidia-smi)"' 2>&1 | tee "$WORK/graphics.txt"
+          if [ "$VARIANT" = sparkos-nvidia ]; then
+            ! grep -q 'is not installed' "$WORK/graphics.txt" || { echo "::error::an NVIDIA package is missing"; exit 1; }
+            grep -qx 'license: Dual MIT/GPL' "$WORK/graphics.txt" || { echo "::error::nvidia.ko isn't NVIDIA's open kernel module"; exit 1; }
+            v=$(sed -n 's/^version: //p' "$WORK/graphics.txt"); d=$(sed -n 's/^driver: //p' "$WORK/graphics.txt")
+            [ -n "$v" ] && [ "$v" = "$d" ] || { echo "::error::kernel module $v doesn't match the driver $d"; exit 1; }
+            ! grep -E '^nvidia-(drm|modeset|uvm): none' "$WORK/graphics.txt" || { echo "::error::an NVIDIA kernel module is missing"; exit 1; }
+            ! grep -q '^nouveau' "$WORK/graphics.txt" || { echo "::error::nouveau loaded on the NVIDIA build"; exit 1; }
+            grep -qi 'nvidia' <(sed -n '/== vulkan icd/,/== nvidia-smi/p' "$WORK/graphics.txt") || { echo "::error::no NVIDIA Vulkan driver"; exit 1; }
+            {
+              echo "### NVIDIA build (test VM, no NVIDIA card)"
+              echo "Driver $d, open kernel module, signed by: $(sed -n 's/^signer: //p' "$WORK/graphics.txt")."
+              echo "The driver can't load without an NVIDIA card: NVIDIA hardware is untested here."
+            } >> "$GITHUB_STEP_SUMMARY"
+          else
+            grep -q '^module: none' "$WORK/graphics.txt" || { echo "::error::the AMD/Intel build has an NVIDIA kernel module"; exit 1; }
+          fi
 
       - name: Check Soot and FreeSuite
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -381,7 +437,7 @@ jobs:
           $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"
           grep -q '^updater:   Spark Update' "$WORK/spark-update-self-test.txt"
-          grep -q '^image:     ghcr.io/wolklaw/sparkos (from rpm-ostree status)' "$WORK/spark-update-self-test.txt"
+          grep -qF "image:     $IMAGE_REPO (from rpm-ostree status)" "$WORK/spark-update-self-test.txt"
           grep -q '^others:    no other automatic updater is on' "$WORK/spark-update-self-test.txt"
           $SSH 'spark-update --status'
 
@@ -522,11 +578,11 @@ jobs:
         run: |
           # SparkOS ships only its own apps: no Flatpak apps, none of Bazzite's removed packages, no Portal
           $SSH 'echo "== system Flatpak apps"; flatpak list --system --app --columns=application
-                echo "== removed packages"; rpm -q steam lutris waydroid kate kwrite filelight 2>&1
+                echo "== removed packages"; rpm -q steam lutris waydroid waydroid-nvidia kate kwrite filelight 2>&1
                 echo "== Portal autostart"; ls /etc/skel/.config/autostart/ 2>&1' | tee "$WORK/apps.txt"
           APPS=$(sed -n '/^== system Flatpak apps/,/^== removed packages/p' "$WORK/apps.txt" | grep -v '^==' || true)
           [ -z "$APPS" ] || { echo "::error::preinstalled Flatpaks found:"; echo "$APPS"; exit 1; }
-          ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
+          ! grep -E '^(steam|lutris|waydroid|waydroid-nvidia|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
           ! grep -q 'bazzite-portal' "$WORK/apps.txt"
           # What stays: the platform SparkOS needs, and the owner's apps
           $SSH 'rpm -q dolphin konsole plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
@@ -702,7 +758,7 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
-          name: desktop-screenshots
+          name: desktop-screenshots-${{ matrix.variant }}
           path: /mnt/boot-test/desktop-screenshots/
           if-no-files-found: warn
 
@@ -712,7 +768,7 @@ jobs:
           # The VM follows latest but runs the tested image, so the real latest is an update.
           # Spark Update's own engine must find it, download it, check its signature, stage it,
           # and the PC must start it after a restart.
-          WANT=$(skopeo inspect --no-creds --format '{{.Digest}}' docker://ghcr.io/wolklaw/sparkos:latest)
+          WANT=$(skopeo inspect --no-creds --format '{{.Digest}}' "docker://$IMAGE_REPO:latest")
           echo "latest in the registry: $WANT"
           $SSH 'rpm-ostree status --booted; df -h /sysroot'
           # what the Spark Update window's "Check now" starts (the signed-in user needs no password;
@@ -728,7 +784,7 @@ jobs:
           [ "$up" = 1 ] || { echo "::error::no SSH after restarting into the update"; tail -50 "$WORK/serial.log"; exit 1; }
           $SSH 'rpm-ostree status --booted' | tee "$WORK/spark-update-booted.txt"
           grep -q "$WANT" "$WORK/spark-update-booted.txt" || { echo "::error::the PC didn't start the update"; exit 1; }
-          grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos:latest' "$WORK/spark-update-booted.txt"
+          grep -qF "ostree-image-signed:docker://$IMAGE_REPO:latest" "$WORK/spark-update-booted.txt"
           echo "Spark Update downloaded, staged and started $WANT"
 
       - name: Screenshot at the end
@@ -742,7 +798,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: boot-test-results
+          name: boot-test-results-${{ matrix.variant }}
           path: |
             /mnt/boot-test/shots/
             /mnt/boot-test/*.txt

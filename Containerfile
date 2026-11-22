@@ -2,6 +2,9 @@
 #
 # Base: Bazzite (KDE Plasma, AMD/Intel GPUs, current Mesa drivers, gaming kernel).
 # Built and signed by .github/workflows/build.yml and published as ghcr.io/wolklaw/sparkos:latest.
+# The same file builds SparkOS for NVIDIA, ghcr.io/wolklaw/sparkos-nvidia:latest, from Bazzite's
+# bazzite-nvidia-open (NVIDIA's open kernel modules: GeForce RTX 20 series and newer, GTX 16):
+#   --build-arg BASE_IMAGE=ghcr.io/ublue-os/bazzite-nvidia-open:stable --build-arg IMAGE_NAME=sparkos-nvidia
 # docs/building.md explains each step.
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
@@ -26,6 +29,8 @@ ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
 # nothing in files/ is copied into the image except what the steps install.
 ARG CONFIG_DIRECTORY=/tmp/files
 ARG IMAGE_REGISTRY=ghcr.io/wolklaw
+# sparkos, or sparkos-nvidia for the NVIDIA build. The scripts read it (spark-update.sh records it
+# in release.json, sparkos-nvidia.sh checks the driver is there).
 ARG IMAGE_NAME=sparkos
 
 # 1. The public key that signed updates are checked against.
@@ -45,7 +50,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 #    Removed:
 #    - steam, lutris, waydroid, input-remapper, kate, kwrite, filelight, kfind, krdc, krfb,
 #      kwalletmanager5, kdebugsettings, khelpcenter: other projects' apps that Bazzite ships, all
-#      installable from the Store
+#      installable from the Store (Bazzite's NVIDIA image has waydroid-nvidia instead of waydroid)
 #    - plasma-systemmonitor (Spark Monitor replaces it) and spectacle (Spark Snip captures through
 #      KWin): KDE apps a Spark app replaces; nothing else in the image requires them
 #    - tailscale: a company's VPN service Bazzite preinstalls (docs/switching.md says how to add it)
@@ -62,10 +67,11 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
     dnf -y makecache && \
+    WAYDROID=$(rpm -q waydroid-nvidia >/dev/null 2>&1 && echo waydroid-nvidia || echo waydroid) && \
     dnf -y remove \
         steam \
         lutris \
-        waydroid \
+        "$WAYDROID" \
         input-remapper \
         kate \
         kwrite \
@@ -108,6 +114,8 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
 
 # 5. SparkOS's own scripts (files/scripts), in this order:
 #    - sparkos-identity: shows "SparkOS" as the system name
+#    - sparkos-nvidia: checks the build has the graphics driver its name says (NVIDIA's driver and
+#      kernel module in sparkos-nvidia, none in sparkos); installs nothing
 #    - sparkos-apps: no preinstalled third-party apps (empties Bazzite's first-boot list, drops the Portal)
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
@@ -124,6 +132,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
     /tmp/build_files/run-scripts.sh \
         sparkos-identity.sh \
+        sparkos-nvidia.sh \
         sparkos-apps.sh \
         soot.sh \
         freesuite.sh \
@@ -148,9 +157,10 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/flathub.sh
 
-# 7. The signing policy, so updates are only accepted when signed with SparkOS's key.
+# 7. The signing policy, so updates are only accepted when signed with SparkOS's key. Both
+#    builds trust both images (same key), so a PC can switch between them with a signed rebase.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
-    /tmp/build_files/signing.sh "${IMAGE_REGISTRY}" "${IMAGE_NAME}"
+    /tmp/build_files/signing.sh "${IMAGE_REGISTRY}" sparkos sparkos-nvidia
 
 # 8. Clean up: links for anything installed in /opt, empty /tmp and /var, and keep rpm-ostree's
 #    package database in step with what's installed.
@@ -162,11 +172,12 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 ARG BUILD_DATE=unknown
 ARG REVISION=unknown
 ARG BASE_DIGEST=unknown
-LABEL org.opencontainers.image.title="sparkos" \
+ARG BASE_NAME=ghcr.io/ublue-os/bazzite:stable
+LABEL org.opencontainers.image.title="${IMAGE_NAME}" \
       org.opencontainers.image.description="SparkOS, a desktop for gaming and everyday work, built on Bazzite." \
       org.opencontainers.image.source="https://github.com/Wolklaw/sparkos" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.base.name="ghcr.io/ublue-os/bazzite:stable" \
+      org.opencontainers.image.base.name="${BASE_NAME}" \
       org.opencontainers.image.base.digest="${BASE_DIGEST}" \
       io.artifacthub.package.readme-url="https://raw.githubusercontent.com/Wolklaw/sparkos/main/README.md"

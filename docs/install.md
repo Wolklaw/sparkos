@@ -4,9 +4,34 @@ SparkOS goes into empty space you make on one of your drives. Windows stays, wit
 and you pick which one to start at power-on. Nothing in these steps erases a drive, as long as
 you don't pick "Erase data and install" in step 4 of "Install".
 
-What you need: a PC with an AMD or Intel graphics card (the image is the non-NVIDIA one), a
-64-bit UEFI firmware, a USB stick of 16 GB or more (it gets erased), and at least 100 GB of free
-space on a drive. 200 GB or more leaves room for games.
+What you need: a 64-bit PC with UEFI firmware, a USB stick of 16 GB or more (it gets erased),
+and at least 100 GB of free space on a drive. 200 GB or more leaves room for games.
+
+## Which installer
+
+The release has two installers. Pick the one for the graphics card that drives your screen:
+
+| Your graphics | Installer | Files to download |
+|---|---|---|
+| AMD Radeon, or Intel (built-in or Arc) | `SparkOS-installer.iso` | `SparkOS-installer.iso.part*`, `join-iso.cmd`, `join-iso.sh`, `SHA256SUMS` |
+| NVIDIA GeForce RTX 20, 30, 40 or 50 series, or GTX 16 series | `SparkOS-NVIDIA-installer.iso` | `SparkOS-NVIDIA-installer.iso.part*`, `join-iso-nvidia.cmd`, `join-iso-nvidia.sh`, `SHA256SUMS-nvidia` |
+| NVIDIA GeForce GTX 10 series or older | `SparkOS-installer.iso` (see below) | as for AMD and Intel |
+
+Not sure? In Windows, open Task Manager > Performance > GPU: the name is at the top right.
+A laptop with Intel graphics and an NVIDIA card takes the NVIDIA installer.
+
+**The NVIDIA installer is untested on NVIDIA hardware.** It's SparkOS built on Bazzite's NVIDIA
+image (`bazzite-nvidia-open`, with NVIDIA's open kernel modules), and CI installs and boots it in
+a VM, but a VM has no NVIDIA card, so the driver itself has only been checked to be there, not to
+work. If you try it, please say how it went in an issue.
+
+GTX 10 series and older cards need NVIDIA's older closed driver, which SparkOS doesn't build
+(Bazzite does, as `bazzite-nvidia`). With the AMD and Intel installer they run on nouveau, the
+open driver: the desktop works, games are slow.
+
+You can switch between the two later without reinstalling: Spark Welcome's graphics check offers
+it when the card and the version don't match, and [switching.md](switching.md#nvidia) has the
+command.
 
 ## Before (in Windows, about an hour)
 
@@ -33,10 +58,11 @@ space on a drive. 200 GB or more leaves room for games.
 
 ## Make the USB stick
 
-1. Download every file of the release (the ISO comes in parts because GitHub limits each file to
-   2 GB) into one folder.
-2. On Windows, double-click **`join-iso.cmd`**; on Linux, run `sh join-iso.sh`. It joins the parts
-   into `SparkOS-installer.iso` and checks it. It must say **OK**.
+1. Download your installer's files from the release (see "Which installer"; the ISO comes in
+   parts because GitHub limits each file to 2 GB) into one folder.
+2. On Windows, double-click **`join-iso.cmd`** (`join-iso-nvidia.cmd` for NVIDIA); on Linux, run
+   `sh join-iso.sh` (`sh join-iso-nvidia.sh`). It joins the parts into `SparkOS-installer.iso`
+   (`SparkOS-NVIDIA-installer.iso`) and checks it. It must say **OK**.
 3. Write it to the stick with **Rufus** (choose **DD Image mode**; Rufus picks it by itself and says
    so) or **Fedora Media Writer** ("Select .iso file"). Windows may then offer to format the stick
    because it can't read Linux partitions: click Cancel.
@@ -65,7 +91,8 @@ space on a drive. 200 GB or more leaves room for games.
    **Install**. When it's done, restart and take the stick out.
 8. **Secure Boot:** if a blue **"Perform MOK management"** screen appears on the first start,
    choose **Enroll MOK > Continue > Yes**, type the password `universalblue` (Universal Blue's
-   documented key password; it lets the SparkOS kernel start with Secure Boot on), then **Reboot**.
+   documented key password; it lets the SparkOS kernel, and NVIDIA's driver in the NVIDIA
+   version, start with Secure Boot on), then **Reboot**.
    It happens once. With Secure Boot off it may not appear; enroll anyway if it does.
    - Missed it? The next start gives only 10 seconds ("Press any key to perform MOK
      management"), and with Secure Boot on, GRUB then says "bad shim signature". To get the
@@ -89,6 +116,11 @@ space on a drive. 200 GB or more leaves room for games.
 - **The PC starts straight into Windows:** use the boot menu key and pick **SparkOS**, or move
   SparkOS first in the firmware's boot order.
 - **"bad shim signature" at startup:** the Secure Boot key wasn't enrolled; see step 8 of "Install".
+- **NVIDIA: the installer's screen is slow or low-resolution:** normal. The USB stick runs on
+  nouveau, the open driver; the installed system has NVIDIA's driver. If the stick shows a black
+  screen, pick **Install SparkOS (basic graphics mode)** in its boot menu.
+- **NVIDIA: Spark Welcome says NVIDIA's driver didn't load:** with Secure Boot on, the key from
+  step 8 is probably missing. Run `ujust enroll-secure-boot-key`, restart and enroll it.
 - **A bad update:** at startup, pick the previous version in SparkOS's boot menu. Updates never
   remove the version you had.
 - **Windows asks for a BitLocker key:** type the recovery key from step 2 of "Before".

@@ -188,6 +188,44 @@ class SystemTests(FixtureCase):
         sysm.read_gpu(nvidia, True)
         self.assertIsNone(nvidia.busy)
 
+    def test_nvidia_smi(self):
+        text = ("00000000:01:00.0, 37, 2210, 24564, 51, 118.42, 30, 2520\n"
+                "00000000:0A:00.0, [N/A], 10, 4096, 40, [Not Supported], [N/A], 300\n"
+                "garbage line\n")
+        found = sysm.parse_nvidia_smi(text)
+        self.assertEqual(sorted(found), ['0000:01:00.0', '0000:0a:00.0'])
+        self.assertEqual(sysm.nvsmi_slot('00000000:0A:00.0'), '0000:0a:00.0')
+        self.assertEqual(sysm.nvsmi_slot('nope'), '')
+        g = sysm.Gpu(card='card1', folder='/x', vendor=0x10de, device=0x2684, name='RTX 4090')
+        sysm.apply_nvidia_smi(g, found['0000:01:00.0'])
+        self.assertEqual((g.busy, g.temp, g.power_w, g.fan_pct, g.clock_mhz),
+                         (37.0, 51.0, 118.42, 30.0, 2520.0))
+        self.assertEqual((g.vram_used, g.vram_total), (2210 * 1024 * 1024, 24564 * 1024 * 1024))
+        sysm.apply_nvidia_smi(g, found['0000:0a:00.0'])
+        self.assertIsNone(g.busy)
+        self.assertIsNone(g.power_w)
+        sysm.apply_nvidia_smi(g, None)                 # nothing read yet: left as it was
+        self.assertEqual(g.temp, 40.0)
+
+    def test_nvidia_smi_thread(self):
+        smi = sysm.NvidiaSmi(self.src, command='nvidia-smi-that-is-not-here')
+        smi.read_once()
+        self.assertTrue(smi.error)
+        self.assertIsNone(smi.get('0000:01:00.0'))     # starts the thread, never blocks
+        smi.IDLE_STOP = 0.0
+        smi._thread.join(5)
+        self.assertFalse(smi._thread.is_alive())
+        # a sleeping card isn't woken up
+        power = os.path.join(self.root, 'sys/bus/pci/devices/0000:01:00.0/power')
+        if os.name != 'nt':
+            os.makedirs(power)
+            with open(os.path.join(power, 'runtime_status'), 'w') as f:
+                f.write('suspended\n')
+            self.assertFalse(smi.awake())
+            with open(os.path.join(power, 'runtime_status'), 'w') as f:
+                f.write('active\n')
+            self.assertTrue(smi.awake())
+
     def test_disks(self):
         s = sysm.SystemSampler(self.src)
         self.assertEqual([d.name for d in s.disks], ['nvme0n1', 'sda'])

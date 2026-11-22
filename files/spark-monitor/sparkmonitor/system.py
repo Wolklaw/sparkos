@@ -7,6 +7,9 @@ it also reads clocks, temperatures, power and fans."""
 import os
 import re
 import shutil
+import subprocess
+import threading
+import time
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -174,14 +177,19 @@ class Gpu:
     temp_hot: Optional[float] = None  # AMD junction (hotspot)
     power_w: Optional[float] = None
     fan_rpm: Optional[int] = None
+    fan_pct: Optional[float] = None   # NVIDIA reports fan speed in % (nvidia-smi), not RPM
     note: str = ""
+    slot: str = ""                    # PCI address, 0000:01:00.0
+    driver: str = ""                  # kernel driver: amdgpu, i915, nvidia, nouveau
 
     @property
     def vendor_name(self) -> str:
         return VENDORS.get(self.vendor, f"{self.vendor:04x}")
 
 
-def find_gpus(src: Source) -> List[Gpu]:
+def find_gpus(src: Source, nvidia_smi: bool = False) -> List[Gpu]:
+    """The graphics cards in /sys/class/drm. nvidia_smi: nvidia-smi is there to read NVIDIA's
+    numbers (only on a real system)."""
     base = os.path.join(src.sys, 'class', 'drm')
     gpus = []
     for card in sorted(listdir(base), key=natural):
@@ -201,14 +209,134 @@ def find_gpus(src: Source) -> List[Gpu]:
         product = read_line(os.path.join(folder, 'product_name'))
         if product:
             gpu.name = product
+        slot = os.path.basename(os.path.realpath(folder))
+        gpu.slot = slot if PCI_SLOT.fullmatch(slot) else ''
+        try:
+            gpu.driver = os.path.basename(os.readlink(os.path.join(folder, 'driver')))
+        except OSError:
+            gpu.driver = ''
         if vendor == 0x10de and not os.path.exists(os.path.join(folder, 'gpu_busy_percent')):
-            gpu.note = t('perf.nvidia_note')
+            if gpu.driver == 'nouveau':
+                gpu.note = t('perf.nouveau_note')
+            elif nvidia_smi and gpu.slot and gpu.driver == 'nvidia':
+                gpu.note = t('perf.nvidia_smi_note')
+            else:
+                gpu.note = t('perf.nvidia_note')
         elif vendor == 0x8086:
             gpu.note = t('perf.intel_note')
         gpus.append(gpu)
     # the dedicated card first: the one with the most video memory
     gpus.sort(key=lambda g: -(read_int(os.path.join(g.folder, 'mem_info_vram_total')) or 0))
     return gpus
+
+
+PCI_SLOT = re.compile(r'[0-9a-f]{4}:[0-9a-f]{2}:[0-9a-f]{2}\.[0-7]')
+
+
+# ─── NVIDIA: its driver publishes nothing in /sys, nvidia-smi does ───
+
+NVSMI_FIELDS = ('pci.bus_id', 'utilization.gpu', 'memory.used', 'memory.total',
+                'temperature.gpu', 'power.draw', 'fan.speed', 'clocks.gr')
+MIB = 1024 * 1024
+
+
+def nvsmi_slot(bus_id: str) -> str:
+    """nvidia-smi's '00000000:01:00.0' -> sysfs's '0000:01:00.0'."""
+    match = re.fullmatch(r'([0-9a-fA-F]+):([0-9a-fA-F]{2}):([0-9a-fA-F]{2})\.([0-7])',
+                         bus_id.strip())
+    if not match:
+        return ''
+    return (f"{int(match.group(1), 16):04x}:{match.group(2).lower()}:"
+            f"{match.group(3).lower()}.{match.group(4)}")
+
+
+def parse_nvidia_smi(text: str) -> Dict[str, Dict[str, Optional[float]]]:
+    """`nvidia-smi --query-gpu=<NVSMI_FIELDS> --format=csv,noheader,nounits` -> PCI slot ->
+    field -> number (None for [N/A] and [Not Supported])."""
+    out: Dict[str, Dict[str, Optional[float]]] = {}
+    for line in text.splitlines():
+        parts = [p.strip() for p in line.split(',')]
+        if len(parts) != len(NVSMI_FIELDS):
+            continue
+        slot = nvsmi_slot(parts[0])
+        if not slot:
+            continue
+        values: Dict[str, Optional[float]] = {}
+        for name, raw in zip(NVSMI_FIELDS[1:], parts[1:]):
+            try:
+                values[name] = float(raw)
+            except ValueError:
+                values[name] = None
+        out[slot] = values
+    return out
+
+
+def apply_nvidia_smi(gpu: Gpu, values: Optional[Dict[str, Optional[float]]]) -> None:
+    if not values:
+        return
+    gpu.busy = values.get('utilization.gpu')
+    used, total = values.get('memory.used'), values.get('memory.total')
+    gpu.vram_used = int(used * MIB) if used is not None else None
+    gpu.vram_total = int(total * MIB) if total else None
+    gpu.temp = values.get('temperature.gpu')
+    gpu.power_w = values.get('power.draw')
+    gpu.fan_pct = values.get('fan.speed')
+    gpu.clock_mhz = values.get('clocks.gr')
+
+
+class NvidiaSmi:
+    """Runs nvidia-smi every INTERVAL seconds in a thread, so the window never waits for it,
+    and only while someone asks (the thread ends IDLE_STOP seconds after the last get()).
+    A card that's asleep (laptops power the NVIDIA card down) isn't asked: nvidia-smi
+    would wake it and use the battery."""
+    INTERVAL = 2.0
+    IDLE_STOP = 10.0
+
+    def __init__(self, src: Source, command: str = 'nvidia-smi'):
+        self.src = src
+        self.command = command
+        self.latest: Dict[str, Dict[str, Optional[float]]] = {}
+        self.error = ''
+        self._wanted = 0.0
+        self._slots: List[str] = []
+        self._thread: Optional[threading.Thread] = None
+
+    def get(self, slot: str) -> Optional[Dict[str, Optional[float]]]:
+        self._wanted = time.monotonic()
+        if slot not in self._slots:
+            self._slots.append(slot)
+        if self._thread is None or not self._thread.is_alive():
+            self._thread = threading.Thread(target=self._loop, name='nvidia-smi', daemon=True)
+            self._thread.start()
+        return self.latest.get(slot)
+
+    def awake(self) -> bool:
+        states = [read_line(os.path.join(self.src.sys, 'bus', 'pci', 'devices', s, 'power',
+                                         'runtime_status')) for s in self._slots]
+        return not states or any(s != 'suspended' for s in states)
+
+    def read_once(self) -> None:
+        try:
+            done = subprocess.run([self.command, '--query-gpu=' + ','.join(NVSMI_FIELDS),
+                                   '--format=csv,noheader,nounits'], capture_output=True,
+                                  text=True, timeout=10, stdin=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError) as exc:
+            self.error = str(exc)
+            return
+        if done.returncode != 0:
+            lines = (done.stderr or done.stdout or '').strip().splitlines()
+            self.error = lines[0] if lines else f"exit {done.returncode}"
+            return
+        self.latest = parse_nvidia_smi(done.stdout)
+        self.error = ''
+
+    def _loop(self) -> None:
+        while time.monotonic() - self._wanted < self.IDLE_STOP:
+            if self.awake():
+                self.read_once()
+            else:
+                self.latest = {}
+            time.sleep(self.INTERVAL)
 
 
 def pci_names(src: Source, gpus: List[Gpu]) -> None:
@@ -482,7 +610,11 @@ class SystemSampler:
         self.cpu_folders: List[str] = []
         self.cpu_max_mhz: Optional[float] = None
         self.cpu_temp_path: Optional[str] = None
-        self.gpus = find_gpus(src)
+        smi = None if src.fake else shutil.which('nvidia-smi')
+        self.gpus = find_gpus(src, nvidia_smi=bool(smi))
+        # NVIDIA cards with NVIDIA's driver: their numbers come from nvidia-smi (SparkOS for NVIDIA)
+        self.nvsmi: Optional[NvidiaSmi] = NvidiaSmi(src, smi) if smi and any(
+            g.vendor == 0x10de and g.driver == 'nvidia' and g.slot for g in self.gpus) else None
         self.disks, self.zram = find_disks(src)
         self.nics = find_nics(src, netdev(src))
         self._prev_cpu: List[Tuple[int, int]] = []
@@ -530,6 +662,8 @@ class SystemSampler:
 
         for gpu in self.gpus:
             read_gpu(gpu, full)
+            if self.nvsmi and gpu.driver == 'nvidia' and gpu.slot and gpu.busy is None:
+                apply_nvidia_smi(gpu, self.nvsmi.get(gpu.slot))
         snap.gpus = self.gpus
 
         stats = diskstats(src)

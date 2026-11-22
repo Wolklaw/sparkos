@@ -244,7 +244,8 @@ class PerfView(tk.Frame):
                 (t('perf.temperature'), lambda: core.temp(g.temp)),
                 (t('perf.hotspot'), lambda: core.temp(g.temp_hot)),
                 (t('perf.power'), lambda: core.watts(g.power_w)),
-                (t('perf.fan'), lambda: "—" if g.fan_rpm is None else f"{g.fan_rpm} RPM"),
+                (t('perf.fan'), lambda: f"{g.fan_rpm} RPM" if g.fan_rpm is not None else
+                 core.pct(g.fan_pct, 0) if g.fan_pct is not None else "—"),
             ]
             vram = (t('perf.vram'), [f'gpu{i}.vram'], 100.0, None) if g.vram_total else None
             return Pane(self, key, t('perf.gpu', n=i), g.name, PALETTE['gpu'], [f'gpu{i}'],

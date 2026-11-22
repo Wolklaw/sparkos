@@ -4,6 +4,11 @@ SparkOS is one container image, `ghcr.io/wolklaw/sparkos:latest`, built from Spa
 [Containerfile](../Containerfile) with plain `podman build`, signed with SparkOS's key, and
 published by [build.yml](../.github/workflows/build.yml). Every SparkOS PC updates from it.
 
+The same Containerfile also builds SparkOS for NVIDIA, `ghcr.io/wolklaw/sparkos-nvidia:latest`,
+in a second job of the same workflow: the base is Bazzite's `bazzite-nvidia-open` instead of
+`bazzite`, and `IMAGE_NAME=sparkos-nvidia`. Nothing else differs. PCs with an NVIDIA card update
+from that one.
+
 Until 2026-11-20 the image was built by [BlueBuild](https://blue-build.org) from a recipe. BlueBuild
 was one more project SparkOS depended on ([PLAN.md, Independence roadmap](../PLAN.md)), and what it
 generated for SparkOS was ordinary container build steps, so SparkOS now owns them: about 150 lines
@@ -14,14 +19,14 @@ builds ran side by side and were compared (see [Before the switch](#before-the-s
 
 | # | Step | What it does |
 |---|---|---|
-| 1 | `FROM ghcr.io/ublue-os/bazzite@sha256:…` | the base: the workflow resolves `bazzite:stable` to a digest when the build starts and records it in the labels |
+| 1 | `FROM ghcr.io/ublue-os/bazzite@sha256:…` | the base: the workflow resolves `bazzite:stable` (`bazzite-nvidia-open:stable` for NVIDIA) to a digest when the build starts and records it in the labels |
 | 2 | `COPY cosign.pub` | the public key updates are checked against, as `/etc/pki/containers/sparkos.pub` |
 | 3 | [pre-build.sh](../build_files/pre-build.sh) | makes `/opt` a link to `/usr/lib/opt` during the build, so things installed in `/opt` land in the image |
 | 4 | [copy-files.sh](../build_files/copy-files.sh) | copies `files/system/*` into the image root |
 | 5 | `dnf` | removes 16 packages (other projects' apps, and the KDE apps a Spark app replaces) and installs 23; the Containerfile says why each one is there |
-| 6 | [run-scripts.sh](../build_files/run-scripts.sh) | runs SparkOS's 20 scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files` |
+| 6 | [run-scripts.sh](../build_files/run-scripts.sh) | runs SparkOS's 21 scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files` (`sparkos-nvidia.sh` checks the build has the driver its name says) |
 | 7 | [flathub.sh](../build_files/flathub.sh) | two services, `system-flatpak-setup` and `user-flatpak-setup`, that add Flathub at boot and at login ([flathub-setup](../build_files/flathub-setup), 40 lines of shell); installs no apps |
-| 8 | [signing.sh](../build_files/signing.sh) | the `sigstoreSigned` entry for `ghcr.io/wolklaw/sparkos` in `/etc/containers/policy.json`, and `registries.d/Wolklaw-sparkos.yaml` |
+| 8 | [signing.sh](../build_files/signing.sh) | the `sigstoreSigned` entries for `ghcr.io/wolklaw/sparkos` and `ghcr.io/wolklaw/sparkos-nvidia` in `/etc/containers/policy.json`, and `registries.d/Wolklaw-sparkos.yaml` and `Wolklaw-sparkos-nvidia.yaml` (both builds trust both, so a PC can switch with a signed rebase) |
 | 9 | [post-build.sh](../build_files/post-build.sh) | tmpfiles links for `/opt/*`, empties `/tmp` and `/var`, makes `/opt` the usual link into `/var`, hard-links the rpm database for rpm-ostree |
 | 10 | `LABEL`s | title, description, source, base name and digest, build date, and `revision` (the SparkOS commit) |
 

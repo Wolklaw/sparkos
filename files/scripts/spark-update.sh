@@ -38,7 +38,8 @@
 #   6. /usr/share/sparkos/release.json: what's in this image (Soot, FreeSuite, the Spark apps,
 #      kernel, Mesa, Plasma), which the window compares between versions.
 # The self-test then fails the build unless exactly one updater's timer is on, the
-# notification timer is on, and the image name is ghcr.io/wolklaw/sparkos.
+# notification timer is on, and the image name is ghcr.io/wolklaw/$IMAGE_NAME (sparkos, or
+# sparkos-nvidia for the NVIDIA build; the Containerfile sets IMAGE_NAME).
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-update"
@@ -139,7 +140,8 @@ esac
 echo "SparkOS updates and rollbacks are in Spark Update: open it from the menu, or run"
 echo "  spark-update --status     what's running and what starts next"
 echo "  spark-update --rollback   start the previous version at the next restart"
-echo "Switching to another image (rebase) isn't offered: SparkOS follows ghcr.io/wolklaw/sparkos."
+echo "Switching to another image (rebase) isn't offered: SparkOS follows the image it was installed"
+echo "from (ghcr.io/wolklaw/sparkos, or ghcr.io/wolklaw/sparkos-nvidia for NVIDIA graphics)."
 exit 1
 EOF
   chmod 0755 "$helper"
@@ -160,7 +162,8 @@ fi
 
 # ── 6. What's in this image ──
 install -d /usr/share/sparkos
-/usr/bin/spark-update --write-release /usr/share/sparkos/release.json
+IMAGE="ghcr.io/wolklaw/${IMAGE_NAME:-sparkos}"
+/usr/bin/spark-update --write-release /usr/share/sparkos/release.json --image "$IMAGE"
 test -s /usr/share/sparkos/release.json
 
 # ── Checks: the build fails if any of this didn't take ──
@@ -182,7 +185,7 @@ report=$(/usr/bin/spark-update --self-test) || { echo "$report"; echo "Spark Upd
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
 grep -q '^others:    no other automatic updater is on' <<<"$report"
-grep -q '^image:     ghcr.io/wolklaw/sparkos ' <<<"$report"
+grep -qF "image:     $IMAGE (" <<<"$report"
 if [ "$ENGINE" = uupd ]; then
   grep -q "^updater:   Universal Blue's uupd" <<<"$report"
 else

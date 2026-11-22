@@ -2,7 +2,8 @@
 # Sets up the SparkOS live installer: Anaconda, the install kickstart, and live-session tweaks.
 # Adapted from Bazzite's installer/titanoboa_hook_postrootfs.sh (github.com/ublue-os/bazzite,
 # Apache-2.0). Kept: Anaconda, the BitLocker warning, Secure Boot key enrollment, the Flatpak
-# copy. Left out: NVIDIA and Steam Deck handling, Bazzite's wallpaper and panel pins.
+# copy, the NVIDIA live-session fixes (for the SparkOS for NVIDIA installer). Left out: Steam
+# Deck handling, Bazzite's wallpaper and panel pins.
 set -exo pipefail
 
 source /etc/os-release
@@ -153,7 +154,28 @@ cat /etc/plasmalogin.conf
 test -f /usr/share/wayland-sessions/plasma.desktop || { echo "plasma.desktop session not found"; exit 1; }
 
 rm -vf /etc/skel/.config/autostart/steam*.desktop
-dnf -yq remove steam lutris bazaar waydroid || :
+dnf -yq remove steam lutris bazaar waydroid waydroid-nvidia || :
+
+# SparkOS for NVIDIA: the live USB runs Fedora's signed kernel (titanoboa_hook_preinitramfs.sh),
+# which NVIDIA's kernel module isn't built for, so the live session uses nouveau, the open driver,
+# like Bazzite's NVIDIA installer: put back the firmware and nouveau's Vulkan driver that the
+# NVIDIA image removes, and draw GTK apps with GL. Live image only; the installed system has
+# NVIDIA's driver.
+if [[ $imageref == *-nvidia* ]]; then
+    mkdir -p /etc/environment.d /etc/skel/.config/environment.d
+    echo "GSK_RENDERER=gl" >>/etc/environment.d/99-nvidia-fix.conf
+    echo "GSK_RENDERER=gl" >>/etc/skel/.config/environment.d/99-nvidia-fix.conf
+    for pkg in nvidia-gpu-firmware mesa-vulkan-drivers; do
+        dnf -yq reinstall --allowerasing $pkg ||
+            dnf -yq install --allowerasing $pkg || :
+    done
+    if ! ls /usr/share/vulkan/icd.d/nouveau_icd.*.json >/dev/null 2>&1; then
+        # The NVIDIA image's Mesa comes from terra-mesa (off by default): reinstall from there
+        dnf -yq --enable-repo=terra-mesa reinstall mesa-vulkan-drivers || :
+    fi
+    ls /usr/share/vulkan/icd.d/nouveau_icd.*.json >/dev/null 2>&1 ||
+        echo "::warning::no nouveau Vulkan driver in the live session (the installer doesn't need Vulkan)"
+fi
 rm -vf /etc/profile.d/verify_motd.sh
 rm -f /usr/share/applications/bbrew.desktop /usr/share/applications/bazzite-steam*.desktop
 rm -f /usr/bin/rpm-ostree # never run on the live ISO

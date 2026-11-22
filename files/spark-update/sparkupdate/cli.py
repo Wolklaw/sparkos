@@ -7,7 +7,8 @@ import sys
 import time
 from typing import List, Optional, Tuple
 
-from . import APP_NAME, APP_SLUG, CONF_PATH, HELPER, IMAGE, POLKIT_ACTION, RELEASE_PATH, VERSION
+from . import (APP_NAME, APP_SLUG, CONF_PATH, HELPER, IMAGE, IMAGES, POLKIT_ACTION, RELEASE_PATH,
+               VERSION)
 from .core import Env, log, run, setup_logging, which
 from .engine import NONE, SPARK, UUPD, both_on, engine, timer_enabled
 
@@ -80,8 +81,8 @@ def self_test(env: Env) -> int:
     sparkos = is_sparkos(env)
     if name:
         print(f"image:     {name} (from {where})")
-        if sparkos and name != IMAGE:
-            print(f"image:     expected {IMAGE} - tell the owner")
+        if sparkos and name not in IMAGES:
+            print(f"image:     expected {' or '.join(IMAGES)} - tell the owner")
             failures.append("image name")
     elif sparkos:
         print("image:     NOT FOUND on SparkOS (no status, release file or signing policy)")
@@ -193,10 +194,13 @@ def cli_rollback(env: Env) -> int:
     return code
 
 
-def write_release(path: str) -> int:
+def write_release(path: str, image: str = IMAGE) -> int:
     import json
     from . import release
-    data = release.collect('/', use_rpm=True, built=time.time())
+    if image not in IMAGES:
+        print(f"--image must be one of {', '.join(IMAGES)}, not {image}", file=sys.stderr)
+        return 2
+    data = release.collect('/', use_rpm=True, built=time.time(), image=image)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
@@ -237,6 +241,8 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="show the notification with a made-up version")
     parser.add_argument('--write-release', metavar='PATH',
                         help="write what's in this image to PATH (the image build)")
+    parser.add_argument('--image', default=IMAGE, choices=IMAGES,
+                        help="with --write-release: the image being built")
     parser.add_argument('--self-test', action='store_true',
                         help="check what Spark Update needs; no display needed")
     parser.add_argument('--root', help="read a fake system under this folder (tests)")
@@ -248,7 +254,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.status:
         return print_status(env)
     if args.write_release:
-        return write_release(args.write_release)
+        return write_release(args.write_release, args.image)
     if args.notify_test:
         return notify_test()
     if args.system_run:

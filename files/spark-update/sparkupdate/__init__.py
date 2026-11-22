@@ -8,9 +8,13 @@ APP_NAME = "Spark Update"
 APP_SLUG = "spark-update"        # command, folders, log names
 APP_CLASS = "SparkUpdate"        # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkUpdate"
-VERSION = "1.0.1"
+VERSION = "1.0.2"
 
 IMAGE = "ghcr.io/wolklaw/sparkos"
+NVIDIA_IMAGE = "ghcr.io/wolklaw/sparkos-nvidia"
+# The SparkOS builds, signed with the same key: AMD/Intel graphics, and NVIDIA. Updates come
+# from the one the PC was installed from (`upgrade` follows the booted image).
+IMAGES = (IMAGE, NVIDIA_IMAGE)
 
 # Where the image-wide parts live (the system install puts them there; tests use --root)
 CONF_PATH = "/etc/sparkos/update.conf"           # system settings, written through pkexec

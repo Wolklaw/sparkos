@@ -387,6 +387,9 @@ class App:
             ok = core.launch(cmd) if cmd else False
         elif key in checks.SETTINGS_PAGES:
             ok = core.open_settings(checks.SETTINGS_PAGES[key])
+        elif key in checks.SWITCH_COMMANDS:
+            # In a terminal, so the download shows; rpm-ostree asks for the password itself
+            ok = core.launch(['konsole', '--hold', '-e'] + checks.SWITCH_COMMANDS[key])
         if ok:
             self.set_status(t('status.opened'))
             self.event()
