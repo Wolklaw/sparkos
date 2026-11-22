@@ -1,0 +1,31 @@
+{
+  "id": "dev.wolklaw.SparkSpace",
+  "slug": "spark-space",
+  "name": "Spark Space",
+  "name_fr": "Spark Space",
+  "summary": "See what takes the space on your drives: a map of every folder, the largest files, and safe moves to the trash.",
+  "summary_fr": "Voir ce qui prend la place sur vos disques : une carte de chaque dossier, les plus gros fichiers, et la corbeille en toute sécurité.",
+  "version": "1.0.0",
+  "installed_size_kb": 300,
+  "icon": "icons/spark-space-256.png",
+  "categories": ["System", "Filesystem"],
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "spark-files": "Show in folder selects the item (xdg-open opens the folder otherwise)",
+      "xdg-open": "Open and the Show in folder fallback"
+    },
+    "system": "Linux"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-space --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-space"
+}

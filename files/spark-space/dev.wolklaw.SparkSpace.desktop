@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Space
+Name[fr]=Spark Space
+GenericName=Disk usage
+GenericName[fr]=Espace disque
+Comment=See what takes the space on your drives
+Comment[fr]=Voir ce qui prend la place sur vos disques
+Exec=spark-space
+Icon=dev.wolklaw.SparkSpace
+Terminal=false
+Categories=System;Filesystem;
+Keywords=disk;space;usage;storage;size;treemap;cleanup;drive;espace;disque;stockage;taille;nettoyage;
+StartupWMClass=SparkSpace
+SingleMainWindow=true
