@@ -265,9 +265,15 @@ jobs:
         run: |
           # Installed, with no missing libraries
           $SSH 'ls -l /usr/bin/soot /usr/bin/freesuite; readlink -f /usr/bin/soot /usr/bin/freesuite; ls -l /var/opt/freesuite'
-          $SSH 'ldd /usr/lib/soot/engine/libxul.so | grep "not found" || echo "soot: no missing libraries"' | tee "$WORK/soot-ldd.txt"
+          # The engine's own libraries (libmozsandbox, libgkcodecs, ...) sit next to libxul.so with
+          # no RPATH: the firefox binary loads them from its folder first (dependentlibs.list), so
+          # ldd looks there too. Anything still missing would be missing at run time.
+          $SSH 'LD_LIBRARY_PATH=/usr/lib/soot/engine ldd /usr/lib/soot/engine/libxul.so | grep "not found" || echo "soot: no missing libraries"' | tee "$WORK/soot-ldd.txt"
           $SSH 'ldd /usr/lib/opt/freesuite/freesuite-bin | grep "not found" || echo "freesuite: no missing libraries"' | tee "$WORK/freesuite-ldd.txt"
-          ! grep -q 'not found' "$WORK/soot-ldd.txt" "$WORK/freesuite-ldd.txt"
+          # (a bare "! grep" doesn't stop a bash -e step, so fail explicitly)
+          if grep -q 'not found' "$WORK/soot-ldd.txt" "$WORK/freesuite-ldd.txt"; then
+            echo "::error::Soot or FreeSuite is missing a library"; exit 1
+          fi
           $SSH 'stat -c "%A %U %n" /usr/lib/opt/freesuite/chrome-sandbox'
           # Default apps, as the user sees them
           $SSH 'for m in x-scheme-handler/https text/html x-scheme-handler/mailto application/pdf application/vnd.openxmlformats-officedocument.wordprocessingml.document application/msword application/vnd.ms-excel application/vnd.ms-powerpoint application/vnd.oasis.opendocument.text; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/defaults.txt"
