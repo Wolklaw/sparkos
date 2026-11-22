@@ -267,9 +267,11 @@ class App:
         except Exception:                        # noqa: BLE001
             pass
         self.bridge.close()
+        # cancel every timer in Tcl only: the callbacks belong to the widgets that made them,
+        # which delete them as they're destroyed (deleting them here too makes destroy fail)
         try:
             for pending in self.root.tk.splitlist(self.root.tk.call('after', 'info')):
-                self.root.after_cancel(pending)
+                self.root.tk.call('after', 'cancel', pending)
         except tk.TclError:
             pass
         try:
@@ -1348,7 +1350,7 @@ def bench(folder: Optional[str], age: Callable[[], float]) -> int:
     app.run()
     print(f"bench, Python {'.'.join(map(str, __import__('sys').version_info[:3]))}, "
           f"Tk {tk.TkVersion}")
-    print(f"  process start to window:   {age():.3f} s (includes Python itself)")
+    print(f"  whole run, Python included: {age():.3f} s")
     print(f"  folder of {result.get('n', 0)} items shown: {result.get('shown', 0):.3f} s")
     print(f"  redraw after a long scroll: {result.get('scroll', 0) * 1000:.1f} ms")
     print(f"  sort and filter again:      {result.get('resort', 0) * 1000:.1f} ms")
