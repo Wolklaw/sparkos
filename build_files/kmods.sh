@@ -86,7 +86,7 @@ build() {
   dnf -y install \
     "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora}.noarch.rpm"
   dnf -y --setopt=install_weak_deps=False install \
-    "kernel-devel-$kver" gcc make elfutils-libelf-devel xz bsdtar akmods
+    "kernel-devel-$kver" gcc make elfutils-libelf-devel xz bsdtar akmods binutils cpio
   # Without its scripts: they'd start a build for the running kernel, as root, which akmods
   # refuses. The build is started below for the image's kernel instead.
   dnf -y --setopt=install_weak_deps=False --setopt=tsflags=noscripts install akmod-v4l2loopback
@@ -137,7 +137,8 @@ build() {
     mkdir -p "$out/extra/$name"
     for d in ${DIRS[$name]}; do
       echo "==================== $name: $d ===================="
-      make -C "$kdir" M="$src/$d" -j"$(nproc)" modules
+      # No BTF type info in the modules (see the check below)
+      make -C "$kdir" M="$src/$d" -j"$(nproc)" CONFIG_DEBUG_INFO_BTF_MODULES= modules
       for ko in "$src/$d"/*.ko; do
         install -m 0644 "$ko" "$out/extra/$name/"
       done
@@ -178,6 +179,27 @@ build() {
     vm=$(modinfo -F vermagic "$ko")
     [ "${vm%% *}" = "$kver" ] || { echo "kmods.sh: $ko is for '${vm%% *}', not $kver" >&2; exit 1; }
   done
+  # ...and carry no BTF. Fedora's kernel checks a module's BTF against its own when loading and,
+  # without CONFIG_MODULE_ALLOW_BTF_MISMATCH, refuses a module whose BTF doesn't match (-EINVAL).
+  # Matching BTF needs the kernel's vmlinux and the pahole it was built with; kernel-devel ships
+  # no vmlinux, so kbuild skips BTF ("Skipping BTF generation ... unavailability of vmlinux", and
+  # the "pahole version differs" warning is harmless). Stop here if that ever changes, for our
+  # modules or the akmod's.
+  local rpmdir
+  rpmdir=$(mktemp -d)
+  (cd "$rpmdir" && rpm2cpio "$out"/rpms/kmod-v4l2loopback-*.rpm | cpio -idm --quiet)
+  while IFS= read -r ko; do
+    if [ "${ko%.xz}" != "$ko" ]; then
+      xz -dc "$ko" >"$rpmdir/check.ko"
+    else
+      cp "$ko" "$rpmdir/check.ko"
+    fi
+    if readelf -S -W "$rpmdir/check.ko" | grep -q '\.BTF'; then
+      echo "kmods.sh: $ko has a .BTF section; the kernel may refuse to load it" >&2
+      exit 1
+    fi
+  done < <(find "$out/extra" "$rpmdir" -name '*.ko' -o -name '*.ko.xz' | grep -v '/check\.ko$')
+  rm -rf "$rpmdir"
   echo "$kver" >"$out/KVER"
   find "$out" -type f | sort
 }

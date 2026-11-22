@@ -247,6 +247,11 @@ The build stops with an error if:
 - the kernel-devel version isn't the base's kernel, or its symbol list differs from the kernel's;
 - a download's checksum doesn't match;
 - a module's `vermagic` isn't the base's kernel, or `modinfo` can't find it after `depmod`;
+- a module (v4l2loopback's included) has a `.BTF` section. Fedora's kernel refuses a module whose
+  BTF type info doesn't match its own, and matching it needs the kernel's `vmlinux` and the exact
+  `pahole` it was built with. The modules are built without BTF instead (kernel-devel has no
+  `vmlinux`, so kbuild skips it; the build's "pahole version differs" warning is harmless).
+  Measured 2026-11-22: all of them load on Fedora's 7.3.4-300 kernel booted in a VM;
 - the image's kernel changed between the two stages.
 
 So a module that stops compiling on a new Fedora kernel fails the build instead of shipping a
