@@ -37,6 +37,7 @@ permissions:
   # Reading a draft release needs push access. This workflow only downloads; it never
   # creates, edits, publishes or deletes a release or its files.
   contents: write
+  actions: read # an installer-iso run's artifact (a private repo's artifacts need it)
 
 concurrency:
   group: installer-install-test-${{ github.ref }}
