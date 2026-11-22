@@ -509,3 +509,35 @@ class UITests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class OneResultWindowTest(unittest.TestCase):
+    """Every screenshot used to leave its own Spark Snip running with its window open."""
+
+    def test_newer_screenshot_signals_the_previous_one(self):
+        import signal as _signal
+        import tempfile
+        from unittest import mock
+        from sparksnip import app
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'popup.pid')
+            with open(path, 'w') as f:
+                f.write('424242')
+            with mock.patch.object(app, '_is_spark_snip', return_value=True), mock.patch.object(app.os, 'kill') as kill:
+                app.replace_previous_popup(path)
+            kill.assert_called_once_with(424242, _signal.SIGUSR2)
+            with open(path) as f:
+                self.assertEqual(f.read(), str(os.getpid()))
+
+    def test_unrelated_or_own_process_is_left_alone(self):
+        import tempfile
+        from unittest import mock
+        from sparksnip import app
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'popup.pid')
+            for content, is_snip in ((str(os.getpid()), True), ('424242', False), ('junk', True)):
+                with open(path, 'w') as f:
+                    f.write(content)
+                with mock.patch.object(app, '_is_spark_snip', return_value=is_snip), mock.patch.object(app.os, 'kill') as kill:
+                    app.replace_previous_popup(path)
+                kill.assert_not_called()
