@@ -201,6 +201,13 @@ int main(int argc, char **argv)
 					continue;
 				}
 
+				/* The lights: the kernel reports back every light this program sets on the
+				 * keyboard. Passing that to the copy would set it there again and send it
+				 * back here, and two quick changes would then chase each other forever (a
+				 * flickering Caps Lock light). The copy's lights are the real state. */
+				if (ev->type == EV_LED)
+					continue;
+
 				if (ev->type == EV_KEY) {
 					/* Repeats: the copy makes its own (the kernel repeats for every
 					 * device that has EV_REP), so passing these on would double them. */

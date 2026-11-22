@@ -118,6 +118,10 @@ class App:
         self.popup = None
         self.overlay = None
         self.window_built = False
+        self._replaced = False
+        if os.name != 'nt':   # a newer screenshot asks this one to close its result window and quit
+            signal.signal(signal.SIGUSR2, lambda *_: setattr(self, '_replaced', True))
+            self.root.after(250, self._check_replaced)
         self.recording = None
         self.rec_selection = None
         self.rec_bar = None
@@ -314,6 +318,17 @@ class App:
         if self.window_built and self.recording is None:
             self.root.deiconify()
 
+    def _check_replaced(self):
+        if self._replaced:
+            self._replaced = False
+            log.info("a newer screenshot replaced this one")
+            self.close_popup()
+            self._quit_if_done()
+        try:
+            self.root.after(250, self._check_replaced)
+        except tk.TclError:   # the window is gone
+            pass
+
     def _quit_if_done(self):
         if (self.snip_only and self.popup is None and self.overlay is None
                 and self.recording is None):
@@ -418,6 +433,8 @@ class App:
     def open_popup(self, image: Optional[Image.Image], near: Monitor):
         from .windows import ResultWindow
         self.close_popup()
+        if self.snip_only:   # one result window at a time: the previous screenshot's Spark Snip closes
+            replace_previous_popup()
         self.popup = ResultWindow(self, image, near, self._popup_closed)
         return self.popup
 
@@ -570,6 +587,42 @@ def release_lock():
         except OSError:
             pass
         _lock = None
+
+
+def popup_pid_file() -> str:
+    return os.path.join(runtime_dir(), f'{APP_SLUG}-popup.pid')
+
+
+def _is_spark_snip(pid: int) -> bool:
+    try:
+        with open(f'/proc/{pid}/cmdline', 'rb') as f:
+            cmd = f.read().replace(b'\0', b' ')
+    except OSError:
+        return False
+    return b'spark-snip' in cmd or b'spark_snip' in cmd or b'sparksnip' in cmd
+
+
+def replace_previous_popup(path: Optional[str] = None):
+    """A screenshot's result window replaces the one before it: the older Spark Snip (which stayed
+    open to keep its picture on the clipboard, now overwritten) closes and quits."""
+    if os.name == 'nt':
+        return
+    path = path or popup_pid_file()
+    try:
+        with open(path, encoding='ascii') as f:
+            old = int(f.read().strip() or 0)
+    except (OSError, ValueError):
+        old = 0
+    if old and old != os.getpid() and _is_spark_snip(old):
+        try:
+            os.kill(old, signal.SIGUSR2)
+        except OSError:
+            pass
+    try:
+        with open(path, 'w', encoding='ascii') as f:
+            f.write(str(os.getpid()))
+    except OSError:
+        log.exception("could not write the popup pid file")
 
 
 def write_pid_file():
