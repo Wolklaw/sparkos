@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Trash, full, symbolic: the bin filled, paper above it. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" d="M4 4 L6 0 L8 2 L7 4 Z M8 4 L10 0 L12 2 L11 4 Z M1 5 H15 V7 H1 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M3 8 H13 L12 16 H4 Z M6 9 V14 H7 V9 Z M9 9 V14 H10 V9 Z"/>
+</svg>

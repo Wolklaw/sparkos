@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Trash, empty: straight-sided bin, mint lid. SparkOS icon theme, 48 grid. -->
+  <path d="M12.5 16.5 H35.5 L33.5 41.5 H14.5 Z" fill="#2c2870" stroke="#ece9ff" stroke-opacity="0.3"/>
+  <g fill="#b3b0d2">
+    <rect x="18" y="21" width="2" height="16"/>
+    <rect x="23" y="21" width="2" height="16"/>
+    <rect x="28" y="21" width="2" height="16"/>
+  </g>
+  <rect x="19.5" y="6.5" width="9" height="4" fill="none" stroke="#9be8b8" stroke-width="2"/>
+  <!-- the slip on the lid: magenta 2 left, cyan 2 right, mint on top -->
+  <rect x="7" y="10" width="34" height="4" fill="#ff2e88"/>
+  <rect x="11" y="10" width="34" height="4" fill="#22d8ff"/>
+  <rect x="9" y="10" width="34" height="4" fill="#9be8b8"/>
+</svg>

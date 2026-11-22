@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- System Settings, symbolic: three sliders, one colour, follows the colour scheme. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" d="M1 3 H9 V4 H1 Z M13 3 H15 V4 H13 Z M10 1 H12 V6 H10 Z M1 8 H3 V9 H1 Z M7 8 H15 V9 H7 Z M4 6 H6 V11 H4 Z M1 13 H7 V14 H1 Z M11 13 H15 V14 H11 Z M8 11 H10 V16 H8 Z"/>
+</svg>

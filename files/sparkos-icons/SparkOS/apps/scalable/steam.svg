@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Steam (when installed): vapour rising off a vent. Not Valve's logo. SparkOS icon theme, 48 grid. -->
+  <rect x="4.5" y="4.5" width="39" height="39" rx="3" fill="#141233" stroke="#ece9ff" stroke-opacity="0.22"/>
+  <g fill="none" stroke="#f4c95d" stroke-width="3">
+    <path d="M17 30 q-3 -3.5 0 -7 q3 -3.5 0 -7 q-3 -3.5 0 -6"/>
+    <path d="M24 30 q-3 -3.5 0 -7 q3 -3.5 0 -7 q-3 -3.5 0 -6"/>
+    <path d="M31 30 q-3 -3.5 0 -7 q3 -3.5 0 -7 q-3 -3.5 0 -6"/>
+  </g>
+  <!-- the slip on the vent: magenta 2 left, cyan 2 right -->
+  <rect x="9" y="34" width="26" height="4" fill="#ff2e88"/>
+  <rect x="13" y="34" width="26" height="4" fill="#22d8ff"/>
+  <rect x="11" y="34" width="26" height="4" fill="#b3b0d2"/>
+</svg>

@@ -134,6 +134,7 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
 #    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
 #      usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
+#    - sparkos-icons: the SparkOS icon theme over Breeze Dark (files/sparkos-icons), the default
 #    - sparkos-theme, last: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
 ARG SPARK_UPDATE_ENGINE=spark
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
@@ -163,6 +164,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-update.sh \
         sparkos-cleanup.sh \
         sparkos-defaults.sh \
+        sparkos-icons.sh \
         sparkos-theme.sh
 
 # 6. Flathub for the system and for each user, so the Store works; installs no apps.

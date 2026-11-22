@@ -37,7 +37,7 @@ inactiveBlend=179,176,210
 inactiveForeground=179,176,210
 
 [Icons]
-Theme=breeze-dark
+Theme=SparkOS
 
 # Konsole (kept hidden for one release) reads its default profile from here
 [Desktop Entry]

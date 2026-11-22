@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Trash, full: the same bin, lid lifted on its left end, paper showing. SparkOS icon theme, 48 grid. -->
+  <path d="M15 19 L19 9 L26 13 L24 19 Z" fill="#b9a6ff"/>
+  <path d="M23 19 L29 8 L35 13 L33 19 Z" fill="#f4c95d"/>
+  <path d="M12.5 16.5 H35.5 L33.5 41.5 H14.5 Z" fill="#2c2870" stroke="#ece9ff" stroke-opacity="0.3"/>
+  <g fill="#b3b0d2">
+    <rect x="18" y="21" width="2" height="16"/>
+    <rect x="23" y="21" width="2" height="16"/>
+    <rect x="28" y="21" width="2" height="16"/>
+  </g>
+  <!-- the lid, lifted 12 degrees on its left end, with the slip -->
+  <g transform="rotate(-12 9 14)">
+    <rect x="7" y="10" width="34" height="4" fill="#ff2e88"/>
+    <rect x="11" y="10" width="34" height="4" fill="#22d8ff"/>
+    <rect x="9" y="10" width="34" height="4" fill="#9be8b8"/>
+  </g>
+</svg>
