@@ -139,7 +139,9 @@ jobs:
             out=$(bazzite-rollback-helper list || true)
             echo "$out"
             grep -q "Spark Update" <<<"$out"
-            ! grep -q "ublue-os" <<<"$out"
+            if grep -q "ublue-os" <<<"$out"; then
+              echo "::error::the rollback helper still offers ublue-os images"; exit 1
+            fi
             grep -q "AutomaticUpdatePolicy=none" /etc/rpm-ostreed.conf
 
             echo "--- what this image holds"

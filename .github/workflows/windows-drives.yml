@@ -59,7 +59,9 @@ jobs:
           printf 'E ro\nC off\n* rw\nuser=%s\n' "$USER" > "$RUNNER_TEMP/windows-drives.conf"
           sudo SPARKOS_WINDOWS_DRIVES_CONF="$RUNNER_TEMP/windows-drives.conf" python3 files/system/usr/libexec/sparkos-windows-drives
           findmnt -n -o OPTIONS /var/mnt/e | grep -q '^ro'
-          ! findmnt /var/mnt/c
+          if findmnt /var/mnt/c; then
+            echo "::error::C: is mounted though the conf says C off"; exit 1
+          fi
           sudo python3 -c "import json; r={x['letter']: x for x in json.load(open('/run/sparkos/windows-drives.json'))}; assert r['E']['mode'] == 'ro' and r['C']['mode'] == 'off' and r['D']['mode'] == 'rw', r"
 
       - name: Clean up

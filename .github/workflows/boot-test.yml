@@ -295,7 +295,9 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
-          ! grep -q 'not installed' "$WORK/devices.txt"
+          if grep -q 'not installed' "$WORK/devices.txt"; then
+            echo "::error::a printing, scanning or device package is not installed"; exit 1
+          fi
           $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
 
@@ -333,8 +335,10 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           $SSH 'rpm -q socat bubblewrap kdialog vte291-gtk4 && test -x /usr/bin/spark-terminal' | tee "$WORK/claude-deps.txt"
-          ! grep -q 'not installed' "$WORK/claude-deps.txt"
-          $SSH 'for f in /usr/bin/sparkos-claude /usr/bin/sparkos-claude-import /usr/bin/sparkos-dev-setup; do test -x $f || { echo "missing $f"; exit 1; }; done
+          if grep -q 'not installed' "$WORK/claude-deps.txt"; then
+            echo "::error::a package Claude Code needs is not installed"; exit 1
+          fi
+          $SSH 'set -e; for f in /usr/bin/sparkos-claude /usr/bin/sparkos-claude-import /usr/bin/sparkos-dev-setup; do test -x $f || { echo "missing $f"; exit 1; }; done
                 test -f /usr/share/applications/sparkos-claude-code.desktop
                 test -f /usr/share/kio/servicemenus/sparkos-claude-code.desktop
                 command -v desktop-file-validate >/dev/null && desktop-file-validate /usr/share/applications/sparkos-claude-code.desktop
@@ -520,7 +524,9 @@ jobs:
           # .AppImage opens in sparkos-open-package, which adds it to the menu itself (no Gear Lever)
           $SSH 'xdg-mime query default application/vnd.appimage; rpm -q fuse fuse-libs; grep -ci gearlever /usr/bin/sparkos-open-package || true' | tee "$WORK/appimage.txt"
           grep -qx 'sparkos-open-package.desktop' "$WORK/appimage.txt"
-          ! grep -q 'not installed' "$WORK/appimage.txt"
+          if grep -q 'not installed' "$WORK/appimage.txt"; then
+            echo "::error::fuse or fuse-libs (the AppImage runtime) is not installed"; exit 1
+          fi
           tail -1 "$WORK/appimage.txt" | grep -qx 0 || { echo "::error::sparkos-open-package still mentions Gear Lever"; exit 1; }
           # A real AppImage with the FUSE 2 runtime (AppImageKit 12's appimagetool, pinned by checksum):
           # add it to the menu, run it (through FUSE), then remove it
@@ -622,8 +628,12 @@ jobs:
                 echo "== Portal autostart"; ls /etc/skel/.config/autostart/ 2>&1' | tee "$WORK/apps.txt"
           APPS=$(sed -n '/^== system Flatpak apps/,/^== removed packages/p' "$WORK/apps.txt" | grep -v '^==' || true)
           [ -z "$APPS" ] || { echo "::error::preinstalled Flatpaks found:"; echo "$APPS"; exit 1; }
-          ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
-          ! grep -q 'bazzite-portal' "$WORK/apps.txt"
+          if grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"; then
+            echo "::error::a package Bazzite ships and SparkOS removes is still installed"; exit 1
+          fi
+          if grep -q 'bazzite-portal' "$WORK/apps.txt"; then
+            echo "::error::Bazzite's Portal still starts at sign-in"; exit 1
+          fi
           # What stays: the platform SparkOS needs, and the owner's apps
           STORE_RPM=$([ "$BASE" != bazzite ] || echo bazaar)
           $SSH "rpm -q dolphin konsole plasma-systemsettings ark $STORE_RPM >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
