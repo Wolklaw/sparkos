@@ -95,6 +95,7 @@ jobs:
             --build-arg BASE_NAME="$BASE" \
             --build-arg BASE_DIGEST="$BASE_DIGEST" \
             --build-arg IMAGE_NAME="$IMAGE_NAME" \
+            --build-arg NVIDIA_RELEASED="${{ vars.PUBLISH_NVIDIA_INSTALLER == 'true' }}" \
             --build-arg REVISION="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag localhost/sparkos:build \

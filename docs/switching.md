@@ -29,9 +29,9 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Bluetooth adapter | **Works** | |
 | Realtek 2.5 GbE network | **Works** | |
 | RX 6800 XT | **Works** | Open drivers are built in. **LACT** (Flathub) replaces Adrenalin for fan curves and overclocking. It isn't in the image yet because it needs a system service. |
-| NVIDIA GeForce RTX 20 series and newer, GTX 16 series (not on this PC) | **Untested** | Install **SparkOS for NVIDIA** (`SparkOS-NVIDIA-installer.iso`): NVIDIA's driver with its open kernel modules, from Bazzite's NVIDIA image. CI checks the driver is there and Secure Boot accepts it, in a VM without an NVIDIA card; nobody has run it on NVIDIA hardware yet. See [NVIDIA](#nvidia) below. |
+| NVIDIA GeForce RTX 20 series and newer, GTX 16 series (not on this PC) | **Untested** | **SparkOS for NVIDIA** (`SparkOS-NVIDIA-installer.iso`, not released yet): NVIDIA's driver with its open kernel modules, from Bazzite's NVIDIA image. CI checks the driver is there and Secure Boot accepts it, in a VM without an NVIDIA card; nobody has run it on NVIDIA hardware yet. See [NVIDIA](#nvidia) below. |
 | NVIDIA GeForce GTX 10 series and older | **Partly** | NVIDIA's open modules don't support them, and SparkOS doesn't build NVIDIA's older closed driver. On the AMD and Intel version they run on nouveau, the open driver: the desktop works, games are slow. |
-| NVIDIA Control Panel, GeForce Experience / NVIDIA App | **Replaced** | On SparkOS for NVIDIA, **NVIDIA Settings** comes with the driver (if Bazzite's driver packages include it, as they did when this was written). Driver updates come with SparkOS updates. |
+| NVIDIA Control Panel, GeForce Experience / NVIDIA App | **Replaced** | On SparkOS for NVIDIA, **NVIDIA Settings** comes with the driver. Driver updates come with SparkOS updates. |
 | Three monitors, mixed refresh rates | **Works** | KDE Plasma on Wayland handles mixed refresh rates, VRR and HDR. Set them up in System Settings > Display. |
 | RGB: ASUS Aura, Patriot Viper RAM and SSD, Corsair RAM, Holtek RAM (SignalRGB) | **Partly** | **OpenRGB** (from the Store) drives most of these. RAM lighting sometimes needs one extra setting to work, so check it on day one. |
 | Steam virtual mic and speakers, VB-CABLE | **Replaced** | PipeWire virtual devices. Route audio with **qpwgraph** (from the Store), or run `ujust setup-virtual-channels`. |
@@ -106,8 +106,10 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 
 ## NVIDIA
 
-This PC has an AMD card; this section is for PCs with NVIDIA graphics. SparkOS comes in two
-versions, built from the same files every day and signed with the same key:
+This PC has an AMD card; this section is for PCs with NVIDIA graphics. SparkOS is built in two
+versions, from the same files every day and signed with the same key. **The NVIDIA version isn't
+released yet**: its image is private and its installer isn't in the release until it has run on
+real NVIDIA hardware. The commands below for it work once it is.
 
 | | AMD and Intel | NVIDIA |
 |---|---|---|
@@ -115,7 +117,7 @@ versions, built from the same files every day and signed with the same key:
 | Built on | Bazzite (`bazzite`) | Bazzite's NVIDIA image (`bazzite-nvidia-open`) |
 | Graphics driver | Mesa (AMD, Intel; nouveau for NVIDIA cards) | NVIDIA's driver, open kernel modules |
 | NVIDIA cards it runs well | none | GeForce RTX 20, 30, 40, 50 series, GTX 16 series |
-| Installer | `SparkOS-installer.iso` | `SparkOS-NVIDIA-installer.iso` |
+| Installer | `SparkOS-installer.iso` | `SparkOS-NVIDIA-installer.iso` (built every week, not published yet) |
 | Tested on real hardware | yes (this PC) | **no**: only in a VM without an NVIDIA card |
 
 Updates and rollbacks stay on the version you installed: Spark Update follows the image the PC
@@ -134,6 +136,14 @@ run `ujust enroll-secure-boot-key` and restart.
 
 GeForce GTX 10 series and older need NVIDIA's older closed driver. Bazzite builds it
 (`bazzite-nvidia`); SparkOS doesn't yet.
+
+**Releasing it (owner):** after someone has installed it on an NVIDIA PC and it works,
+1. make the package `ghcr.io/wolklaw/sparkos-nvidia` public (its page on GitHub > Package
+   settings > Change visibility; GitHub can't make it private again afterwards),
+2. set the repository variable `PUBLISH_NVIDIA_INSTALLER` to `true` (Settings > Secrets and
+   variables > Actions > Variables),
+3. run the `build` workflow, then `installer-iso` on main. From then on, the NVIDIA installer is
+   published with the other one, and Spark Welcome offers NVIDIA PCs the switch.
 
 ## Faster than Windows 11?
 

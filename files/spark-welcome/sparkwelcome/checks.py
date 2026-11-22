@@ -26,6 +26,9 @@ VENDORS = {'0x1002': 'AMD', '0x10de': 'NVIDIA', '0x8086': 'Intel', '0x1af4': 'vi
 
 # The two SparkOS builds; release.json says which one this is (spark-update --write-release)
 RELEASE_FILE = '/usr/share/sparkos/release.json'
+# Written by the image build once SparkOS for NVIDIA is released (its image public); before
+# that, switching to it would fail, so the check says it's coming instead of offering it
+NVIDIA_RELEASED_FILE = '/usr/share/sparkos/nvidia-released'
 STANDARD_IMAGE = 'ghcr.io/wolklaw/sparkos'
 NVIDIA_IMAGE = 'ghcr.io/wolklaw/sparkos-nvidia'
 # NVIDIA device IDs from 0x1e00 up are Turing (GeForce RTX 20, GTX 16) and newer: the cards
@@ -122,17 +125,24 @@ def sparkos_build(path: str = RELEASE_FILE) -> str:
     return {NVIDIA_IMAGE: 'nvidia', STANDARD_IMAGE: 'standard'}.get(image, '')
 
 
-def nvidia_advice(pci: List[Tuple[str, str, int, str]],
-                  build: str) -> Optional[Tuple[str, List[Tuple[str, str]]]]:
+def nvidia_released(path: str = NVIDIA_RELEASED_FILE) -> bool:
+    return os.path.isfile(path)
+
+
+def nvidia_advice(pci: List[Tuple[str, str, int, str]], build: str,
+                  released: bool = True) -> Optional[Tuple[str, List[Tuple[str, str]]]]:
     """When the NVIDIA cards and the SparkOS build don't go together: (string key, fix
     buttons). The key names a summary ('<key>') and a detail ('<key>.detail'). None when
-    there's nothing to say (no NVIDIA card on the standard build, or NVIDIA's driver loaded)."""
+    there's nothing to say (no NVIDIA card on the standard build, or NVIDIA's driver loaded).
+    released: SparkOS for NVIDIA can be switched to (its image is public)."""
     nvidia = [p for p in pci if p[1] == 'NVIDIA']
     newer = [p for p in nvidia if p[2] >= TURING_FIRST_DEVICE]
     to_nvidia = [(t('fix.switch_nvidia'), 'switch_nvidia')]
     to_standard = [(t('fix.switch_standard'), 'switch_standard')]
     if build == 'standard' and nvidia:
         if newer:
+            if not released:
+                return 'check.graphics.nv_standard_soon', []
             return 'check.graphics.nv_standard', to_nvidia
         return 'check.graphics.nv_old', []
     if build == 'nvidia':
@@ -222,7 +232,7 @@ def parse_rpm_ostree(text: str) -> Optional[Dict[str, object]]:
 
 def check_graphics() -> Check:
     title = t('check.graphics')
-    advice = nvidia_advice(pci_display(), sparkos_build())
+    advice = nvidia_advice(pci_display(), sparkos_build(), nvidia_released())
     if advice:
         key, fixes = advice
         return Check('graphics', title, WARN, t(key), t(key + '.detail'), fixes)

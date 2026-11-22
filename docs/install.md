@@ -9,21 +9,24 @@ and at least 100 GB of free space on a drive. 200 GB or more leaves room for gam
 
 ## Which installer
 
-The release has two installers. Pick the one for the graphics card that drives your screen:
+Pick the installer for the graphics card that drives your screen:
 
 | Your graphics | Installer | Files to download |
 |---|---|---|
 | AMD Radeon, or Intel (built-in or Arc) | `SparkOS-installer.iso` | `SparkOS-installer.iso.part*`, `join-iso.cmd`, `join-iso.sh`, `SHA256SUMS` |
-| NVIDIA GeForce RTX 20, 30, 40 or 50 series, or GTX 16 series | `SparkOS-NVIDIA-installer.iso` | `SparkOS-NVIDIA-installer.iso.part*`, `join-iso-nvidia.cmd`, `join-iso-nvidia.sh`, `SHA256SUMS-nvidia` |
+| NVIDIA GeForce RTX 20, 30, 40 or 50 series, or GTX 16 series | `SparkOS-NVIDIA-installer.iso`, **not published yet** | `SparkOS-NVIDIA-installer.iso.part*`, `join-iso-nvidia.cmd`, `join-iso-nvidia.sh`, `SHA256SUMS-nvidia` |
 | NVIDIA GeForce GTX 10 series or older | `SparkOS-installer.iso` (see below) | as for AMD and Intel |
 
 Not sure? In Windows, open Task Manager > Performance > GPU: the name is at the top right.
 A laptop with Intel graphics and an NVIDIA card takes the NVIDIA installer.
 
-**The NVIDIA installer is untested on NVIDIA hardware.** It's SparkOS built on Bazzite's NVIDIA
-image (`bazzite-nvidia-open`, with NVIDIA's open kernel modules), and CI installs and boots it in
-a VM, but a VM has no NVIDIA card, so the driver itself has only been checked to be there, not to
-work. If you try it, please say how it went in an issue.
+**The NVIDIA installer is built and tested every week but not in the release yet**, because it's
+untested on NVIDIA hardware. It's SparkOS built on Bazzite's NVIDIA image (`bazzite-nvidia-open`,
+with NVIDIA's open kernel modules). CI installs and boots it in a VM, but a VM has no NVIDIA card,
+so the driver itself has only been checked to be there and accepted by Secure Boot, not to work.
+Until it's published, an NVIDIA PC can use the AMD and Intel installer: the card then runs on
+nouveau, the open driver (the desktop works, games are slow), and Spark Welcome offers the switch
+to the NVIDIA version once it's out.
 
 GTX 10 series and older cards need NVIDIA's older closed driver, which SparkOS doesn't build
 (Bazzite does, as `bazzite-nvidia`). With the AMD and Intel installer they run on nouveau, the

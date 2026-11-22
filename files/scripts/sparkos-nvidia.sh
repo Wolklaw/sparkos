@@ -48,3 +48,13 @@ case "$name" in
     echo "--- no NVIDIA driver, as expected for $name"
     ;;
 esac
+
+# Released yet? Spark Welcome offers the switch to SparkOS for NVIDIA only when this file is there
+install -d /usr/share/sparkos
+if [ "${NVIDIA_RELEASED:-false}" = true ]; then
+  echo "SparkOS for NVIDIA is released: ghcr.io/wolklaw/sparkos-nvidia is public" > /usr/share/sparkos/nvidia-released
+  echo "--- SparkOS for NVIDIA marked as released"
+else
+  rm -f /usr/share/sparkos/nvidia-released
+  echo "--- SparkOS for NVIDIA not released yet (no switch offered)"
+fi

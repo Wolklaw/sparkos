@@ -126,6 +126,10 @@ RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locke
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
 #    - sparkos-theme, last: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
 ARG SPARK_UPDATE_ENGINE=spark
+# true once the owner releases SparkOS for NVIDIA (build.yml passes the repository variable
+# PUBLISH_NVIDIA_INSTALLER): sparkos-nvidia.sh then marks the image, and Spark Welcome offers NVIDIA
+# PCs the switch to it. Until then its image is private and the switch couldn't download it.
+ARG NVIDIA_RELEASED=false
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \

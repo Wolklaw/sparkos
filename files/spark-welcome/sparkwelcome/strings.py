@@ -179,6 +179,11 @@ EN: Dict[str, str] = {
                                          "slow for games. SparkOS for NVIDIA has NVIDIA's "
                                          "driver. Switching downloads a few GB in a terminal; "
                                          "restart when it's done. Your files and apps stay.",
+    'check.graphics.nv_standard_soon': "NVIDIA card found. It runs on nouveau, the open driver.",
+    'check.graphics.nv_standard_soon.detail': "Nouveau is slow for games. A SparkOS version with "
+                                              "NVIDIA's driver is being tested; once it's "
+                                              "released, this check offers the switch (your "
+                                              "files and apps stay).",
     'check.graphics.nv_old': "NVIDIA card older than the GTX 16 and RTX 20 series found.",
     'check.graphics.nv_old.detail': "It runs on nouveau, the open driver, which is slow for "
                                     "games. SparkOS for NVIDIA doesn't help here: its driver "
@@ -454,6 +459,13 @@ FR: Dict[str, str] = {
                                          "pilote de NVIDIA. Passer à SparkOS pour NVIDIA "
                                          "télécharge quelques Go dans un terminal; redémarrez "
                                          "ensuite. Vos fichiers et vos applications restent.",
+    'check.graphics.nv_standard_soon': "Carte NVIDIA trouvée. Elle fonctionne avec nouveau, le "
+                                       "pilote libre.",
+    'check.graphics.nv_standard_soon.detail': "Nouveau est lent pour les jeux. Une version de "
+                                              "SparkOS avec le pilote de NVIDIA est en test; "
+                                              "une fois publiée, cette vérification proposera "
+                                              "de passer à elle (vos fichiers et vos "
+                                              "applications restent).",
     'check.graphics.nv_old': "Carte NVIDIA d'avant les GTX 16 et RTX 20 trouvée.",
     'check.graphics.nv_old.detail': "Elle fonctionne avec nouveau, le pilote libre, qui est "
                                     "lent pour les jeux. SparkOS pour NVIDIA ne l'aide pas : "

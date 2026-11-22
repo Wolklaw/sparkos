@@ -646,6 +646,10 @@ class CheckTests(unittest.TestCase):
         self.assertIsNone(advice([rtx], ''))                     # not SparkOS: say nothing
         self.assertEqual(advice([rtx, amd], 'standard')[0], 'check.graphics.nv_standard')
         self.assertEqual(advice([rtx], 'standard')[1][0][1], 'switch_nvidia')
+        # Not released yet: no switch to an image that can't be downloaded
+        self.assertEqual(advice([rtx], 'standard', released=False),
+                         ('check.graphics.nv_standard_soon', []))
+        self.assertFalse(checks.nvidia_released(os.path.join(tempfile.mkdtemp(), 'none')))
         self.assertEqual(advice([gtx1060], 'standard'), ('check.graphics.nv_old', []))
         self.assertIsNone(advice([rtx[:3] + ('nvidia',)], 'nvidia'))
         self.assertEqual(advice([rtx], 'nvidia'), ('check.graphics.nv_noload', []))

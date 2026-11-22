@@ -5,9 +5,11 @@ name: installer-iso
 #   SparkOS-installer.iso         ghcr.io/wolklaw/sparkos         AMD and Intel graphics
 #   SparkOS-NVIDIA-installer.iso  ghcr.io/wolklaw/sparkos-nvidia  NVIDIA graphics (RTX 20 and newer, GTX 16)
 # Each ISO is built in its own job and kept as a run artifact (installer-iso, installer-iso-nvidia)
-# for installer-install-test.yml. On main, the publish job uploads both to the release once both
-# built: a release never has one new ISO and one missing. This workflow never creates a public
-# release, never publishes a draft and never changes a release's visibility.
+# for installer-install-test.yml. On main, the publish job uploads SparkOS-installer.iso to the
+# release, and SparkOS-NVIDIA-installer.iso too only when the repository variable
+# PUBLISH_NVIDIA_INSTALLER is true (off until the owner releases the NVIDIA version). This
+# workflow never creates a public release, never publishes a draft and never changes a
+# release's or a package's visibility.
 # Adapted from Bazzite's build_iso.yml (github.com/ublue-os/bazzite, Apache-2.0).
 on:
   workflow_dispatch:
@@ -192,12 +194,19 @@ jobs:
   publish:
     name: Publish to the installer release
     needs: iso
-    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || (inputs.publish && inputs.image_tag == 'latest' && inputs.variant == 'both'))
+    # Runs even when one ISO job failed: each installer it publishes must have its artifact
+    # (the download fails otherwise), so an unpublished NVIDIA build never holds up the other
+    if: ${{ !cancelled() && github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || (inputs.publish && inputs.image_tag == 'latest' && inputs.variant == 'both')) }}
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:
       GH_TOKEN: ${{ github.token }}
       GH_REPO: ${{ github.repository }}
+      # The NVIDIA installer goes to the release only once the owner sets the repository
+      # variable PUBLISH_NVIDIA_INSTALLER to true (after making ghcr.io/wolklaw/sparkos-nvidia
+      # public, which its installed PCs need for updates). Until then it's built and tested
+      # every week, and kept as a run artifact only.
+      NVIDIA: ${{ vars.PUBLISH_NVIDIA_INSTALLER == 'true' }}
     steps:
       - name: Make room
         run: sudo mkdir -p /mnt/out && sudo chown "$USER" /mnt/out && df -h / /mnt
@@ -208,14 +217,23 @@ jobs:
           path: /mnt/out/sparkos
 
       - uses: actions/download-artifact@v4
+        if: env.NVIDIA == 'true'
         with:
           name: installer-iso-nvidia
           path: /mnt/out/sparkos-nvidia
 
-      - name: Check both ISOs
+      - name: Check the ISOs
         run: |
           cd /mnt/out
-          (cd sparkos && sha256sum -c SHA256SUMS) && (cd sparkos-nvidia && sha256sum -c SHA256SUMS-nvidia)
+          (cd sparkos && sha256sum -c SHA256SUMS)
+          if [ "$NVIDIA" = true ]; then
+            (cd sparkos-nvidia && sha256sum -c SHA256SUMS-nvidia)
+            # Its PCs update from the image: it must be public before its installer is
+            curl -fs "https://ghcr.io/token?scope=repository:wolklaw/sparkos-nvidia:pull" | grep -q '"token"' || \
+              { echo "::error::ghcr.io/wolklaw/sparkos-nvidia is private: make it public first"; exit 1; }
+          else
+            echo "NVIDIA installer not published (PUBLISH_NVIDIA_INSTALLER isn't true)"
+          fi
           ls -lR
 
       - name: Upload and write the notes
@@ -223,23 +241,31 @@ jobs:
           cd /mnt/out
           size() { awk '{s+=$1} END {printf "%.1f", s/1024/1024/1024}' < <(stat -c %s "$1"/*.part*); }
           files() { (cd "$1" && ls *.part* join-iso*.cmd join-iso*.sh SHA256SUMS*); }
+          VARIANTS="sparkos"; [ "$NVIDIA" = true ] && VARIANTS="sparkos sparkos-nvidia"
           {
-            echo "The SparkOS installers, built $(date -u +%Y-%m-%d). There are two: pick the one for your graphics card."
+            if [ "$NVIDIA" = true ]; then
+              echo "The SparkOS installers, built $(date -u +%Y-%m-%d). There are two: pick the one for your graphics card."
+            else
+              echo "The SparkOS installer, built $(date -u +%Y-%m-%d), for AMD and Intel graphics. An NVIDIA version is built and tested in CI but not published yet."
+            fi
             echo
             echo "**AMD or Intel graphics:** \`SparkOS-installer.iso\` ($(size sparkos) GiB), from \`$(cat sparkos/image.txt)\` (\`$(cat sparkos/image-digest.txt)\`)."
             echo "Download the files without \`NVIDIA\` or \`nvidia\` in their name: \`SparkOS-installer.iso.part*\`, \`join-iso.cmd\`, \`join-iso.sh\`, \`SHA256SUMS\`."
             echo
-            echo "**NVIDIA graphics (GeForce RTX 20 series and newer, GTX 16 series):** \`SparkOS-NVIDIA-installer.iso\` ($(size sparkos-nvidia) GiB), from \`$(cat sparkos-nvidia/image.txt)\` (\`$(cat sparkos-nvidia/image-digest.txt)\`), with NVIDIA's driver."
-            echo "Download the files with \`NVIDIA\` or \`nvidia\` in their name: \`SparkOS-NVIDIA-installer.iso.part*\`, \`join-iso-nvidia.cmd\`, \`join-iso-nvidia.sh\`, \`SHA256SUMS-nvidia\`."
-            echo "Not tested on NVIDIA hardware yet: CI installs it in a VM, which has no NVIDIA card. GeForce GTX 10 series and older cards don't work with this driver; on those, use the AMD and Intel installer (the card then runs on nouveau, the open driver, which is slow for games)."
-            echo
+            if [ "$NVIDIA" = true ]; then
+              echo "**NVIDIA graphics (GeForce RTX 20 series and newer, GTX 16 series):** \`SparkOS-NVIDIA-installer.iso\` ($(size sparkos-nvidia) GiB), from \`$(cat sparkos-nvidia/image.txt)\` (\`$(cat sparkos-nvidia/image-digest.txt)\`), with NVIDIA's driver."
+              echo "Download the files with \`NVIDIA\` or \`nvidia\` in their name: \`SparkOS-NVIDIA-installer.iso.part*\`, \`join-iso-nvidia.cmd\`, \`join-iso-nvidia.sh\`, \`SHA256SUMS-nvidia\`."
+              echo "Not tested on NVIDIA hardware yet: CI installs it in a VM, which has no NVIDIA card. GeForce GTX 10 series and older cards don't work with this driver; on those, use the AMD and Intel installer (the card then runs on nouveau, the open driver, which is slow for games)."
+              echo
+            fi
             echo "Then run the join script (\`.cmd\` on Windows, \`.sh\` on Linux). It joins the parts into the ISO and checks its SHA-256."
             echo "Write the ISO to a USB stick (16 GB or larger) with Fedora Media Writer (Custom image) or Rufus (DD mode)."
             echo "The parts exist because GitHub limits each release file to 2 GiB."
             echo
             echo "**Apps:** SparkOS ships only its own apps, as part of the system: Soot, FreeSuite, Spark Snip, Spark Media, Spark Welcome, Spark Games, Spark Monitor, Spark Edit, Spark Calc, Spark Archive, Spark Scan, Spark Run, Spark Link, Spark Store and Spark Update."
-            echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm. The NVIDIA installer adds only NVIDIA's driver and its tools."
-            for v in sparkos sparkos-nvidia; do
+            echo "Everything else installs from the Store (Bazaar), or by double-clicking a downloaded .exe, .AppImage or .rpm."
+            [ "$NVIDIA" = true ] && echo "The NVIDIA installer adds only NVIDIA's driver and its tools."
+            for v in $VARIANTS; do
               if grep -q . "$v/installer-apps.txt"; then
                 echo; echo "Extra Flatpaks carried by the $v installer:"; echo '```'; cat "$v/installer-apps.txt"; echo '```'
               fi
@@ -248,12 +274,13 @@ jobs:
           cat notes.md
           gh release view installer >/dev/null 2>&1 || \
             gh release create installer --draft --target main --title "SparkOS installer" --notes "Building..." --latest=false
-          for v in sparkos sparkos-nvidia; do
+          for v in $VARIANTS; do
             (cd "$v" && gh release upload installer $(files .) --clobber)
           done
           gh release edit installer --notes-file notes.md --title "SparkOS installer ($(date -u +%Y-%m-%d))"
-          # Remove parts left over from an older, larger ISO
-          keep=$( (files sparkos; files sparkos-nvidia) | xargs -n1 basename)
+          # Remove parts left over from an older, larger ISO (and nothing of an installer not
+          # published here)
+          keep=$(for v in $VARIANTS; do files "$v"; done | xargs -n1 basename)
           gh release view installer --json assets --jq '.assets[].name' | while read -r a; do
             grep -qxF "$a" <<<"$keep" || gh release delete-asset installer "$a" --yes
           done
