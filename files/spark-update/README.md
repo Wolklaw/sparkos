@@ -52,8 +52,10 @@ disk (`/ostree/deploy/...`). If neither can be read, it says so.
 Roll back makes the next restart start the previous version (`rpm-ostree rollback`, through
 pkexec, which asks for an administrator password). Nothing is deleted: files, settings and apps
 stay, and the current version stays on disk, so Cancel roll back undoes it. A staged update is
-dropped first so the restart really goes back. Automatic updates will download the newest
-version again later; turn them off in Settings to stay on the old one.
+dropped first so the restart really goes back. Automatic updates then skip the version you
+rolled back from (it's recorded as `held` in `/var/lib/spark-update/state.json`) and stage the
+next newer one when there is one; Check now stages whatever is newest. Turn automatic updates
+off in Settings to stay on the old one.
 
 ## Settings
 

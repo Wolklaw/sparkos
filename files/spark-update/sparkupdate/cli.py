@@ -172,6 +172,10 @@ def print_status(env: Env) -> int:
         print(f"Checked:  {time.strftime('%Y-%m-%d %H:%M', time.localtime(state['last_check']))}"
               f", {state.get('result', '?')}" +
               (f": {state['error']}" if state.get('result') == 'failed' else ''))
+    held = state.get('held')
+    if isinstance(held, dict) and held.get('digests'):
+        print(f"Held:     SparkOS {held.get('version', '?')} (you rolled back from it; the "
+              "next newer version is staged as usual)")
     return 0
 
 

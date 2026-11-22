@@ -495,12 +495,52 @@ class SystemRunTests(unittest.TestCase):
         self.assertEqual(self.state()['result'], 'failed')
         self.assertEqual(run.calls, [])
 
+    def test_rolled_back_version_not_staged_again(self):
+        # Found in the VM test (docs/fedora-base.md): after a roll back, the next scheduled
+        # run staged the same version again, so the next restart undid the roll back.
+        held = 'sha256:' + '2' * 64
+        updater.save_state(self.env, {'held': {'digests': [held], 'version': B_VER}})
+        same = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: {B_VER}\n  Digest: {held}\n", 0))
+        self.assertEqual(updater.system_run(self.env, runner=same, clock=self.clock), 0)
+        st = self.state()
+        self.assertEqual(st['result'], 'up_to_date')
+        self.assertEqual([c[1:] for c in same.calls if c[0] == 'bootc' or c[0] == 'rpm-ostree'],
+                         [['upgrade', '--check']])
+        self.assertIn('held', st)
+        cli_out = io.StringIO()
+        with redirect_stdout(cli_out):
+            from sparkupdate.cli import print_status
+            print_status(self.env)
+        self.assertIn(f"Held:     SparkOS {B_VER}", cli_out.getvalue())
+        # a newer version than the one rolled back from is staged as usual
+        self.clock.t += 7 * 3600
+        newer = FakeRunner(self.root, stage_to='rpm-ostree-staged.json', check_out=(
+            f"AvailableUpdate:\n  Version: 45.20261120.0\n"
+            f"  Digest: sha256:{'3' * 64}\n", 0))
+        updater.system_run(self.env, runner=newer, clock=self.clock)
+        self.assertTrue([c for c in newer.calls if c[1] == 'upgrade' and '--check' not in c])
+        self.assertNotIn('held', self.state())
+
+    def test_check_now_ends_the_hold(self):
+        updater.save_state(self.env, {'held': {'digests': ['sha256:' + '2' * 64],
+                                               'version': B_VER}})
+        run = FakeRunner(self.root, stage_to='rpm-ostree-staged.json')
+        updater.system_run(self.env, now_mode='stage', runner=run, clock=self.clock)
+        self.assertEqual(run.ran('upgrade --check'), [])
+        self.assertTrue(run.ran('upgrade'))
+        self.assertNotIn('held', self.state())
+
     def test_rollback(self):
         staged = make_root('rpm-ostree-staged.json')
         run = FakeRunner(staged)
         self.assertEqual(updater.rollback(Env(staged), runner=run), (0, ''))
         self.assertEqual([c[:2] for c in run.calls],
                          [['rpm-ostree', 'cleanup'], ['rpm-ostree', 'rollback']])
+        held = updater.load_state(Env(staged))['held']
+        self.assertEqual(held['version'], A_VER)
+        self.assertIn('sha256:' + '2' * 64, held['digests'])        # the staged one too
+        self.assertEqual(len(held['digests']), 2)
         lonely = make_root('rpm-ostree-none.json')
         doc = fixture('rpm-ostree-none.json')
         doc['deployments'] = doc['deployments'][:1]
