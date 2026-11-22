@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Discover Update Notifier
+Comment=Shows when updates are available
+Exec=/usr/libexec/DiscoverNotifier

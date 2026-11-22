@@ -1,0 +1,126 @@
+name: spark-media
+# fedora:  installs Spark Media in a plain Fedora container and checks it there: the install
+#          script, the self-test (photo formats, decoders, test files played to the end, a video
+#          thumbnail) and the unit and UI tests under Xvfb, with tagged songs, playlists and a
+#          small DNG made on the spot, the 10 000-song index speed, and screenshots.
+# sparkos: inside the published SparkOS image: what it has for tags and camera RAW, then the
+#          self-test and the unit tests on the image's own Python, Pillow, GStreamer, TagLib and
+#          LibRaw. The boot test runs the self-test again in the real image, where H.264,
+#          H.265 and AAC are required.
+on:
+  push:
+    paths:
+      - "files/spark-media/**"
+      - "files/scripts/spark-media.sh"
+      - ".github/workflows/spark-media.yml"
+  pull_request:
+    paths:
+      - "files/spark-media/**"
+      - "files/scripts/spark-media.sh"
+      - ".github/workflows/spark-media.yml"
+  workflow_dispatch:
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install
+        run: bash files/spark-media/install.sh --deps
+
+      - name: Self-test
+        run: spark-media --self-test
+
+      - name: Tests (Xvfb)
+        shell: bash
+        run: |
+          # a session bus for the MPRIS tests (gdbus calls Spark Media like Plasma does), and
+          # heif-enc to make an AVIF here
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
+            mesa-dri-drivers shared-mime-info dbus-daemon dbus-tools glib2 libheif-tools
+          cd files/spark-media
+          xvfb-run -a -s "-screen 0 1920x1080x24" dbus-run-session -- \
+            python3 -m unittest discover -s tests -v 2>&1 | tee /tmp/tests.txt
+          rc=${PIPESTATUS[0]}
+          { echo "### Tests in Fedora: $(tail -n 1 /tmp/tests.txt)"
+            echo '```'; grep -E '^(speed|scan|raw|mime|heif|mpris):' /tmp/tests.txt || true; echo '```'
+            if [ "$rc" != 0 ]; then echo '```'; sed -n '/^=====/,$p' /tmp/tests.txt | head -300; echo '```'; fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+
+      - name: Screenshots (Xvfb, invented music and photos)
+        if: success() || failure()
+        run: |
+          cd files/spark-media
+          for lang in en fr; do
+            xvfb-run -a -s "-screen 0 1280x800x24" python3 tests/screenshots.py /tmp/screenshots "$lang"
+          done
+
+      - uses: actions/upload-artifact@v4
+        if: success() || failure()
+        with:
+          name: spark-media-screenshots
+          path: /tmp/screenshots
+
+  sparkos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: What the image has for tags and camera RAW (for the PR)
+        run: |
+          sudo podman run --rm -v "$PWD/files/spark-media/tests:/t:ro" "$IMAGE" bash /t/image_report.sh \
+            | tee /tmp/image.txt
+          { echo '<details><summary>What the SparkOS image has for tags and camera RAW</summary>'; echo
+            echo '```'; cat /tmp/image.txt; echo '```'; echo '</details>'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: This version's self-test and unit tests on the image's own libraries
+        run: |
+          mkdir -p /tmp/out && chmod 777 /tmp/out
+          set +e
+          sudo podman run --rm -v "$PWD/files/spark-media:/src:ro" -v /tmp/out:/out "$IMAGE" bash -euo pipefail -c '
+            cp -r /src /tmp/sm && cd /tmp/sm
+            export XDG_CACHE_HOME=/tmp/c XDG_CONFIG_HOME=/tmp/c XDG_STATE_HOME=/tmp/c
+            python3 spark_media.py --self-test --require h264,h265,aac,mp3 2>&1 | tee /out/self-test.txt
+            # a session bus from the image itself, for the MPRIS tests (no apostrophes in
+            # here: this script is one single-quoted string)
+            run=""; command -v dbus-run-session >/dev/null && run="dbus-run-session --"
+            $run python3 -m unittest discover -s tests -v 2>&1 | tee /out/tests.txt; exit ${PIPESTATUS[0]}
+          '
+          rc=$?
+          { echo "### In the SparkOS image: $( [ "$rc" = 0 ] && echo passed || echo FAILED)"
+            if [ -f /tmp/out/self-test.txt ]; then echo '```'; cat /tmp/out/self-test.txt; echo '```'; fi
+            if [ -f /tmp/out/tests.txt ]; then
+              echo "Unit tests: $(tail -n 1 /tmp/out/tests.txt)"
+              echo '```'; grep -E '^(speed|scan|raw|mime|heif|mpris):|skipped' /tmp/out/tests.txt || true; echo '```'
+              if grep -q '^=====' /tmp/out/tests.txt; then
+                echo '```'; sed -n '/^=====/,$p' /tmp/out/tests.txt | head -300; echo '```'
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$rc"

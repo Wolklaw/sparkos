@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "a1b2c3": {"created": "2024-01-01T00:00:00.000Z", "icon": "Grass", "lastUsed": "2025-03-04T19:00:00.000Z",
+               "lastVersionId": "latest-release", "name": "", "type": "latest-release"},
+    "d4e5f6": {"created": "1970-01-01T00:00:00.000Z", "icon": "Crafting_Table", "lastUsed": "1970-01-01T00:00:00.000Z",
+               "lastVersionId": "latest-snapshot", "name": "", "type": "latest-snapshot"}
+  },
+  "settings": {"crashAssistance": true},
+  "version": 3
+}

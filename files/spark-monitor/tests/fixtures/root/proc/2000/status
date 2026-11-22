@@ -1,0 +1,9 @@
+Name:	dolphin
+Umask:	0022
+State:	S
+Tgid:	2000
+Pid:	2000
+PPid:	1310
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	8

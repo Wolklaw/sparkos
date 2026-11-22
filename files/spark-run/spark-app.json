@@ -1,0 +1,46 @@
+{
+  "id": "dev.wolklaw.SparkRun",
+  "slug": "spark-run",
+  "name": "Spark Run",
+  "name_fr": "Spark Run",
+  "summary": "Run Windows programs on Wine, or install them as apps with their own folder and menu entry.",
+  "summary_fr": "Lancer des programmes Windows sur Wine, ou les installer comme applications avec leur propre dossier et entrée de menu.",
+  "version": "1.0.1",
+  "installed_size_kb": 400,
+  "icon": "icons/spark-run-256.png",
+  "categories": ["System", "Emulator"],
+  "mime_types": ["application/x-ms-dos-executable", "application/x-msdownload",
+                 "application/vnd.microsoft.portable-executable", "application/x-msi",
+                 "application/x-ms-installer"],
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "PIL": "program icons as PNG (else the .ico is used as is)",
+      "kdialog": "Plasma's file dialog for Run a program",
+      "xdg-open": "opening C: folders, the log and the switching guide"
+    },
+    "downloads_on_first_use": [
+      {"name": "Wine 11.22 (vanilla, amd64-wow64, built by SparkOS)", "from": "github.com/Wolklaw/sparkos releases",
+       "bytes": 77024200, "sha256": "f45dd527f528160c7d35ddb7bb3ebe402c65194c29d81bf60ef38eb81976007c"},
+      {"name": "Wine Mono 11.3.0", "from": "dl.winehq.org",
+       "bytes": 39412620, "sha256": "54a1b0111c3fe4b785eae688af94d27e64995707ad648b6fee8000381b80d298"}
+    ],
+    "downloads_when_turned_on": [
+      {"name": "DXVK 3.1.1", "from": "github.com/doitsujin/dxvk",
+       "bytes": 18041512, "sha256": "40565b4a724aadc4433fa4e010b4b23916d9b1f1baeee64e17186db94f54e608"}
+    ],
+    "system": "x86-64 Linux with the libraries Wine loads (X11, FreeType, fontconfig, GnuTLS; Vulkan for DXVK). The SparkOS image has them all."
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-run --self-test"
+  },
+  "data": "~/.local/share/spark-run (Wine, Wine Mono, one prefix per app); --uninstall leaves it, remove it to free the space",
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-run"
+}

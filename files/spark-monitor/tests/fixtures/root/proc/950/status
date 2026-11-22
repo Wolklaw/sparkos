@@ -1,0 +1,9 @@
+Name:	sddm
+Umask:	0022
+State:	S
+Tgid:	950
+Pid:	950
+PPid:	1
+Uid:	0	0	0	0
+Gid:	0	0	0	0
+Threads:	2

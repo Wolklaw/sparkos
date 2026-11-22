@@ -1,0 +1,36 @@
+Arch: win64
+Custom_Path: false
+DLL_Overrides: {}
+Environment: Gaming
+Environment_Variables: {}
+External_Programs:
+  0f1e2d3c-1111-4aaa-9bbb-000000000001:
+    arguments: ''
+    executable: Battle.net Launcher.exe
+    folder: '@HOME@/.var/app/com.usebottles.bottles/data/bottles/bottles/Games/drive_c/Program Files (x86)/Battle.net'
+    id: 0f1e2d3c-1111-4aaa-9bbb-000000000001
+    name: Battle.net
+    path: '@HOME@/.var/app/com.usebottles.bottles/data/bottles/bottles/Games/drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe'
+    removed: false
+  0f1e2d3c-2222-4aaa-9bbb-000000000002:
+    executable: Bottles Example.exe
+    id: 0f1e2d3c-2222-4aaa-9bbb-000000000002
+    name: "Bottles Example: \"Deluxe\""
+    path: '@HOME@/Games/bottles-example/Bottles Example.exe'
+  0f1e2d3c-3333-4aaa-9bbb-000000000003:
+    executable: old.exe
+    id: 0f1e2d3c-3333-4aaa-9bbb-000000000003
+    name: Removed Program
+    path: '@HOME@/Games/old/old.exe'
+    removed: true
+Installed_Dependencies:
+- vcredist2019
+- d3dx9
+Name: Games
+Parameters:
+  dxvk: true
+  vkd3d: true
+  mangohud: false
+Path: Games
+Runner: soda-9.0-1
+Versioning: false

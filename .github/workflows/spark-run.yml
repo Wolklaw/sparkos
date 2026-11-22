@@ -1,0 +1,286 @@
+name: spark-run
+# Spark Run: Windows programs on Wine, SparkOS's replacement for fetching Bottles.
+#
+# fixtures: builds the test programs with mingw-w64, NSIS and wixl (tests/fixtures/build.sh):
+#           Spark Hello 64 and 32-bit, an NSIS installer, an .msi, and a program that needs a
+#           DLL nobody has.
+# fedora:   runs the image build step in a plain Fedora container, the self-test, the unit and
+#           window tests under Xvfb, then, as a normal user, downloads the pinned Wine for real
+#           and runs and installs the test programs (tests/ci_wine.sh). Screenshots of the
+#           window are kept as an artifact.
+# sparkos:  inside the published SparkOS image: the build step as root (what it adds to the
+#           image), then as a normal user with no root: install.sh --user, the self-test, the
+#           unit tests, the same real-Wine checks, and --uninstall --purge leaving nothing.
+on:
+  push:
+    paths:
+      - "files/spark-run/**"
+      - "files/scripts/spark-run.sh"
+      - ".github/workflows/spark-run.yml"
+  pull_request:
+    paths:
+      - "files/spark-run/**"
+      - "files/scripts/spark-run.sh"
+      - ".github/workflows/spark-run.yml"
+  workflow_dispatch:
+
+jobs:
+  fixtures:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Tools
+        run: |
+          dnf -y install --setopt=install_weak_deps=False mingw64-gcc mingw32-gcc \
+            mingw32-nsis msitools python3-pillow file
+      - name: Build the test programs
+        run: bash files/spark-run/tests/fixtures/build.sh "$PWD/fixtures-out"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spark-run-fixtures
+          path: fixtures-out/
+          retention-days: 7
+
+  fedora:
+    needs: fixtures
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-run.sh
+
+      - name: Self-test
+        run: spark-run --self-test
+
+      - name: Unit and window tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
+            desktop-file-utils util-linux procps-ng
+          cd files/spark-run
+          status=0
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v \
+            > /tmp/unit.log 2>&1 || status=$?
+          cat /tmp/unit.log
+          if [ $status != 0 ]; then
+            { echo '### Unit tests failed (Fedora)'; echo '```'
+              grep -E -A40 '^(FAIL|ERROR):' /tmp/unit.log | head -300; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            grep -E -A30 '^(FAIL|ERROR):' /tmp/unit.log | head -150 | bash tests/ci_annotate.sh "Unit tests (Fedora)"
+            tail -30 /tmp/unit.log | bash tests/ci_annotate.sh "Unit tests, last lines (Fedora)"
+          fi
+          exit $status
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: spark-run-fixtures
+          path: fixtures
+
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        run: |
+          cd files/spark-run
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Real Wine as a normal user (download, run, install, uninstall)
+        run: |
+          useradd -m tester
+          home=$(getent passwd tester | cut -d: -f6)
+          cp -r fixtures files/spark-run/tests/ci_wine.sh "$home/"
+          touch /tmp/summary.md
+          chmod 666 /tmp/summary.md
+          chown -R tester: "$home"
+          Xvfb :99 -screen 0 1920x1080x24 -ac >/tmp/xvfb.log 2>&1 &
+          sleep 2
+          setpriv --reuid=tester --regid=tester --init-groups env -i HOME="$home" USER=tester \
+            LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 DISPLAY=:99 \
+            GITHUB_STEP_SUMMARY=/tmp/summary.md \
+            bash -c 'cd ~ && bash ci_wine.sh ~/fixtures /usr/bin/spark-run' > /tmp/wine.log 2>&1 \
+            || status=$?
+          cat /tmp/wine.log
+          cat /tmp/summary.md >> "$GITHUB_STEP_SUMMARY"
+          if [ "${status:-0}" != 0 ]; then
+            { echo '### Real Wine failed (Fedora), last lines'; echo '```'; tail -80 /tmp/wine.log
+              echo '```'; echo 'Spark Run logs:'; echo '```'
+              tail -n 40 "$home"/.local/state/spark-run/*.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            tail -60 /tmp/wine.log | bash files/spark-run/tests/ci_annotate.sh "Real Wine (Fedora)"
+            tail -n 30 "$home"/.local/state/spark-run/*.log 2>/dev/null | \
+              bash files/spark-run/tests/ci_annotate.sh "Spark Run logs (Fedora)"
+          fi
+          exit "${status:-0}"
+
+      - name: Screenshots of the window
+        if: always()
+        continue-on-error: true
+        run: |
+          mkdir -p shots
+          DISPLAY=:99 python3 files/spark-run/tests/screenshots.py "$PWD/shots"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: spark-run-screenshots
+          path: shots/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  sparkos:
+    needs: fixtures
+    runs-on: ubuntu-24.04
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: spark-run-fixtures
+          path: fixtures
+
+      - name: The image build step, as root (what Spark Run adds to the image)
+        run: |
+          set +e
+          sudo podman run --rm -v "$PWD/files:/files:ro" "$IMAGE" bash -euo pipefail -c '
+            before=$(rpm -qa | sort)
+            CONFIG_DIRECTORY=/files bash /files/scripts/spark-run.sh
+            after=$(rpm -qa | sort)
+            # the mono font comes with Spark Monitor in the first build; anything else is a surprise
+            added=$(comm -13 <(echo "$before") <(echo "$after") | grep -v "^cascadia-" || true)
+            echo "packages added: ${added:-none}"
+            [ -z "$added" ] || { echo "the build step installed packages; the image has everything Spark Run needs"; exit 1; }
+            if command -v wine; then echo "wine is in the image; Spark Run does not use it"; fi
+            echo "added to the image:"
+            du -ch /usr/lib/spark-run /usr/bin/spark-run /usr/share/applications/dev.wolklaw.SparkRun.desktop \
+              /usr/share/icons/hicolor/*/apps/dev.wolklaw.SparkRun.* | tail -1
+          ' 2>&1 | tee "$RUNNER_TEMP/build.log"
+          status=${PIPESTATUS[0]}
+          if [ "$status" != 0 ]; then
+            tail -60 "$RUNNER_TEMP/build.log" | bash files/spark-run/tests/ci_annotate.sh "Build step in the SparkOS image"
+          fi
+          exit "$status"
+
+      - name: As a normal user, no root - install, self-test, real Wine, uninstall
+        run: |
+          mkdir -p "$RUNNER_TEMP/out"
+          chmod 777 "$RUNNER_TEMP/out"
+          set +e
+          sudo podman run --rm -v "$PWD/files/spark-run:/src:ro" -v "$PWD/fixtures:/fixtures:ro" \
+            -v "$RUNNER_TEMP/out:/out" "$IMAGE" bash -euo pipefail -c '
+            mkdir -p /var/home
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            # keep Spark Run'"'"'s logs for the summary if anything fails
+            trap "cp -r $home/.local/state/spark-run /out/state 2>/dev/null || true; chmod -R a+rX /out || true" EXIT
+            cp -r /src "$home/spark-run"
+            cp -r /fixtures "$home/fixtures"
+            chown -R tester: "$home"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester LOGNAME=tester \
+                    PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+                    GITHUB_STEP_SUMMARY=/out/summary.md bash -c "$1"); }
+            usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+
+            echo "--- install --user"
+            as "bash ~/spark-run/install.sh --user"
+            as "test -x ~/.local/bin/spark-run"
+            as "grep -q \"^Exec=$home/.local/bin/spark-run %f$\" ~/.local/share/applications/dev.wolklaw.SparkRun.desktop"
+            as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkRun.png"
+            # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
+
+            echo "--- unit tests on the image'"'"'s Python"
+            as "cd ~/spark-run && python3 -m unittest discover -s tests -v"
+
+            echo "--- real Wine, no display"
+            as "bash ~/spark-run/tests/ci_wine.sh ~/fixtures ~/.local/bin/spark-run"
+
+            echo "--- the run-once menu entry command works from the installed copy"
+            as "~/.local/bin/spark-run --list"
+
+            echo "--- uninstall --purge"
+            as "bash ~/spark-run/install.sh --user --uninstall --purge"
+            left=$(as "find ~/.local ~/.cache ~/.config -iname \"*spark*run*\" -o -iname \"*SparkRun*\"" || true)
+            if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
+            usr_after=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
+            [ "$usr_before" = "$usr_after" ] || { echo "/usr changed"; exit 1; }
+            echo "installed, tested on real Wine and removed without root"
+          ' 2>&1 | tee "$RUNNER_TEMP/sparkos.log"
+          status=${PIPESTATUS[0]}
+          cat "$RUNNER_TEMP/out/summary.md" >> "$GITHUB_STEP_SUMMARY" || true
+          if [ "$status" != 0 ]; then
+            { echo '### SparkOS job failed, last lines'; echo '```'; tail -120 "$RUNNER_TEMP/sparkos.log"
+              echo '```'; echo 'Spark Run logs:'; echo '```'
+              tail -n 40 "$RUNNER_TEMP"/out/state/*.log 2>/dev/null; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            grep -E -A30 '^(FAIL|ERROR):' "$RUNNER_TEMP/sparkos.log" | head -150 | \
+              bash files/spark-run/tests/ci_annotate.sh "Unit tests (SparkOS)"
+            tail -60 "$RUNNER_TEMP/sparkos.log" | bash files/spark-run/tests/ci_annotate.sh "SparkOS job, last lines"
+            sudo tail -n 30 "$RUNNER_TEMP"/out/state/*.log 2>/dev/null | \
+              bash files/spark-run/tests/ci_annotate.sh "Spark Run logs (SparkOS)"
+          fi
+          exit "$status"
+
+      - name: On btrfs (where SparkOS keeps /home), app prefixes share the template's disk space
+        run: |
+          set +e
+          sudo podman run --rm --privileged -v "$PWD/files/spark-run:/src:ro" \
+            -v "$PWD/fixtures:/fixtures:ro" "$IMAGE" bash -euo pipefail -c '
+            command -v mkfs.btrfs >/dev/null || { echo "no mkfs.btrfs in the image"; exit 3; }
+            mkdir -p /var/home
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            share="$home/.local/share"
+            truncate -s 8G /btrfs.img
+            mkfs.btrfs -q /btrfs.img
+            mkdir -p "$share"
+            mount -o loop /btrfs.img "$share"
+            cp -r /src "$home/spark-run"
+            cp -r /fixtures "$home/fixtures"
+            chown -R tester: "$home"
+            as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+                    env -i HOME="$home" USER=tester LOGNAME=tester \
+                    PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+            used() { sync; btrfs filesystem sync "$share" >/dev/null; sleep 2
+                     df -B1M --output=used "$share" | tail -1 | tr -d " "; }
+            echo "home data on: $(stat -f -c %T "$share")"
+            as "bash ~/spark-run/install.sh --user --no-test" >/dev/null
+            as "~/.local/bin/spark-run --setup --quiet"
+            u0=$(used)
+            as "~/.local/bin/spark-run --install ~/fixtures/spark-hello-setup.exe --no-window --quiet" >/dev/null
+            u1=$(used)
+            as "~/.local/bin/spark-run --install ~/fixtures/spark-hello-msi.msi --silent --no-window --quiet" >/dev/null
+            u2=$(used)
+            as "~/.local/bin/spark-run --install ~/fixtures/hello64.exe --portable --no-window --quiet" >/dev/null
+            u3=$(used)
+            btrfs filesystem du -s "$share/spark-run/template/"* "$share/spark-run/prefixes/"*
+            echo "disk used, first app (makes the template too): $((u1 - u0)) MB"
+            echo "disk used, second app: $((u2 - u1)) MB"
+            echo "disk used, third app: $((u3 - u2)) MB"
+            [ $((u3 - u2)) -lt 150 ] && [ $((u2 - u1)) -lt 150 ] || {
+              echo "app prefixes are not sharing the template on btrfs"; exit 1; }
+            as "~/.local/bin/spark-run --list"
+            echo "prefixes share the template on btrfs"
+          ' 2>&1 | tee "$RUNNER_TEMP/btrfs.log"
+          status=${PIPESTATUS[0]}
+          { echo '### Prefixes on btrfs'; echo '```'; grep -E "^(home data|disk used|prefixes share|app prefixes)|Total|Exclusive|/" "$RUNNER_TEMP/btrfs.log" | tail -20; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$status" != 0 ]; then
+            tail -40 "$RUNNER_TEMP/btrfs.log" | bash files/spark-run/tests/ci_annotate.sh "btrfs step"
+          fi
+          exit "$status"

@@ -1,0 +1,62 @@
+#!/usr/bin/python3 -I
+"""Spark Update's root helper: the only part that runs as root when you ask. The window runs
+it through pkexec (polkit action dev.wolklaw.SparkUpdate.helper asks for an administrator
+password), for exactly three things:
+
+  spark-update-helper rollback                       next restart starts the previous version
+  spark-update-helper set automatic=yes mode=stage check_every_hours=6 flatpak=yes
+                                                     write /etc/sparkos/update.conf
+  spark-update-helper check|stage                    start a check now (spark-update-now@)
+
+-I keeps Python from loading anything from the caller's folders; the package comes only from
+the root-owned install below (install.sh writes the real path in LIB)."""
+
+import os
+import sys
+
+LIB = '/usr/lib/spark-update'
+
+
+def main(argv):
+    if os.geteuid() != 0:
+        print("spark-update-helper runs as root, through pkexec", file=sys.stderr)
+        return 1
+    sys.path.insert(0, LIB)
+    from sparkupdate.core import Env, log, run, setup_logging
+    from sparkupdate.settings import parse_assignments, write_system
+    from sparkupdate.updater import rollback
+
+    setup_logging(system=True)
+    asked_by = os.environ.get('PKEXEC_UID', '?')
+    verb = argv[0] if argv else ''
+    log.info("helper: %s (asked by uid %s)", ' '.join(argv) or '(nothing)', asked_by)
+    env = Env()
+    if verb == 'rollback' and len(argv) == 1:
+        code, why = rollback(env)
+        if code:
+            print(why, file=sys.stderr)
+            log.error("roll back failed: %s", why)
+        else:
+            log.info("rolled back: the next restart starts the previous version")
+        return code
+    if verb == 'set' and len(argv) > 1:
+        settings, errors = parse_assignments(argv[1:])
+        if errors or settings is None:
+            for e in errors:
+                print(e, file=sys.stderr)
+            return 2
+        write_system(env, settings)
+        log.info("wrote /etc/sparkos/update.conf: %s", ' '.join(argv[1:]))
+        return 0
+    if verb in ('check', 'stage') and len(argv) == 1:
+        code, out, err = run(['systemctl', 'start', '--no-block',
+                              f'spark-update-now@{verb}.service'], timeout=60)
+        if code:
+            print((err or out).strip(), file=sys.stderr)
+        return code
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

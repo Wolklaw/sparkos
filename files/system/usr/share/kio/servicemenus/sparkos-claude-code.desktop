@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Service
+MimeType=inode/directory;
+Actions=openClaudeCode;
+X-KDE-Priority=TopLevel
+
+[Desktop Action openClaudeCode]
+Name=Open Claude Code here
+Icon=utilities-terminal
+Exec=konsole --hold --workdir %f -e sparkos-claude %f

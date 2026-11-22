@@ -1,0 +1,34 @@
+SparkOS License
+
+Copyright (c) 2026 Wolklaw. All rights reserved.
+
+SparkOS is published so people can read how it is made. It is not open source.
+
+What you may do:
+
+1. Read the source code and documentation in this repository.
+2. Download the official SparkOS installer and system images that Wolklaw publishes
+   (the releases of github.com/Wolklaw/sparkos and the images at ghcr.io/wolklaw/sparkos),
+   install them on your own computers and use them, including their automatic updates.
+
+What you may not do without written permission from Wolklaw:
+
+1. Copy, modify, translate or adapt the code, artwork, sounds or documentation in this
+   repository, or make works based on them.
+2. Build, publish or distribute your own SparkOS images, installers or modified versions.
+3. Redistribute, sell, rent or sublicense SparkOS or any part of this repository, or use
+   any part of it in another product or service.
+4. Use the SparkOS name, logo or bot artwork for anything that is not the official SparkOS.
+
+GitHub's Terms of Service let GitHub users view and fork public repositories on GitHub. A
+fork made under those terms gives no other right; everything above still applies to it.
+
+Parts made by others keep their own licenses and are not covered by this license. They are
+listed in THIRD-PARTY.md. The SparkOS image also contains Fedora, Bazzite, KDE and other
+software under their own licenses; this license does not limit your rights under those.
+
+SparkOS is provided "as is", without warranty of any kind, express or implied, including
+fitness for a particular purpose. In no event will Wolklaw be liable for any claim, damage
+or other liability arising from SparkOS or its use, including lost data.
+
+For permission or questions: hello@wolklaw.dev

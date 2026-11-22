@@ -1,0 +1,33 @@
+{
+  "id": "dev.wolklaw.SparkMonitor",
+  "slug": "spark-monitor",
+  "name": "Spark Monitor",
+  "name_fr": "Spark Monitor",
+  "summary": "Task manager: see what your PC is doing and end apps that stopped responding. Ctrl+Shift+Esc opens it.",
+  "summary_fr": "Gestionnaire des tâches : voir ce que fait votre PC et fermer les applications qui ne répondent plus. Ctrl+Maj+Échap l'ouvre.",
+  "version": "1.0.1",
+  "installed_size_kb": 420,
+  "icon": "icons/spark-monitor-256.png",
+  "categories": ["System", "Monitor"],
+  "shortcut": "Ctrl+Shift+Esc",
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "PIL.ImageTk": "sharper app icons in the Apps tab",
+      "hwdata": "GPU names (/usr/share/hwdata/pci.ids)",
+      "systemctl": "switching systemd --user services in the Startup tab"
+    },
+    "system": "Linux with /proc and /sys; Plasma 6 for grouping by app and the shortcut"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-monitor --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-monitor"
+}

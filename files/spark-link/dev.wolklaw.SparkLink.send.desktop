@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/allfiles;
+Actions=sendToPhone;
+X-KDE-Priority=TopLevel
+
+[Desktop Action sendToPhone]
+Name=Send to phone
+Name[fr]=Envoyer au téléphone
+Icon=dev.wolklaw.SparkLink
+Exec=spark-link --send %F

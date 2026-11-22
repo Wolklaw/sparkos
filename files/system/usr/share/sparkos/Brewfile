@@ -1,0 +1,6 @@
+# Developer tools for SparkOS, installed per user with: sparkos-dev-setup
+# Git is already part of the system. Add or remove lines here and rebuild the image.
+brew "node"
+brew "python@3.13"
+brew "gh"
+brew "openjdk@17"

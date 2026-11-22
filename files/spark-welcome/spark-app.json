@@ -1,0 +1,23 @@
+{
+  "id": "dev.wolklaw.SparkWelcome",
+  "slug": "spark-welcome",
+  "name": "Spark Welcome",
+  "description": "First-login setup: game launchers and apps from Flathub, your files from Windows, and a check of this PC.",
+  "description_fr": "Premiers pas : lanceurs de jeux et applications de Flathub, vos fichiers de Windows, et une vérification de ce PC.",
+  "version": "1.0.2",
+  "size_kb": 200,
+  "needs": {
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "programs": ["flatpak", "udisksctl", "lsblk"],
+    "optional_programs": ["xdg-user-dir", "xdg-open", "vulkaninfo", "wpctl", "pw-play", "lpstat", "scanimage", "nmcli", "bluetoothctl", "rpm-ostree", "systemsettings"],
+    "network": "only to install apps the user picks, from Flathub",
+    "root": false
+  },
+  "install": "install.sh --user",
+  "uninstall": "install.sh --user --uninstall",
+  "command": "spark-welcome",
+  "autostart": true,
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-welcome"
+}

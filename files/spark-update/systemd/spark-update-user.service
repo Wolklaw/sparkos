@@ -1,0 +1,14 @@
+# Your side of Spark Update: updates your own Flatpak apps when due and shows the
+# "SparkOS updated" notification when a new version is staged (at most once a day after
+# Later, never while a game runs). While the notification waits for Later or Restart this
+# service stays active; it ends when you answer.
+[Unit]
+Description=Spark Update: your apps and the update notification
+Documentation=file:///usr/lib/spark-update/README.md
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/spark-update --user-run
+Nice=19
+IOSchedulingClass=idle
+TimeoutStartSec=infinity

@@ -1,0 +1,32 @@
+{
+  "id": "dev.wolklaw.SparkScan",
+  "slug": "spark-scan",
+  "name": "Spark Scan",
+  "name_fr": "Spark Scan",
+  "summary": "Scan pages from the glass or the feeder, crop, turn and straighten them, and save one PDF (searchable, if you want) or an image per page.",
+  "summary_fr": "Numériser des pages depuis la vitre ou le chargeur, les recadrer, les tourner et les redresser, et enregistrer un PDF (cherchable, si vous voulez) ou une image par page.",
+  "version": "1.1.0",
+  "installed_size_kb": 295,
+  "icon": "icons/spark-scan-256.png",
+  "categories": ["Graphics", "Scanning", "Office"],
+  "needs": {
+    "root": false,
+    "commands": ["python3", "scanimage"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter", "PIL"],
+    "optional": {
+      "tesseract": "searchable PDFs (English and French language data)",
+      "PIL.ImageTk": "faster drawing of pages (without it, Tk reads PNG data)",
+      "xdg-user-dir": "finding the Documents folder when it isn't ~/Documents"
+    },
+    "system": "SANE (sane-backends) with a backend for the scanner: pixma and airscan cover Canon printers on USB and Wi-Fi"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-scan --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-scan"
+}

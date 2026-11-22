@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect x="0.5" y="0.5" width="31" height="31" rx="1" fill="#0b1a1c" stroke="#1f6a66"/>
+  <rect x="5.5" y="8.5" width="19" height="15" fill="none" stroke="#ff2e88" stroke-width="1.8"/>
+  <line x1="8.5" y1="16" x2="14.5" y2="16" stroke="#ff2e88" stroke-width="1.8"/>
+  <line x1="11.5" y1="13" x2="11.5" y2="19" stroke="#ff2e88" stroke-width="1.8"/>
+  <line x1="16.5" y1="14" x2="21.5" y2="14" stroke="#ff2e88" stroke-width="1.8"/>
+  <line x1="16.5" y1="18" x2="21.5" y2="18" stroke="#ff2e88" stroke-width="1.8"/>
+  <rect x="7.5" y="8.5" width="19" height="15" fill="none" stroke="#22d8ff" stroke-width="1.8"/>
+  <line x1="10.5" y1="16" x2="16.5" y2="16" stroke="#22d8ff" stroke-width="1.8"/>
+  <line x1="13.5" y1="13" x2="13.5" y2="19" stroke="#22d8ff" stroke-width="1.8"/>
+  <line x1="18.5" y1="14" x2="23.5" y2="14" stroke="#22d8ff" stroke-width="1.8"/>
+  <line x1="18.5" y1="18" x2="23.5" y2="18" stroke="#22d8ff" stroke-width="1.8"/>
+  <rect x="6.5" y="8.5" width="19" height="15" fill="none" stroke="#3de8c8" stroke-width="1.8"/>
+  <line x1="9.5" y1="16" x2="15.5" y2="16" stroke="#3de8c8" stroke-width="1.8"/>
+  <line x1="12.5" y1="13" x2="12.5" y2="19" stroke="#3de8c8" stroke-width="1.8"/>
+  <line x1="17.5" y1="14" x2="22.5" y2="14" stroke="#3de8c8" stroke-width="1.8"/>
+  <line x1="17.5" y1="18" x2="22.5" y2="18" stroke="#3de8c8" stroke-width="1.8"/>
+</svg>

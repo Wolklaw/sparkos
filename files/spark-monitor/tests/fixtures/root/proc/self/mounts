@@ -1,0 +1,6 @@
+proc /proc proc rw 0 0
+sysfs /sys sysfs rw 0 0
+/dev/nvme0n1p2 /boot ext4 rw,relatime 0 0
+/dev/dm-0 /sysroot btrfs rw,relatime 0 0
+/dev/dm-0 /var/home btrfs rw,relatime 0 0
+/dev/sda1 /var/mnt/games ext4 rw,relatime 0 0

@@ -1,0 +1,12 @@
+# Hourly, so a check postponed by a game is tried again soon. Each start costs a fraction of a
+# second when no check is due (the default is a check every 6 hours). Nothing runs in between.
+[Unit]
+Description=Spark Update: hourly look at whether a check is due
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

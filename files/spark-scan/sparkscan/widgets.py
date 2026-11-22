@@ -1,0 +1,667 @@
+"""The Wolklaw look for Tk: BotWatch's app palette, mono type, sharp corners, and one
+recurring fault, the magenta and cyan channels slipping out of register.
+
+Copied from Spark Media (files/spark-media/sparkmedia/widgets.py) so the Spark apps look
+like one family. Spark Scan's own changes: Mark draws the scan mark (a page with the scan line
+across it, as make_icons.py does), IconButton has up, down, refresh, crop and turn icons,
+Slider is for brightness and contrast, and Seek (Spark Media's player bar) is left out. Keep the common parts in step."""
+
+import random
+from typing import Any, Callable, List, Optional, Tuple
+
+import tkinter as tk
+import tkinter.font as tkfont
+
+T = {
+    "bg": "#04090b", "panel": "#0a1517", "panel2": "#0e1f22", "hover": "#12292c",
+    "line": "#143a3d", "line2": "#1f6a66", "text": "#d4f1ec", "muted": "#6f9f98",
+    "dim": "#3b6460", "accent": "#3de8c8", "accent_hov": "#8cf5e2", "on_accent": "#02130f",
+    "pink": "#ff4d8d", "gold": "#f4c95d", "ch_a": "#ff2e88", "ch_b": "#22d8ff",
+    "out_bg": "#020807", "tile": "#0b1a1c",
+}
+MONO_FAMILIES = ("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Hack", "Noto Sans Mono",
+                 "DejaVu Sans Mono", "Liberation Mono", "Consolas", "Courier New")
+
+
+def pick_mono(root: tk.Misc) -> str:
+    families = {name.lower(): name for name in tkfont.families(root)}
+    for wanted in MONO_FAMILIES:
+        if wanted.lower() in families:
+            return families[wanted.lower()]
+    return "TkFixedFont"
+
+
+def mix(c1: str, c2: str, t: float) -> str:
+    a = [int(c1[i:i + 2], 16) for i in (1, 3, 5)]
+    b = [int(c2[i:i + 2], 16) for i in (1, 3, 5)]
+    return "#" + "".join(f"{round(x + (y - x) * t):02x}" for x, y in zip(a, b))
+
+
+class Glitch:
+    """The house fault: a tear 450 ms after a window opens, again every 7-12 s, and on
+    every event. Off when the desktop asks for no animation; the static split stays."""
+
+    def __init__(self, root: tk.Misc, enabled: bool):
+        self.root, self.enabled = root, enabled
+        self.targets: List[Any] = []
+        self._loop: Optional[str] = None
+
+    def add(self, *targets) -> None:
+        self.targets.extend(targets)
+        if self.enabled and self._loop is None:
+            self._loop = self.root.after(450, self._tick)
+
+    def _tick(self) -> None:
+        self.now()
+        self._loop = self.root.after(random.randint(7000, 12000), self._tick)
+
+    def now(self, *targets, strong: bool = False) -> None:
+        if not self.enabled:
+            return
+        for target in (targets or tuple(self.targets)):
+            try:
+                if target.winfo_exists():
+                    target.burst(strong)
+                    continue
+            except tk.TclError:
+                pass
+            if target in self.targets:
+                self.targets.remove(target)
+
+
+class Mark(tk.Canvas):
+    """Spark Scan's mark: a page with the scan line across it, split into channels."""
+
+    def __init__(self, parent: tk.Misc, size: int, bg: str):
+        super().__init__(parent, width=size, height=size, bg=bg, highlightthickness=0, bd=0)
+        self.size = size
+        self.running = False
+        self.bind("<Enter>", lambda _e: self.micro())
+        self.draw()
+
+    def draw(self, a=(-1.0, 0.0), b=(1.0, 0.0), c=(0.0, 0.0), bars=()):
+        # same 32-unit geometry as make_icons.py
+        self.delete("all")
+        s = self.size
+        k = s / 32
+        self.create_rectangle(0, 0, s - 1, s - 1, fill=T["tile"], outline=T["line2"])
+        width = max(2, round(1.8 * k))
+
+        def shape(offset, colour):
+            ox, oy = offset[0] * k, offset[1] * k
+            self.create_rectangle(9.5 * k + ox, 6.5 * k + oy, 22.5 * k + ox, 25.5 * k + oy,
+                                  outline=colour, width=width)
+            self.create_rectangle(5 * k + ox, 15 * k + oy, 27 * k + ox, 17.5 * k + oy,
+                                  fill=colour, outline="")
+
+        shape(a, T["ch_a"])
+        shape(b, T["ch_b"])
+        shape(c, T["accent"])
+        for y0, h, colour in bars:
+            self.create_rectangle(1, y0, s - 1, y0 + h, fill=colour, stipple="gray50", width=0)
+
+    def micro(self):
+        if not self.running:
+            self.draw(a=(-2.6, 0.4), b=(2.6, -0.4))
+            self._root().after(130, lambda: None if self.running else self.draw())
+
+    def burst(self, strong: bool = False):
+        if self.running:
+            return
+        self.running = True
+        frames = [((random.uniform(-5, -2), random.uniform(-1, 1)),
+                   (random.uniform(2, 5), random.uniform(-1, 1)),
+                   (random.uniform(-1.2, 1.2), 0.0),
+                   [(random.randint(2, self.size - 4), random.randint(1, 3),
+                     random.choice([T["ch_a"], T["ch_b"]])) for _ in range(random.randint(1, 3))])
+                  for _ in range(8 if strong else 6)]
+
+        def step(i=0):
+            if not self.winfo_exists():
+                return
+            if i < len(frames):
+                self.draw(*frames[i])
+                self._root().after(48, lambda: step(i + 1))
+            else:
+                self.draw()
+                self.running = False
+
+        step()
+
+
+class GlitchText(tk.Canvas):
+    """Text with the magenta/cyan ghosts always slightly out of register; tears on burst."""
+
+    def __init__(self, parent: tk.Misc, text: str, font: tkfont.Font, bg: str,
+                 fg: str = T["text"], split: int = 2):
+        self.font, self.text, self.fg, self.split = font, text, fg, split
+        self.pad = 4 + split
+        super().__init__(parent, bg=bg, highlightthickness=0, bd=0)
+        self.running = False
+        self.set_text(text, fg)
+
+    def set_text(self, text: str, fg: Optional[str] = None):
+        self.text = text
+        if fg:
+            self.fg = fg
+        self.w = self.font.measure(text) + 2 * self.pad + 6
+        self.h = self.font.metrics("linespace") + 6
+        self.configure(width=self.w, height=self.h)
+        self.draw()
+
+    def draw(self, jitter: float = 0.0, bars=(), dy: int = 0):
+        self.delete("all")
+        d = self.split + abs(jitter)
+        for colour, sign in ((T["ch_a"], -1), (T["ch_b"], 1)):
+            self.create_text(self.pad + sign * d, self.h / 2 + dy, text=self.text, anchor="w",
+                             font=self.font, fill=colour)
+        self.create_text(self.pad + jitter, self.h / 2 + dy, text=self.text, anchor="w",
+                         font=self.font, fill=self.fg)
+        for y0, hh, colour, x0, x1 in bars:
+            self.create_rectangle(x0, y0, x1, y0 + hh, fill=colour, stipple="gray25", width=0)
+
+    def burst(self, strong: bool = False):
+        if self.running or not self.winfo_exists():
+            return
+        self.running = True
+        count = 9 if strong else 6
+
+        def step(i=0):
+            if not self.winfo_exists():
+                return
+            if i < count:
+                bars = [(random.randint(2, max(3, self.h - 6)), random.randint(2, 5),
+                         random.choice([T["ch_a"], T["ch_b"]]),
+                         random.randint(0, self.w // 2), random.randint(self.w // 2, self.w))
+                        for _ in range(random.randint(1, 3))]
+                self.draw(jitter=random.uniform(-5, 5), bars=bars, dy=random.choice([0, 0, -1, 1]))
+                self._root().after(45, lambda: step(i + 1))
+            else:
+                self.draw()
+                self.running = False
+
+        step()
+
+
+class WolkButton(tk.Frame):
+    """Sharp button; on hover and focus its edges split into the magenta/cyan channels."""
+
+    STYLES = {   # idle bg, fg, border, hover bg
+        "primary": (T["accent"], T["on_accent"], T["accent"], T["accent_hov"]),
+        "ghost": (T["panel2"], T["text"], T["line2"], T["hover"]),
+        "danger": ("#1a0a12", T["pink"], "#4b1c34", "#2a0f1c"),
+    }
+
+    def __init__(self, parent: tk.Misc, text: str, command: Callable[[], None], font,
+                 variant: str = "ghost", padx: int = 14, pady: int = 6):
+        self.pbg = parent.cget("bg")
+        super().__init__(parent, bg=self.pbg)
+        self.command, self.enabled, self.variant = command, True, variant
+        self.bg_idle, self.fg_idle, self.border_idle, self.bg_hover = self.STYLES[variant]
+        self.lbar = tk.Frame(self, bg=self.pbg, width=3)
+        self.rbar = tk.Frame(self, bg=self.pbg, width=3)
+        self.lbar.pack(side="left", fill="y")
+        self.rbar.pack(side="right", fill="y")
+        self.box = tk.Frame(self, bg=self.border_idle, padx=1, pady=1)
+        self.box.pack(side="left", fill="both", expand=True)
+        self.label = tk.Label(self.box, text=text.upper(), bg=self.bg_idle, fg=self.fg_idle,
+                              font=font, padx=padx, pady=pady, cursor="hand2", takefocus=1,
+                              highlightthickness=0)
+        self.label.pack(fill="both", expand=True)
+        for widget in (self.label, self.box, self.lbar, self.rbar):
+            widget.bind("<Enter>", self._enter)
+            widget.bind("<Leave>", self._leave)
+            widget.bind("<ButtonRelease-1>", self._click)
+        self.label.bind("<FocusIn>", self._enter)
+        self.label.bind("<FocusOut>", self._leave)
+        self.label.bind("<Return>", self._click)
+        self.label.bind("<space>", self._click)
+
+    def _enter(self, _e=None):
+        if not self.enabled:
+            return
+        self.lbar.config(bg=T["ch_a"])
+        self.rbar.config(bg=T["ch_b"])
+        self.box.config(bg=T["pink"] if self.variant == "danger" else T["accent"])
+        self.label.config(bg=self.bg_hover)
+
+    def _leave(self, _e=None):
+        self.lbar.config(bg=self.pbg)
+        self.rbar.config(bg=self.pbg)
+        self.box.config(bg=self.border_idle if self.enabled else T["line"])
+        self.label.config(bg=self.bg_idle if self.enabled else T["panel"])
+
+    def _click(self, event=None):
+        if event is not None and str(event.type) == 'ButtonRelease':
+            # the release goes to the pressed widget even if the pointer has left it
+            under = self.winfo_containing(event.x_root, event.y_root)
+            if under not in (self.label, self.box, self.lbar, self.rbar):
+                return
+        if self.enabled and self.command:
+            self.command()
+
+    def set_text(self, text: str):
+        self.label.config(text=text.upper())
+
+    def set_enabled(self, on: bool):
+        self.enabled = on
+        self.label.config(bg=self.bg_idle if on else T["panel"],
+                          fg=self.fg_idle if on else T["dim"],
+                          cursor="hand2" if on else "arrow", takefocus=1 if on else 0)
+        self.box.config(bg=self.border_idle if on else T["line"])
+        if not on:
+            self.lbar.config(bg=self.pbg)
+            self.rbar.config(bg=self.pbg)
+
+
+class Segmented(tk.Frame):
+    """Row of mutually exclusive mono pills (EN + FR | EN | FR)."""
+
+    def __init__(self, parent: tk.Misc, options: List[Tuple[str, str]], value: str,
+                 command: Callable[[str], None], font):
+        super().__init__(parent, bg=T["line2"], padx=1, pady=1)
+        self.value, self.command, self.labels = value, command, {}
+        for i, (text, val) in enumerate(options):
+            label = tk.Label(self, text=text, font=font, padx=10, pady=4, cursor="hand2")
+            label.grid(row=0, column=i, padx=(0 if i == 0 else 1, 0))
+            label.bind("<ButtonRelease-1>", lambda _e, v=val: self.set(v, fire=True))
+            label.bind("<Enter>", lambda _e, v=val: self._hover(v, True))
+            label.bind("<Leave>", lambda _e, v=val: self._hover(v, False))
+            self.labels[val] = label
+        self._paint()
+
+    def _hover(self, val: str, on: bool):
+        if val != self.value:
+            self.labels[val].config(bg=T["hover"] if on else T["panel"])
+
+    def _paint(self):
+        for val, label in self.labels.items():
+            on = val == self.value
+            label.config(bg=T["accent"] if on else T["panel"],
+                         fg=T["on_accent"] if on else T["muted"])
+
+    def set(self, val: str, fire: bool = False):
+        self.value = val
+        self._paint()
+        if fire:
+            self.command(val)
+
+
+class Strip(tk.Canvas):
+    """A 2px mint-to-pink line: the header rule, and the popup's countdown."""
+
+    def __init__(self, parent: tk.Misc, height: int = 2):
+        super().__init__(parent, height=height, bg=T["bg"], highlightthickness=0, bd=0)
+        self.fraction, self.shift = 1.0, 0
+        self.bind("<Configure>", lambda _e: self.draw())
+
+    def draw(self, fraction: Optional[float] = None, shift: Optional[int] = None):
+        if fraction is not None:
+            self.fraction = fraction
+        if shift is not None:
+            self.shift = shift
+        self.delete("all")
+        width = max(1, self.winfo_width())
+        end = int(width * max(0.0, min(1.0, self.fraction)))
+        height = int(self.cget("height"))
+        for x in range(0, end, 4):
+            colour = mix(T["accent"], T["pink"], ((x + self.shift) % width) / width)
+            self.create_rectangle(x, 0, min(end, x + 4), height, fill=colour, width=0)
+
+    def burst(self, strong: bool = False):
+        self.draw(shift=random.randint(0, 400))
+        self._root().after(160, lambda: self.draw(shift=0) if self.winfo_exists() else None)
+
+
+class GlitchPanel(tk.Frame):
+    """A flat panel with a 1px edge that tears into the two channels on events."""
+
+    def __init__(self, parent: tk.Misc, bg: str):
+        self.pbg = parent.cget("bg")
+        super().__init__(parent, bg=self.pbg)
+        self.lbar = tk.Frame(self, bg=self.pbg, width=2)
+        self.rbar = tk.Frame(self, bg=self.pbg, width=2)
+        self.lbar.pack(side="left", fill="y")
+        self.rbar.pack(side="right", fill="y")
+        self.edge = tk.Frame(self, bg=T["line"], padx=1, pady=1)
+        self.edge.pack(side="left", fill="both", expand=True)
+        self.inner = tk.Frame(self.edge, bg=bg)
+        self.inner.pack(fill="both", expand=True)
+        self.running = False
+
+    def burst(self, strong: bool = False):
+        if self.running or not self.winfo_exists():
+            return
+        self.running = True
+        count = 8 if strong else 5
+
+        def step(i=0):
+            if not self.winfo_exists():
+                return
+            if i < count:
+                self.lbar.config(bg=random.choice([T["ch_a"], self.pbg, T["ch_a"]]))
+                self.rbar.config(bg=random.choice([T["ch_b"], self.pbg, T["ch_b"]]))
+                self.edge.config(bg=random.choice([T["ch_a"], T["ch_b"], T["line2"]]))
+                self._root().after(45, lambda: step(i + 1))
+            else:
+                self.lbar.config(bg=self.pbg)
+                self.rbar.config(bg=self.pbg)
+                self.edge.config(bg=T["line"])
+                self.running = False
+
+        step()
+
+
+
+class Toggle(tk.Label):
+    """An on/off chip: [■ MIC] lit in the accent when on."""
+
+    def __init__(self, parent: tk.Misc, text: str, value: bool,
+                 command: Callable[[bool], None], font):
+        super().__init__(parent, font=font, padx=8, pady=3, cursor="hand2",
+                         highlightthickness=1, takefocus=1)
+        self.text, self.value, self.command = text, value, command
+        self.bind("<ButtonRelease-1>", lambda _e: self.set(not self.value, fire=True))
+        self.bind("<Return>", lambda _e: self.set(not self.value, fire=True))
+        self.bind("<space>", lambda _e: self.set(not self.value, fire=True))
+        self.bind("<Enter>", lambda _e: self._paint(hover=True))
+        self.bind("<Leave>", lambda _e: self._paint())
+        self._paint()
+
+    def _paint(self, hover: bool = False):
+        on = self.value
+        self.config(text=("■ " if on else "□ ") + self.text.upper(),
+                    bg=T["hover"] if hover else T["panel"],
+                    fg=T["accent"] if on else T["muted"],
+                    highlightbackground=T["line2"] if on else T["line"])
+
+    def set(self, value: bool, fire: bool = False):
+        self.value = value
+        self._paint()
+        if fire:
+            self.command(value)
+
+
+class IconButton(tk.Canvas):
+    """A square button with a drawn icon (fonts can't be trusted to have the glyphs). On hover
+    and focus the icon splits into the two channels, like the house buttons' edges."""
+
+    def __init__(self, parent: tk.Misc, icon: str, command: Callable[[], None], size: int,
+                 tip: str = "", accent: bool = False):
+        self.pbg = parent.cget("bg")
+        super().__init__(parent, width=size, height=size, bg=self.pbg, highlightthickness=0,
+                         bd=0, cursor="hand2", takefocus=1)
+        self.icon, self.command, self.size, self.accent = icon, command, size, accent
+        self.tip, self.enabled, self.hover = tip, True, False
+        for seq, fn in (("<Enter>", self._enter), ("<Leave>", self._leave),
+                        ("<FocusIn>", self._enter), ("<FocusOut>", self._leave),
+                        ("<ButtonRelease-1>", self._click), ("<Return>", self._click),
+                        ("<space>", self._click)):
+            self.bind(seq, fn)
+        self.draw()
+
+    def set_icon(self, icon: str):
+        if icon != self.icon:
+            self.icon = icon
+            self.draw()
+
+    def set_enabled(self, on: bool):
+        self.enabled = on
+        self.configure(cursor="hand2" if on else "arrow", takefocus=1 if on else 0)
+        self.draw()
+
+    def _enter(self, _e=None):
+        self.hover = self.enabled
+        self.draw()
+
+    def _leave(self, _e=None):
+        self.hover = False
+        self.draw()
+
+    def _click(self, event=None):
+        if event is not None and str(event.type) == 'ButtonRelease':
+            if self.winfo_containing(event.x_root, event.y_root) is not self:
+                return
+        if self.enabled and self.command:
+            self.command()
+        return "break"
+
+    def draw(self):
+        self.delete("all")
+        s = self.size
+        if self.accent and self.enabled:
+            self.create_rectangle(0, 0, s - 1, s - 1, fill=T["accent_hov"] if self.hover
+                                  else T["accent"], outline="")
+            main = T["on_accent"]
+        else:
+            self.create_rectangle(0, 0, s - 1, s - 1, fill=T["hover"] if self.hover else self.pbg,
+                                  outline=T["line2"] if self.hover else "")
+            main = T["text"] if self.enabled else T["dim"]
+        if self.hover:
+            self._shape(-2, T["ch_a"])
+            self._shape(2, T["ch_b"])
+        self._shape(0, main)
+
+    def _shape(self, dx: float, colour: str):
+        k = self.size / 24.0
+        w = max(1.5, 1.8 * k)
+
+        def P(*pts):
+            return [v * k + (dx if i % 2 == 0 else 0) for i, v in enumerate(pts)]
+
+        def line(*pts):
+            self.create_line(*P(*pts), fill=colour, width=w, capstyle="projecting",
+                             joinstyle="miter")
+
+        def poly(*pts):
+            self.create_polygon(*P(*pts), fill=colour, outline="")
+
+        def rect(x0, y0, x1, y1, fill=True):
+            if fill:
+                self.create_rectangle(*P(x0, y0, x1, y1), fill=colour, outline="")
+            else:
+                self.create_rectangle(*P(x0, y0, x1, y1), outline=colour, width=w)
+
+        icon = self.icon
+        if icon == "play":
+            poly(8, 5, 8, 19, 19, 12)
+        elif icon == "pause":
+            rect(7, 5, 10.5, 19)
+            rect(13.5, 5, 17, 19)
+        elif icon == "prev":
+            rect(5, 6, 7.5, 18)
+            poly(19, 6, 19, 18, 9, 12)
+        elif icon == "next":
+            rect(16.5, 6, 19, 18)
+            poly(5, 6, 5, 18, 15, 12)
+        elif icon in ("volume", "mute"):
+            poly(4, 9, 8, 9, 13, 5, 13, 19, 8, 15, 4, 15)
+            if icon == "volume":
+                line(16, 9, 17, 12, 16, 15)
+                line(19, 6.5, 21, 12, 19, 17.5)
+            else:
+                line(16, 9, 21, 15)
+                line(21, 9, 16, 15)
+        elif icon == "fullscreen":
+            for x, y, ax, ay in ((5, 5, 1, 1), (19, 5, -1, 1), (5, 19, 1, -1), (19, 19, -1, -1)):
+                line(x, y + 5 * ay, x, y, x + 5 * ax, y)
+        elif icon == "windowed":
+            for x, y, ax, ay in ((9, 9, -1, -1), (15, 9, 1, -1), (9, 15, -1, 1), (15, 15, 1, 1)):
+                line(x, y + 5 * ay, x, y, x + 5 * ax, y)
+        elif icon == "back":
+            line(19, 12, 6, 12)
+            line(11, 7, 6, 12, 11, 17)
+        elif icon in ("rotate", "rotate_right"):
+            line(18, 9, 18, 18, 6, 18, 6, 6, 14, 6)
+            poly(13, 3, 17.5, 6, 13, 9)
+        elif icon == "rotate_left":
+            line(6, 9, 6, 18, 18, 18, 18, 6, 10, 6)
+            poly(11, 3, 6.5, 6, 11, 9)
+        elif icon == "rotate_180":
+            line(8, 19, 8, 9, 10.5, 6, 13.5, 6, 16, 9, 16, 14)
+            poly(12, 13.5, 20, 13.5, 16, 19)
+        elif icon == "rotate_all":
+            rect(4, 10, 12, 20, fill=False)
+            rect(8, 6, 16, 16, fill=False)
+            line(15, 3.5, 20, 3.5, 20, 9)
+            poly(17, 8.5, 23, 8.5, 20, 12)
+        elif icon == "zoom_in":
+            line(5, 12, 19, 12)
+            line(12, 5, 12, 19)
+        elif icon == "zoom_out":
+            line(5, 12, 19, 12)
+        elif icon == "fit":
+            rect(5, 7, 19, 17, fill=False)
+            line(8, 12, 16, 12)
+        elif icon == "slideshow":
+            rect(4, 6, 20, 18, fill=False)
+            poly(10, 9, 10, 15, 15, 12)
+        elif icon == "trash":
+            line(5, 7, 19, 7)
+            line(10, 7, 10, 4.5, 14, 4.5, 14, 7)
+            line(7, 7, 8, 19.5, 16, 19.5, 17, 7)
+        elif icon == "folder":
+            line(4, 18, 4, 6, 10, 6, 12, 8.5, 20, 8.5, 20, 18, 4, 18)
+        elif icon == "subtitles":
+            rect(4, 6, 20, 18, fill=False)
+            line(7, 13.5, 11, 13.5)
+            line(13, 13.5, 17, 13.5)
+        elif icon == "audio":
+            line(9, 17, 9, 6, 18, 4.5, 18, 15)
+            rect(5.5, 15, 9, 18.5)
+            rect(14.5, 13, 18, 16.5)
+        elif icon == "up":
+            line(6, 15, 12, 9, 18, 15)
+        elif icon == "down":
+            line(6, 9, 12, 15, 18, 9)
+        elif icon == "refresh":
+            line(18.5, 9, 16, 6.5, 8, 6.5, 5.5, 9, 5.5, 15, 8, 17.5, 16, 17.5, 18.5, 15)
+            poly(15, 9.5, 21, 9.5, 21, 3.5)
+        elif icon == "crop":
+            line(7, 3, 7, 17, 21, 17)
+            line(3, 7, 17, 7, 17, 21)
+        elif icon == "repeat":
+            line(6, 13, 6, 8, 17, 8)
+            poly(16, 5, 20, 8, 16, 11)
+            line(18, 11, 18, 16, 7, 16)
+            poly(8, 13, 4, 16, 8, 19)
+        elif icon == "shuffle":
+            line(4, 7, 9, 7, 15, 17, 19, 17)
+            line(4, 17, 9, 17, 15, 7, 19, 7)
+            poly(18, 4, 21.5, 7, 18, 10)
+            poly(18, 14, 21.5, 17, 18, 20)
+
+
+class Slider(tk.Canvas):
+    """A -100..100 slider for brightness and contrast: a 1px track, the part from 0 to the
+    value lit in the accent, a sharp handle that splits into the channels on hover, and the
+    value at the end. Click or drag to set it, the wheel or Left/Right to step, double-click
+    or Home for 0. command(value) runs on every change (live); on_release when a drag or a
+    run of steps ends."""
+
+    def __init__(self, parent: tk.Misc, command: Callable[[int], None], width: int,
+                 height: int, font, value: int = 0, lo: int = -100, hi: int = 100,
+                 on_release: Optional[Callable[[], None]] = None):
+        self.pbg = parent.cget("bg")
+        super().__init__(parent, width=width, height=height, bg=self.pbg, highlightthickness=0,
+                         bd=0, cursor="hand2", takefocus=1)
+        self.command, self.on_release = command, on_release
+        self.lo, self.hi, self.value = lo, hi, value
+        self.font, self.enabled, self.hover, self.focused = font, True, False, False
+        self._release_id: Optional[str] = None
+        for seq, fn in (("<ButtonPress-1>", self._press), ("<B1-Motion>", self._press),
+                        ("<ButtonRelease-1>", lambda _e: self._released()),
+                        ("<Double-Button-1>", lambda _e: self._step(None)),
+                        ("<MouseWheel>", self._wheel), ("<Button-4>", self._wheel),
+                        ("<Button-5>", self._wheel),
+                        ("<Left>", lambda _e: self._step(-5)), ("<Right>", lambda _e: self._step(5)),
+                        ("<Home>", lambda _e: self._step(None)),
+                        ("<Enter>", lambda _e: self._set_hover(True)),
+                        ("<Leave>", lambda _e: self._set_hover(False)),
+                        ("<FocusIn>", lambda _e: self._set_focus(True)),
+                        ("<FocusOut>", lambda _e: self._set_focus(False)),
+                        ("<Configure>", lambda _e: self.draw())):
+            self.bind(seq, fn)
+
+    def _geometry(self):
+        w, h = max(1, self.winfo_width()), max(1, self.winfo_height())
+        text_w = max(28, int(self.font[1] * 4.2)) if isinstance(self.font, tuple) else 34
+        return 6, max(7, w - text_w - 6), h // 2
+
+    def _x(self, value: int) -> float:
+        x0, x1, _ = self._geometry()
+        return x0 + (value - self.lo) * (x1 - x0) / (self.hi - self.lo)
+
+    def set(self, value: int, fire: bool = False) -> None:
+        value = int(max(self.lo, min(self.hi, round(value))))
+        changed = value != self.value
+        self.value = value
+        self.draw()
+        if fire and changed:
+            self.command(value)
+
+    def set_enabled(self, on: bool) -> None:
+        self.enabled = on
+        self.configure(cursor="hand2" if on else "arrow", takefocus=1 if on else 0)
+        self.draw()
+
+    def _press(self, event):
+        if not self.enabled:
+            return "break"
+        self.focus_set()
+        x0, x1, _ = self._geometry()
+        frac = (min(max(event.x, x0), x1) - x0) / max(1, x1 - x0)
+        self.set(self.lo + frac * (self.hi - self.lo), fire=True)
+        return "break"
+
+    def _released(self):
+        if self.enabled and self.on_release:
+            self.on_release()
+
+    def _step(self, by: Optional[int]):
+        if not self.enabled:
+            return "break"
+        self.set(0 if by is None else self.value + by, fire=True)
+        # a run of key presses or wheel turns ends when they stop
+        if self._release_id:
+            self.after_cancel(self._release_id)
+        self._release_id = self.after(250, self._step_done)
+        return "break"
+
+    def _step_done(self):
+        self._release_id = None
+        self._released()
+
+    def _wheel(self, event):
+        up = getattr(event, 'num', None) == 4 or getattr(event, 'delta', 0) > 0
+        return self._step(5 if up else -5)
+
+    def _set_hover(self, on: bool):
+        self.hover = on and self.enabled
+        self.draw()
+
+    def _set_focus(self, on: bool):
+        self.focused = on
+        self.draw()
+
+    def draw(self):
+        self.delete("all")
+        x0, x1, y = self._geometry()
+        on = self.enabled
+        self.create_line(x0, y, x1, y, fill=T["line2"] if on else T["line"], width=1)
+        zero, at = self._x(0), self._x(self.value)
+        if on and self.value:
+            self.create_line(zero, y, at, y, fill=T["accent"], width=3)
+        self.create_line(zero, y - 3, zero, y + 4, fill=T["dim"], width=1)
+        hw, hh = 4, 7
+        if self.hover or self.focused:
+            self.create_rectangle(at - hw - 2, y - hh, at + hw - 2, y + hh, fill=T["ch_a"],
+                                  outline="")
+            self.create_rectangle(at - hw + 2, y - hh, at + hw + 2, y + hh, fill=T["ch_b"],
+                                  outline="")
+        self.create_rectangle(at - hw, y - hh, at + hw, y + hh,
+                              fill=(T["accent"] if on else T["dim"]), outline="")
+        label = f"{self.value:+d}" if self.value else "0"
+        self.create_text(self.winfo_width() - 2, y, text=label, anchor="e",
+                         fill=T["text"] if on and self.value else T["muted"] if on else T["dim"],
+                         font=self.font)

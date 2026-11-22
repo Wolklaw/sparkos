@@ -1,0 +1,70 @@
+{
+  "id": "dev.wolklaw.SparkGames",
+  "slug": "spark-games",
+  "name": "Spark Games",
+  "summary": "One library for every installed game: Steam (with non-Steam shortcuts), Heroic (Epic, GOG, Amazon), Lutris, itch, Bottles, Minecraft and your own. Controller and big-screen mode.",
+  "summary_fr": "Une seule bibliothèque pour tous les jeux installés : Steam (avec les raccourcis hors Steam), Heroic (Epic, GOG, Amazon), Lutris, itch, Bottles, Minecraft et les vôtres. Manette et mode grand écran.",
+  "version": "0.2.0",
+  "size_kb": 310,
+  "optional": false,
+  "in_image": true,
+  "icon": "icons/spark-games-256.png",
+  "desktop": "dev.wolklaw.SparkGames.desktop",
+  "command": "spark-games",
+  "install": {
+    "user": "install.sh --user",
+    "uninstall": "install.sh --user --uninstall",
+    "system": "install.sh --deps",
+    "image_build": "files/scripts/spark-games.sh"
+  },
+  "needs": {
+    "root": false,
+    "python": ">=3.9",
+    "python_modules": [
+      "tkinter",
+      "PIL",
+      "PIL.ImageTk",
+      "sqlite3"
+    ],
+    "commands": [
+      "xdg-open"
+    ],
+    "optional_commands": [
+      "flatpak",
+      "steam",
+      "lutris",
+      "bottles-cli",
+      "minecraft-launcher",
+      "prismlauncher",
+      "gamemoderun",
+      "mangohud",
+      "umu-run",
+      "kdialog"
+    ]
+  },
+  "reads": [
+    "~/.var/app/com.valvesoftware.Steam/.local/share/Steam",
+    "~/.local/share/Steam",
+    "~/.var/app/com.heroicgameslauncher.hgl/config/heroic",
+    "~/.config/heroic",
+    "~/.var/app/net.lutris.Lutris/data/lutris",
+    "~/.local/share/lutris",
+    "~/.var/app/io.itch.itch/config/itch",
+    "~/.config/itch",
+    "~/.var/app/com.usebottles.bottles/data/bottles",
+    "~/.local/share/bottles",
+    "~/.var/app/com.mojang.Minecraft/.minecraft",
+    "~/.minecraft",
+    "~/.var/app/org.prismlauncher.PrismLauncher/data/PrismLauncher",
+    "~/.local/share/PrismLauncher",
+    "/dev/input/event* (game controllers, only while the window is in front)",
+    "/sys/class/input"
+  ],
+  "writes": [
+    "~/.config/spark-games",
+    "~/.local/share/spark-games",
+    "~/.cache/spark-games",
+    "~/.local/state/spark-games"
+  ],
+  "network": "Optional: downloads the public AreWeAntiCheatYet game list at most once a week (can be turned off in Settings)."
+}

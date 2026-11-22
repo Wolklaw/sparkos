@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Spark Hello as an .msi, built in CI with wixl (msitools): installs the 32-bit Spark Hello
+     with no shortcut, so Spark Run has to find the program by looking for new .exe files. -->
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+  <Product Id="*" Name="Spark Hello MSI" Language="1033" Version="1.0.0"
+           Manufacturer="Wolklaw (Spark Run test)"
+           UpgradeCode="6a3b8f8e-2a51-4f0e-9a51-2d4f3c1e7b11">
+    <Package InstallerVersion="200" Compressed="yes" InstallScope="perMachine"/>
+    <Media Id="1" Cabinet="hello.cab" EmbedCab="yes"/>
+    <Directory Id="TARGETDIR" Name="SourceDir">
+      <Directory Id="ProgramFilesFolder">
+        <Directory Id="INSTALLDIR" Name="Spark Hello MSI">
+          <Component Id="Main" Guid="3d4c1a7e-6c1b-4b0e-8f3a-9e2b5c7d1f20">
+            <File Id="HelloExe" Name="SparkHelloMsi.exe" Source="hello32.exe" KeyPath="yes"/>
+          </Component>
+        </Directory>
+      </Directory>
+    </Directory>
+    <Feature Id="Complete" Level="1">
+      <ComponentRef Id="Main"/>
+    </Feature>
+  </Product>
+</Wix>

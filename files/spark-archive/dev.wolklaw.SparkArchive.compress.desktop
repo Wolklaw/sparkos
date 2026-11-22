@@ -1,0 +1,31 @@
+[Desktop Entry]
+Type=Service
+MimeType=all/all;
+Actions=compressZip;compress7z;compressTarZst;compressPassword;
+X-KDE-Priority=TopLevel
+X-KDE-Submenu=Compress
+X-KDE-Submenu[fr]=Compresser
+
+[Desktop Action compressZip]
+Name=Compress to .zip
+Name[fr]=Compresser en .zip
+Icon=dev.wolklaw.SparkArchive
+Exec=spark-archive --compress zip %F
+
+[Desktop Action compress7z]
+Name=Compress to .7z
+Name[fr]=Compresser en .7z
+Icon=dev.wolklaw.SparkArchive
+Exec=spark-archive --compress 7z %F
+
+[Desktop Action compressTarZst]
+Name=Compress to .tar.zst
+Name[fr]=Compresser en .tar.zst
+Icon=dev.wolklaw.SparkArchive
+Exec=spark-archive --compress tar.zst %F
+
+[Desktop Action compressPassword]
+Name=Compress with a password…
+Name[fr]=Compresser avec un mot de passe…
+Icon=dev.wolklaw.SparkArchive
+Exec=spark-archive --compress-password %F

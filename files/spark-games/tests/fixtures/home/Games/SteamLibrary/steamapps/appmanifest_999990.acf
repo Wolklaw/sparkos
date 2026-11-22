@@ -1,0 +1,13 @@
+// written by hand for the tests
+"AppState"
+{
+	"appid"		"999990"
+	"name"		"The \"Quoted\" Game \\ Deluxe"
+	"StateFlags"		"4"
+	"installdir"		"Quoted Game"
+	"LaunchOptions"		"-windowed"	[$WIN32]
+	"UserConfig"
+	{
+		"language"		"english"
+	}
+}

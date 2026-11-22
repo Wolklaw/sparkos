@@ -1,0 +1,25 @@
+# Spark Update's background check, as root (staging an image needs root, and it should happen
+# even when nobody is logged in). The timer starts it hourly; it decides from
+# /etc/sparkos/update.conf whether a check is due, and waits for a later hour while a game runs,
+# on a metered connection or on a low battery. It never restarts the PC.
+[Unit]
+Description=Spark Update: look for a new SparkOS version
+Documentation=file:///usr/lib/spark-update/README.md
+Wants=network-online.target
+After=network-online.target
+ConditionPathExists=/run/ostree-booted
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/spark-update --system-run
+# lowest priority: a download never takes the CPU or the disk from a game
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+StateDirectory=spark-update
+StateDirectoryMode=0755
+LogsDirectory=spark-update
+LogsDirectoryMode=0755
+TimeoutStartSec=4h
+# bootc relabels the new deployment's files; Bazzite's updater (uupd) runs bootc with this too
+SELinuxContext=system_u:unconfined_r:unconfined_t:s0

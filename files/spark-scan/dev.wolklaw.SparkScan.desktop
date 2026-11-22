@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Scan
+GenericName=Scanner
+GenericName[fr]=Numériseur
+Comment=Scan pages to a PDF or images, with preview and crop
+Comment[fr]=Numériser des pages en PDF ou en images, avec aperçu et recadrage
+Exec=spark-scan
+Icon=dev.wolklaw.SparkScan
+Terminal=false
+Categories=Graphics;Scanning;Office;
+Keywords=scan;scanner;scanning;pdf;ocr;document;photocopy;sane;numériser;numériseur;numérisation;scanneur;
+Keywords[fr]=numériser;numériseur;numérisation;scanneur;scanner;pdf;document;texte;
+StartupWMClass=SparkScan
+SingleMainWindow=true

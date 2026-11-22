@@ -1,0 +1,37 @@
+{
+  "id": "dev.wolklaw.SparkLink",
+  "slug": "spark-link",
+  "name": "Spark Link",
+  "name_fr": "Spark Link",
+  "summary": "Your phone and this PC, linked over the local network: links, files, phone notifications, battery, find my phone, and a shared clipboard if you switch it on. Pairs with Soot on Android.",
+  "summary_fr": "Votre téléphone et ce PC, reliés par le réseau local : liens, fichiers, notifications du téléphone, batterie, retrouver le téléphone, et un presse-papiers partagé si vous l'activez. S'appaire avec Soot sur Android.",
+  "version": "1.0.1",
+  "installed_size_kb": 480,
+  "icon": "icons/spark-link-256.png",
+  "categories": ["Network", "Utility"],
+  "protocol": "docs/spark-link-protocol.md, version 1 (draft 2)",
+  "service": "spark-link.service (systemd user unit, enabled by the window at the first pairing)",
+  "port": {"tcp": 47100, "mdns": "_sparklink._tcp"},
+  "needs": {
+    "root": false,
+    "commands": ["python3", "openssl"],
+    "python": ">=3.11",
+    "python_modules": ["tkinter", "ssl"],
+    "optional": {
+      "gi (GObject, Gio)": "Plasma notifications, the clipboard through Klipper, and the mDNS announcement through Avahi",
+      "gdbus": "notifications without GObject",
+      "avahi-daemon": "phones find this PC by itself; without it they use the pairing link or the typed address",
+      "soot": "links from the phone open in Soot (else the default browser)",
+      "kdialog": "the KDE file picker for Send files"
+    },
+    "system": "Linux; Plasma 6 for notifications, the clipboard and Dolphin's Send to phone"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-link --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-link"
+}

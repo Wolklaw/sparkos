@@ -1,0 +1,9 @@
+Name:	bash
+Umask:	0022
+State:	S
+Tgid:	5000
+Pid:	5000
+PPid:	4900
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	1

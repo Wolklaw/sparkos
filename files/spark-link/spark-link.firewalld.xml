@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>Spark Link</short>
+  <description>Spark Link: phones paired with this PC reach it on this port, over pinned mutual TLS. It listens only while a phone is paired or the pairing screen is open, and accepts only local network addresses. Discovery uses mDNS (the mdns service).</description>
+  <port protocol="tcp" port="47100"/>
+</service>

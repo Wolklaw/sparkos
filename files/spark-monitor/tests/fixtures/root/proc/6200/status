@@ -1,0 +1,9 @@
+Name:	zombie-child
+Umask:	0022
+State:	Z
+Tgid:	6200
+Pid:	6200
+PPid:	2000
+Uid:	1000	1000	1000	1000
+Gid:	1000	1000	1000	1000
+Threads:	1

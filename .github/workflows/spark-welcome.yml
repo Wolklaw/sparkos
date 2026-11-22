@@ -1,0 +1,103 @@
+name: spark-welcome
+# Spark Welcome ships in the SparkOS image (files/scripts/spark-welcome.sh). Two checks:
+# - fedora: the image build step (system-wide install with --deps), the self-test, and the
+#   unit and UI tests under Xvfb, in a plain Fedora container. Much faster than the image build.
+# - sparkos-user: inside the published SparkOS image, a normal user installs it with
+#   install.sh --user (no root; /usr is read-only on a real machine), runs --self-test and the
+#   unit tests on the image's Python, then --uninstall, and nothing may be left behind. That
+#   mode stays for the future Spark Portal.
+on:
+  push:
+    paths:
+      - "files/spark-welcome/**"
+      - "files/scripts/spark-welcome.sh"
+      - ".github/workflows/spark-welcome.yml"
+  pull_request:
+    paths:
+      - "files/spark-welcome/**"
+      - "files/scripts/spark-welcome.sh"
+      - ".github/workflows/spark-welcome.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-welcome.sh
+
+      - name: Self-test
+        run: spark-welcome --self-test
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth mesa-dri-drivers
+          cd files/spark-welcome
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Tests in French (SPARK_LANG=fr, with the text width checks)
+        run: |
+          cd files/spark-welcome
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Uninstall (system-wide)
+        run: |
+          bash files/spark-welcome/install.sh --uninstall
+          test ! -e /usr/bin/spark-welcome
+          test ! -e /usr/lib/spark-welcome
+          test ! -e /etc/xdg/autostart/dev.wolklaw.SparkWelcome.desktop
+          test ! -e /usr/share/applications/dev.wolklaw.SparkWelcome.desktop
+
+  sparkos-user:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: Install, self-test and uninstall as a normal user
+        run: |
+          podman run --rm -v "$PWD/files/spark-welcome:/src:ro" "$IMAGE" bash -euc '
+            mkdir -p /var/home
+            useradd -m tester
+            cp -r /src /tmp/spark-welcome
+            chown -R tester: /tmp/spark-welcome
+            home=$(getent passwd tester | cut -d: -f6)
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            cd "$home"
+            setpriv --reuid=tester --regid=tester --init-groups \
+              env -i HOME="$home" USER=tester LOGNAME=tester \
+              PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
+              bash /tmp/spark-welcome/tests/ci-user-install.sh /tmp/spark-welcome
+          '
+
+      - name: Image build step and self-test, system-wide as root
+        run: |
+          # A fresh container: what files/scripts/spark-welcome.sh does in the image build,
+          # then the self-test the boot test will run.
+          podman run --rm -v "$PWD/files:/files:ro" "$IMAGE" bash -euc '
+            CONFIG_DIRECTORY=/files bash /files/scripts/spark-welcome.sh
+            spark-welcome --self-test | tee /tmp/self-test.txt
+            grep -q "^self-test passed" /tmp/self-test.txt
+            spark-welcome --version
+          '

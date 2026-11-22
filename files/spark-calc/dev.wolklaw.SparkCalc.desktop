@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Calc
+Name[fr]=Spark Calc
+GenericName=Calculator
+GenericName[fr]=Calculatrice
+Comment=Exact sums, with scientific and programmer modes
+Comment[fr]=Calculs exacts, avec modes scientifique et programmeur
+Exec=spark-calc
+Icon=dev.wolklaw.SparkCalc
+Terminal=false
+Categories=Utility;Calculator;
+Keywords=calculator;calc;math;sum;scientific;programmer;hex;binary;percent;calculatrice;calcul;scientifique;programmeur;
+Keywords[fr]=calculatrice;calcul;mathématiques;scientifique;programmeur;hexadécimal;binaire;pourcentage;
+StartupWMClass=SparkCalc
+X-KDE-Shortcuts=Calculator
+Actions=Scientific;Programmer;
+
+[Desktop Action Scientific]
+Name=Scientific
+Name[fr]=Scientifique
+Exec=spark-calc --mode scientific
+
+[Desktop Action Programmer]
+Name=Programmer
+Name[fr]=Programmeur
+Exec=spark-calc --mode programmer

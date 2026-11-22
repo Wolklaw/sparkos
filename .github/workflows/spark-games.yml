@@ -1,0 +1,95 @@
+name: spark-games
+# Spark Games ships in SparkOS (files/scripts/spark-games.sh, the image build step).
+#
+# fedora:  installs it system-wide in a plain Fedora container, runs the self-test and the unit
+#          and UI tests under Xvfb, then installs and removes it for a normal user.
+# sparkos: inside the published SparkOS image: the image build step as root and --self-test (what
+#          the boot test runs), then as a normal user with no root and no network:
+#          install.sh --user, --self-test, --uninstall, and checks nothing is left behind.
+on:
+  push:
+    paths:
+      - "files/spark-games/**"
+      - "files/scripts/spark-games.sh"
+      - ".github/workflows/spark-games.yml"
+  pull_request:
+    paths:
+      - "files/spark-games/**"
+      - "files/scripts/spark-games.sh"
+      - ".github/workflows/spark-games.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install (system-wide, with --deps)
+        run: bash files/spark-games/install.sh --deps
+
+      - name: Self-test
+        run: spark-games --self-test
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth
+          cd files/spark-games
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Install and remove for a normal user
+        run: |
+          dnf -y install --setopt=install_weak_deps=False shadow-utils util-linux
+          bash files/spark-games/install.sh --uninstall
+          test ! -e /usr/bin/spark-games
+          useradd -m tester
+          home=$(getent passwd tester | cut -d: -f6)
+          cp -r files/spark-games "$home/spark-games-src" && chown -R tester: "$home/spark-games-src"
+          # setpriv, not su or runuser: those open a PAM session, which fails in a container
+          cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+            env -i HOME="$home" USER=tester LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin \
+            LANG=C.UTF-8 bash "$home/spark-games-src/tests/user_install_check.sh" "$home/spark-games-src"
+
+  sparkos:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: read
+    env:
+      IMAGE: ghcr.io/wolklaw/sparkos:latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pull the SparkOS image
+        run: |
+          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
+          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
+
+      - name: Image build step and self-test (root)
+        run: |
+          sudo podman run --rm -v "$PWD/files:/tmp/files:ro" -e CONFIG_DIRECTORY=/tmp/files "$IMAGE" bash -euxc '
+            bash /tmp/files/scripts/spark-games.sh
+            spark-games --self-test | tee /tmp/self-test.txt
+            grep -q "^self-test passed" /tmp/self-test.txt'
+
+      - name: Install, self-test and uninstall as a normal user (no root, no network)
+        run: |
+          sudo podman run --rm --network=none -v "$PWD/files/spark-games:/src:ro" "$IMAGE" bash -euxc '
+            useradd -m tester
+            home=$(getent passwd tester | cut -d: -f6)
+            cp -r /src "$home/spark-games-src" && chown -R tester: "$home/spark-games-src"
+            # setpriv, not su or runuser: those open a PAM session, which fails in a container
+            cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
+              env -i HOME="$home" USER=tester LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin \
+              LANG=C.UTF-8 bash "$home/spark-games-src/tests/user_install_check.sh" "$home/spark-games-src"'
