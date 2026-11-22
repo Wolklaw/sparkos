@@ -1,12 +1,12 @@
 # Caps Lock turns on and off when pressed, like Windows: start sparkos-capslock for each physical
 # keyboard (files/sparkos-capslock/sparkos-capslock.c in SparkOS's repo explains how). Left out:
-# virtual devices (its own copies, Steam's and other remappers' devices) and anything udev sees as
-# a game controller.
+# uinput devices (its own copies, Steam's and other remappers' devices) and anything udev sees as a
+# game controller. Bluetooth keyboards are included: they're virtual too, but under misc/uhid.
 # To get Linux's behaviour back (off on release): sudo systemctl mask sparkos-capslock@.service, then restart.
 ACTION=="remove", GOTO="sparkos_capslock_end"
 SUBSYSTEM!="input", GOTO="sparkos_capslock_end"
 KERNEL!="event*", GOTO="sparkos_capslock_end"
-DEVPATH=="/devices/virtual/*", GOTO="sparkos_capslock_end"
+DEVPATH=="/devices/virtual/input/*", GOTO="sparkos_capslock_end"
 ENV{ID_INPUT_JOYSTICK}=="1", GOTO="sparkos_capslock_end"
 ENV{ID_INPUT_KEYBOARD}=="1", TAG+="systemd", ENV{SYSTEMD_WANTS}+="sparkos-capslock@%k.service"
 LABEL="sparkos_capslock_end"
