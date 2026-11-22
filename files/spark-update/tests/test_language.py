@@ -144,7 +144,7 @@ class Window(unittest.TestCase):
                     self.assertEqual(clipped(app.root), [])
             app.show('main', glitch=False)
             for key in ('status.ready', 'status.rolled_back', 'status.no_image',
-                        'status.failed', 'status.flatpak'):
-                app.status.config(text='● ' + text.t(key))
+                        'status.failed', 'status.flatpak', 'status.held'):
+                app.status.config(text='● ' + text.t(key, version='45.20261119.0'))
                 with self.subTest(status=key):
                     self.assertEqual(clipped(app.root), [])

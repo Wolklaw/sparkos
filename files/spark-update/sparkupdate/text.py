@@ -27,6 +27,7 @@ EN = {
     'status.flatpak': "UPDATING APPS",
     'status.failed': "LAST CHECK FAILED",
     'status.rolled_back': "PREVIOUS VERSION AT NEXT RESTART",
+    'status.held': "UP TO DATE · HOLDING BACK {version}",
     'status.no_image': "NOT RUNNING FROM AN IMAGE",
     'status.test_data': "TEST DATA",
 
@@ -91,6 +92,8 @@ EN = {
                          "you click.",
     'check.postponed': "Waiting for a later hour: {why}.",
     'check.failed': "The last check failed: {why}",
+    'check.held': "Holding back SparkOS {version} because you rolled back from it. Click "
+                  "Check now to install it anyway.",
     'check.direct': "Background checks come with the SparkOS image; this copy checks only "
                     "when you click.",
 
@@ -214,6 +217,7 @@ FR = {
     'status.flatpak': "MISE À JOUR DES APPLICATIONS",
     'status.failed': "LA DERNIÈRE VÉRIFICATION A ÉCHOUÉ",
     'status.rolled_back': "VERSION PRÉCÉDENTE AU PROCHAIN REDÉMARRAGE",
+    'status.held': "À JOUR · {version} MISE DE CÔTÉ",
     'status.no_image': "PAS DÉMARRÉ À PARTIR D'UNE IMAGE",
     'status.test_data': "DONNÉES DE TEST",
 
@@ -281,6 +285,8 @@ FR = {
                          "rien tant que vous ne cliquez pas.",
     'check.postponed': "En attente d'une heure plus tard : {why}.",
     'check.failed': "La dernière vérification a échoué : {why}",
+    'check.held': "SparkOS {version} est mise de côté parce que vous en êtes revenu en "
+                  "arrière. Cliquez sur Vérifier pour l'installer quand même.",
     'check.direct': "Les vérifications en arrière-plan viennent avec l'image SparkOS; cette "
                     "copie vérifie seulement quand vous cliquez.",
 

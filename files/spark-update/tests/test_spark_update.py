@@ -531,6 +531,20 @@ class SystemRunTests(unittest.TestCase):
         self.assertTrue(run.ran('upgrade'))
         self.assertNotIn('held', self.state())
 
+    def test_window_shows_the_hold_only_while_it_applies(self):
+        from sparkupdate.app import held_version
+        host = status.parse_rpm_ostree(fixture('rpm-ostree-none.json'))
+        held = {'digests': ['sha256:' + '2' * 64], 'version': B_VER}
+        self.assertEqual(held_version(held, host, 'spark'), B_VER)
+        self.assertEqual(held_version({'digests': held['digests']}, host, 'spark'), '?')
+        self.assertEqual(held_version(held, host, 'uupd'), '')       # uupd ignores the hold
+        self.assertEqual(held_version(None, host, 'spark'), '')
+        self.assertEqual(held_version({'digests': [], 'version': B_VER}, host, 'spark'), '')
+        booted = {'digests': [host.booted.digest], 'version': A_VER}
+        self.assertEqual(held_version(booted, host, 'spark'), '')     # running it again
+        staged = status.parse_rpm_ostree(fixture('rpm-ostree-staged.json'))
+        self.assertEqual(held_version(held, staged, 'spark'), '')     # a newer one is staged
+
     def test_rollback(self):
         staged = make_root('rpm-ostree-staged.json')
         run = FakeRunner(staged)
@@ -1024,6 +1038,28 @@ class UITests(unittest.TestCase):
                                        'last_check': time.time() - 60, 'last_run': time.time()})
         app = self.open(root=root)
         self.assertIn('error: Fetching: 503', app.check_line.cget('text'))
+
+    def held_root(self, digest='sha256:' + '2' * 64, updater_on='spark'):
+        root = make_root('rpm-ostree-none.json', updater_on=updater_on)
+        updater.save_state(Env(root), {'result': 'up_to_date', 'last_check': time.time() - 60,
+                                       'last_run': time.time(),
+                                       'held': {'digests': [digest], 'version': B_VER}})
+        return root
+
+    def test_hold_shows(self):
+        app = self.open(root=self.held_root())
+        self.assertEqual(app.snap.held, B_VER)
+        self.assertIn(t('check.held', version=B_VER), app.check_line.cget('text'))
+        app.env = Env(None)               # the real status line, not TEST DATA
+        app.render_status()
+        self.assertIn(t('status.held', version=B_VER), app.status.cget('text'))
+
+    def test_no_hold_shown_when_it_no_longer_applies(self):
+        booted = 'sha256:' + '1' * 64     # booted the held version again: the hold ends
+        for root in (self.held_root(digest=booted), self.held_root(updater_on='uupd')):
+            app = self.open(root=root)
+            self.assertEqual(app.snap.held, '')
+            self.assertNotIn(t('check.held', version=B_VER), app.check_line.cget('text'))
 
 
     def test_under_uupd(self):

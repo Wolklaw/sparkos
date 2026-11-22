@@ -23,7 +23,7 @@ from .settings import (EVERY_HOURS, NOTIFY, REMIND_HOURS, STAGE, SystemSettings,
                        as_args, load_prefs, load_system, save_prefs, write_system)
 from .status import Deployment, Host, read_host
 from .text import EN, t
-from .engine import UUPD, engine, start_uupd, uupd_status
+from .engine import SPARK, UUPD, engine, start_uupd, uupd_status
 from .updater import (direct_state_path, load_state, rollback as do_rollback, system_run,
                       update_flatpak, user_state_path)
 from .widgets import (MONO_FAMILIES, T, Glitch, GlitchPanel, GlitchText, Mark, Segmented,
@@ -47,6 +47,7 @@ class Snapshot:
     compare: str = 'none'           # 'update', 'rollback', 'previous', 'none'
     system_install: bool = False
     engine: str = 'none'            # who stages images: 'uupd', 'spark' or 'none' (engine.py)
+    held: str = ''                  # the version you rolled back from, while runs skip it
     read_at: float = field(default_factory=time.time)
 
 
@@ -54,6 +55,7 @@ def gather(env: Env) -> Snapshot:
     host = read_host(env)
     conf, warnings = load_system(env)
     state = load_state(env)
+    held = state.get('held')
     direct = load_json(direct_state_path())
     if (direct.get('last_run') or 0) > (state.get('last_run') or 0):
         state = direct
@@ -64,6 +66,7 @@ def gather(env: Env) -> Snapshot:
                     user_state=load_json(user_state_path()),
                     system_install=os.path.isfile(env.path(NOW_UNIT)), engine=eng)
     if host.booted is not None:
+        snap.held = held_version(held, host, eng)
         snap.current = release.load(host.booted.root(env))
         if host.rollback_queued and host.next_boot is not None:
             snap.other_dep, snap.compare = host.next_boot, 'rollback'
@@ -76,6 +79,17 @@ def gather(env: Env) -> Snapshot:
     else:
         snap.current = release.load(env.path('/'), use_rpm=False)
     return snap
+
+
+def held_version(held: Any, host: Host, eng: str) -> str:
+    """The version a roll back holds back (updater._held_back), or ''. Only the spark
+    engine honours the hold, and booting that version again (or a roll back not restarted
+    yet, which still runs it) means it isn't held back from this PC."""
+    if eng != SPARK or not isinstance(held, dict) or not held.get('digests'):
+        return ''
+    if host.booted is None or host.booted.digest in held['digests'] or host.update_ready:
+        return ''
+    return str(held.get('version') or '?')
 
 
 def uupd_state(env: Env, host: Host) -> Dict[str, Any]:
@@ -475,6 +489,8 @@ class App:
             status, colour = t('status.available'), T["accent"]
         elif state.get('result') == 'failed':
             status, colour = t('status.failed'), T["pink"]
+        elif snap.held:
+            status, colour = t('status.held', version=snap.held), T["gold"]
         else:
             status, colour = t('status.up_to_date'), T["accent"]
         self.status.config(text="● " + status, fg=colour)
@@ -617,6 +633,8 @@ class App:
         self.apps_line.config(text=t('panel.apps').upper() + "   " + apps)
         # checks
         lines = []
+        if snap.held and state.get('result') != 'available':
+            lines.append(t('check.held', version=snap.held))
         if state.get('result') == 'failed' and state.get('error'):
             lines.append(t('check.failed', why=state['error']))
         elif state.get('last_check'):
