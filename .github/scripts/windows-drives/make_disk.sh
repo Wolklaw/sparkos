@@ -17,6 +17,13 @@ sgdisk -n1:0:+256M -t1:0700 -n2:0:+128M -t2:0700 -n3:0:0 -t3:0700 "$out" >/dev/n
 sgdisk -p "$out" | tail -4
 loop=$(losetup -fP --show "$out")
 trap 'umount -q /tmp/make-disk-mnt 2>/dev/null || true; losetup -d "$loop"' EXIT
+# ntfs-3g can still be writing for a moment after the last file: "target is busy". Wait and retry instead of failing.
+unmount() {
+  sync
+  for i in 1 2 3 4 5 6 7 8 9 10; do umount /tmp/make-disk-mnt 2>/dev/null && return 0; sleep 0.5; done
+  umount /tmp/make-disk-mnt
+}
+
 # the partition nodes (loop0p1...) appear a moment later; partx asks the kernel again if they don't
 for i in $(seq 1 50); do
   [ -b "${loop}p3" ] && break
@@ -37,12 +44,12 @@ python3 "$here/make_hive.py" /tmp/make-disk-mnt/Windows/System32/config/SYSTEM "
 mkdir -p "/tmp/make-disk-mnt/Users/Tester/.claude/projects/E--Personal-Projects-demo/memory"
 printf '# global instructions from Windows\n' > /tmp/make-disk-mnt/Users/Tester/.claude/CLAUDE.md
 printf -- '- a memory from Windows\n' > /tmp/make-disk-mnt/Users/Tester/.claude/projects/E--Personal-Projects-demo/memory/MEMORY.md
-umount /tmp/make-disk-mnt
+unmount
 mount -t ntfs-3g "${loop}p3" /tmp/make-disk-mnt
 mkdir -p "/tmp/make-disk-mnt/Personal Projects/demo"
 git -C "/tmp/make-disk-mnt/Personal Projects/demo" -c init.defaultBranch=main init -q
 printf 'print("hi")\r\n' > "/tmp/make-disk-mnt/Personal Projects/demo/app.py"
 git -C "/tmp/make-disk-mnt/Personal Projects/demo" -c user.name=t -c user.email=t@t -c core.autocrlf=true add -A
 git -C "/tmp/make-disk-mnt/Personal Projects/demo" -c user.name=t -c user.email=t@t commit -q -m first
-umount /tmp/make-disk-mnt
+unmount
 echo "C=$c D=$d E=$e"
