@@ -20,6 +20,11 @@ on:
         description: Image tag to build from (a branch build is br-<branch>-<Fedora version>; main publishes only latest)
         type: string
         default: latest
+      variant:
+        description: Which installer to build (publishing needs both)
+        type: choice
+        options: [both, sparkos, sparkos-nvidia]
+        default: both
   schedule:
     - cron: "30 9 * * 1" # Mondays, after the daily image build
 
@@ -40,17 +45,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - variant: sparkos
-            iso: SparkOS-installer.iso
-            suffix: ""
-          - variant: sparkos-nvidia
-            iso: SparkOS-NVIDIA-installer.iso
-            suffix: "-nvidia"
+        variant: ${{ fromJSON(github.event_name == 'workflow_dispatch' && inputs.variant != 'both' && format('["{0}"]', inputs.variant) || '["sparkos", "sparkos-nvidia"]') }}
     env:
       IMAGE: ghcr.io/wolklaw/${{ matrix.variant }}:${{ inputs.image_tag || 'latest' }}
-      ISO_NAME: ${{ matrix.iso }}
-      SUFFIX: ${{ matrix.suffix }}
+      ISO_NAME: ${{ matrix.variant == 'sparkos-nvidia' && 'SparkOS-NVIDIA-installer.iso' || 'SparkOS-installer.iso' }}
+      SUFFIX: ${{ matrix.variant == 'sparkos-nvidia' && '-nvidia' || '' }}
     steps:
       - name: Free disk space
         uses: jlumbroso/free-disk-space@ceedf095f4ec1a097402bc6bd80831f2e1a6fde6 # v2.0.0
@@ -83,10 +82,15 @@ jobs:
 
       - name: Build the installer image
         run: |
-          # The installer's build pulls the image again inside, without a login: the image
-          # package must be public (as a PC's updates need it to be)
+          # Logged in with this job's token, for the FROM pull and for the pull inside
+          # installer/build.sh (the login is mounted for the build only, never in the image).
+          # A private package (sparkos-nvidia before release) works too.
           echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          sudo mkdir -p /tmp/ghcr-auth
+          sudo cp /run/containers/0/auth.json /tmp/ghcr-auth/auth.json
+          sudo chmod 700 /tmp/ghcr-auth && sudo chmod 600 /tmp/ghcr-auth/auth.json
           sudo env TMPDIR=/mnt/podman-storage/tmp podman build \
+            --volume /tmp/ghcr-auth:/run/ghcr-auth:ro \
             --cap-add sys_admin --security-opt label=disable \
             --build-arg BASE_IMAGE="$IMAGE" --build-arg INSTALL_IMAGE_PAYLOAD="$IMAGE" \
             -t localhost/payload:latest installer/
@@ -132,7 +136,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: installer-boot${{ matrix.suffix }}
+          name: installer-boot${{ env.SUFFIX }}
           path: |
             /tmp/iso-shots/
             /tmp/iso-serial.log
@@ -180,7 +184,7 @@ jobs:
       - name: Keep the ISO as a run artifact
         uses: actions/upload-artifact@v4
         with:
-          name: installer-iso${{ matrix.suffix }}
+          name: installer-iso${{ env.SUFFIX }}
           path: out/
           compression-level: 0
           retention-days: 3
@@ -188,7 +192,7 @@ jobs:
   publish:
     name: Publish to the installer release
     needs: iso
-    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || (inputs.publish && inputs.image_tag == 'latest'))
+    if: github.ref == 'refs/heads/main' && (github.event_name != 'workflow_dispatch' || (inputs.publish && inputs.image_tag == 'latest' && inputs.variant == 'both'))
     runs-on: ubuntu-24.04
     timeout-minutes: 120
     env:

@@ -42,6 +42,7 @@ permissions:
   # creates, edits, publishes or deletes a release or its files.
   contents: write
   actions: read # an installer-iso run's artifact (a private repo's artifacts need it)
+  packages: read # a still-private image package (see "Boot the installed disk")
 
 concurrency:
   group: installer-install-test-${{ github.ref }}
@@ -191,6 +192,20 @@ jobs:
 
       - name: Boot the installed disk without the ISO
         run: |
+          # A private image package (sparkos-nvidia before release) can't be checked for updates
+          # without a login. Then, and only then, the installed VM gets this job's read token
+          # (gone when the job ends) on a small read-only disk; a public package is tested
+          # without one, as a real PC sees it.
+          if ! curl -fs "https://ghcr.io/token?scope=repository:wolklaw/$VARIANT:pull" | grep -q '"token"'; then
+            echo "::warning::ghcr.io/wolklaw/$VARIANT is private: the test VM gets a read login. Make it public before release."
+            printf 'INFO\tImage package is private\t%s\n' "ghcr.io/wolklaw/$VARIANT: the VM checked for updates with a test login; it must be public before release" >>"$W/results.tsv"
+            auth=$(printf '%s:%s' "${{ github.actor }}" "${{ github.token }}" | base64 -w0)
+            umask 077
+            printf '{"auths":{"ghcr.io":{"auth":"%s"}}}\n' "$auth" >"$W/auth.json"
+            truncate -s 4M "$W/regauth.img" && mkfs.vfat -n REGAUTH "$W/regauth.img" >/dev/null
+            mcopy -i "$W/regauth.img" "$W/auth.json" ::/auth.json
+            rm -f "$W/auth.json"
+          fi
           /usr/bin/python3 "$T/vm.py" boot --work "$W" --layout "$LAYOUT" $SB \
             --expect-digest "$(cat "$W/expected-digest" 2>/dev/null)" \
             --expect-image "ghcr.io/wolklaw/$VARIANT"

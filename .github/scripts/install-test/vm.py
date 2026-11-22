@@ -141,6 +141,10 @@ class VM:
                     "-device", "usb-storage,bus=xhci.0,drive=stick,removable=on,bootindex=0",
                     "-drive", f"file={W}/kstest.img,format=raw,if=none,id=kst",
                     "-device", "virtio-blk-pci,drive=kst,serial=KSTEST"]
+        elif os.path.exists(f"{W}/regauth.img"):
+            # Test only: a read login for a private image package (see installer-install-test.yml)
+            cmd += ["-drive", f"file={W}/regauth.img,format=raw,if=none,id=regauth,readonly=on",
+                    "-device", "virtio-blk-pci,drive=regauth,serial=REGAUTH"]
         cmd += ["-netdev", "user,id=n0", "-device", "virtio-net-pci,netdev=n0",
                 "-vga", "virtio", "-display", "none",
                 "-chardev", f"socket,id=ser0,path={W}/serial.sock,server=on,wait=off", "-serial", "chardev:ser0",

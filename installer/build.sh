@@ -60,7 +60,10 @@ echo "Flatpaks in the installer: $(flatpak list --system --app | wc -l) apps"
 if mountpoint -q /usr/lib/containers/storage; then
     podman save --format oci-archive "$INSTALL_IMAGE_PAYLOAD" | podman load --storage-opt additionalimagestore=''
 else
-    podman pull "$INSTALL_IMAGE_PAYLOAD"
+    # installer-iso.yml mounts its registry login here for the build only (private packages)
+    auth=()
+    [ -r /run/ghcr-auth/auth.json ] && auth=(--authfile /run/ghcr-auth/auth.json)
+    podman pull "${auth[@]}" "$INSTALL_IMAGE_PAYLOAD"
 fi
 
 echo "Copying installer system files..."
