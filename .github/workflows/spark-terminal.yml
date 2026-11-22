@@ -106,6 +106,8 @@ jobs:
         run: |
           sudo podman run --rm -v "$PWD:/repo:ro" "$IMAGE" \
             bash -euo pipefail /repo/files/spark-terminal/tests/image_check.sh | tee sparkos.txt
+          status=${PIPESTATUS[0]}
           { echo '### Spark Terminal inside the SparkOS image'; echo '```';
             grep -E '^(image|before|bench|ok  |FAIL|self-test|Ran |OK)' sparkos.txt || true
             echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          exit "$status"

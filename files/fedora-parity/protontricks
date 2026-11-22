@@ -1,0 +1,12 @@
+#!/usr/bin/bash
+# protontricks and protontricks-launch run the Flathub app com.github.Matoking.protontricks, as
+# on Bazzite. The command name decides which of the two runs.
+app=com.github.Matoking.protontricks
+if ! flatpak info "$app" >/dev/null 2>&1; then
+  echo "Protontricks isn't installed. Install it from the Store, or: flatpak install flathub $app" >&2
+  exit 1
+fi
+case "${0##*/}" in
+  protontricks-launch) exec /usr/bin/flatpak run --command=protontricks-launch "$app" "$@" ;;
+  *) exec /usr/bin/flatpak run "$app" "$@" ;;
+esac

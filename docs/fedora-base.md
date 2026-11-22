@@ -3,7 +3,35 @@
 SparkOS is built on Bazzite today. This prototype builds the same SparkOS layer on Fedora's own
 atomic KDE image, Fedora Kinoite 45, to find out what moving off Bazzite (Release 3 in
 [PLAN.md](../PLAN.md)) would cost. It's a separate test image, `ghcr.io/wolklaw/sparkos-fedora`.
-The real SparkOS build, its recipe and its boot test are unchanged.
+
+**Since 2026-11-22 it's built from the same Containerfile as SparkOS** (see
+[building.md, The Fedora build](building.md#the-fedora-build)), every time main's image builds and
+every day, and booted with the same boot test. Before that it had its own BlueBuild recipe and its
+own copy of the checks, which fell behind main (it missed the icon theme, the Caps Lock fix, the new
+boot splash and the sign-in screen change). Two of the gaps below are fixed by that change:
+**H.265** (RPM Fusion free's FFmpeg and Mesa video decode are now in the image) and **Spark
+Update's image name** (it knows `sparkos-fedora`). Bazzite's device rules (controllers, RGB,
+wheels, ntsync) were added the same day; see [Device rules](#device-rules). Also since then, **`ujust`** is replaced by
+SparkOS's own `spark` command and **Homebrew** installs with `spark brew` ([spark-cli.md](spark-cli.md)).
+The measurements below are from the prototype
+runs of 2026-11-20 and haven't been redone.
+
+**Closed after that (2026-11-22), not yet measured in a built image:**
+
+- **Homebrew in the shell.** A PC that moves from Bazzite keeps its Homebrew (`/home` is a link
+  to `/var/home`, which an image change keeps) but would lose Bazzite's shell setup, which no
+  package owns. [files/scripts/fedora-homebrew.sh](../files/scripts/fedora-homebrew.sh) installs
+  SparkOS's own: `/etc/profile.d/brew.sh` (PATH with Homebrew last, MANPATH, INFOPATH, zsh
+  completion), `/etc/profile.d/brew-bash-completion.sh` and fish's `sparkos-brew.fish`
+  (sources in [files/homebrew](../files/homebrew)). They keep Bazzite's names so they replace its
+  copies, and do nothing without Homebrew. Homebrew itself isn't in the image: on a new install
+  `sparkos-dev-setup --brew` points to Homebrew's installer. No update timers.
+- **Tools Bazzite had:** `distrobox`, `btop`, `lm_sensors`, `tmux`, `fzf`, `cabextract` from
+  Fedora (67 packages with their dependencies, +37 MiB), and **`umu-run`** for Spark Games'
+  Windows games: `umu-launcher` isn't in Fedora, so it comes from Terra for that one package
+  (Terra's key checked by fingerprint, the repository not left on the system).
+- **Store wording:** `sparkos-open-package` and the docs say Spark Store, not "the Store
+  (Bazaar)". The Bazaar fallback stays for the Bazzite base.
 
 Measured on 2026-11-20 with Kinoite 45, Bazzite `stable` (F45.20261117) and
 `ghcr.io/wolklaw/sparkos:latest` built from main at 53f54a8, which has all 13 Spark apps and the
@@ -21,15 +49,18 @@ recommendation are at the end.
 
 ## What was built
 
+The same [Containerfile](../Containerfile) as SparkOS, with `SPARKOS_BASE=fedora` (until 2026-11-22
+a separate BlueBuild recipe, `recipes/recipe-fedora.yml`). What differs from the Bazzite build:
+
 | File | What it does |
 |---|---|
-| [recipes/recipe-fedora.yml](../recipes/recipe-fedora.yml) | Base `quay.io/fedora/fedora-kinoite:45`. The same `files/system`, the same package list, and the same scripts as the real recipe where they work unchanged: Soot, FreeSuite, Spark Snip, Welcome, Games, Monitor, Edit, Calc, Archive, Scan, Run, Link, Store and Update, `sparkos-cleanup.sh`, defaults and theme. Plus gamescope, MangoHud and GameMode from Fedora. |
-| [files/scripts/fedora-identity.sh](../files/scripts/fedora-identity.sh) | "SparkOS" as the system name. Replaces `sparkos-identity.sh`, which checks for `ID=bazzite`. |
-| [files/scripts/fedora-apps.sh](../files/scripts/fedora-apps.sh) | The app policy on Kinoite: removes Firefox, KWrite, Filelight and the other apps Kinoite installs as RPMs, Spectacle and Plasma System Monitor (as the real recipe does), plus Fedora's first-boot wizard, crash reporter and third-party repository switch. Replaces `sparkos-apps.sh`, which empties Bazzite's lists. |
-| [files/scripts/fedora-gaming.sh](../files/scripts/fedora-gaming.sh) | Valve's Steam controller and VR udev rules (from Valve's own repository, pinned and checksummed), `uinput` at boot, and Bazzite's gaming kernel settings. |
-| [files/scripts/fedora-media.sh](../files/scripts/fedora-media.sh) | Spark Media, with Cisco's real OpenH264 in place of Kinoite's empty `noopenh264` stand-in, recording which formats really decode (encode-then-decode test) instead of failing the build. |
-| [files/scripts/fedora-signing-fix.sh](../files/scripts/fedora-signing-fix.sh) | The lowercase signing-policy fix for the `sparkos-fedora` name, and the install setting that makes a fresh install check signatures. |
-| [.github/workflows/build-fedora.yml](../.github/workflows/build-fedora.yml) | Compares the three images, builds and signs the prototype, checks it inside a container, boots it in QEMU with the same checks as `boot-test.yml`, and boots both images twice to compare boot time. |
+| [build_files/packages.sh](../build_files/packages.sh) | On Fedora: what Bazzite brought that SparkOS uses (printing, scanning, ImageMagick, gamescope, MangoHud, GameMode), RPM Fusion free's FFmpeg and `mesa-va-drivers-freeworld`, and Cisco's real OpenH264 in place of Kinoite's empty `noopenh264` stand-in. Then the same list as on Bazzite. |
+| [files/scripts/fedora-identity.sh](../files/scripts/fedora-identity.sh) | "SparkOS" as the system name and boot entry. Replaces `sparkos-identity.sh`, which checks for `ID=bazzite`. |
+| [files/scripts/fedora-apps.sh](../files/scripts/fedora-apps.sh) | The app policy on Kinoite: removes Firefox, KWrite, Filelight and the other apps Kinoite installs as RPMs, Spectacle and Plasma System Monitor (as on Bazzite), plus Fedora's first-boot wizard, crash reporter and third-party repository switch. Replaces `sparkos-apps.sh`, which empties Bazzite's lists. |
+| [files/scripts/fedora-gaming.sh](../files/scripts/fedora-gaming.sh) | The device rules Fedora doesn't package, from [files/device-rules](../files/device-rules) (see [Device rules](#device-rules)), `uinput` at boot, and Bazzite's gaming kernel settings. |
+| [files/scripts/fedora-homebrew.sh](../files/scripts/fedora-homebrew.sh) | Homebrew on PATH and its completion in bash, zsh and fish, when Homebrew is installed (on Bazzite, Universal Blue's files do this). |
+| [build_files/signing.sh](../build_files/signing.sh) | Shared. On Fedora it also writes `20-sparkos.toml`, the install setting that makes a fresh install check signatures (Bazzite has its own). |
+| [.github/workflows/build-fedora.yml](../.github/workflows/build-fedora.yml) | Runs build.yml with `base: fedora`, then boot-test.yml on the result. By hand, with "compare", it also compares the three images, looks inside the built image, and boots both images twice to compare boot time. |
 
 ## Size
 
@@ -76,7 +107,9 @@ They compare the two images under the same conditions.
 ## The same checks as the real boot test
 
 From the `boot` job (run 4), the same checks as `boot-test.yml` on 53f54a8, adapted where they
-name Bazzite things. 19 pass and 3 fail, the same three as in the morning runs.
+name Bazzite things. 19 pass and 3 fail, the same three as in the morning runs. Since 2026-11-22
+the image runs `boot-test.yml` itself; it skips only the checks about Bazzite's own parts (`ujust`,
+Homebrew's timers, Bazaar) and expects `.flatpakref` files to open in Spark Store.
 
 | Check | Result |
 |---|---|
@@ -98,8 +131,8 @@ name Bazzite things. 19 pass and 3 fail, the same three as in the morning runs.
 | Gaming layer (uinput, Steam rules, sysctls, gamescope, MangoHud, GameMode) | pass |
 | Installing apps the Windows way: `.exe`/`.msi` to Spark Run, AppImage, `.rpm` and `.deb` to `sparkos-open-package` | pass. `.flatpakref` opens in **Spark Store** here, because Bazaar (the default `sparkos-defaults.sh` sets) isn't installed |
 | SparkOS look, sign-in screen, desktop layout (screenshots) | pass |
-| The Store (Bazaar) | **fail: not in Fedora.** Spark Store and Discover are installed |
-| Homebrew for `sparkos-dev-setup --brew` | **fail: not set up** |
+| The Store (Bazaar) | **fail: not in Fedora.** Spark Store and Discover are installed. Since 2026-11-22 Spark Store is the store on both bases; the boot test checks it on Fedora |
+| Homebrew for `sparkos-dev-setup --brew` | **fail: not set up.** Since 2026-11-22 the shell setup is in the image (see the top); Homebrew itself is installed with Homebrew's installer |
 
 ## What Bazzite adds that SparkOS relies on
 
@@ -128,22 +161,23 @@ fixes, template files), `uupd` (updates, daily at 04:00), `brew-setup` (Homebrew
 | Piece | On SparkOS today (Bazzite) | On the prototype (Fedora) | What it costs to own | Whose packages it still needs |
 |---|---|---|---|---|
 | **Kernel** | OGC kernel 7.3.4, signed with Universal Blue's key (Secure Boot needs the key enrolled once) | Fedora's 7.3.4, signed by Fedora: Secure Boot works with no enrollment | Nothing. Same upstream version. The RX 6800 XT and 7800X3D are fully supported by stock kernels. | Fedora |
-| **Controller drivers** | xpad, hid-playstation, hid-nintendo, hid-steam in the kernel, plus xone and 19 other out-of-tree modules | The same four in Fedora's kernel (checked with `modinfo` in the VM); no xone | xone is for Microsoft's Xbox wireless USB dongle; wired Xbox controllers use xpad, which Fedora has. Owning an out-of-tree kernel module means building it for every kernel update and signing it for Secure Boot: real, ongoing work. Only worth it if the owner uses that dongle. | Fedora; xone would need its own build |
+| **Out-of-tree kernel modules** | 20 from Universal Blue's akmods, prebuilt for the OGC kernel (xone, zenergy, ryzen_smu, v4l2loopback, the wheel drivers, vhba, kvmfr, openrazer, ...) | Built by SparkOS while the image builds: zenergy, ryzen_smu, v4l2loopback, xone, hid-fanatecff, new-lg4ff, hid-tmff2 and vhba (see [Kernel modules](#kernel-modules)). xpad, hid-playstation, hid-nintendo and hid-steam are in Fedora's kernel. | About 1 to 2 minutes per build, and 254 MB of kernel-devel in a build stage that isn't kept. A source pin to bump when a module breaks on a new kernel. Signing, if Secure Boot is ever turned on. | The modules' own projects (pinned sources), RPM Fusion's akmod-v4l2loopback, Microsoft's xone firmware |
 | **Mesa (OpenGL, Vulkan)** | Terra's build of Mesa 26.2.7 | Fedora's Mesa 26.2.7, same version | Nothing for games: RADV and RadeonSI are the same code. | Fedora |
 | **Hardware video decode (VA-API)** | Terra's Mesa decodes H.264 and H.265 on the GPU | Fedora builds Mesa with Mesa's default, patent-free codecs only: no H.264/H.265 on the GPU. Software decoding of H.264 still works (OpenH264). | Not measurable in the VM (no AMD GPU). RPM Fusion has a `mesa-va-drivers-freeworld` package that adds them; see the RPM Fusion results below. | RPM Fusion (or Terra) |
 | **FFmpeg and codecs** | negativo17's full FFmpeg | Fedora's `ffmpeg-free` + Cisco's OpenH264 (from Fedora's `fedora-cisco-openh264` repo, swapped in for Kinoite's empty `noopenh264`). Measured by encoding and decoding: **H.264, AAC and MP3 decode; H.265 does not.** | One swap: `dnf swap ffmpeg-free ffmpeg` from RPM Fusion. Measured below. | RPM Fusion (or negativo17) |
 | **gamescope, MangoHud, GameMode** | Terra's gamescope 3.17.0 and MangoHud 0.8.4; no GameMode | Fedora's gamescope 3.16.31, MangoHud 0.8.3~rc1, GameMode 1.8.2 | Nothing; Fedora's are one release behind Terra's. | Fedora |
-| **Steam controller and VR rules** | `steam-devices` (Terra), Valve commit 22ec85e | The same Valve files at the same commit 22ec85e, fetched from Valve's repository and checked by SHA-256 | A pinned commit to bump now and then. | Valve's files (MIT), no package repository |
-| **More controller rules** | `game-devices-udev` (Terra): permissions for 8BitDo, PowerA, Hori, Nacon, wheels and so on | Not added | Small: the rules are MIT-licensed text files at codeberg.org/fabiscafe/game-devices-udev; the same pin-and-checksum approach as Valve's. | That project's files |
+| **Steam controller and VR rules** | `steam-devices` (Fedora's package), Valve commit 22ec85e | Fedora's `steam-devices` package, the same files (since 2026-11-22; before that fetched from Valve's repository at the same commit) | Nothing. | Fedora |
+| **More device rules** | `game-devices-udev`, `udev-joystick-blacklist-rm` (Terra), `oversteer-udev` (Universal Blue), `openrgb-udev-rules`, `solaar-udev` (Fedora) | All of them since 2026-11-22; see [Device rules](#device-rules) | Small: three upstream rule sets kept in `files/device-rules`, to refresh now and then. | Fedora, and those projects' files |
+| **ntsync** (Wine and Proton's NT sync driver) | `ntsync-autoload` (Fedora's package) loads it at boot | The same package since 2026-11-22; Fedora's kernel has the module (`ntsync.ko`) | Nothing. | Fedora |
 | **Gaming kernel settings** | `kernel.split_lock_mitigate=0`, `vm.max_map_count=2147483642`, inotify limits | The same values in `/usr/lib/sysctl.d/70-sparkos-gaming.conf` | Nothing; 4 lines. | None |
 | **Hardware setup service** | `bazzite-hardware-setup` (328 lines), which reboots the PC once on first boot | None | For a desktop AMD PC, a few kernel arguments at most (listed above); none was needed to boot and pass the checks in the VM. The rest is for handhelds and laptops SparkOS doesn't target. | None |
 | **Firmware** | Fedora's `linux-firmware` (449 MB) plus a few extras | Fedora's `linux-firmware` 20261019 (438 MB), `amd-gpu-firmware`, `amd-ucode-firmware` | Nothing for this PC. | Fedora |
 | **Flathub** | Bazzite's flatpak manager adds Flathub, turns Fedora's remote off, sets overrides | BlueBuild's `default-flatpaks` module adds Flathub (system and user); Kinoite 45 ships no Fedora remote in the image. Measured: only Flathub is configured. | Nothing extra. | Flathub; BlueBuild's module |
 | **Signing** | BlueBuild's signing module + `sparkos-signing-fix.sh`; Bazzite's `/usr/lib/bootc/install/20-bazzite.toml` makes installs deploy as `ostree-image-signed` | The same signing module and fix, and SparkOS's own `20-sparkos.toml` with the same setting | Nothing: one file. Without it (first prototype run) the test install deployed as `ostree-unverified-registry`, which never checks signatures. | BlueBuild's module |
-| **Updates** | `uupd` (Universal Blue) downloads, daily at 04:00; Spark Update adds the notification, the window and roll back | Spark Update does it all: with no `uupd` in the image, `spark-update.sh` turns on its own timer (every 6 hours, stages the new image, updates Flatpak apps). Measured: enabled and active, no other updater on. Its staging hasn't been tried against a newer image. | Nothing new: Spark Update already ships. Its built-in image name would need changing only for a separately named image like this one. | None |
-| **The Store** | Bazaar (Universal Blue COPR), with Spark Store installed next to it | Bazaar isn't available in Fedora. Spark Store is installed and `.flatpakref` files already open in it (measured); Kinoite's Discover is there too. | Point the dock's Bazaar pin and `sparkos-open-package`'s "open the Store" button at Spark Store, which the owner plans anyway when Bazaar retires. | None |
-| **Homebrew** (`sparkos-dev-setup --brew`) | Bazzite ships a Homebrew tarball and a first-boot service | Not present: `sparkos-dev-setup --brew` says Homebrew isn't ready | Either own a small setup service and pin Homebrew's installer, or drop Homebrew for Node/Python/GitHub CLI/JDK in a Toolbox (Kinoite has `toolbox`) or from Flathub. Claude Code itself installs fine (`sparkos-dev-setup --claude` passed). | Homebrew, or nothing |
-| **ujust, rollback helper, motd** | Universal Blue | Gone | Nothing SparkOS's own files use them. Rollback is in the boot menu either way; Spark Update covers the rest. | None |
+| **Updates** | `uupd` (Universal Blue) downloads, daily at 04:00; Spark Update adds the notification, the window and roll back | Spark Update does it all: with no `uupd` in the image, `spark-update.sh` turns on its own timer (every 6 hours, stages the new image, updates Flatpak apps). Measured: enabled and active, no other updater on. Staging a newer image, restarting into it and rolling back work (tried in a VM on 2026-11-22, see [Spark Update staging a newer image](#spark-update-staging-a-newer-image)). | Nothing new: Spark Update already ships. Its built-in image name would need changing only for a separately named image like this one. | None |
+| **The Store** | Bazaar (Universal Blue COPR), with Spark Store installed next to it | Bazaar isn't available in Fedora. Spark Store is installed and `.flatpakref` files already open in it (measured); Kinoite's Discover is there too. | Done (2026-11-22): the dock, `.flatpakref` files and `sparkos-open-package` all use Spark Store. | None |
+| **Homebrew** (`sparkos-dev-setup --brew`) | Bazzite ships a Homebrew tarball and a first-boot service | Not present: `sparkos-dev-setup --brew` says Homebrew isn't ready | Shell setup owned since 2026-11-22 (three small files; an existing `/var/home/linuxbrew` keeps working). `spark brew` installs Homebrew on request (Homebrew's installer pinned to one commit, SHA-256 checked). Not owned: Homebrew's update timers. Claude Code itself installs fine (`sparkos-dev-setup --claude` passed). | Homebrew's installer |
+| **ujust, rollback helper, motd** | Universal Blue | Gone. **Since 2026-11-22 SparkOS has its own `spark` command** ([spark-cli.md](spark-cli.md)), on both bases: update, rollback, pin, kernel arguments, initramfs, boot menu, services, SSH, cleaning, logs and a bug-report bundle, Homebrew and containers. | Nothing SparkOS's own files use them. Rollback is in the boot menu either way; Spark Update covers the rest. The handheld, Nvidia/Intel and app-installer recipes aren't carried over (list in spark-cli.md). | None |
 | **Fedora's first-boot wizard** | Not in Bazzite | `plasma-setup` opened "Welcome to Plasma Desktop, Begin Setup" before the SparkOS sign-in on the first test boot, though a user existed. `fedora-apps.sh` now removes it. | Nothing. | None |
 
 ### Video with RPM Fusion
@@ -158,18 +192,317 @@ Measured in a throwaway container from the prototype image (run 3):
   14 MiB download, +53 MiB**, with nothing removed (dry run). Whether the GPU then decodes can only
   be checked on real AMD hardware.
 
+## Device rules
+
+Added 2026-11-22. udev rules decide which devices the signed-in user may open without root
+(controllers for Steam, RGB controllers for OpenRGB, a wheel's settings). Bazzite ships them as
+eight packages; this is what the Fedora image does for each, checked against the owner's devices
+(Keychron V5, Logitech G502 SE HERO, HyperX QuadCast, FiiO E10, Logitech C920, ASUS AURA and NZXT
+RGB controllers, AMD GPU):
+
+| Bazzite's package | On the Fedora image | Why |
+|---|---|---|
+| `steam-devices` | Fedora's package | Steam and Steam Input on controllers and VR headsets. Same Valve files as before (commit 22ec85e, same SHA-256), so the download in `fedora-gaming.sh` is gone. |
+| `openrgb-udev-rules` | Fedora's package | Lists the owner's ASUS AURA (0b05:19af) and NZXT (1e71:2012) controllers, so OpenRGB works without root. |
+| `solaar-udev` | Fedora's package | Logitech receivers and devices, the G502 included, for Solaar. |
+| `ntsync-autoload` | Fedora's package | Loads `ntsync` at boot (Fedora's kernel has it; `/dev/ntsync` is open to all users). Wine and Proton use it for faster Windows sync. |
+| `game-devices-udev` (Terra) | Copied into `files/device-rules/game-devices-udev` (1.1, MIT) | Not in Fedora or RPM Fusion. Gives Steam and browsers raw access to many controllers (8BitDo, PowerA, Hori, Nacon, PDP, Thrustmaster, ...). Its `uinput` modules file is left out (`fedora-gaming.sh` already loads it). |
+| `udev-joystick-blacklist-rm` (Terra) | Copied into `files/device-rules/udev-joystick-blacklist` (public domain) | Not in Fedora or RPM Fusion. The kernel reports some keyboards and mice as joysticks; this hides those. **The owner's Keychron V5 (3434:0351) is on the list**: without it, games and Steam can see the keyboard as a controller. |
+| `oversteer-udev` (Universal Blue COPR) | Only the Logitech wheel file, in `files/device-rules/oversteer` (GPL-3.0) | Not in Fedora. Lets Oversteer (Flathub) change a Logitech wheel's range and force feedback. Its Thrustmaster and Fanatec files are left out: the Fanatec driver's own rules come with it (see [Kernel modules](#kernel-modules)), and Oversteer's Thrustmaster file isn't added yet. |
+| `ublue-os-media-automount-udev` | **Not added** | Not device rules: a service that mounts internal ext4 and btrfs partitions at boot. On this PC it mounts nothing (its log: every other drive is NTFS or FAT, or in fstab), and SparkOS doesn't need it. |
+
+The copied files are unchanged from their projects; each folder's `SOURCE` says where from, at
+which version and under which licence, and both go to `/usr/share/licenses/sparkos-device-rules`.
+The QuadCast, E10 and C920 are standard USB audio and video devices and need no rules.
+
+## Kernel modules
+
+Bazzite ships about 20 kernel modules that aren't in Linux itself, prebuilt by Universal Blue for
+its own kernel. Fedora's kernel has none of them. On the Fedora base, SparkOS builds the ones the
+owner uses while the image builds ([build_files/kmods.sh](../build_files/kmods.sh), steps 0b and
+4b of the [Containerfile](../Containerfile)). On Bazzite both steps do nothing.
+
+| Module | What it's for | Source (pinned) | License |
+|---|---|---|---|
+| `zenergy` | CPU power for any user (see below) | BoukeHaarsma23/zenergy `2a40d24` | GPL-2.0 |
+| `ryzen_smu` | Access to the Ryzen SMU for `ryzenadj`, `ryzen_monitor` and similar tools | amkillam/ryzen_smu `d298366` (v0.1.7) | GPL-2.0 |
+| `v4l2loopback` | Virtual camera (OBS) | RPM Fusion's `akmod-v4l2loopback` 0.15.4, built with akmods | GPL-2.0 |
+| `xone_*` | Xbox wireless dongle, and Xbox controllers over USB | OpenGamingCollective/xonedo `982cbcb` | GPL-2.0 |
+| `hid-fanatec` | Fanatec wheels and pedals | gotzl/hid-fanatecff `136cb2d` | GPL-2.0 |
+| `hid-logitech-new` | Logitech wheels (G25 to G923) with full force feedback | berarma/new-lg4ff `2092db1` | GPL-2.0 |
+| `hid-tmff-new`, `hid-tminit-new`, `usb-tminit-new` | Thrustmaster wheels (T300, T248, TX, TS-XW, ...) | Kimplul/hid-tmff2 `7a1274d` with hid-tminit `8c45472` | GPL-2.0 |
+| `vhba` | Virtual CD/DVD drives (CDEmu) | cdemu vhba-module 20260313 | GPL-2.0-or-later |
+
+These are the commits Bazzite's current image uses, except xone: Bazzite's build names a commit
+that isn't public, so SparkOS uses xonedo's `master` at `982cbcb` (xonedo is the maintained fork;
+the original dlundqvist/xone is no longer maintained).
+
+**How it's built.** A separate build stage installs `kernel-devel` for the exact kernel in the
+base image, downloads each source, checks its SHA-256 and builds it with the kernel's own build
+system (`make -C /usr/src/kernels/<kernel> M=...`); v4l2loopback goes through akmods into a kmod
+RPM. The compiler and kernel headers stay in that stage; only the modules reach the image. There
+they go to `/usr/lib/modules/<kernel>/extra/`, compressed like Fedora's own, then `depmod` runs.
+The build stops with an error if:
+
+- the kernel-devel version isn't the base's kernel, or its symbol list differs from the kernel's;
+- a download's checksum doesn't match;
+- a module's `vermagic` isn't the base's kernel, or `modinfo` can't find it after `depmod`;
+- a module (v4l2loopback's included) has a `.BTF` section. Fedora's kernel refuses a module whose
+  BTF type info doesn't match its own, and matching it needs the kernel's `vmlinux` and the exact
+  `pahole` it was built with. The modules are built without BTF instead (kernel-devel has no
+  `vmlinux`, so kbuild skips it; the build's "pahole version differs" warning is harmless).
+  Measured 2026-11-22: all of them load on Fedora's 7.3.4-300 kernel booted in a VM;
+- the image's kernel changed between the two stages.
+
+So a module that stops compiling on a new Fedora kernel fails the build instead of shipping a
+system without it. The fix is then to bump that module's pin.
+
+**Also installed:** the xone dongle's firmware (extracted from Microsoft's Windows Update
+packages, checked by SHA-256), the fanatec udev rules with `linuxconsoletools` (for
+`evdev-joystick`), the vhba rule that lets the signed-in user open `/dev/vhba_ctl`, and the same
+module options as Bazzite: `hid_logitech` and `mt76x2u` blacklisted so the new drivers take the
+devices, and v4l2loopback named "OBS Virtual Camera" with `exclusive_caps=1`. `ryzen_smu`, `vhba`,
+`v4l2loopback` and the three wheel drivers load at boot, as on Bazzite; `zenergy` and xone load
+when their hardware is there. The license texts and the exact sources are in
+`/usr/share/licenses/sparkos-kmods/`, and `/usr/share/sparkos/fedora-base/kmods.txt` lists what
+was built.
+
+**Who needs zenergy and ryzen_smu.** No Spark app reads CPU power: Spark Monitor shows CPU
+temperature (k10temp) and GPU power, and Spark Bench reads only frame times. What uses them:
+
+- **MangoHud's CPU power** (`cpu_power`). Without zenergy the only source is the kernel's RAPL
+  counter, `/sys/class/powercap/intel-rapl:0/energy_uj`, which Fedora makes readable by root
+  only, so MangoHud shows no CPU watts. zenergy gives the same counters through hwmon, readable by
+  any user. The owner's MangoHud config doesn't turn `cpu_power` on today.
+- **ryzen_smu**: `ryzenadj`, `ryzen_monitor` and other tuning tools. Nothing breaks without it
+  unless one of them is used.
+
+**Not built**, and why:
+
+- `kvmfr`, `system76`, `system76-io`, `gcadapter_oc`: loaded on the owner's PC only because
+  Bazzite's own list loads them on every PC. kvmfr is for Looking Glass GPU passthrough,
+  system76 for System76 computers, gcadapter_oc for overclocking a GameCube controller adapter;
+  none is used.
+- `openrazer`, `evdi` (DisplayLink), `nct6687d`, `wl` (Broadcom Wi-Fi), `ayaneo-platform`,
+  `sc0710`, `t150`, `logitech-trueforce`: hardware the owner doesn't have. Each can be added to
+  `kmods.sh` the same way if needed.
+
+**Cost.** The module stage adds about 1 to 2 minutes to a build (measured: about 1 minute for
+the stage, including the kernel-devel download, 254 MB installed, which isn't kept). The image
+grows by under 1 MB of modules and firmware, plus `linuxconsoletools`.
+
+**Secure Boot.** It is off on the owner's PC, so the modules aren't signed. With Secure Boot on,
+Fedora's kernel locks down and refuses any module not signed by a key it trusts: these modules
+would fail to load (the system still boots). To turn it on later:
+
+1. Make a key pair once (`openssl req -new -x509 -newkey rsa:2048 -nodes -days 36500
+   -outform DER -keyout MOK.priv -out MOK.der -subj "/CN=SparkOS kernel modules/"`) and store
+   the private key as a GitHub Actions secret, never in the repository.
+2. In the build stage, mount the secret and sign each `.ko` before it's compressed:
+   `/usr/src/kernels/<kernel>/scripts/sign-file sha256 MOK.priv MOK.der module.ko`. For
+   v4l2loopback, akmods signs with the key in `/etc/pki/akmods/` when one is there.
+3. Ship `MOK.der` in the image and enroll it once per PC: `sudo mokutil --import MOK.der`,
+   choose a password, reboot, and confirm in the blue MOK manager screen. Bazzite asks for the
+   same step with Universal Blue's key.
+
+## Performance and tuning
+
+Added 2026-11-22. Bazzite tunes the system with packages and loose config files that plain
+Kinoite doesn't have. Each one was checked on the owner's PC (Bazzite, read only: `rpm -qf`, the
+active values in `/proc` and `/sys`, the services' state) and against the Fedora image. On the
+Fedora base, [files/scripts/fedora-tuning.sh](../files/scripts/fedora-tuning.sh) (step 5) writes
+SparkOS's own config, and [build_files/packages.sh](../build_files/packages.sh) installs the
+packages. Nothing changes on the Bazzite base.
+
+| Bazzite item | On the Fedora image | Why |
+|---|---|---|
+| `kernel.split_lock_mitigate=0`, `vm.max_map_count`, inotify limits | Already in `fedora-gaming.sh` | Same values. |
+| Network sysctls (`75-networking.conf`: BBR, `tcp_mtu_probing=1`, IPv6 privacy addresses) | `/usr/lib/sysctl.d/75-sparkos-network.conf`, and `tcp_bbr` loads at boot | Fedora's default is CUBIC; Fedora builds BBR as a module. |
+| zram (`/etc/systemd/zram-generator.conf`: zstd, half the RAM up to 16 GiB) | `/usr/lib/systemd/zram-generator.conf.d/50-sparkos.conf`, same values | Fedora's default is lzo-rle and at most 8 GiB; the owner's PC has 32 GiB, so 16 GiB of zram as today. Swappiness stays at 60 on both. |
+| I/O schedulers (`60-schedulers.rules`) | `/usr/lib/udev/rules.d/60-sparkos-io-scheduler.rules`: kyber for SSDs and NVMe, BFQ for hard drives and SD cards | Fedora's own rule gives every `sd*` disk BFQ (SSDs too) and leaves NVMe on `none`. The owner's two NVMe drives and SATA SSD run kyber today. Bazzite's SD-card line matched partitions, which have no scheduler; SparkOS's matches the disk. |
+| CPU governor and EPP, Bazzite's `*-bazzite` tuned profiles, `ppd.conf` | Nothing to add: Fedora's `tuned` and `tuned-ppd` are already on, with Fedora's profiles | Bazzite's profiles are Fedora's plus a sched_ext mode switch (does nothing while `scx_loader` is off) and Wi-Fi/USB power saving in "power saver". On a desktop the result is the same: amd-pstate `active`, `powersave` governor, EPP `balance_performance`, boost on. |
+| Transparent huge pages | Nothing to add | Fedora's kernel defaults (`madvise`, defrag `madvise`, shmem `never`) are the values on the owner's PC. |
+| Kernel argument `bluetooth.disable_ertm=1` (`bazzite-hardware-setup`) | `options bluetooth disable_ertm=1` in `/usr/lib/modprobe.d/sparkos-bluetooth.conf` | For Xbox controllers over Bluetooth. Fedora builds Bluetooth as a module, so a module option does it without touching the kernel command line. No other Bazzite kernel argument is set on this PC. |
+| Stop timeout 15 s (`/etc/systemd/{system,user}.conf.d/timeout.conf`) | `/usr/lib/systemd/{system,user}.conf.d/50-sparkos-timeout.conf` | Fedora waits 45 s for a stuck service at shutdown. |
+| `memlock` 2 GiB (`/etc/security/limits.d/memlock.conf`) | `/etc/security/limits.d/90-sparkos-memlock.conf` | Fedora's limit is 8 MiB; emulators (RPCS3) and some VR and anti-cheat software need more. |
+| btrfs reclaim (`btrfs-reclaim.conf`) | `/usr/lib/tmpfiles.d/sparkos-btrfs-reclaim.conf` | The root disk is btrfs; reclaiming half-empty data chunks avoids "disk full" while space is free. |
+| fstrim drop-in (`workaround-no-root-trim.conf`) | `/usr/lib/systemd/system/fstrim.service.d/50-sparkos-mounted.conf` | `/` is read-only in `/etc/fstab` on an image system; trim what's mounted instead (Fedora Atomic tracker issue 81). |
+| `dmemcg-booster`, `plasma-foreground-booster-dmemcg`, `kcgroups-dmemcg` | **From Terra** (build time only, like `umu-launcher`), `dmemcg-booster-system` and `-user` enabled | Running on the owner's PC today: when VRAM is full, the focused app keeps its video memory and background apps are moved out first (and get less CPU). Fedora's kernel supports it as is: `CONFIG_CGROUP_DMEM=y`, amdgpu registers its VRAM and TTM has the protection code. Fedora doesn't package the two programs; writing SparkOS's own would mean a D-Bus/cgroup daemon plus a KWin window tracker, so Terra's packages (1 MiB) are used. Fedora's `plasma-workspace.target` already starts the foreground booster. |
+| `ds-inhibit` (Universal Blue COPR) | Copied into `files/ds-inhibit` (Valve, BSD-2-Clause), `ds-inhibit.service` enabled | While Steam has a DualShock 4 or DualSense open, the touchpad stops moving the mouse pointer. A 170-line Python script; `python3-pyinotify` is Fedora's. |
+| `vkBasalt` | Fedora's package | 1.8 MiB, off unless `ENABLE_VKBASALT=1`. Reaches games started from Spark Games (`umu-run` on the system); Flatpak Steam, Heroic and Lutris use Flathub's VulkanLayer extensions instead. |
+| `obs-studio-plugin-vkcapture` (hook libraries) | **Skipped** | In Fedora, but its weak dependencies pull in OBS, CEF and WebKit (about 500 MiB); OBS isn't installed, and Flatpak games use Flathub's OBS capture layer. |
+| sched_ext (`scx-scheds`, `scx-tools`, `scx_loader`) | **Skipped** | Shipped but off on Bazzite: `scx_loader` is disabled and `/sys/kernel/sched_ext/state` is `disabled`, so the PC runs the normal kernel scheduler. Fedora's kernel can run it (`CONFIG_SCHED_CLASS_EXT=y`, BTF on); Fedora's own `scx_rusty`/`scx_layered`/`scx_rustland` are 2024 builds, and `scx_lavd`/`scx_bpfland` are only in Terra. Can be added later if wanted. |
+| `bpftune` | **Skipped** | Shipped but disabled on Bazzite; not in Fedora. |
+| `vulkan-low-latency-layer` | **Skipped** | Terra only, version 0.2, off unless `LOW_LATENCY_LAYER=1`; Bazzite doesn't turn it on. |
+| `ryzenadj` | **Skipped** | Not in Fedora (Universal Blue COPR). Made for laptop APUs; a desktop 7800X3D is tuned in the BIOS. The `ryzen_smu` module it uses is built (see Kernel modules). |
+| ScopeBuddy | **Skipped** | A gamescope launch wrapper from Terra; nothing in SparkOS or the owner's setup uses it. gamescope itself is installed. |
+| `ublue-os-selinux-workarounds` | **Skipped** | One SELinux rule (`kernel_t` execmem on composefs). The Fedora image's VM boot test had no failure from it; look for `execmem` denials on the real PC. |
+| `80-gpu-reset.rules` | **Skipped** | Matches `RESET=1` uevents from a SteamOS kernel patch. Neither the OGC kernel (no `drm_sysfs_reset_event`) nor Fedora's sends them, so the rule does nothing on Bazzite either; KWin recovers from GPU resets on its own. |
+| NetworkManager | Nothing to add | Bazzite adds no NetworkManager config for this PC (only broadcom-wl's); Wi-Fi uses NetworkManager with wpa_supplicant on both. |
+| Other Bazzite files (`mt7921` ASPM, Framework charge control, Valve LEDs, CEC, coredump 5 days, journald persistent, incus/libvirt) | **Skipped** | Hardware the PC doesn't have (the Wi-Fi is a Realtek RTL8852BE), not performance, or already Fedora's default (journald keeps logs because `/var/log/journal` exists). |
+
+`/usr/share/sparkos/fedora-base/tuning-layer.txt` in the image records the packages and values,
+and the build stops if a package, file, kernel option or enabled service is missing.
+
+**Checked in containers of `sparkos-fedora`** (not yet in a built image): the packages resolve
+(Terra limited to its four packages, nothing else from it); `fedora-tuning.sh` runs to the end;
+`systemd-analyze verify` passes for `ds-inhibit`, `dmemcg-booster-system` and `fstrim`;
+`udevadm verify` passes and the rule sorts after Fedora's; the manager reads
+`DefaultTimeoutStopSec=15s` for system and user; the zram generator makes 16000 MB on 32 GiB of
+RAM and stops at 16384 MB on 64 GiB; the tmpfiles lines parse; `bluetooth` has the
+`disable_ertm` option; `ds-inhibit` starts.
+
+**Needs the real PC:** that kyber is active on the NVMe and SATA drives, `/dev/zram0` is 16 GiB
+zstd, `sysctl net.ipv4.tcp_congestion_control` says `bbr`, `dmemcg-booster` and the foreground
+booster run and `/sys/fs/cgroup/dmem.capacity` lists the GPU's VRAM, a DualSense's touchpad
+stops moving the pointer while Steam is open, and that no SELinux `execmem` denials show up.
+
+## Package parity
+
+Added 2026-11-22. The owner's rule for the move: anything Bazzite gives today, the Fedora image
+gives too. Method: `rpm -qa` on the owner's PC (SparkOS on Bazzite) against the Fedora image with
+everything above already in it: 598 package names missing. Most are libraries that come with
+something else, or the same thing under another name (negativo17 splits FFmpeg into
+`libavcodec`, `libavformat`, ...; RPM Fusion's `ffmpeg-libs` holds them). The rest is below.
+[build_files/packages.sh](../build_files/packages.sh) installs the Fedora packages (step 4);
+[files/scripts/fedora-parity.sh](../files/scripts/fedora-parity.sh) (step 5) adds what Fedora
+doesn't package. Nothing changes on the Bazzite base.
+
+**Size:** +676 MiB installed (206 MiB download), measured with dnf in a container of the Fedora
+image; 221 MiB of it is the C/C++ compiler and 146 MiB ROCm's OpenCL. The files from
+`fedora-parity.sh` add 6 MiB. The Fedora image stays well under Bazzite's (9.4 GB against 12.5 GB
+before this).
+
+| Bazzite has | On the Fedora image | Why |
+|---|---|---|
+| nvtop, fish, just, vim-enhanced, squashfs-tools, duf, glow, gum, f3, evtest, lshw, powerstat, stress-ng, usbip, v4l-utils, wmctrl, xdotool, ydotool, xwininfo, wlr-randr, tcpdump, traceroute, ncurses-term, lzip, icoutils, mtools, symlinks, msedit, libinput-utils, libimobiledevice-utils, libbluray-utils, sbsigntools, grub2-tools-extra, udica, python3-pip | Fedora's packages | Command-line tools someone may already use. 169 MiB with yad and zenity. |
+| yad, zenity | Fedora's packages | The dialogs winetricks, Proton tools and scripts open. |
+| `rar` (negativo17) | Fedora's `unrar`, and `7zip-standalone` (`7za`) | Extracting RAR files works with these and with the 7-Zip already in the image; creating RAR needs RARLAB's paid program. |
+| `winetricks` (a loose file) | Upstream's script 20260125, SHA-256 checked, the same file as Bazzite's | Fedora's package requires Wine itself (1.6 GiB with its Windows libraries); Proton and umu bring their own Wine. |
+| gcc, gcc-c++, make (there with `kernel-devel`) | Fedora's packages, 221 MiB | A C/C++ compiler for Rust (cargo links with `cc`), pip and npm packages with native code, and Claude Code's builds. `kernel-devel` is left out: the kernel modules are built in their own stage. |
+| snapper, btrfs-assistant, btrfsmaintenance, bees | Fedora's packages, off as on Bazzite | On the owner's PC snapper has no configuration and the btrfs timers are off; they are there to turn on. |
+| gnome-disk-utility | Fedora's package | Disks: formatting, SMART data, disk images. |
+| greenboot, greenboot-default-health-checks | Fedora's packages, with Bazzite's settings (`files/fedora-parity/greenboot.conf`); both services on | Running on the owner's PC: after an update, three failed boots in a row go back to the previous system. The DNS and update-server checks are off, as on Bazzite, so a PC that boots offline isn't a failed boot. |
+| cockpit-system, -files, -networkmanager, -podman, -storaged | Fedora's packages | Cockpit's web admin pages, used through Cockpit's client or container. No web server is installed, as on Bazzite. |
+| pam-u2f, pamu2fcfg, pam_yubico, yubikey-manager | Fedora's packages | Sign in or `sudo` with a YubiKey or another U2F key. |
+| xdg-native-messaging-proxy, flatpak-spawn, dbus-x11, gvfs, wsdd, openxr, libFAudio, libnsl, libxcrypt-compat, bluez-cups (`terra-bluez-cups`) | Fedora's packages | Browser extensions that talk to apps (Flatpak browsers), `dbus-launch`, trash and network folders in GTK apps, Windows network discovery, the OpenXR loader for VR, older games and Linux programs, Bluetooth printers. |
+| alsa-firmware, alsa-tools-firmware (with fxload) | Fedora's packages | Firmware for sound cards that load it. `alsa-sof-firmware` (Intel SOF) was already in Kinoite. |
+| pipewire-module-filter-chain-sofa, ladspa-caps-plugins | Fedora's packages | Spatial audio filter, EasyEffects' and filter chains' plugins. |
+| pipewire-libs-extra (negativo17: aptX, LC3plus) | RPM Fusion's `pipewire-codec-aptx` | aptX for Bluetooth headphones. LC3plus isn't packaged anywhere else; plain LC3 is in Fedora's PipeWire. |
+| libheif with HEVC (negativo17: libde265 and others) | RPM Fusion's `libheif-freeworld` | HEIC photos (iPhone pictures). Fedora's libheif can't decode them. |
+| mozilla-openh264 | Fedora's Cisco repository | H.264 video calls in Soot (Firefox's engine), through `MOZ_GMP_PATH` in `/etc/profile.d/gmpopenh264.sh`. |
+| rocm-opencl, rocm-runtime, rocm-comgr, rocm-clinfo, rocm-smi, amdsmi | Fedora's packages, 146 MiB | OpenCL on the AMD GPU for Blender, DaVinci Resolve, Darktable and AI tools. Checked: `rocm-clinfo` lists the AMD platform; `/dev/kfd` is open to all users on both bases. HIP (`rocm-hip`) isn't on Bazzite either. |
+| fira-code-fonts, lato-fonts, twitter-twemoji-fonts, Noto Sans Balinese, Javanese, Sundanese, Egyptian hieroglyphs | Fedora's packages | Fonts web pages and apps ask for by name. |
+| google-noto-sans-cjk-fonts (static) | **Not added** | Kinoite has the same Chinese, Japanese and Korean glyphs as variable fonts (`google-noto-sans-cjk-vf-fonts`); the static set is 130 MiB more. |
+| nerd-fonts (COPR) | Symbols Nerd Font 3.5.1 from upstream, SHA-256 checked, with Nerd Fonts' fontconfig file | Prompt icons (Starship, oh-my-posh, `eza --icons`) in any monospace font. The same files as Bazzite's (same SHA-256). |
+| tesseract-langpack-* (ces, chi_sim, chi_tra and their _vert, deu, ell, ita, jpn, jpn_vert, nld, pol, por, rus, spa, tur) | Fedora's packages, 45 MiB | Text recognition in those languages. English and French come with Spark Scan. |
+| `ls-iommu` (Terra) | `files/fedora-parity/ls-iommu`, a small script | Lists IOMMU groups for GPU passthrough. |
+| `boot-windows`, `protontricks`, `protontricks-launch`, `pulseaudio` (link to `true`), `edit` (link to msedit) (loose files) | SparkOS's own: `boot-windows` runs `spark windows`; the protontricks commands run Flathub's Protontricks or say how to get it; the two links as on Bazzite | Names people type. `pulseaudio --check` succeeds for games and launchers that look for it (PipeWire plays its part). |
+| ntfs-3g, ntfsprogs, exfatprogs, dosfstools; kernel `ntfs3` | Already in Kinoite | The owner's NTFS drives mount with the kernel's `ntfs3` on Bazzite today; Fedora's kernel has `ntfs3.ko` too. |
+| Nova's libraries (llama-server with Vulkan, PySide6 with Qt WebEngine) | Nothing missing | `ldd` over every program and library in Nova's install, run in the Fedora image, finds the same short list of unresolved optional Qt plugins (SQL drivers, Wayland compositor, PDF) as in the Bazzite image. |
+
+**Not added** (one line each):
+
+- `edk2-ovmf`, `lxc`: virtual machine firmware and LXC without a hypervisor or service using them (QEMU and libvirt aren't on Bazzite either; `lxc` is off). Virtual machine apps from Flathub bring their own.
+- `cosign` (Sigstore, 145 MiB): signature checks on updates are done by the container tools themselves (`signing.sh`'s policy); cosign is only needed to sign, which the build does.
+- `webapp-manager`, `rom-properties` (Terra): not in Fedora; another project's app, and ROM thumbnails for Dolphin (Spark Files is the file manager).
+- `plasma-oxygen`, `oxygen-sounds`, `oxygen-icon-theme`, `oxygen-cursor-themes` (165 MiB): an old KDE look; SparkOS uses its own theme and icons.
+- `perl` (the full set): `perl-interpreter` and what scripts need are there; the rest came with ScopeBuddy and `perl-CPAN`.
+- `openrazer`, `xwiimote-ng`, `linux-cec`, `libcec`, `inputattach-cec-units`, `nct6687d`, `uld` (Samsung/HP laser printer driver, negativo17), `intel-opencl`, `intel-vaapi-driver`: hardware the owner doesn't have (AMD GPUs have no HDMI-CEC).
+- `framework-system`, `fw-fanctrl`, `fw-ectool`, `ayaneo-platform`, `jupiter-sd-mounting-btrfs`, `steamdeck-kde-presets-desktop`, `cardwire`, `system76-*`, `sc0710`, `t150`, `gcadapter_oc`, `sd0`, `gameclass`, `cec-control`: Framework laptops, handhelds, Steam Deck, laptop GPU switching.
+- `bazaar`, `krunner-bazaar`, `krunner-yafti`, `bazzite-portal`, `ublue-os-*`, `terra-release*`, `umu-wrapper`, `copr` (a `dnf5 copr` shortcut), Bazzite's rollback and Steam helpers: Bazzite's and Universal Blue's own; Spark Store, Spark Update and `spark` cover them.
+- `cage`, `bpfrag`, `cicpoffs`, `qt6-controllable`, `ScopeBuddy`, `vulkan-low-latency-layer`, `scx-*`, `bpftune`, `ryzenadj`: Terra extras Bazzite doesn't turn on, or skipped in [Performance and tuning](#performance-and-tuning).
+- `kernel-devel`, `tesseract-devel`, `leptonica-devel`, `*-srpm-macros`, `redhat-rpm-config`, `annobin`: build-only.
+- `webkit2gtk4.1`, `webkitgtk6.0`, `gtksourceview4/5`, `gnome-desktop3`, `libdex`, `python3-pydantic`, `python3-protobuf`, `python3-moddb`, `python3-pypresence`, `python3-icoextract`, `python3-gbinder`, `apr-util-*`: libraries that only came with apps SparkOS removes on Bazzite too (Lutris, Waydroid, Bazaar, yafti).
+- `libcamera-tools`, `libcamera-gstreamer`: the C920 is a UVC camera and works through V4L2 and PipeWire's camera plugin (already in Kinoite).
+
+**Checked in containers of `sparkos-fedora`** (2026-11-22): every package resolves from Fedora,
+RPM Fusion free and Cisco's repository; `fedora-parity.sh` runs to the end (checksums match,
+fontconfig finds Symbols Nerd Font, both greenboot services enabled); `ls-iommu` lists the
+PC's groups; `winetricks --version` reports 20260125 with Bazzite's SHA-256; `pulseaudio --check`
+succeeds; `rocm-clinfo` finds the AMD platform. **Needs the real PC:** `rocm-clinfo` listing the
+RX 6800 XT, a HEIC photo opening, greenboot clearing `boot_counter` after a good boot.
+
+## Spark Update staging a newer image
+
+Tried on 2026-11-22 in a VM (QEMU with KVM on the owner's PC, 4 cores, 8 GB), with
+[tools/spark-update-vm-test.sh](../tools/spark-update-vm-test.sh), which repeats the whole test.
+The installed system was `ghcr.io/wolklaw/sparkos-fedora:latest` (45.20261122.0, built that
+morning) with this branch's Spark Update copied in and a marker file
+`/usr/share/sparkos-update-test` saying `old`. Two small images built on top of it, `new` (.91)
+and `newer` (.92), changed only the marker and the version. All three were served from a local
+registry, and the VM followed `10.0.2.2:5055/sparkos-fedora:latest` (installed with
+`bootc install to-disk --target-imgref`), so for the VM the registry was where updates come from.
+Every update below was started the way the timer starts it, `systemctl start
+spark-update.service`, with the next check made due.
+
+| Step | Result | Time |
+|---|---|---|
+| Install `old` and boot it | `spark-update.timer` enabled, nothing else updating; `spark-update --status` reads the booted image | first boot to SSH 20 s |
+| Timer run while the registry can't be reached (plain HTTP, before the VM knew it was allowed) | `result: failed` with bootc's error in `state.json` and the log; Flatpak still updated; the next hourly run did nothing (a failed check waits an hour) | 5.5 s |
+| `new` in the registry; timer run | `bootc upgrade` found it, downloaded one 184-byte layer, deployed and staged it (`result: staged`, 45.…91); system Flatpak apps updated (nothing to update) | 54 s (16 s of it deploying) |
+| Check now, check only (`spark-update-now@check`) | "No changes"; still `staged` | 1 s |
+| Restart | the marker says `new`; 45.…91 booted, 45.…90 is the rollback | SSH after 22 s; boot 9.7 s (`systemd-analyze`) |
+| `spark-update --rollback` (the window's Roll back) | `rpm-ostree rollback`; status says the next restart starts .90 | 3 s |
+| Restart | the marker says `old` | SSH after 13 s |
+| Next timer run | **bug: it staged .91 again** (33 s), so the notification would have offered it and the next restart undone the roll back | |
+| Same, with the fix below | not staged: `bootc upgrade --check` only, `result: up_to_date`, `--status` says `Held: SparkOS 45.…91` | under 1 s |
+| `newer` in the registry; timer run | staged .92 ("newer than the version you rolled back from"), the hold ends | 53 s |
+| Restart | the marker says `newer` | SSH after 24 s |
+
+The script then ran the whole sequence on its own, fixed code included, and passed in 15 minutes
+(884 s): building the tools and test images 1.5 min, `bootc install to-disk` 320 s, staging `new`
+102 s, the run after the roll back 1 s (nothing staged, `held` recorded), staging `newer` 55 s,
+SSH 15 to 55 s after each start.
+
+**The bug, fixed in this branch.** Roll back used to last only until the next scheduled check
+(at most 6 hours): Spark Update staged the newest image again even when it was the one you had
+just left, which is what the README and the roll back dialog said would happen ("Automatic updates
+will download the newest version again later"). A roll back is usually because that version has a
+problem, so now Roll back records the image it leaves (`held` in
+`/var/lib/spark-update/state.json`), scheduled runs skip that exact image and stage the next newer
+one, and Check now (your click) or booting the held image again ends the hold. The dialog and the
+README say so. Unit tests cover it; the VM test checks it for real.
+
+**Not tested here:**
+
+- **Signature checking.** The local registry is plain HTTP and unsigned, and the VM's policy
+  accepts any image from it. A real PC follows `ostree-image-signed:docker://ghcr.io/wolklaw/sparkos-fedora`
+  with the sigstore key; that path (download, check the signature, stage, boot) is what
+  `boot-test.yml`'s `spark_update_test` does against the real registry.
+- **A full-size download.** The test images differ by one tiny layer. A real update changes many
+  of the image's 81 layers; the download takes longer, the staging is the same.
+- **UEFI.** The disk was installed from a BIOS-booted helper VM and booted with BIOS, so
+  `bootloader-update.service` failed (no EFI directory to adopt). That comes from the test setup,
+  not SparkOS; the real boot test boots with UEFI.
+- **The notification and the window**: they need a signed-in desktop. The window doesn't show the
+  hold yet (it says "up to date"); `spark-update --status` does.
+- `mcelog.service` failed at every boot in the VM ("CPU is unsupported"). On the PC it is skipped
+  because `edac_mce_amd` is loaded, and Bazzite adds `ConditionVirtualization=no`. The Fedora image
+  now has the same condition (`fedora-tuning.sh`), so it no longer fails in VMs either.
+
 ## What still ties the prototype to someone else
 
 - **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one
   big, stable upstream instead of Fedora plus Bazzite plus the repositories Bazzite pulls in.
-- **BlueBuild**: the build tool, and its `default-flatpaks` and `signing` modules. Same as today.
 - **Cisco's OpenH264**, through Fedora's own repository, for H.264.
-- **Valve's** udev rules, as two pinned files.
+- **Valve's `ds-inhibit`**, copied into `files/ds-inhibit`.
+- **Device rules** from game-devices-udev, udev-joystick-blacklist and Oversteer, copied into
+  `files/device-rules` (Valve's come from Fedora's `steam-devices` since 2026-11-22).
 - **Flathub**, for every app users install. Same as today.
-- **RPM Fusion**, only if SparkOS keeps requiring H.265 (see the recommendation).
+- **RPM Fusion free**, for FFmpeg and Mesa video decode (H.265, and H.264/H.265 on the GPU). In the
+  image since 2026-11-22.
+- **Terra**, for `umu-launcher` and the VRAM booster (`dmemcg-booster`,
+  `plasma-foreground-booster-dmemcg`, `kcgroups-dmemcg`) only (Fedora doesn't package them), at build time; the repository
+  isn't left on the system, so updates to it come with each image build.
+- **RPM Fusion free** also for `akmod-v4l2loopback`, built into a kmod package for the image's kernel.
+- **The kernel modules' own projects** (zenergy, ryzen_smu, xonedo, hid-fanatecff, new-lg4ff,
+  hid-tmff2, hid-tminit, vhba-module), as source pinned to a commit or release with a SHA-256.
+- **Microsoft**, for the Xbox wireless dongle's firmware, taken from Windows Update packages and
+  checked by SHA-256.
 
-Gone compared with today: Universal Blue (images, COPRs, akmods, `uupd`, `ujust`, Bazaar), Terra,
-negativo17, the OGC kernel, Tailscale's repository, and several smaller COPRs.
+Gone compared with today: Universal Blue (images, COPRs, akmods, `uupd`, `ujust`, Bazaar), Terra
+as a system repository (Mesa, gamescope and the rest), negativo17, the OGC kernel, Tailscale's repository, and several smaller COPRs.
 
 ## Recommendation
 
@@ -182,12 +515,15 @@ passed on Fedora unchanged. Suggested path for Release 3:
    only. One established repository replaces Terra, negativo17 and Universal Blue's packages for
    this. The alternative, dropping H.265 from Spark Media's requirements, would break phone videos.
 2. **Store and updates:** already covered. Spark Update runs on its own timer when `uupd` is
-   missing (measured); before switching, run its staging once against a newer image. Spark Store
-   takes `.flatpakref` files; the dock pin and the "open the Store" button need pointing at it.
-3. **Homebrew:** owner's call: keep it with a small setup service SparkOS owns, or move
-   `sparkos-dev-setup`'s tools to a Toolbox. Claude Code doesn't need it.
-4. **Small things to own:** `game-devices-udev` rules, pinned like Valve's.
-5. **Skip unless needed:** xone and the other out-of-tree kernel modules.
+   missing, stages a newer image, restarts into it and rolls back (tried in a VM on 2026-11-22;
+   a roll back no longer gets undone by the next check). Spark Store is the store (done
+   2026-11-22).
+3. **Homebrew:** the shell setup is SparkOS's own since 2026-11-22, so an installed Homebrew keeps
+   working after the switch. `spark brew` installs it on request. Claude Code doesn't need it.
+4. **Small things to own:** the device rules in `files/device-rules` (done 2026-11-22; refresh
+   them from their projects now and then).
+5. **Kernel modules:** the ones the owner uses are built while the image builds; see
+   [Kernel modules](#kernel-modules). They still need trying on the real PC.
 6. **Before switching:** try the prototype on the real PC (games, the GPU, controllers, video
    decode on the GPU), which a VM can't test. Later boot times swapped between runs 2 and 4
    (one sample each), so time them on the real PC too.

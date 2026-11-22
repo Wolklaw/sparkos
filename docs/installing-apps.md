@@ -4,11 +4,11 @@ On SparkOS, installing apps works the way you're used to: a store with an Instal
 
 ## The usual way: the Store
 
-Open **Bazaar** from the app menu or the taskbar. It's SparkOS's app store, like the Microsoft Store.
+Open **Spark Store** from the app menu or the taskbar. It's SparkOS's app store, like the Microsoft Store.
 
 - Search for the app and press **Install**. No restart is needed.
 - Store apps update by themselves in the background.
-- To uninstall, open Bazaar's *Installed* tab, which works like Windows' *Apps & features*.
+- To uninstall, open Spark Store's *Installed* page, which works like Windows' *Apps & features*.
 
 Most apps you know are there: Discord, Spotify, OBS, VLC, GIMP, Blender, Zoom, Telegram, Signal, Obsidian, and many more.
 

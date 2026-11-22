@@ -23,8 +23,9 @@ as "bash ~/spark-edit/install.sh --user"
 as "test -x ~/.local/bin/spark-edit"
 as "grep -qx 'Exec=$home/.local/bin/spark-edit %F' ~/.local/share/applications/dev.wolklaw.SparkEdit.desktop"
 as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkEdit.png"
-test ! -e /usr/bin/spark-edit
-test ! -e /usr/share/applications/dev.wolklaw.SparkEdit.desktop
+# The image ships Spark Edit system-wide: its own copy is fine; the /usr count below proves
+# the user install left /usr alone
+test ! -e /usr/bin/spark-edit || grep -q /usr/lib/spark-edit /usr/bin/spark-edit
 
 echo "--- self-test and tests on the image's Python"
 as "~/.local/bin/spark-edit --version"

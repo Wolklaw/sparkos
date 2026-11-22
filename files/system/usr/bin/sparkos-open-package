@@ -8,7 +8,7 @@
 #
 # Spark Run downloads Wine for the current user the first time, without an admin password.
 # AppImages need no helper app: SparkOS handles them.
-# .flatpakref links open in the Store (Bazaar) directly.
+# .flatpakref links open in Spark Store directly.
 #
 # Without dialogs (for scripts and the boot test):
 #   sparkos-open-package --add-appimage FILE               add an AppImage to the menu, print its entry
@@ -190,7 +190,7 @@ open_store() {
     spark-store >/dev/null 2>&1 &
     return
   fi
-  for d in /usr/share/applications /var/lib/flatpak/exports/share/applications; do   # Bazaar, while it's still there
+  for d in /usr/share/applications /var/lib/flatpak/exports/share/applications; do   # fallback: Bazaar, where it's still installed
     if [ -f "$d/io.github.kolunmi.Bazaar.desktop" ]; then
       gio launch "$d/io.github.kolunmi.Bazaar.desktop" >/dev/null 2>&1 &
       return
@@ -211,7 +211,7 @@ case "${name,,}" in
     summary=$(rpm -qp --qf '%{SUMMARY}' "$file" 2>/dev/null) || summary=""
     kdialog --title "Install $title" --yes-label "Install" --no-label "Cancel" --yesno \
 "<b>$title</b><br>$summary<br><br>SparkOS adds this program to the system. It's ready after you restart.<br><br>
-It won't update by itself. If the program is also in the Store (Bazaar), install it from there
+It won't update by itself. If the program is also in Spark Store, install it from there
 instead: Store apps install without a restart and update automatically." || exit 0
 
     status_file=$(mktemp)
@@ -226,13 +226,13 @@ instead: Store apps install without a restart and update automatically." || exit
         "$title is installed. Restart to start using it." && systemctl reboot
     else
       kdialog --title "Not installed" --error \
-        "$title wasn't installed. The window that just closed showed the reason.<br>Try the Store (Bazaar) for this app instead."
+        "$title wasn't installed. The window that just closed showed the reason.<br>Try Spark Store for this app instead."
     fi
     ;;
   *.deb)
     kdialog --title "$name" --yes-label "Open the Store" --no-label "Close" --warningyesno \
 "<b>$name</b> is an installer for Ubuntu and Debian, not for SparkOS, so it can't be installed by double-clicking.<br><br>
-Most apps are in the Store (Bazaar), where they install with one click and update by themselves.
+Most apps are in Spark Store, where they install with one click and update by themselves.
 Search for the app's name there.<br><br>If the app is only offered as a .deb, check its website for a
 Flatpak, AppImage or .rpm download instead." && open_store
     ;;

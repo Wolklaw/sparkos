@@ -1,0 +1,60 @@
+# Bash completion for spark, SparkOS's system commands (/usr/bin/spark).
+_spark() {
+  local cur cmd i
+  cur=${COMP_WORDS[COMP_CWORD]}
+  local commands="help info status update rollback pin unpin boot-default clean verify overrides
+    kargs initramfs grub-menu bios windows watchdog sysrq service ssh stop-proton audio-restart
+    audio-channels brew box logs report"
+
+  # The command is the first word that isn't a --flag
+  cmd=""
+  local pos=0
+  for ((i = 1; i < COMP_CWORD; i++)); do
+    case "${COMP_WORDS[i]}" in
+      --dry-run|--yes|-y) ;;
+      *) if [ -z "$cmd" ]; then cmd=${COMP_WORDS[i]}; pos=$i; fi ;;
+    esac
+  done
+
+  if [ -z "$cmd" ]; then
+    if [[ $cur == -* ]]; then
+      mapfile -t COMPREPLY < <(compgen -W "--dry-run --yes --version --help" -- "$cur")
+    else
+      mapfile -t COMPREPLY < <(compgen -W "$commands" -- "$cur")
+    fi
+    return
+  fi
+
+  local n=$((COMP_CWORD - pos)) words=""
+  case "$cmd" in
+    help) [ "$n" = 1 ] && words=$commands ;;
+    kargs) [ "$n" = 1 ] && words="add remove" ;;
+    initramfs) [ "$n" = 1 ] && words="status regenerate reset" ;;
+    grub-menu) [ "$n" = 1 ] && words="status always auto hide" ;;
+    watchdog|sysrq|audio-channels) [ "$n" = 1 ] && words="status on off" ;;
+    ssh) [ "$n" = 1 ] && words="status on off once" ;;
+    logs) [ "$n" = 1 ] && words="this last errors" ;;
+    pin|unpin|boot-default)
+      [ "$n" = 1 ] && words=$(rpm-ostree status --json 2>/dev/null | jq -r '.deployments | keys[]' 2>/dev/null) ;;
+    service)
+      if [ "$n" = 1 ]; then
+        words=$(systemctl list-unit-files --type=service --no-legend --no-pager 2>/dev/null \
+          | awk '$1 !~ /@\.service$/ {sub(/\.service$/, "", $1); print $1}')
+      elif [ "$n" = 2 ]; then
+        words="status on off start stop restart"
+      fi ;;
+    box)
+      if [ "$n" = 1 ]; then
+        words="list new enter rm"
+      elif [ "$n" = 2 ] && [[ ${COMP_WORDS[pos + 1]} == @(enter|rm) ]]; then
+        if command -v distrobox >/dev/null 2>&1; then
+          words=$(distrobox list --no-color 2>/dev/null | awk -F'|' 'NR>1 {gsub(/ /, "", $2); print $2}')
+        else
+          words=$(podman ps -a --filter label=com.github.containers.toolbox=true --format '{{.Names}}' 2>/dev/null)
+        fi
+      fi ;;
+    report) [ "$n" = 1 ] && { mapfile -t COMPREPLY < <(compgen -d -- "$cur"); return; } ;;
+  esac
+  mapfile -t COMPREPLY < <(compgen -W "$words" -- "$cur")
+}
+complete -F _spark spark

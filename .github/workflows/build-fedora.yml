@@ -1,24 +1,41 @@
 name: build-fedora
-# PROTOTYPE: SparkOS on plain Fedora Kinoite instead of Bazzite (briefs/sparkos-on-fedora.md,
-# results in docs/fedora-base.md). Builds recipes/recipe-fedora.yml into
-# ghcr.io/wolklaw/sparkos-fedora (never ghcr.io/wolklaw/sparkos), boots it in a VM the way
-# boot-test.yml boots the real image, and compares the bases.
+# SparkOS on plain Fedora Kinoite instead of Bazzite, published as ghcr.io/wolklaw/sparkos-fedora
+# (a test image; the real SparkOS stays ghcr.io/wolklaw/sparkos). Results in docs/fedora-base.md.
+#
+# Built from the same Containerfile as SparkOS (build.yml with base: fedora) and booted with the
+# same checks (boot-test.yml with image_name: sparkos-fedora), so it has every change main has.
+# It builds when main's image does: on each push that changes the image, and every day.
 #
 # Jobs:
+#   build      build.yml on quay.io/fedora/fedora-kinoite, signed with SparkOS's key
+#   boot       boot-test.yml on the image just built (every check on the daily and manual runs)
+#   by hand, with "compare":
 #   bases      what Bazzite adds over Fedora Kinoite: packages, where they come from, services,
 #              udev rules, sysctl, repositories, codecs (no build needed)
-#   build      the prototype image, signed with the same key as SparkOS
-#   container  inside the built image: sizes, codecs, and what RPM Fusion would add
-#   boot       a QEMU VM from the built image, with the same checks as boot-test.yml
-#
-# The real build (build.yml) and boot test (boot-test.yml) don't know this workflow exists.
+#   container  inside the built image: sizes, signature, codecs
+#   boot-time  boot time and idle memory of this image and of the real SparkOS, side by side
 on:
+  schedule:
+    - cron: "30 06 * * *" # every day, after build.yml's 06:00 run
   push:
-    paths:
-      - recipes/recipe-fedora.yml
-      - files/scripts/fedora-*.sh
-      - .github/workflows/build-fedora.yml
+    paths-ignore: # the same list as build.yml, so both images build for the same changes
+      - "**.md"
+      - ".github/workflows/boot-test.yml"
+      - ".github/workflows/inventory.yml"
+      - ".github/workflows/installer-iso.yml"
+      - ".github/workflows/inspect.yml"
+      - ".github/workflows/spark-*.yml"
+      - "installer/**"
   workflow_dispatch:
+    inputs:
+      full:
+        description: Run every boot check, not just the quick set
+        type: boolean
+        default: true
+      compare:
+        description: Also compare the bases, look inside the image and measure boot time
+        type: boolean
+        default: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -32,7 +49,30 @@ env:
   PROTO: ghcr.io/wolklaw/sparkos-fedora
 
 jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    permissions:
+      contents: read
+      packages: write
+    secrets: inherit
+    with:
+      base: fedora
+      base_image: quay.io/fedora/fedora-kinoite:45 # the same Fedora release as Bazzite stable
+
+  boot:
+    needs: build
+    if: needs.build.outputs.tag != ''
+    uses: ./.github/workflows/boot-test.yml
+    permissions:
+      contents: read
+      packages: read
+    with:
+      image_name: sparkos-fedora
+      image_tag: ${{ needs.build.outputs.tag }}
+      full: ${{ github.event_name == 'schedule' || inputs.full == true }}
+
   bases:
+    if: inputs.compare == true
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -177,24 +217,9 @@ jobs:
           path: /mnt/bases/
           if-no-files-found: warn
 
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      id-token: write
-    steps:
-      - name: Build the prototype image
-        uses: blue-build/github-action@v1.14
-        with:
-          recipe: recipe-fedora.yml
-          cosign_private_key: ${{ secrets.SIGNING_SECRET }}
-          registry_token: ${{ github.token }}
-          pr_event_number: ${{ github.event.number }}
-          maximize_build_space: true
-
   container:
     needs: build
+    if: inputs.compare == true && needs.build.outputs.tag != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     permissions:
@@ -207,10 +232,7 @@ jobs:
       - name: Find this build's tag
         run: |
           sudo mkdir -p "$OUT" "$ROOT" && sudo chown "$USER" "$OUT"
-          SHORT=${GITHUB_SHA::7}
-          TAG=$(skopeo list-tags --creds "${{ github.actor }}:${{ github.token }}" "docker://$PROTO" | jq -r '.Tags[]' | grep "^$SHORT-" | head -1)
-          test -n "$TAG" || { echo "no $PROTO tag for $SHORT"; exit 1; }
-          echo "IMAGE=$PROTO:$TAG" | tee -a "$GITHUB_ENV"
+          echo "IMAGE=$PROTO:${{ needs.build.outputs.tag }}" | tee -a "$GITHUB_ENV"
 
       - name: Size and signature
         run: |
@@ -229,7 +251,11 @@ jobs:
       - name: Inside the image (no boot)
         run: |
           sudo podman --root "$ROOT" run --rm --network none -v "$OUT":/out:z "$IMAGE" bash -c '
-            cat /usr/share/sparkos/fedora-base/gaming-layer.txt /usr/share/sparkos/fedora-base/media-formats.txt
+            cat /usr/share/sparkos/fedora-base/gaming-layer.txt
+            echo "== video and music"; rpm -q ffmpeg-libs mesa-va-drivers-freeworld openh264 gstreamer1-plugin-libav
+            for e in avdec_h264 avdec_h265 avdec_aac mpg123audiodec openh264dec vah264dec vah265dec; do
+              echo "element $e: $(gst-inspect-1.0 --exists $e 2>/dev/null && echo yes || echo no)"
+            done
             echo "== /usr"; du -sm /usr
             echo "== packages"; rpm -qa | wc -l
             echo "== policy"; jq -c ".transports.docker[\"ghcr.io/wolklaw/sparkos-fedora\"]" /etc/containers/policy.json; ls /etc/pki/containers
@@ -237,34 +263,6 @@ jobs:
             echo "== steam rules"; ls -l /usr/lib/udev/rules.d/60-steam-*.rules
             rpm -qa --qf "%{NAME}\t%{VERSION}-%{RELEASE}\t%{VENDOR}\t%{PACKAGER}\t%{SIZE}\n" | sort > /out/rpms.tsv
           ' 2>&1 | tee "$OUT/inside.txt"
-
-      - name: What RPM Fusion would add for video
-        run: |
-          # Fedora leaves out H.265 for patent reasons (and Mesa's H.264/H.265 hardware decode).
-          # RPM Fusion fills the gap. Measured in a throwaway container: what it downloads and
-          # whether Spark Media's real requirement (h264,h265,aac,mp3) passes after.
-          sudo podman --root "$ROOT" run --rm "$IMAGE" bash -c '
-            dnf -y install --nogpgcheck \
-              "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-$(rpm -E %fedora).noarch.rpm" >/dev/null 2>&1
-            echo "== swap ffmpeg-free for RPM Fusion ffmpeg"
-            dnf -y swap ffmpeg-free ffmpeg --allowerasing 2>&1 | grep -E "^ [a-z0-9]|Total size|After this|^Complete|Error"
-            echo "== Spark Media after the swap (its --require only checks that decoders exist)"
-            s=$(mktemp -d)
-            XDG_STATE_HOME=$s XDG_CONFIG_HOME=$s XDG_CACHE_HOME=$s spark-media --self-test --require h264,h265,aac,mp3 2>&1 | grep -E "^decoders|self-test|FAILED"
-            echo "== real decode: clips made with RPM Fusion ffmpeg, played through GStreamer"
-            cd "$s"
-            ffmpeg -loglevel error -f lavfi -i testsrc=duration=1:size=320x240:rate=30 -c:v libx264 h264.mp4 && echo "made h264.mp4"
-            ffmpeg -loglevel error -f lavfi -i testsrc=duration=1:size=320x240:rate=30 -c:v libx265 h265.mp4 && echo "made h265.mp4"
-            for f in h264 h265; do
-              if timeout 60 gst-launch-1.0 -q filesrc location=$f.mp4 ! decodebin ! fakesink >/dev/null 2>&1; then echo "$f: decodes"; else echo "$f: does not decode"; fi
-            done
-            echo "== what RPM Fusion offers for Mesa video decode"
-            dnf repoquery --repo="rpmfusion-free*" "mesa*" 2>/dev/null
-            echo "== dry run: mesa-va-drivers-freeworld"
-            dnf install --assumeno mesa-va-drivers-freeworld 2>&1 | grep -E "^ [a-z0-9]|Removing|Installing|Downgrading|Total size|After this|Error|conflict|Problem" | head -40
-            echo "== packages by vendor after the ffmpeg swap"
-            rpm -qa --qf "%{VENDOR}\n" | sort | uniq -c
-          ' 2>&1 | tee "$OUT/rpmfusion.txt"
 
       - name: Summary
         if: always()
@@ -275,8 +273,6 @@ jobs:
             echo "- compressed: $(jq -r '(.compressed_bytes/1e9*100|round/100|tostring) + " GB"' "$OUT/registry.json" 2>/dev/null)"
             echo "- uncompressed: $(awk '{printf "%.2f GB", $1/1e9}' "$OUT/image-size-bytes.txt" 2>/dev/null)"
             echo '```'; cat "$OUT/inside.txt" 2>/dev/null | head -60; echo '```'
-            echo "### With RPM Fusion (throwaway container)"
-            echo '```'; head -80 "$OUT/rpmfusion.txt" 2>/dev/null; echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload
@@ -287,581 +283,12 @@ jobs:
           path: /mnt/container/
           if-no-files-found: warn
 
-  boot:
-    needs: build
-    runs-on: ubuntu-24.04
-    timeout-minutes: 120
-    permissions:
-      contents: read
-      packages: read
-    env:
-      WORK: /mnt/boot-test
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Free disk space
-        run: |
-          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
-                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
-          sudo docker system prune -af >/dev/null || true
-          sudo mkdir -p "$WORK" && sudo chown "$USER" "$WORK"
-          df -h / /mnt
-
-      - name: Find this build's tag
-        run: |
-          SHORT=${GITHUB_SHA::7}
-          TAG=$(skopeo list-tags --creds "${{ github.actor }}:${{ github.token }}" "docker://$PROTO" | jq -r '.Tags[]' | grep "^$SHORT-" | head -1)
-          test -n "$TAG" || { echo "no $PROTO tag for $SHORT"; exit 1; }
-          echo "IMAGE=$PROTO:$TAG" | tee -a "$GITHUB_ENV"
-
-      - name: Enable KVM and install QEMU
-        run: |
-          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
-            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
-          sudo udevadm control --reload-rules && sudo udevadm trigger --name-match=kvm
-          sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-system-x86 qemu-utils ovmf socat >/dev/null
-          ls -l /dev/kvm
-
-      - name: Pull the prototype image
-        run: |
-          echo "${{ github.token }}" | sudo podman login ghcr.io -u "${{ github.actor }}" --password-stdin
-          for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
-          sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
-
-      - name: Build a test disk image
-        run: |
-          ssh-keygen -q -t ed25519 -N "" -C sparkos-boot-test -f "$WORK/id"
-          cat > "$WORK/blueprint.toml" <<EOF
-          [[customizations.user]]
-          name = "spark"
-          key = "$(cat "$WORK/id.pub")"
-          # Throwaway test disk only: a password so the checks can use sudo
-          password = "sparkos-boot-test"
-          groups = ["wheel"]
-
-          [customizations.kernel]
-          append = "systemd.wants=sshd.service rhgb quiet"
-          EOF
-          mkdir -p "$WORK/output"
-          sudo podman run --rm --privileged --pull=newer \
-            --security-opt label=type:unconfined_t \
-            -v "$WORK/blueprint.toml":/blueprint.toml:ro \
-            -v "$WORK/output":/output \
-            -v /var/lib/containers/storage:/var/lib/containers/storage \
-            ghcr.io/osbuild/image-builder-cli:latest \
-            build --blueprint /blueprint.toml --output-dir /output \
-            --bootc-ref "$IMAGE" --bootc-default-fs btrfs qcow2
-          sudo chown -R "$USER" "$WORK/output"
-          DISK=$(find "$WORK/output" -name '*.qcow2' | head -1)
-          test -n "$DISK" || { echo "no qcow2 produced"; find "$WORK/output"; exit 1; }
-          echo "DISK=$DISK" >> "$GITHUB_ENV"
-          ls -lh "$DISK"
-
-      - name: Boot it
-        run: |
-          cp /usr/share/OVMF/OVMF_VARS_4M.fd "$WORK/vars.fd"
-          qemu-system-x86_64 -enable-kvm -cpu host -machine q35 -smp 4 -m 8192 \
-            -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
-            -drive if=pflash,format=raw,file="$WORK/vars.fd" \
-            -drive file="$DISK",if=virtio,format=qcow2 \
-            -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2222-:22 \
-            -vga virtio -display none \
-            -serial file:"$WORK/serial.log" \
-            -monitor unix:"$WORK/qmon",server,nowait \
-            -daemonize -pidfile "$WORK/qemu.pid"
-          date +%s > "$WORK/qemu-start"
-          mkdir -p "$WORK/shots"
-          for t in $(seq 2 2 30); do
-            sleep 2
-            echo "screendump $WORK/shots/0-boot-${t}s.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
-          done
-
-      - name: Wait for SSH
-        id: ssh
-        run: |
-          SSH="ssh -i $WORK/id -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR -p 2222 spark@127.0.0.1"
-          echo "SSH=$SSH" >> "$GITHUB_ENV"
-          for i in $(seq 1 90); do
-            if $SSH true 2>/dev/null; then echo "SSH up after ~$(( $(date +%s) - $(cat "$WORK/qemu-start") ))s from power-on"; exit 0; fi
-            sleep 10
-          done
-          echo "SSH never came up"; tail -50 "$WORK/serial.log"; exit 1
-
-      - name: Screenshot after boot
-        if: always()
-        run: |
-          sleep 30
-          echo "screendump $WORK/shots/1-after-boot.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
-
-      # --- the same checks as boot-test.yml. Checks that measure a gap Fedora is expected to have
-      # don't stop the run (continue-on-error); the summary table at the end lists every result.
-
-      - name: Check system name, image and signing
-        id: c_identity
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'cat /etc/os-release' | tee "$WORK/os-release.txt"
-          grep -q '^NAME="SparkOS"$' "$WORK/os-release.txt"
-          $SSH 'rpm-ostree status' | tee "$WORK/rpm-ostree-status.txt"
-          grep -q 'ghcr.io/wolklaw/sparkos-fedora' "$WORK/rpm-ostree-status.txt"
-          $SSH 'jq -c ".transports.docker[\"ghcr.io/wolklaw/sparkos-fedora\"]" /etc/containers/policy.json; ls -l /etc/pki/containers/; cat /usr/lib/bootc/install/*.toml' | tee "$WORK/policy.txt"
-          grep -q '"sigstoreSigned"' "$WORK/policy.txt"
-          $SSH 'rpm -q steam lutris gamescope mangohud gamemode 2>&1; flatpak --version; uname -r'
-
-      - name: Check updates are signature-checked
-        id: c_signed
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # On Bazzite the deployment is "ostree-image-signed:"; a disk built from a plain image
-          # ref starts as "ostree-unverified-registry:" until something switches it
-          grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos-fedora' "$WORK/rpm-ostree-status.txt"
-
-      - name: Check Soot and FreeSuite
-        id: c_soot
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'ls -l /usr/bin/soot /usr/bin/freesuite; readlink -f /usr/bin/soot /usr/bin/freesuite; ls -l /var/opt/freesuite'
-          $SSH 'ldd /usr/lib/soot/engine/libxul.so | grep "not found" || echo "soot: no missing libraries"' | tee "$WORK/soot-ldd.txt"
-          $SSH 'ldd /usr/lib/opt/freesuite/freesuite-bin | grep "not found" || echo "freesuite: no missing libraries"' | tee "$WORK/freesuite-ldd.txt"
-          ! grep -q 'not found' "$WORK/soot-ldd.txt" "$WORK/freesuite-ldd.txt"
-          $SSH 'for m in x-scheme-handler/https application/pdf application/vnd.ms-excel application/msword; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/defaults.txt"
-          grep -q 'x-scheme-handler/https -> dev.wolklaw.Soot.desktop' "$WORK/defaults.txt"
-          grep -q 'application/pdf -> freesuite-pdf.desktop' "$WORK/defaults.txt"
-          SOOT_RELEASE=$($SSH 'cat /usr/lib/soot/SOOT_RELEASE')
-          curl -fsSL -o "$WORK/smoke-test.py" "https://raw.githubusercontent.com/Wolklaw/Soot/$SOOT_RELEASE/linux/smoke-test.py"
-          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 "$WORK/smoke-test.py" spark@127.0.0.1:/tmp/smoke-test.py
-          $SSH 'python3 /tmp/smoke-test.py --soot /usr/bin/soot' 2>&1 | tee "$WORK/soot-smoke-test.txt"
-
-      - name: Check printing, scanning and devices
-        id: c_devices
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
-          ! grep -q 'not installed' "$WORK/devices.txt"
-          $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
-          $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
-
-      - name: Check the startup sound
-        id: c_sound
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'test -s /usr/share/sounds/sparkos/startup.wav && test -x /usr/bin/sparkos-startup-sound && test -f /etc/xdg/autostart/sparkos-startup-sound.desktop && echo "startup sound present"'
-          $SSH 'sparkos-startup-sound --off && test -e ~/.config/sparkos/startup-sound-off && sparkos-startup-sound --on && test ! -e ~/.config/sparkos/startup-sound-off && echo "off/on switch works"'
-
-      - name: Check Claude Code setup
-        id: c_claude
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'rpm -q socat bubblewrap kdialog vte291-gtk4 && test -x /usr/bin/spark-terminal' | tee "$WORK/claude-deps.txt"
-          ! grep -q 'not installed' "$WORK/claude-deps.txt"
-          $SSH 'sparkos-dev-setup --claude && ~/.local/bin/claude --version' 2>&1 | tee "$WORK/claude-install.txt"
-          $SSH '~/.local/bin/claude --version' | grep -qiE '[0-9]+\.[0-9]+'
-
-      - name: Check Homebrew (sparkos-dev-setup --brew)
-        id: c_brew
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # Bazzite sets up Homebrew in /home/linuxbrew at first boot; Fedora doesn't
-          $SSH 'ls -d /home/linuxbrew/.linuxbrew/bin/brew'
-
-      - name: Check Spark Snip
-        id: c_snip
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # Installed, shortcuts registered, Spectacle gone (Spark Snip captures through KWin)
-          $SSH 'spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
-          $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop' | tee "$WORK/shortcuts.txt"
-          grep -q 'SparkSnip.desktop:X-KDE-Shortcuts=Print,Meta+Shift+S' "$WORK/shortcuts.txt"
-          if $SSH 'rpm -q spectacle'; then echo "::error::Spectacle is in the image"; exit 1; fi
-          $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
-
-      - name: Check Spark Media (H.264, H.265, AAC, MP3 required, as on SparkOS)
-        id: c_media
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'cat /usr/share/sparkos/fedora-base/media-formats.txt' | tee "$WORK/media-formats.txt"
-          grep -q '^h264 (OpenH264): decodes' "$WORK/media-formats.txt" || echo "::error::H.264 does not decode"
-          $SSH 'for m in image/jpeg video/mp4 audio/mpeg; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/media-defaults.txt"
-          if grep -v -- '-> dev.wolklaw.SparkMedia.desktop$' "$WORK/media-defaults.txt"; then echo "::error::these types don't open in Spark Media"; exit 1; fi
-          $SSH 'spark-media --self-test --require h264,h265,aac,mp3' 2>&1 | tee "$WORK/spark-media-self-test.txt"
-          grep -q '^self-test passed' "$WORK/spark-media-self-test.txt"
-
-      - name: Check Spark Welcome
-        id: c_welcome
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'spark-welcome --self-test' 2>&1 | tee "$WORK/spark-welcome-self-test.txt"
-          grep -q '^self-test passed' "$WORK/spark-welcome-self-test.txt"
-
-      - name: Check Spark Games
-        id: c_games
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'spark-games --self-test' 2>&1 | tee "$WORK/spark-games-self-test.txt"
-          grep -q '^self-test passed' "$WORK/spark-games-self-test.txt"
-
-      - name: Check Spark Monitor
-        id: c_monitor
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
-          grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
-
-      - name: Check the other Spark apps
-        id: c_others
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # Edit, Calc, Archive, Scan, Run, Link, Store and Terminal: installed system-wide, each self-test passes
-          for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal; do
-            echo "== $app"
-            $SSH "$app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
-            grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
-          done
-          # Extract/Compress in Dolphin's right-click menu; Send to phone too
-          $SSH 'ls /usr/share/kio/servicemenus/ | grep -i -E "spark"' | tee "$WORK/servicemenus.txt"
-          grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"
-          grep -q 'dev.wolklaw.SparkArchive.compress.desktop' "$WORK/servicemenus.txt"
-          # Text and code open in Spark Edit, archives in Spark Archive
-          $SSH 'for m in text/plain text/markdown application/json text/x-python application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/edit-archive-defaults.txt"
-          for m in text/plain text/markdown application/json text/x-python; do
-            grep -qx "$m -> dev.wolklaw.SparkEdit.desktop" "$WORK/edit-archive-defaults.txt" || { echo "::error::$m doesn't open in Spark Edit"; exit 1; }
-          done
-          for m in application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do
-            grep -qx "$m -> dev.wolklaw.SparkArchive.desktop" "$WORK/edit-archive-defaults.txt" || { echo "::error::$m doesn't open in Spark Archive"; exit 1; }
-          done
-
-
-      - name: Check Spark Update
-        id: c_update
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # Fedora has no uupd, so spark-update.sh falls back to Spark Update's own timer: it must be
-          # the one updater, with the notification timer on (boot-test.yml expects uupd on Bazzite)
-          $SSH 'spark-update --version; systemctl is-enabled spark-update.timer; systemctl is-active spark-update.timer; systemctl is-enabled uupd.timer 2>&1; systemctl --global is-enabled spark-update-user.timer' 2>&1 | tee "$WORK/spark-update-timers.txt"
-          $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt" || true
-          $SSH 'spark-update --status' 2>&1 | tee "$WORK/spark-update-status.txt" || true
-          grep -q '^updater:   Spark Update' "$WORK/spark-update-self-test.txt"
-          grep -q '^others:    no other automatic updater is on' "$WORK/spark-update-self-test.txt"
-          if grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"; then
-            echo "self-test passed"
-          elif grep -qx 'FAILED: image name' "$WORK/spark-update-self-test.txt" \
-               && grep -q '^image:     ghcr.io/wolklaw/sparkos-fedora (from rpm-ostree status)' "$WORK/spark-update-self-test.txt"; then
-            # Spark Update has the image name ghcr.io/wolklaw/sparkos built in; this test image has another name
-            echo "::warning::Spark Update's only failure is the image name (sparkos-fedora, not sparkos)"
-          else
-            echo "::error::Spark Update's self-test failed"; exit 1
-          fi
-
-      - name: Check the Release 2 cleanup
-        id: c_cleanup
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # Spark Monitor replaces Plasma System Monitor and takes its keys (Meta+Esc, Ctrl+Esc)
-          $SSH 'rpm -q plasma-systemmonitor 2>&1; grep -H "^X-KDE-Shortcuts=" /usr/share/kglobalaccel/*.desktop' | tee "$WORK/cleanup-monitor.txt"
-          grep -q 'package plasma-systemmonitor is not installed' "$WORK/cleanup-monitor.txt" || { echo "::error::plasma-systemmonitor is installed"; exit 1; }
-          grep -q 'dev.wolklaw.SparkMonitor.desktop:X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc$' "$WORK/cleanup-monitor.txt"
-          if grep -v 'SparkMonitor' "$WORK/cleanup-monitor.txt" | grep -E 'X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)(,|$)'; then
-            echo "::error::another app claims Spark Monitor's keys"; exit 1
-          fi
-          # No Tailscale: no package, no repository, no units
-          $SSH 'rpm -q tailscale 2>&1; ls /etc/yum.repos.d/; echo "== units"; systemctl list-unit-files --no-legend "tailscale*"' | tee "$WORK/cleanup-tailscale.txt"
-          grep -q 'package tailscale is not installed' "$WORK/cleanup-tailscale.txt" || { echo "::error::tailscale is installed"; exit 1; }
-          if grep -i 'tailscale' "$WORK/cleanup-tailscale.txt" | grep -v 'is not installed'; then echo "::error::Tailscale leftovers"; exit 1; fi
-          # No calling home: usage counting off (timer and DNF), KDE's Get New Stuff hidden.
-          # The connectivity check is printed only: it stays until the owner decides.
-          $SSH 'echo "countme timer: $(systemctl is-enabled rpm-ostree-countme.timer 2>&1)"
-                echo "countme last run: $(systemctl show -P LastTriggerUSec rpm-ostree-countme.timer)"
-                echo "dnf countme on: $(grep -l "^countme=1" /usr/share/dnf5/repos.d/*.repo /etc/yum.repos.d/*.repo 2>/dev/null | wc -l)"
-                echo "ghns: $(kreadconfig6 --file kdeglobals --group "KDE Action Restrictions" --key ghns)"
-                echo "== connectivity check"; grep -h "^uri=" /usr/lib/NetworkManager/conf.d/*.conf /etc/NetworkManager/conf.d/*.conf 2>/dev/null; nmcli networking connectivity
-                echo "== enabled timers"; systemctl list-unit-files --type=timer --state=enabled --no-legend --no-pager
-                echo "== active timers"; systemctl list-timers --no-pager' | tee "$WORK/cleanup-calls.txt"
-          grep -qx 'countme timer: disabled' "$WORK/cleanup-calls.txt" || { echo "::error::rpm-ostree-countme.timer is not disabled"; exit 1; }
-          grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
-          grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
-
-
-      - name: Check SparkOS's own AppImage handling
-        id: c_appimage
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # .AppImage opens in sparkos-open-package, which adds it to the menu itself (no Gear Lever)
-          $SSH 'xdg-mime query default application/vnd.appimage; rpm -q fuse fuse-libs; grep -ci gearlever /usr/bin/sparkos-open-package || true' | tee "$WORK/appimage.txt"
-          grep -qx 'sparkos-open-package.desktop' "$WORK/appimage.txt"
-          ! grep -q 'not installed' "$WORK/appimage.txt"
-          tail -1 "$WORK/appimage.txt" | grep -qx 0 || { echo "::error::sparkos-open-package still mentions Gear Lever"; exit 1; }
-          # A real AppImage with the FUSE 2 runtime (AppImageKit 12's appimagetool, pinned by checksum):
-          # add it to the menu, run it (through FUSE), then remove it
-          curl -fsSL --retry 5 -o "$WORK/appimagetool-x86_64.AppImage" \
-            https://github.com/AppImage/AppImageKit/releases/download/12/appimagetool-x86_64.AppImage
-          echo "d918b4df547b388ef253f3c9e7f6529ca81a885395c31f619d9aaf7030499a13  $WORK/appimagetool-x86_64.AppImage" | sha256sum -c -
-          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
-            "$WORK/appimagetool-x86_64.AppImage" spark@127.0.0.1:/tmp/appimagetool-x86_64.AppImage
-          $SSH 'set -e
-            mkdir -p ~/Downloads && mv /tmp/appimagetool-x86_64.AppImage ~/Downloads/
-            entry=$(sparkos-open-package --add-appimage ~/Downloads/appimagetool-x86_64.AppImage)
-            echo "== entry $entry"; cat "$entry"
-            desktop-file-validate "$entry" && echo "entry valid"
-            test ! -e ~/Downloads/appimagetool-x86_64.AppImage && test -x ~/Applications/appimagetool-x86_64.AppImage && echo "moved to ~/Applications"
-            icon=$(sed -n "s/^Icon=//p" "$entry" | head -1); test -s "$icon" && echo "icon $icon"
-            echo "== run (FUSE)"; ~/Applications/appimagetool-x86_64.AppImage --version 2>&1 | tail -2
-            echo "== remove"; sparkos-open-package --remove-appimage "$entry" --yes
-            test ! -e "$entry" && test ! -e ~/Applications/appimagetool-x86_64.AppImage && test ! -e "$icon" && echo "all removed"' 2>&1 | tee "$WORK/appimage-run.txt"
-          grep -q 'Name=appimagetool' "$WORK/appimage-run.txt"
-          grep -q '^entry valid' "$WORK/appimage-run.txt"
-          grep -q '^moved to ~/Applications' "$WORK/appimage-run.txt"
-          grep -q '^icon ' "$WORK/appimage-run.txt"
-          grep -q '^appimagetool, ' "$WORK/appimage-run.txt" || { echo "::error::the AppImage didn't run"; exit 1; }
-          grep -q '^all removed' "$WORK/appimage-run.txt"
-          # The double-click path itself, with a stand-in kdialog that gives set answers (exit 0 is
-          # the first button, 1 the second, 2 Cancel) and stand-in AppImages that leave a mark when run
-          cat > "$WORK/appimage-dialogs.sh" <<'EOF'
-          #!/bin/bash
-          set -u
-          fail=0
-          check() { if eval "$2"; then echo "ok: $1"; else echo "FAIL: $1"; fail=1; fi; }
-          mkdir -p /tmp/fakebin ~/Downloads
-          cat > /tmp/fakebin/kdialog <<'K'
-          #!/bin/sh
-          echo "kdialog $*" >> /tmp/kdialog.log
-          code=$(head -1 /tmp/answers); sed -i 1d /tmp/answers
-          exit "${code:-2}"
-          K
-          chmod +x /tmp/fakebin/kdialog
-          make_app() { # like a fresh download: not executable
-          cat > "$1" <<'A'
-          #!/bin/sh
-          if [ "$1" = --appimage-extract ]; then
-            mkdir -p squashfs-root
-            case "$2" in
-              '*.desktop') printf '[Desktop Entry]\nType=Application\nName=Dialog Test\nIcon=dialogtest\nCategories=Utility;\n' > squashfs-root/dialogtest.desktop ;;
-              dialogtest.png) cp /usr/share/icons/hicolor/48x48/apps/sparkos.png squashfs-root/dialogtest.png ;;
-            esac
-            exit 0
-          fi
-          echo "ran $0" >> /tmp/appimage-ran
-          A
-          chmod -x "$1"
-          }
-          open() { printf '%s\n' "$@" > /tmp/answers; PATH=/tmp/fakebin:$PATH sparkos-open-package "$F"; sleep 2; }
-          entry=~/.local/share/applications/sparkos-appimage-Dialog_Test.desktop
-          rm -f /tmp/appimage-ran /tmp/kdialog.log
-
-          echo "== Add to the app menu, then Open it now"
-          F=~/Downloads/Dialog_Test.AppImage; make_app "$F"; open 0 0
-          check "moved to ~/Applications, executable" '[ ! -e "$F" ] && [ -x ~/Applications/Dialog_Test.AppImage ]'
-          check "menu entry named from inside" 'grep -qx "Name=Dialog Test" "$entry"'
-          check "icon from inside" '[ -s ~/.local/share/sparkos/appimage-icons/Dialog_Test.png ]'
-          check "opened after adding" 'grep -q "^ran .*/Applications/Dialog_Test.AppImage$" /tmp/appimage-ran'
-
-          echo "== Opened again from ~/Applications: runs with no question"
-          n=$(wc -l < /tmp/kdialog.log); F=~/Applications/Dialog_Test.AppImage; open
-          check "no new question" '[ "$(wc -l < /tmp/kdialog.log)" = "$n" ]'
-          check "ran again" '[ "$(grep -c Dialog_Test /tmp/appimage-ran)" = 2 ]'
-
-          echo "== Remove from this PC (the menu entry's action), answered Remove"
-          act=$(sed -n '/^\[Desktop Action SparkOSRemove\]/,$s/^Exec=//p' "$entry")
-          printf '0\n' > /tmp/answers; PATH=/tmp/fakebin:$PATH eval "$act"
-          check "file, icon and entry deleted" '[ ! -e ~/Applications/Dialog_Test.AppImage ] && [ ! -e "$entry" ] && [ -z "$(ls -A ~/.local/share/sparkos/appimage-icons)" ]'
-
-          echo "== Run once"
-          F=~/Downloads/Once.AppImage; make_app "$F"; open 1
-          check "ran where it is" 'grep -q "^ran .*/Downloads/Once.AppImage$" /tmp/appimage-ran'
-          check "not added" '[ -e "$F" ] && [ ! -e ~/.local/share/applications/sparkos-appimage-Once.desktop ]'
-
-          echo "== Cancel"
-          F=~/Downloads/Cancel.AppImage; make_app "$F"; open 2
-          check "nothing ran or moved" '! grep -q Cancel /tmp/appimage-ran && [ -e "$F" ] && [ ! -x "$F" ]'
-
-          echo "== questions asked"; cat /tmp/kdialog.log
-          [ "$fail" = 0 ] && echo "ALL PASSED"
-          EOF
-          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
-            "$WORK/appimage-dialogs.sh" spark@127.0.0.1:/tmp/appimage-dialogs.sh
-          $SSH 'bash /tmp/appimage-dialogs.sh' 2>&1 | tee "$WORK/appimage-dialogs.txt"
-          grep -qx 'ALL PASSED' "$WORK/appimage-dialogs.txt" || { echo "::error::the AppImage double-click path failed"; exit 1; }
-
-
-      - name: Check no third-party apps are preinstalled
-        id: c_apps
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'echo "== system Flatpak apps"; flatpak list --system --app --columns=application
-                echo "== flatpak remotes"; flatpak remotes --system --columns=name,url
-                echo "== removed packages"; rpm -q steam lutris waydroid kate kwrite filelight firefox 2>&1' | tee "$WORK/apps.txt"
-          APPS=$(sed -n '/^== system Flatpak apps/,/^== flatpak remotes/p' "$WORK/apps.txt" | grep -v '^==' || true)
-          [ -z "$APPS" ] || { echo "::error::preinstalled Flatpaks found:"; echo "$APPS"; exit 1; }
-          ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight|firefox)-[0-9]' "$WORK/apps.txt"
-          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark >/dev/null && for b in soot freesuite spark-snip spark-media spark-welcome spark-games spark-monitor spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal spark-update; do test -x /usr/bin/$b || exit 1; done && echo "platform and SparkOS apps present"'
-
-      - name: Check the Store
-        id: c_store
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # SparkOS uses Bazaar (shipped by Bazzite) until Spark Store; Kinoite ships KDE's Discover
-          $SSH 'rpm -q bazaar plasma-discover plasma-discover-flatpak 2>&1; spark-store --version; flatpak remotes --system | grep -q flathub && echo "Flathub configured"' | tee "$WORK/store.txt"
-          grep -q '^bazaar-' "$WORK/store.txt"
-
-      - name: Check the gaming layer
-        id: c_gaming
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'cat /usr/share/sparkos/fedora-base/gaming-layer.txt
-                echo "== running kernel"; uname -r
-                echo "== sysctl"; sysctl vm.max_map_count kernel.split_lock_mitigate 2>&1
-                echo "== uinput"; lsmod | grep -w uinput || echo "uinput not loaded"
-                echo "== steam rules"; ls /usr/lib/udev/rules.d/60-steam-*.rules
-                echo "== gamescope"; gamescope --version 2>&1 | head -2
-                echo "== mangohud"; rpm -q mangohud
-                echo "== gamemode"; gamemoded --version 2>&1 | head -1
-                echo "== vulkan (virtio GPU: no AMD here)"; vulkaninfo --summary 2>&1 | grep -E "deviceName|driverName" | head -4
-                echo "== controller modules in the kernel"; for m in xpad hid_playstation hid_nintendo hid_steam xone xpadneo hid_xpadneo; do modinfo -n $m >/dev/null 2>&1 && echo "$m: yes" || echo "$m: no"; done' 2>&1 | tee "$WORK/gaming.txt"
-          grep -q '^uinput' "$WORK/gaming.txt"
-          grep -q '60-steam-input.rules' "$WORK/gaming.txt"
-          grep -q 'kernel.split_lock_mitigate = 0' "$WORK/gaming.txt"
-          grep -q 'vm.max_map_count = 2147483642' "$WORK/gaming.txt"
-
-      - name: Check installing apps the Windows way
-        id: c_install
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
-          grep -q 'application/x-ms-dos-executable -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/vnd.appimage -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          # .flatpakref is set to Bazaar (sparkos-defaults.sh), which Fedora doesn't have: printed only
-          $SSH 'grep -A2 "\*.exe|\*.msi)" /usr/bin/sparkos-open-package | grep -q "exec spark-run" && command -v spark-run && echo ".exe and .msi open in Spark Run"'
-          $SSH 'test -x /usr/bin/sparkos-open-package && command -v rpm-ostree pkexec kdialog spark-terminal gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub reachable"'
-
-      - name: Measure boot time and idle load
-        id: c_perf
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          sleep 10
-          $SSH 'echo "== boot"; systemd-analyze; echo; echo "== slowest services"; systemd-analyze blame --no-pager | head -12
-                echo; echo "== memory"; free -m
-                echo; echo "== load"; uptime
-                echo; echo "== busiest processes"; ps -eo pcpu,pmem,rss,comm --sort=-pcpu --no-headers | head -12
-                echo; echo "== deployment size"; sudo -n true 2>/dev/null; df -h /sysroot 2>/dev/null | tail -1
-                echo; echo "== running services"; systemctl list-units --type=service --state=running --no-legend --no-pager | wc -l' | tee "$WORK/performance.txt"
-          {
-            echo "### Boot and idle (test VM)"
-            echo '```'
-            grep -A1 "== boot" "$WORK/performance.txt" | tail -1
-            grep -A2 "== memory" "$WORK/performance.txt" | tail -2
-            grep -A1 "== load" "$WORK/performance.txt" | tail -1
-            echo "running services: $(tail -1 "$WORK/performance.txt")"
-            echo '```'
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      - name: Check the SparkOS look
-        id: c_look
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          $SSH 'set -e
-            echo "== defaults"; grep -E "^(LookAndFeelPackage|ColorScheme)=" /etc/xdg/kdeglobals
-            echo "== fonts"; fc-list : family | grep -E "^(Chakra Petch|Inter)$" | sort -u
-            echo "== boot splash"; grep "^Theme=" /etc/plymouth/plymouthd.conf
-            echo "== about"; grep -E "^(Name|LogoPath)=" /etc/xdg/kcm-about-distrorc; grep "^LOGO=" /etc/os-release
-            echo "== kernel options"; cat /proc/cmdline
-            echo "== login manager"; rpm -q plasma-login-manager sddm 2>&1; systemctl is-enabled plasmalogin sddm 2>&1 || true
-            echo "== plymouth this boot"; journalctl -b -o short-monotonic --no-pager 2>/dev/null | grep -i plymouth | head -10' | tee "$WORK/look.txt"
-          grep -q "LookAndFeelPackage=dev.wolklaw.sparkos.desktop" "$WORK/look.txt"
-          grep -qx "Chakra Petch" "$WORK/look.txt"
-          grep -q "Theme=sparkos" "$WORK/look.txt"
-          $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "mkdir -p /etc/plasmalogin.conf.d && printf \"[Autologin]\nUser=spark\nSession=plasma.desktop\n\" > /etc/plasmalogin.conf.d/zz-boot-test.conf && systemctl restart plasmalogin"'
-          for i in $(seq 1 18); do
-            $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break
-            sleep 5
-          done
-          sleep 25
-          echo "screendump $WORK/shots/3-desktop.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
-          $SSH 'pgrep -u spark -a plasmashell; cat ~/.config/plasma-org.kde.plasma.desktop-appletsrc' > "$WORK/desktop-layout.txt" || true
-          grep -q "plasmashell" "$WORK/desktop-layout.txt" || { echo "::error::Plasma did not start for the test user"; exit 1; }
-          grep -q "menuLabel=SPARKOS" "$WORK/desktop-layout.txt" || { echo "::error::the SparkOS layout was not used"; exit 1; }
-
-      - name: Check Spark Snip captures through KWin
-        id: c_capture
-        continue-on-error: true
-        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
-        run: |
-          # Spectacle is gone, so this is how Print works (the look check signed the test user in)
-          $SSH 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u) spark-snip --capture-test /tmp/snip.png' 2>&1 | tee "$WORK/spark-snip-capture.txt"
-          $SSH 'cat /tmp/snip.png' > "$WORK/shots/4-spark-snip-capture.png"
-          test -s "$WORK/shots/4-spark-snip-capture.png"
-
-      - name: Results
-        if: always()
-        env:
-          R: |
-            system name and signing policy|${{ steps.c_identity.outcome }}
-            updates signature-checked (ostree-image-signed)|${{ steps.c_signed.outcome }}
-            Soot and FreeSuite|${{ steps.c_soot.outcome }}
-            printing, scanning, devices|${{ steps.c_devices.outcome }}
-            startup sound|${{ steps.c_sound.outcome }}
-            Claude Code setup|${{ steps.c_claude.outcome }}
-            Homebrew for sparkos-dev-setup|${{ steps.c_brew.outcome }}
-            Spark Snip|${{ steps.c_snip.outcome }}
-            Spark Media with H.264/H.265/AAC/MP3|${{ steps.c_media.outcome }}
-            Spark Welcome|${{ steps.c_welcome.outcome }}
-            Spark Games|${{ steps.c_games.outcome }}
-            Spark Monitor|${{ steps.c_monitor.outcome }}
-            Spark Edit, Calc, Archive, Scan, Run, Link, Store|${{ steps.c_others.outcome }}
-            Spark Update (own timer; Fedora has no uupd)|${{ steps.c_update.outcome }}
-            Release 2 cleanup (System Monitor, Tailscale, no calling home)|${{ steps.c_cleanup.outcome }}
-            AppImages added to the menu and run|${{ steps.c_appimage.outcome }}
-            no third-party apps|${{ steps.c_apps.outcome }}
-            the Store (Bazaar)|${{ steps.c_store.outcome }}
-            gaming layer|${{ steps.c_gaming.outcome }}
-            installing apps the Windows way|${{ steps.c_install.outcome }}
-            the SparkOS look and desktop|${{ steps.c_look.outcome }}
-            Spark Snip captures through KWin|${{ steps.c_capture.outcome }}
-        run: |
-          echo "screendump $WORK/shots/2-end.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
-          $SSH 'journalctl -b --no-pager -p warning' > "$WORK/journal-warnings.txt" 2>/dev/null || true
-          { echo "### Checks on the Fedora-based prototype"; echo "| check | result |"; echo "|---|---|"
-            printf '%s\n' "$R" | grep . | while IFS='|' read -r name result; do echo "| $name | $result |"; done
-          } | tee -a "$GITHUB_STEP_SUMMARY" > "$WORK/results.md"
-
-      - name: Upload results
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: boot-test-fedora-results
-          path: |
-            /mnt/boot-test/shots/
-            /mnt/boot-test/*.txt
-            /mnt/boot-test/results.md
-            /mnt/boot-test/serial.log
-          if-no-files-found: warn
-
   boot-time:
     # Boot time and idle memory of the prototype and of the real SparkOS image, measured the same
     # way on the same kind of runner: first boot, then a second boot (first-boot work done).
     # Not this PC's numbers (nested VM, no GPU), but the two images are comparable here.
     needs: build
+    if: inputs.compare == true && needs.build.outputs.tag != ''
     runs-on: ubuntu-24.04
     timeout-minutes: 90
     permissions:
@@ -886,9 +313,7 @@ jobs:
           if [ "${{ matrix.image }}" = sparkos ]; then
             echo "IMAGE=$SPARKOS" >> "$GITHUB_ENV"
           else
-            TAG=$(skopeo list-tags --creds "${{ github.actor }}:${{ github.token }}" "docker://$PROTO" | jq -r '.Tags[]' | grep "^${GITHUB_SHA::7}-" | head -1)
-            test -n "$TAG"
-            echo "IMAGE=$PROTO:$TAG" >> "$GITHUB_ENV"
+            echo "IMAGE=$PROTO:${{ needs.build.outputs.tag }}" >> "$GITHUB_ENV"
           fi
 
       - name: Enable KVM and install QEMU

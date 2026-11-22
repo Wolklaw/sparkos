@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PROTOTYPE (recipes/recipe-fedora.yml). The app policy on a Fedora Kinoite base: SparkOS ships
-# only the owner's own apps. Kinoite installs a few other projects' apps as RPMs; they go, like
+# Fedora base only (Containerfile step 5, SPARKOS_BASE=fedora). The app policy on a Fedora
+# Kinoite base: SparkOS ships only the owner's own apps. Kinoite installs a few other projects' apps as RPMs; they go, like
 # sparkos-apps.sh removes Bazzite's. Each removal is skipped when the package isn't there, so
 # the list is safe to keep as Kinoite changes. Every app here is installable from Flathub.
 #
@@ -11,7 +11,7 @@
 #   fedora-third-party, fedora-workstation-repositories
 #                       Fedora's switch for Google Chrome, NVIDIA and Steam repositories
 #   spectacle, plasma-systemmonitor
-#                       replaced by Spark Snip and Spark Monitor, as in the real recipe
+#                       replaced by Spark Snip and Spark Monitor, as on Bazzite
 set -oue pipefail
 
 remove=()
@@ -29,7 +29,7 @@ else
   echo "--- none of Kinoite's third-party apps are installed as RPMs"
 fi
 
-# Flatpak: Kinoite 45 configures no remote in the image; the default-flatpaks module adds Flathub
+# Flatpak: Kinoite 45 configures no remote in the image; build_files/flathub.sh adds Flathub (step 6)
 # (the boot test lists the remotes the user gets).
 for pkg in "${remove[@]}"; do
   if rpm -q "$pkg" >/dev/null 2>&1; then echo "still installed: $pkg"; exit 1; fi

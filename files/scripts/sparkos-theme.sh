@@ -130,8 +130,24 @@ fi
 KVER=$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -1)
 test -n "$KVER"
 export DRACUT_NO_XATTR=1
+# dracut copies the groups and users that udev rules name (GROUP="kvm", OWNER=...) from /etc/group
+# and /etc/passwd. In an image most of them live in /usr/lib/group and /usr/lib/passwd
+# (nss-altfiles), so the initramfs lacked audio, disk, kvm, video, render, utmp... and every boot
+# logged "Failed to resolve group" errors. Give dracut the full lists, then put the files back.
+cp -a /etc/group "$WORK/group.orig"
+cp -a /etc/passwd "$WORK/passwd.orig"
+awk -F: 'NR==FNR { seen[$1] = 1; next } !seen[$1]' /etc/group /usr/lib/group >> /etc/group
+awk -F: 'NR==FNR { seen[$1] = 1; next } !seen[$1]' /etc/passwd /usr/lib/passwd >> /etc/passwd
+dracut_status=0
 dracut --no-hostonly --kver "$KVER" --reproducible --zstd -v --add ostree --force \
-  "/usr/lib/modules/$KVER/initramfs.img" > "$WORK/dracut.log" 2>&1 || { tail -40 "$WORK/dracut.log"; exit 1; }
+  "/usr/lib/modules/$KVER/initramfs.img" > "$WORK/dracut.log" 2>&1 || dracut_status=$?
+cp -a "$WORK/group.orig" /etc/group
+cp -a "$WORK/passwd.orig" /etc/passwd
+[ "$dracut_status" = 0 ] || { tail -40 "$WORK/dracut.log"; exit 1; }
+for g in audio disk kvm video render utmp; do
+  lsinitrd -f etc/group "/usr/lib/modules/$KVER/initramfs.img" | grep -q "^$g:" \
+    || { echo "initramfs /etc/group lacks $g"; exit 1; }
+done
 chmod 0600 "/usr/lib/modules/$KVER/initramfs.img"
 lsinitrd "/usr/lib/modules/$KVER/initramfs.img" > "$WORK/initrd.txt"
 grep -q 'plymouth/themes/sparkos/throbber-0050.png' "$WORK/initrd.txt" || { echo "SparkOS boot splash is not in the initramfs"; exit 1; }

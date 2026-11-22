@@ -12,11 +12,11 @@ pid=$(pgrep -u "$(id -u)" -x plasmashell | head -1)
 [ -n "$pid" ] || { echo "no plasmashell for $(id -un)"; exit 1; }
 while IFS= read -r -d '' kv; do
   case "$kv" in
-    DBUS_SESSION_BUS_ADDRESS=*|XDG_RUNTIME_DIR=*|WAYLAND_DISPLAY=*|DISPLAY=*|XDG_CURRENT_DESKTOP=*|LANG=*|XDG_DATA_DIRS=*)
+    DBUS_SESSION_BUS_ADDRESS=*|XDG_RUNTIME_DIR=*|WAYLAND_DISPLAY=*|DISPLAY=*|XDG_CURRENT_DESKTOP=*|KDE_SESSION_VERSION=*|KDE_FULL_SESSION=*|LANG=*|XDG_DATA_DIRS=*)
       export "${kv?}" ;;
   esac
 done < "/proc/$pid/environ"
-echo "session: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} DISPLAY=${DISPLAY:-} LANG=${LANG:-}"
+echo "session: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} DISPLAY=${DISPLAY:-} KDE_SESSION_VERSION=${KDE_SESSION_VERSION:-} LANG=${LANG:-}"
 
 LOG=${XDG_STATE_HOME:-$HOME/.local/state}/spark-files/spark-files.log
 wait_log() {   # $1: text to find in the log, $2: seconds
@@ -42,7 +42,7 @@ gdbus call --session --dest org.freedesktop.FileManager1 --object-path /org/free
   --method org.freedesktop.FileManager1.ShowItems "['file:///etc/os-release']" "" >/dev/null
 wait_log "showing /etc with /etc/os-release selected" 30
 owner=$(gdbus call --session --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus \
-  --method org.freedesktop.DBus.GetConnectionUnixProcessID org.freedesktop.FileManager1 | tr -dc '0-9')
+  --method org.freedesktop.DBus.GetConnectionUnixProcessID org.freedesktop.FileManager1 | sed -E 's/^\(uint32 ([0-9]+),\)$/\1/')
 cmd=$(tr '\0' ' ' < "/proc/$owner/cmdline")
 echo "org.freedesktop.FileManager1 is pid $owner: $cmd"
 case "$cmd" in *spark_files.py*) ;; *) echo "FileManager1 isn't Spark Files"; exit 1 ;; esac

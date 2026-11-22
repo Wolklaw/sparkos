@@ -495,12 +495,107 @@ class SystemRunTests(unittest.TestCase):
         self.assertEqual(self.state()['result'], 'failed')
         self.assertEqual(run.calls, [])
 
+    def test_rolled_back_version_not_staged_again(self):
+        # Found in the VM test (docs/fedora-base.md): after a roll back, the next scheduled
+        # run staged the same version again, so the next restart undid the roll back.
+        held = 'sha256:' + '2' * 64
+        updater.save_state(self.env, {'held': {'digests': [held], 'version': B_VER}})
+        same = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: {B_VER}\n  Digest: {held}\n", 0))
+        self.assertEqual(updater.system_run(self.env, runner=same, clock=self.clock), 0)
+        st = self.state()
+        self.assertEqual(st['result'], 'up_to_date')
+        self.assertEqual([c[1:] for c in same.calls if c[0] == 'bootc' or c[0] == 'rpm-ostree'],
+                         [['upgrade', '--check']])
+        self.assertIn('held', st)
+        cli_out = io.StringIO()
+        with redirect_stdout(cli_out):
+            from sparkupdate.cli import print_status
+            print_status(self.env)
+        self.assertIn(f"Held:     SparkOS {B_VER}", cli_out.getvalue())
+        # a newer version than the one rolled back from is staged as usual
+        self.clock.t += 7 * 3600
+        newer = FakeRunner(self.root, stage_to='rpm-ostree-staged.json', check_out=(
+            f"AvailableUpdate:\n  Version: 45.20261120.0\n"
+            f"  Digest: sha256:{'3' * 64}\n", 0))
+        updater.system_run(self.env, runner=newer, clock=self.clock)
+        self.assertTrue([c for c in newer.calls if c[1] == 'upgrade' and '--check' not in c])
+        self.assertNotIn('held', self.state())
+
+    def test_check_now_ends_the_hold(self):
+        updater.save_state(self.env, {'held': {'digests': ['sha256:' + '2' * 64],
+                                               'version': B_VER}})
+        run = FakeRunner(self.root, stage_to='rpm-ostree-staged.json')
+        updater.system_run(self.env, now_mode='stage', runner=run, clock=self.clock)
+        self.assertEqual(run.ran('upgrade --check'), [])
+        self.assertTrue(run.ran('upgrade'))
+        self.assertNotIn('held', self.state())
+
+    def test_notify_mode_respects_the_hold(self):
+        settings.write_system(self.env, settings.SystemSettings(True, 'notify', 6, False))
+        held = 'sha256:' + '2' * 64
+        updater.save_state(self.env, {'held': {'digests': [held], 'version': B_VER},
+                                      'result': 'available', 'available_version': B_VER})
+        same = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: {B_VER}\n  Digest: {held}\n", 0))
+        self.assertEqual(updater.system_run(self.env, runner=same, clock=self.clock), 0)
+        st = self.state()
+        self.assertEqual((st['result'], st['available_version']), ('up_to_date', ''))
+        self.assertIn('held', st)
+        self.assertEqual(len(same.ran('upgrade --check')), 1)        # checked once
+        self.assertEqual([c for c in same.calls if c[1] == 'upgrade' and '--check' not in c], [])
+        host = status.read_host(self.env)
+        self.assertIsNone(updater.what_to_offer(host, st))            # no notification
+        # a newer version than the one rolled back from is reported and ends the hold
+        self.clock.t += 7 * 3600
+        newer = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: 45.20261120.0\n"
+            f"  Digest: sha256:{'3' * 64}\n", 0))
+        updater.system_run(self.env, runner=newer, clock=self.clock)
+        st = self.state()
+        self.assertEqual((st['result'], st['available_version']), ('available', '45.20261120.0'))
+        self.assertNotIn('held', st)
+        self.assertEqual(len(newer.ran('upgrade --check')), 1)       # not checked twice
+        self.assertEqual([c for c in newer.calls if c[1] == 'upgrade' and '--check' not in c],
+                         [])                                         # notify: downloads nothing
+        self.assertEqual(updater.what_to_offer(host, st).version, '45.20261120.0')
+
+    def test_check_now_in_notify_mode_ends_the_hold(self):
+        settings.write_system(self.env, settings.SystemSettings(True, 'notify', 6, False))
+        held = 'sha256:' + '2' * 64
+        updater.save_state(self.env, {'held': {'digests': [held], 'version': B_VER}})
+        run = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: {B_VER}\n  Digest: {held}\n", 0))
+        updater.system_run(self.env, now_mode='check', runner=run, clock=self.clock)
+        st = self.state()
+        self.assertEqual((st['result'], st['available_version']), ('available', B_VER))
+        self.assertNotIn('held', st)
+        self.assertEqual(len(run.ran('upgrade --check')), 1)
+
+    def test_window_shows_the_hold_only_while_it_applies(self):
+        from sparkupdate.app import held_version
+        host = status.parse_rpm_ostree(fixture('rpm-ostree-none.json'))
+        held = {'digests': ['sha256:' + '2' * 64], 'version': B_VER}
+        self.assertEqual(held_version(held, host, 'spark'), B_VER)
+        self.assertEqual(held_version({'digests': held['digests']}, host, 'spark'), '?')
+        self.assertEqual(held_version(held, host, 'uupd'), '')       # uupd ignores the hold
+        self.assertEqual(held_version(None, host, 'spark'), '')
+        self.assertEqual(held_version({'digests': [], 'version': B_VER}, host, 'spark'), '')
+        booted = {'digests': [host.booted.digest], 'version': A_VER}
+        self.assertEqual(held_version(booted, host, 'spark'), '')     # running it again
+        staged = status.parse_rpm_ostree(fixture('rpm-ostree-staged.json'))
+        self.assertEqual(held_version(held, staged, 'spark'), '')     # a newer one is staged
+
     def test_rollback(self):
         staged = make_root('rpm-ostree-staged.json')
         run = FakeRunner(staged)
         self.assertEqual(updater.rollback(Env(staged), runner=run), (0, ''))
         self.assertEqual([c[:2] for c in run.calls],
                          [['rpm-ostree', 'cleanup'], ['rpm-ostree', 'rollback']])
+        held = updater.load_state(Env(staged))['held']
+        self.assertEqual(held['version'], A_VER)
+        self.assertIn('sha256:' + '2' * 64, held['digests'])        # the staged one too
+        self.assertEqual(len(held['digests']), 2)
         lonely = make_root('rpm-ostree-none.json')
         doc = fixture('rpm-ostree-none.json')
         doc['deployments'] = doc['deployments'][:1]
@@ -759,6 +854,28 @@ class CliTests(unittest.TestCase):
         self.assertIn('not booted from an image here', out)
         self.assertIn(f'image:     {IMAGE} (from /etc/containers/policy.json', out)
 
+    def test_self_test_on_the_fedora_base(self):
+        root = make_root()
+        os.remove(os.path.join(root, 'status', 'rpm-ostree.json'))
+        os.remove(os.path.join(root, 'usr/share/sparkos/release.json'))
+        write(root, '/etc/containers/policy.json', json.dumps({'transports': {'docker': {
+            'ghcr.io/wolklaw/sparkos-fedora': [{'type': 'sigstoreSigned'}]}}}))
+        code, out = self.run_cli('--self-test', '--root', root)
+        self.assertEqual(code, 0, out)
+        self.assertIn('image:     ghcr.io/wolklaw/sparkos-fedora (from /etc/containers/policy.json',
+                      out)
+        write(root, '/etc/containers/policy.json', json.dumps({'transports': {'docker': {
+            'ghcr.io/wolklaw/other': [{'type': 'sigstoreSigned'}]}}}))
+        code, out = self.run_cli('--self-test', '--root', root)
+        self.assertEqual(code, 1, out)                  # not a SparkOS image name
+
+    def test_release_names_the_fedora_base(self):
+        root = make_root()
+        write(root, '/usr/lib/os-release', 'NAME="SparkOS"\nID=fedora\nVERSION_ID=45\n')
+        data = release.collect(root, use_rpm=False, image='ghcr.io/wolklaw/sparkos-fedora')
+        self.assertEqual(data['image'], 'ghcr.io/wolklaw/sparkos-fedora')
+        self.assertIn({'id': 'base', 'name': 'Fedora base', 'version': '45'}, data['platform'])
+
     def system_install(self, root):
         write(root, '/usr/lib/systemd/system/spark-update.timer', '')
         write(root, '/etc/systemd/user/timers.target.wants/spark-update-user.timer', '')
@@ -962,6 +1079,28 @@ class UITests(unittest.TestCase):
                                        'last_check': time.time() - 60, 'last_run': time.time()})
         app = self.open(root=root)
         self.assertIn('error: Fetching: 503', app.check_line.cget('text'))
+
+    def held_root(self, digest='sha256:' + '2' * 64, updater_on='spark'):
+        root = make_root('rpm-ostree-none.json', updater_on=updater_on)
+        updater.save_state(Env(root), {'result': 'up_to_date', 'last_check': time.time() - 60,
+                                       'last_run': time.time(),
+                                       'held': {'digests': [digest], 'version': B_VER}})
+        return root
+
+    def test_hold_shows(self):
+        app = self.open(root=self.held_root())
+        self.assertEqual(app.snap.held, B_VER)
+        self.assertIn(t('check.held', version=B_VER), app.check_line.cget('text'))
+        app.env = Env(None)               # the real status line, not TEST DATA
+        app.render_status()
+        self.assertIn(t('status.held', version=B_VER), app.status.cget('text'))
+
+    def test_no_hold_shown_when_it_no_longer_applies(self):
+        booted = 'sha256:' + '1' * 64     # booted the held version again: the hold ends
+        for root in (self.held_root(digest=booted), self.held_root(updater_on='uupd')):
+            app = self.open(root=root)
+            self.assertEqual(app.snap.held, '')
+            self.assertNotIn(t('check.held', version=B_VER), app.check_line.cget('text'))
 
 
     def test_under_uupd(self):

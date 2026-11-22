@@ -16,22 +16,47 @@ builds ran side by side and were compared (see [Before the switch](#before-the-s
 |---|---|---|
 | 0 | `FROM … AS capslock-build` | compiles [sparkos-capslock](../files/sparkos-capslock) (Caps Lock toggles when pressed) on the same base with `gcc` and `libevdev-devel`; only the program goes into the image, in step 4 |
 | 1 | `FROM ghcr.io/ublue-os/bazzite@sha256:…` | the base: the workflow resolves `bazzite:stable` to a digest when the build starts and records it in the labels |
-| 2 | `COPY cosign.pub` | the public key updates are checked against, as `/etc/pki/containers/sparkos.pub` |
+| 2 | `COPY cosign.pub` | the public key updates are checked against, as `/etc/pki/containers/sparkos.pub` (named after the image) |
 | 3 | [pre-build.sh](../build_files/pre-build.sh) | makes `/opt` a link to `/usr/lib/opt` during the build, so things installed in `/opt` land in the image |
 | 4 | [copy-files.sh](../build_files/copy-files.sh) | copies `files/system/*` into the image root, then `sparkos-capslock` from step 0 to `/usr/libexec` |
-| 5 | `dnf` | removes 16 packages (other projects' apps, and the KDE apps a Spark app replaces) and installs 23; the Containerfile says why each one is there |
+| 5 | [packages.sh](../build_files/packages.sh) | removes 18 packages (other projects' apps, the KDE apps a Spark app replaces, Tailscale and Universal Blue's updater) and installs 23; the script says why each one is there |
 | 6 | [run-scripts.sh](../build_files/run-scripts.sh) | runs SparkOS's scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files` |
 | 7 | [flathub.sh](../build_files/flathub.sh) | two services, `system-flatpak-setup` and `user-flatpak-setup`, that add Flathub at boot and at login ([flathub-setup](../build_files/flathub-setup), 40 lines of shell); installs no apps |
-| 8 | [signing.sh](../build_files/signing.sh) | the `sigstoreSigned` entry for `ghcr.io/wolklaw/sparkos` in `/etc/containers/policy.json`, and `registries.d/Wolklaw-sparkos.yaml` |
+| 8 | [signing.sh](../build_files/signing.sh) | the `sigstoreSigned` entry for `ghcr.io/wolklaw/sparkos` in `/etc/containers/policy.json`, and `registries.d/Wolklaw-sparkos.yaml`; if the base doesn't already make installs check signatures (Bazzite does), `/usr/lib/bootc/install/20-sparkos.toml` |
 | 9 | [post-build.sh](../build_files/post-build.sh) | tmpfiles links for `/opt/*`, empties `/tmp` and `/var`, makes `/opt` the usual link into `/var`, hard-links the rpm database for rpm-ostree |
 | 10 | `LABEL`s | title, description, source, base name and digest, build date, and `revision` (the SparkOS commit) |
 
 Package caches are build-time cache mounts, so they never end up in the image. The workflow also
 runs `bootc container lint` on the result, for information only (it's in each run's summary).
 
-**Adding to the image:** a new package goes in the `dnf` step; a new build script goes in
-`files/scripts/` and in the list in step 6, in the right place (apps before `spark-update.sh`,
-`sparkos-theme.sh` last).
+**Adding to the image:** a new package goes in [packages.sh](../build_files/packages.sh) (the list
+for both bases, unless only one needs it); a new build script goes in `files/scripts/` and in the
+list in step 6, in the right place (apps before `spark-update.sh`, `sparkos-theme.sh` last).
+
+## The Fedora build
+
+The same Containerfile also builds SparkOS on plain Fedora Kinoite, the test image
+`ghcr.io/wolklaw/sparkos-fedora` ([fedora-base.md](fedora-base.md)). Three build arguments switch it:
+`BASE_IMAGE=quay.io/fedora/fedora-kinoite:45`, `SPARKOS_BASE=fedora` and
+`IMAGE_NAME=sparkos-fedora`. Only two steps differ by base:
+
+- step 5, [packages.sh](../build_files/packages.sh): on Fedora, instead of removing Bazzite's apps,
+  it adds what Bazzite brought (printing, scanning, ImageMagick, gamescope, MangoHud, GameMode,
+  distrobox, btop, tmux and other tools, `umu-run` from Terra for that one package, and Fedora's
+  device rule packages: `steam-devices`, `openrgb-udev-rules`, `solaar-udev`, `ntsync-autoload`)
+  and RPM Fusion free's FFmpeg and Mesa video decode, so H.264 and H.265 play
+- step 6: an entry `a.sh|b.sh` in the script list runs `a.sh` on Bazzite and `b.sh` on Fedora, and
+  `-` means nothing. Fedora gets [fedora-identity.sh](../files/scripts/fedora-identity.sh),
+  [fedora-apps.sh](../files/scripts/fedora-apps.sh) (removes Kinoite's apps),
+  [fedora-gaming.sh](../files/scripts/fedora-gaming.sh) (the device rules Fedora doesn't package,
+  from [files/device-rules](../files/device-rules), `uinput`, gaming kernel settings) and
+  [fedora-homebrew.sh](../files/scripts/fedora-homebrew.sh) (Homebrew on PATH in bash, zsh and
+  fish, when it's installed)
+
+[build-fedora.yml](../.github/workflows/build-fedora.yml) runs build.yml with `base: fedora` on the
+same pushes as the real build and every day at 06:30 UTC, then runs boot-test.yml on the result
+with `image_name: sparkos-fedora` (the few checks about Bazzite's own parts are skipped). Because
+nothing is copied, a change to main reaches both images.
 
 ## Tags
 
@@ -82,7 +107,8 @@ sudo podman build -t localhost/sparkos:test .
 ```
 
 Building as root is simplest (the steps install packages and set file ownership). It downloads the
-Bazzite base (about 5.4 GB) and needs about 40 GB free. Check the result with
+Bazzite base (about 5.4 GB) and needs about 40 GB free. For the Fedora build, add
+`--build-arg BASE_IMAGE=quay.io/fedora/fedora-kinoite:45 --build-arg SPARKOS_BASE=fedora --build-arg IMAGE_NAME=sparkos-fedora`. Check the result with
 `sudo podman run --rm -it localhost/sparkos:test bash`, or install it in a VM with
 [vm-test.md](vm-test.md).
 

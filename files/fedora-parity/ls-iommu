@@ -1,0 +1,31 @@
+#!/usr/bin/bash
+# ls-iommu: list the PC's IOMMU groups and the devices in each (for GPU passthrough to a VM).
+# SparkOS's own version of the tool Bazzite ships (Terra's ls-iommu), same purpose:
+#   ls-iommu          every group with its PCI devices
+#   ls-iommu -g N     only group N
+set -euo pipefail
+
+only=
+case "${1:-}" in
+  -g|--group) only=${2:?group number}; [[ $only =~ ^[0-9]+$ ]] || { echo "ls-iommu: group must be a number" >&2; exit 2; } ;;
+  -h|--help) sed -n '2,5p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+  "") ;;
+  *) echo "ls-iommu: unknown option '$1' (try --help)" >&2; exit 2 ;;
+esac
+
+groups=/sys/kernel/iommu_groups
+if [ ! -d "$groups" ] || [ -z "$(ls -A "$groups" 2>/dev/null)" ]; then
+  echo "No IOMMU groups: turn on IOMMU (AMD-Vi / VT-d) in the BIOS, or add amd_iommu=on / intel_iommu=on." >&2
+  exit 1
+fi
+
+found=0
+for g in $(ls "$groups" | sort -n); do
+  [ -n "$only" ] && [ "$g" != "$only" ] && continue
+  found=1
+  for dev in "$groups/$g"/devices/*; do
+    addr=${dev##*/}
+    printf 'IOMMU group %s  %s\n' "$g" "$(lspci -nns "$addr" 2>/dev/null || echo "$addr")"
+  done
+done
+[ "$found" = 1 ] || { echo "ls-iommu: no IOMMU group $only" >&2; exit 1; }

@@ -2,7 +2,7 @@
 # SparkOS ships only the owner's own apps (Soot, FreeSuite, Spark Snip, Spark Media). This removes what
 # Bazzite would otherwise add on top of the platform: its first-boot Flatpak apps, its Portal
 # window at login, and menu entries left behind by apps the recipe removes. Everything removed
-# here can be installed from the Store (Bazaar).
+# here can be installed from Spark Store.
 set -oue pipefail
 
 # Bazzite's first-boot app list (Firefox, Gwenview, Okular, KCalc, Haruna, Filelight, Gear Lever,
