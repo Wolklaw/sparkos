@@ -73,5 +73,5 @@ updates what it needs.
 - **Back to Windows:** your firmware's boot menu key at power-on > Windows Boot Manager.
 - **A bad update:** at startup, pick the previous version in SparkOS's boot menu, or Spark Update >
   Roll back. Nothing is deleted.
-- **An app won't open:** run it from Konsole (its command is its name, like `spark-media`) to see
+- **An app won't open:** run it from Spark Terminal (Ctrl+Alt+T; its command is its name, like `spark-media`) to see
   the error.

@@ -20,7 +20,7 @@ It follows the PC's language: French when the system language is French, English
 
 Every action says what it will run and what it touches, and runs only after you confirm.
 
-- **Open terminal:** Konsole (or another terminal) running `ssh <host>`; on Windows, a new console window.
+- **Open terminal:** Spark Terminal (or Konsole, or another terminal) running `ssh <host>`; on Windows, a new console window.
 - **Restart** a unit listed as `restartable` in the config. User units: `systemctl --user restart`. System units: `sudo -n systemctl restart`; if sudo wants a password nothing runs, and it offers a terminal with the command typed instead. It never asks for, types or stores a password. Restarting the tunnel names every hostname behind it in the confirmation.
 - **Failback** (shown only when a standby has taken over): opens a terminal on the standby with the failback command typed but not run. You press Enter.
 - **Copy report:** a plain-text snapshot of one machine (services, health, last errors) for a note or a Claude session. Copying runs nothing, so it doesn't ask first.

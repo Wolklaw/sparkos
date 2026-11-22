@@ -173,7 +173,7 @@ EN = {
                              "terminal and run it there?",
     'result.failed_title': "Restart failed",
     'result.failed': "Restarting {unit} on {machine} didn't work:\n{message}",
-    'result.no_terminal': "No terminal program found (Konsole, xterm…).",
+    'result.no_terminal': "No terminal program found (Spark Terminal, Konsole, xterm…).",
     'result.no_terminal_title': "No terminal",
 
     # alerts
@@ -347,7 +347,7 @@ FR = {
                              "mot de passe. Ouvrir un terminal pour le faire ?",
     'result.failed_title': "Le redémarrage a échoué",
     'result.failed': "Le redémarrage de {unit} sur {machine} n'a pas marché :\n{message}",
-    'result.no_terminal': "Aucun terminal trouvé (Konsole, xterm…).",
+    'result.no_terminal': "Aucun terminal trouvé (Spark Terminal, Konsole, xterm…).",
     'result.no_terminal_title': "Pas de terminal",
 
     'alert.back': "Revenu à la normale : {text}",

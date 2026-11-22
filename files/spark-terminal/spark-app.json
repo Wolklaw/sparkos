@@ -1,0 +1,33 @@
+{
+  "id": "dev.wolklaw.SparkTerminal",
+  "slug": "spark-terminal",
+  "name": "Spark Terminal",
+  "name_fr": "Spark Terminal",
+  "summary": "Terminal with tabs, split panes, search in the scrollback and clickable links, in the SparkOS colours.",
+  "summary_fr": "Terminal avec onglets, panneaux divisés, recherche dans l'historique et liens cliquables, aux couleurs de SparkOS.",
+  "version": "1.0.0",
+  "installed_size_kb": 0,
+  "icon": "icons/spark-terminal-256.png",
+  "categories": ["System", "TerminalEmulator"],
+  "command": "spark-terminal",
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["gi"],
+    "gi_namespaces": {"Gtk": "4.0", "Vte": "3.91"},
+    "packages_fedora": ["python3-gobject", "gtk4", "vte291-gtk4"],
+    "optional": {
+      "cascadia-mono-fonts": "the SparkOS terminal font (another monospace font is used without it)"
+    },
+    "system": "Linux; any desktop. In the SparkOS image (VTE for GTK 4 is added to the image for it)"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-terminal --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-terminal"
+}

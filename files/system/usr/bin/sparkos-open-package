@@ -215,7 +215,7 @@ It won't update by itself. If the program is also in the Store (Bazaar), install
 instead: Store apps install without a restart and update automatically." || exit 0
 
     status_file=$(mktemp)
-    konsole --nofork -e bash -c '
+    spark-terminal -e bash -c '
       echo "Installing $1 (asks for your password)..."; echo
       pkexec rpm-ostree install --idempotent --allow-inactive "$1"; echo $? > "$2"
       echo; read -rp "Press Enter to close this window. " _' _ "$file" "$status_file"

@@ -15,7 +15,7 @@
     "python": ">=3.11",
     "python_modules": ["tkinter", "tomllib"],
     "optional": {
-      "konsole": "Open terminal and Failback (another terminal program works too)",
+      "spark-terminal": "Open terminal and Failback (Konsole or another terminal program works too)",
       "notify-send": "desktop notifications when a machine or site goes wrong"
     },
     "system": "Linux or Windows 10/11 (OpenSSH client); the servers need only sh, systemd and the usual tools of a stock Ubuntu or Fedora server"
