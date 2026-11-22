@@ -7,6 +7,9 @@ authors gave them.
 |---|---|---|
 | `installer/` and `.github/workflows/installer-iso.yml` | Adapted from Bazzite's installer (github.com/ublue-os/bazzite) | Apache-2.0, text in [LICENSES/Apache-2.0.txt](LICENSES/Apache-2.0.txt). SparkOS's changes to these files are under the same license. |
 | `files/sparkos-theme/fonts/` (Chakra Petch) | Cadson Demak | SIL Open Font License 1.1, text in [files/sparkos-theme/fonts/OFL.txt](files/sparkos-theme/fonts/OFL.txt) |
+| `files/device-rules/game-devices-udev/` (controller udev rules, Fedora image only) | game-devices-udev 1.1 by Fabian Bornschein (codeberg.org/fabiscafe/game-devices-udev), unchanged | MIT, text in [files/device-rules/game-devices-udev/LICENSE](files/device-rules/game-devices-udev/LICENSE) |
+| `files/device-rules/udev-joystick-blacklist/` (Fedora image only) | udev-joystick-blacklist by denilsonsa (github.com/denilsonsa/udev-joystick-blacklist), unchanged | Public domain |
+| `files/device-rules/oversteer/` (Logitech wheel udev rule, Fedora image only) | Oversteer by berarma (github.com/berarma/oversteer), unchanged | GPL-3.0, text in [files/device-rules/oversteer/LICENSE](files/device-rules/oversteer/LICENSE) |
 
 ## In the SparkOS image
 

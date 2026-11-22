@@ -1,0 +1,8 @@
+udev-joystick-blacklist, https://github.com/denilsonsa/udev-joystick-blacklist
+Commit 1c5c9ccb69ea4ae42251aaa4c5a40a54766e6551, file after_kernel_4_9/51-these-are-not-joysticks-rm.rules,
+unchanged. Public domain (the project's README: "Public domain. Feel free to use this project for
+whatever purpose you want.").
+
+The same file as Terra's udev-joystick-blacklist-rm 0^20260415git1c5c9cc package on Bazzite.
+It stops keyboards, mice and LED controllers that the kernel wrongly reports as joysticks from
+showing up as game controllers. Keychron keyboards are on the list (the owner's V5, 3434:0351).

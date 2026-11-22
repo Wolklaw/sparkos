@@ -82,7 +82,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #    - identity: shows "SparkOS" as the system name
 #    - apps: no preinstalled third-party apps (Bazzite: empties its first-boot list, drops the
 #      Portal; Fedora: removes Kinoite's RPM apps)
-#    - fedora-gaming (Fedora only): Valve's controller/VR device rules, uinput, gaming sysctls
+#    - fedora-gaming (Fedora only): the device rules Fedora doesn't package (controllers,
+#      not-a-joystick list, wheels; files/device-rules), uinput, gaming sysctls
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
 #      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark

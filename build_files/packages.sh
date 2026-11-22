@@ -5,7 +5,8 @@
 # Both bases get the same SparkOS list. Each base then gets what differs:
 #   bazzite  removes other projects' apps that Bazzite ships, and Universal Blue's updater
 #   fedora   adds what Bazzite brought and Fedora Kinoite doesn't (ImageMagick, printing,
-#            scanning, the gaming layer) and full video playback from RPM Fusion free
+#            scanning, the gaming layer, device rules) and full video playback from RPM
+#            Fusion free
 set -euo pipefail
 
 base=${1:?base: bazzite or fedora}
@@ -44,6 +45,15 @@ fedora)
     fastfetch jq xdg-terminal-exec \
     gamescope mangohud gamemode \
     vulkan-tools libva-utils
+
+  # Device access rules Bazzite ships that Fedora packages itself (all tiny, no dependencies):
+  # - steam-devices: Valve's controller and VR rules, so Steam (also from Flathub) can use them
+  # - openrgb-udev-rules: RGB controllers (ASUS AURA, NZXT, ...) for OpenRGB without root
+  # - solaar-udev: Logitech receivers and devices (the G502 too) for Solaar without root
+  # - ntsync-autoload: loads the ntsync module at boot, for Wine and Proton's NT sync
+  # The rules Fedora doesn't package (game-devices-udev, the not-a-joystick list, wheel
+  # settings) are in files/device-rules, installed by fedora-gaming.sh.
+  dnf_install steam-devices openrgb-udev-rules solaar-udev ntsync-autoload
 
   # Video and music that play everywhere else: H.264, H.265, AAC, MP3. Fedora's own FFmpeg
   # leaves out the patented codecs; RPM Fusion free has the full one, and Mesa's video decode

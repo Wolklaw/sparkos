@@ -6,29 +6,29 @@
 # Fedora's kernel already has the controller drivers SparkOS's hardware needs (xpad,
 # hid-playstation, hid-nintendo, hid-steam) and Fedora's Mesa has RADV and RadeonSI.
 #
-# What plain Fedora lacks: the udev rules that let Steam (and Steam from Flathub) talk to
-# controllers and VR headsets through hidraw/uinput. On Bazzite they come from the steam-devices
-# package; on Fedora that package is only in RPM Fusion. Valve publishes the same rules under
-# the MIT licence at github.com/ValveSoftware/steam-devices; this takes them from a pinned commit,
-# checked against known SHA-256 sums, so no third-party package repository is needed.
+# Device access rules (who may open a controller, wheel or RGB device). Bazzite ships them as
+# packages; on Fedora:
+# - from Fedora's own packages (packages.sh): steam-devices (Valve's controller and VR rules),
+#   openrgb-udev-rules, solaar-udev, ntsync-autoload
+# - from files/device-rules, here: the rules Fedora doesn't package, copied unchanged from their
+#   projects (each folder's SOURCE says from where, at which version, under which licence):
+#   game-devices-udev (more controllers: 8BitDo, PowerA, Hori, Nacon, ... and wheels),
+#   udev-joystick-blacklist (keyboards and mice the kernel wrongly reports as joysticks,
+#   Keychron's included) and Oversteer's Logitech wheel settings rule.
 set -oue pipefail
 
-COMMIT=22ec85e5ff5ea2e15c56d71a41bcbef46356cd60
-URL="https://raw.githubusercontent.com/ValveSoftware/steam-devices/$COMMIT"
 RULES=/usr/lib/udev/rules.d
-mkdir -p /usr/share/sparkos/fedora-base
-DOC=/usr/share/licenses/sparkos-steam-devices
-mkdir -p "$RULES" "$DOC"
+SRC="${CONFIG_DIRECTORY:-/tmp/files}/device-rules"
+LIC=/usr/share/licenses/sparkos-device-rules
+mkdir -p "$RULES" /usr/share/sparkos/fedora-base
 
-while read -r sum name dest; do
-  curl -fsSL --retry 5 --retry-delay 5 -o "$dest" "$URL/$name"
-  echo "$sum  $dest" | sha256sum -c -
-done <<EOS
-284930f83cf8fde8a247057d46f48083d5e4aefc23a54310db02cfc2dbe42e50 60-steam-input.rules $RULES/60-steam-input.rules
-e12cda322c9f5f7c6336d8048264877690d3488e1b0f1b750cce18a836160420 60-steam-vr.rules $RULES/60-steam-vr.rules
-4a8b10a725095d8be78a130dd21984d70976915a658da8fe158d3bc20ca03585 LICENSE $DOC/LICENSE
-EOS
-echo "steam-devices $COMMIT" > "$DOC/SOURCE"
+for dir in game-devices-udev udev-joystick-blacklist oversteer; do
+  install -m 0644 -t "$RULES" "$SRC/$dir"/*.rules
+  mkdir -p "$LIC/$dir"
+  for doc in SOURCE LICENSE; do
+    if [ -f "$SRC/$dir/$doc" ]; then install -m 0644 "$SRC/$dir/$doc" "$LIC/$dir/$doc"; fi
+  done
+done
 
 # uinput must load for Steam Input's virtual controllers
 mkdir -p /usr/lib/modules-load.d
@@ -49,13 +49,21 @@ EOS
 for bin in gamescope mangohud gamemoded; do
   command -v "$bin" >/dev/null || { echo "missing $bin"; exit 1; }
 done
-test -s "$RULES/60-steam-input.rules"
+rpm -q steam-devices openrgb-udev-rules solaar-udev ntsync-autoload
+for f in 60-steam-input.rules 60-openrgb.rules 42-logitech-unify-permissions.rules \
+  71-8bitdo-gdu.rules 51-these-are-not-joysticks-rm.rules 99-logitech-wheel-perms.rules; do
+  test -s "$RULES/$f" || { echo "missing $RULES/$f"; exit 1; }
+done
+grep -qx ntsync /usr/lib/modules-load.d/ntsync.conf
 
 # A record of what the gaming layer is, for the boot test and docs/fedora-base.md
 {
   echo "kernel: $(rpm -q kernel-core --qf '%{VERSION}-%{RELEASE} (%{VENDOR})\n' | tail -1)"
   rpm -q mesa-dri-drivers mesa-vulkan-drivers mesa-va-drivers gamescope mangohud gamemode \
     linux-firmware amd-gpu-firmware amd-ucode-firmware --qf '%{NAME} %{VERSION}-%{RELEASE} (%{VENDOR})\n' 2>&1 || true
+  rpm -q steam-devices openrgb-udev-rules solaar-udev ntsync-autoload \
+    --qf '%{NAME} %{VERSION}-%{RELEASE} (%{VENDOR})\n'
+  echo "device rules from files/device-rules: $(cd "$SRC" && ls -- */*.rules | wc -l) files"
   echo "sysctl: $(grep -hv '^#' /usr/lib/sysctl.d/70-sparkos-gaming.conf | paste -sd ' ')"
 } | tee /usr/share/sparkos/fedora-base/gaming-layer.txt
 echo "Gaming layer ready."
