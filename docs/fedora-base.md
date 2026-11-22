@@ -3,7 +3,15 @@
 SparkOS is built on Bazzite today. This prototype builds the same SparkOS layer on Fedora's own
 atomic KDE image, Fedora Kinoite 45, to find out what moving off Bazzite (Release 3 in
 [PLAN.md](../PLAN.md)) would cost. It's a separate test image, `ghcr.io/wolklaw/sparkos-fedora`.
-The real SparkOS build, its recipe and its boot test are unchanged.
+
+**Since 2026-11-22 it's built from the same Containerfile as SparkOS** (see
+[building.md, The Fedora build](building.md#the-fedora-build)), every time main's image builds and
+every day, and booted with the same boot test. Before that it had its own BlueBuild recipe and its
+own copy of the checks, which fell behind main (it missed the icon theme, the Caps Lock fix, the new
+boot splash and the sign-in screen change). Two of the gaps below are fixed by that change:
+**H.265** (RPM Fusion free's FFmpeg and Mesa video decode are now in the image) and **Spark
+Update's image name** (it knows `sparkos-fedora`). The measurements below are from the prototype
+runs of 2026-11-20 and haven't been redone.
 
 Measured on 2026-11-20 with Kinoite 45, Bazzite `stable` (F45.20261117) and
 `ghcr.io/wolklaw/sparkos:latest` built from main at 53f54a8, which has all 13 Spark apps and the
@@ -21,15 +29,17 @@ recommendation are at the end.
 
 ## What was built
 
+The same [Containerfile](../Containerfile) as SparkOS, with `SPARKOS_BASE=fedora` (until 2026-11-22
+a separate BlueBuild recipe, `recipes/recipe-fedora.yml`). What differs from the Bazzite build:
+
 | File | What it does |
 |---|---|
-| [recipes/recipe-fedora.yml](../recipes/recipe-fedora.yml) | Base `quay.io/fedora/fedora-kinoite:45`. The same `files/system`, the same package list, and the same scripts as the real recipe where they work unchanged: Soot, FreeSuite, Spark Snip, Welcome, Games, Monitor, Edit, Calc, Archive, Scan, Run, Link, Store and Update, `sparkos-cleanup.sh`, defaults and theme. Plus gamescope, MangoHud and GameMode from Fedora. |
-| [files/scripts/fedora-identity.sh](../files/scripts/fedora-identity.sh) | "SparkOS" as the system name. Replaces `sparkos-identity.sh`, which checks for `ID=bazzite`. |
-| [files/scripts/fedora-apps.sh](../files/scripts/fedora-apps.sh) | The app policy on Kinoite: removes Firefox, KWrite, Filelight and the other apps Kinoite installs as RPMs, Spectacle and Plasma System Monitor (as the real recipe does), plus Fedora's first-boot wizard, crash reporter and third-party repository switch. Replaces `sparkos-apps.sh`, which empties Bazzite's lists. |
+| [build_files/packages.sh](../build_files/packages.sh) | On Fedora: what Bazzite brought that SparkOS uses (printing, scanning, ImageMagick, gamescope, MangoHud, GameMode), RPM Fusion free's FFmpeg and `mesa-va-drivers-freeworld`, and Cisco's real OpenH264 in place of Kinoite's empty `noopenh264` stand-in. Then the same list as on Bazzite. |
+| [files/scripts/fedora-identity.sh](../files/scripts/fedora-identity.sh) | "SparkOS" as the system name and boot entry. Replaces `sparkos-identity.sh`, which checks for `ID=bazzite`. |
+| [files/scripts/fedora-apps.sh](../files/scripts/fedora-apps.sh) | The app policy on Kinoite: removes Firefox, KWrite, Filelight and the other apps Kinoite installs as RPMs, Spectacle and Plasma System Monitor (as on Bazzite), plus Fedora's first-boot wizard, crash reporter and third-party repository switch. Replaces `sparkos-apps.sh`, which empties Bazzite's lists. |
 | [files/scripts/fedora-gaming.sh](../files/scripts/fedora-gaming.sh) | Valve's Steam controller and VR udev rules (from Valve's own repository, pinned and checksummed), `uinput` at boot, and Bazzite's gaming kernel settings. |
-| [files/scripts/fedora-media.sh](../files/scripts/fedora-media.sh) | Spark Media, with Cisco's real OpenH264 in place of Kinoite's empty `noopenh264` stand-in, recording which formats really decode (encode-then-decode test) instead of failing the build. |
-| [files/scripts/fedora-signing-fix.sh](../files/scripts/fedora-signing-fix.sh) | The lowercase signing-policy fix for the `sparkos-fedora` name, and the install setting that makes a fresh install check signatures. |
-| [.github/workflows/build-fedora.yml](../.github/workflows/build-fedora.yml) | Compares the three images, builds and signs the prototype, checks it inside a container, boots it in QEMU with the same checks as `boot-test.yml`, and boots both images twice to compare boot time. |
+| [build_files/signing.sh](../build_files/signing.sh) | Shared. On Fedora it also writes `20-sparkos.toml`, the install setting that makes a fresh install check signatures (Bazzite has its own). |
+| [.github/workflows/build-fedora.yml](../.github/workflows/build-fedora.yml) | Runs build.yml with `base: fedora`, then boot-test.yml on the result. By hand, with "compare", it also compares the three images, looks inside the built image, and boots both images twice to compare boot time. |
 
 ## Size
 
@@ -76,7 +86,9 @@ They compare the two images under the same conditions.
 ## The same checks as the real boot test
 
 From the `boot` job (run 4), the same checks as `boot-test.yml` on 53f54a8, adapted where they
-name Bazzite things. 19 pass and 3 fail, the same three as in the morning runs.
+name Bazzite things. 19 pass and 3 fail, the same three as in the morning runs. Since 2026-11-22
+the image runs `boot-test.yml` itself; it skips only the checks about Bazzite's own parts (`ujust`,
+Homebrew's timers, Bazaar) and expects `.flatpakref` files to open in Spark Store.
 
 | Check | Result |
 |---|---|
@@ -162,11 +174,11 @@ Measured in a throwaway container from the prototype image (run 3):
 
 - **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one
   big, stable upstream instead of Fedora plus Bazzite plus the repositories Bazzite pulls in.
-- **BlueBuild**: the build tool, and its `default-flatpaks` and `signing` modules. Same as today.
 - **Cisco's OpenH264**, through Fedora's own repository, for H.264.
 - **Valve's** udev rules, as two pinned files.
 - **Flathub**, for every app users install. Same as today.
-- **RPM Fusion**, only if SparkOS keeps requiring H.265 (see the recommendation).
+- **RPM Fusion free**, for FFmpeg and Mesa video decode (H.265, and H.264/H.265 on the GPU). In the
+  image since 2026-11-22.
 
 Gone compared with today: Universal Blue (images, COPRs, akmods, `uupd`, `ujust`, Bazaar), Terra,
 negativo17, the OGC kernel, Tailscale's repository, and several smaller COPRs.

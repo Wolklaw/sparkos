@@ -7,7 +7,7 @@ import sys
 import time
 from typing import List, Optional, Tuple
 
-from . import APP_NAME, APP_SLUG, CONF_PATH, HELPER, IMAGE, POLKIT_ACTION, RELEASE_PATH, VERSION
+from . import APP_NAME, APP_SLUG, CONF_PATH, HELPER, IMAGE, IMAGES, POLKIT_ACTION, RELEASE_PATH, VERSION
 from .core import Env, log, run, setup_logging, which
 from .engine import NONE, SPARK, UUPD, both_on, engine, timer_enabled
 
@@ -80,8 +80,8 @@ def self_test(env: Env) -> int:
     sparkos = is_sparkos(env)
     if name:
         print(f"image:     {name} (from {where})")
-        if sparkos and name != IMAGE:
-            print(f"image:     expected {IMAGE} - tell the owner")
+        if sparkos and name not in IMAGES:
+            print(f"image:     expected {' or '.join(IMAGES)} - tell the owner")
             failures.append("image name")
     elif sparkos:
         print("image:     NOT FOUND on SparkOS (no status, release file or signing policy)")
@@ -196,7 +196,13 @@ def cli_rollback(env: Env) -> int:
 def write_release(path: str) -> int:
     import json
     from . import release
-    data = release.collect('/', use_rpm=True, built=time.time())
+    # The build passes the image's own name (Containerfile ARGs IMAGE_REGISTRY and IMAGE_NAME)
+    registry, name = os.environ.get('IMAGE_REGISTRY', ''), os.environ.get('IMAGE_NAME', '')
+    image = f"{registry.lower()}/{name}" if registry and name else IMAGE
+    if image not in IMAGES:
+        print(f"unknown image {image}; expected {' or '.join(IMAGES)}")
+        return 1
+    data = release.collect('/', use_rpm=True, built=time.time(), image=image)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)

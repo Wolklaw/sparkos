@@ -7,7 +7,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import IMAGE
+from . import IMAGES
 from .core import Env, parse_time, run
 
 
@@ -229,6 +229,6 @@ def find_image_name(env: Env, host: Optional[Host] = None) -> Tuple[str, str]:
             continue
         docker = ((policy.get('transports') or {}).get('docker') or {})
         for name in docker:
-            if name.rstrip('/').endswith('/sparkos') or name == IMAGE:
+            if name.rstrip('/').endswith(('/sparkos', '/sparkos-fedora')) or name in IMAGES:
                 return name, path + " (signing policy)"
     return "", ""

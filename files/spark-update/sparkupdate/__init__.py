@@ -11,6 +11,9 @@ APP_ID = "dev.wolklaw.SparkUpdate"
 VERSION = "1.0.1"
 
 IMAGE = "ghcr.io/wolklaw/sparkos"
+# Every image Spark Update knows: SparkOS, and the same system built on plain Fedora Kinoite
+# (the Containerfile with SPARKOS_BASE=fedora). Each one follows its own name.
+IMAGES = (IMAGE, "ghcr.io/wolklaw/sparkos-fedora")
 
 # Where the image-wide parts live (the system install puts them there; tests use --root)
 CONF_PATH = "/etc/sparkos/update.conf"           # system settings, written through pkexec

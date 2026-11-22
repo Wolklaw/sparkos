@@ -759,6 +759,28 @@ class CliTests(unittest.TestCase):
         self.assertIn('not booted from an image here', out)
         self.assertIn(f'image:     {IMAGE} (from /etc/containers/policy.json', out)
 
+    def test_self_test_on_the_fedora_base(self):
+        root = make_root()
+        os.remove(os.path.join(root, 'status', 'rpm-ostree.json'))
+        os.remove(os.path.join(root, 'usr/share/sparkos/release.json'))
+        write(root, '/etc/containers/policy.json', json.dumps({'transports': {'docker': {
+            'ghcr.io/wolklaw/sparkos-fedora': [{'type': 'sigstoreSigned'}]}}}))
+        code, out = self.run_cli('--self-test', '--root', root)
+        self.assertEqual(code, 0, out)
+        self.assertIn('image:     ghcr.io/wolklaw/sparkos-fedora (from /etc/containers/policy.json',
+                      out)
+        write(root, '/etc/containers/policy.json', json.dumps({'transports': {'docker': {
+            'ghcr.io/wolklaw/other': [{'type': 'sigstoreSigned'}]}}}))
+        code, out = self.run_cli('--self-test', '--root', root)
+        self.assertEqual(code, 1, out)                  # not a SparkOS image name
+
+    def test_release_names_the_fedora_base(self):
+        root = make_root()
+        write(root, '/usr/lib/os-release', 'NAME="SparkOS"\nID=fedora\nVERSION_ID=45\n')
+        data = release.collect(root, use_rpm=False, image='ghcr.io/wolklaw/sparkos-fedora')
+        self.assertEqual(data['image'], 'ghcr.io/wolklaw/sparkos-fedora')
+        self.assertIn({'id': 'base', 'name': 'Fedora base', 'version': '45'}, data['platform'])
+
     def system_install(self, root):
         write(root, '/usr/lib/systemd/system/spark-update.timer', '')
         write(root, '/etc/systemd/user/timers.target.wants/spark-update-user.timer', '')

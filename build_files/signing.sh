@@ -1,5 +1,5 @@
 #!/usr/bin/bash
-# Containerfile step 7: the signing policy (the recipe's "signing" step).
+# Containerfile step 7: the signing policy.
 #   signing.sh REGISTRY IMAGE_NAME     e.g. signing.sh ghcr.io/wolklaw sparkos
 #
 # Tells rpm-ostree/bootc to accept updates of REGISTRY/IMAGE_NAME only when they're signed with
@@ -47,3 +47,20 @@ docker:
     use-sigstore-attachments: true
 EOF
 cat "/etc/containers/registries.d/Wolklaw-${name//\//_}.yaml"
+
+# Install signed: an installer (bootc install, image-builder, Anaconda) then deploys
+# "ostree-image-signed:docker://..." and checks the signature, instead of
+# "ostree-unverified-registry:", which never checks it. Bazzite already sets this in
+# /usr/lib/bootc/install/20-bazzite.toml; plain Fedora Kinoite doesn't, so SparkOS adds its own.
+if grep -qs '^enforce-container-sigpolicy *= *true' /usr/lib/bootc/install/*.toml; then
+  echo "bootc install: the base already enforces the signing policy"
+else
+  mkdir -p /usr/lib/bootc/install
+  cat > /usr/lib/bootc/install/20-sparkos.toml <<'TOML'
+[install]
+root-fs-type = "btrfs"
+# Deploy as ostree-image-signed, so every update is checked against /etc/pki/containers
+enforce-container-sigpolicy = true
+TOML
+  cat /usr/lib/bootc/install/20-sparkos.toml
+fi

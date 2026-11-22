@@ -2,6 +2,11 @@
 #
 # Base: Bazzite (KDE Plasma, AMD/Intel GPUs, current Mesa drivers, gaming kernel).
 # Built and signed by .github/workflows/build.yml and published as ghcr.io/wolklaw/sparkos:latest.
+#
+# The same file builds the test image on plain Fedora Kinoite (ghcr.io/wolklaw/sparkos-fedora,
+# .github/workflows/build-fedora.yml), so the two never drift apart:
+#   --build-arg BASE_IMAGE=quay.io/fedora/fedora-kinoite:45 --build-arg SPARKOS_BASE=fedora
+#   --build-arg IMAGE_NAME=sparkos-fedora
 # docs/building.md explains each step.
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
@@ -40,9 +45,13 @@ ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
 ARG CONFIG_DIRECTORY=/tmp/files
 ARG IMAGE_REGISTRY=ghcr.io/wolklaw
 ARG IMAGE_NAME=sparkos
+# Which base this build is on: bazzite (the real SparkOS) or fedora (sparkos-fedora, the test
+# image on plain Fedora Kinoite). Steps 4 and 5 differ by base; everything else is shared.
+# (An ARG, so the scripts see it while building but it isn't set in the finished system.)
+ARG SPARKOS_BASE=bazzite
 
-# 1. The public key that signed updates are checked against.
-COPY cosign.pub /etc/pki/containers/sparkos.pub
+# 1. The public key that signed updates are checked against, named after the image.
+COPY cosign.pub /etc/pki/containers/${IMAGE_NAME}.pub
 
 # 2. Prepare /opt so packages and scripts that install there land in /usr/lib/opt, which is part
 #    of the image.
@@ -58,74 +67,22 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 #     sparkos-capslock@<device>.service for each physical keyboard (80-sparkos-capslock.rules).
 COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
 
-# 4. Packages: remove, then install (weak dependencies on).
-#    Removed:
-#    - steam, lutris, waydroid, input-remapper, kate, kwrite, filelight, kfind, krdc, krfb,
-#      kwalletmanager5, kdebugsettings, khelpcenter: other projects' apps that Bazzite ships, all
-#      installable from the Store
-#    - plasma-systemmonitor (Spark Monitor replaces it) and spectacle (Spark Snip captures through
-#      KWin): KDE apps a Spark app replaces; nothing else in the image requires them
-#    - tailscale: a company's VPN service Bazzite preinstalls (docs/switching.md says how to add it)
-#    - uupd and bazzite-updater: Universal Blue's updater and its window. Spark Update downloads
-#      and stages updates itself (SPARK_UPDATE_ENGINE=spark, step 5)
-#    Installed (printing with CUPS and scanning with SANE pixma/airscan are already in Bazzite):
-#    - bubblewrap, socat: Claude Code's command sandbox (bubblewrap is in Bazzite; listed so it stays)
-#    - kdialog: folder picker for sparkos-claude and the install dialogs
-#    - fuse (in Bazzite; listed so it stays) and fuse-libs (FUSE 2): AppImages mount themselves
-#    - rsms-inter-fonts: Inter, the interface font (Chakra Petch is in files/sparkos-theme/fonts)
-#    - python3.13 through libXtst: so Androidbox installs for the user (install.sh --user) with no
-#      root: a Python that Qt for Python supports (Fedora 45's own is 3.15), and the libraries Qt,
-#      SDL and Google's emulator load. Androidbox itself is not in the image.
-RUN --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
+# 4. Packages (build_files/packages.sh lists each one and why). On Bazzite: remove the other
+#    projects' apps it ships, Tailscale and Universal Blue's updater. On Fedora: add what Bazzite
+#    brought (printing, scanning, ImageMagick, the gaming layer) and RPM Fusion free's FFmpeg and
+#    Mesa video decode, so H.264/H.265 play. Then, on both, the SparkOS list (Claude Code's
+#    sandbox, kdialog, FUSE 2 for AppImages, Inter, the libraries Androidbox needs).
+RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
+    --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
-    dnf -y makecache && \
-    dnf -y remove \
-        steam \
-        lutris \
-        waydroid \
-        input-remapper \
-        kate \
-        kwrite \
-        filelight \
-        kfind \
-        krdc \
-        krfb \
-        kwalletmanager5 \
-        kdebugsettings \
-        khelpcenter \
-        plasma-systemmonitor \
-        spectacle \
-        tailscale \
-        uupd \
-        bazzite-updater && \
-    dnf -y --setopt=install_weak_deps=True install \
-        bubblewrap \
-        socat \
-        kdialog \
-        fuse \
-        fuse-libs \
-        rsms-inter-fonts \
-        python3.13 \
-        SDL2 \
-        xcb-util-cursor \
-        libxkbcommon-x11 \
-        libxkbfile \
-        mesa-libGL \
-        mesa-libEGL \
-        mesa-libgbm \
-        alsa-lib \
-        pulseaudio-libs \
-        nss \
-        libXcomposite \
-        libXcursor \
-        libXdamage \
-        libXi \
-        libXrandr \
-        libXtst
+    /tmp/build_files/packages.sh "${SPARKOS_BASE}"
 
 # 5. SparkOS's own scripts (files/scripts), in this order:
-#    - sparkos-identity: shows "SparkOS" as the system name
-#    - sparkos-apps: no preinstalled third-party apps (empties Bazzite's first-boot list, drops the Portal)
+#    "a|b" means a on Bazzite, b on Fedora; "-" is nothing (build_files/run-scripts.sh)
+#    - identity: shows "SparkOS" as the system name
+#    - apps: no preinstalled third-party apps (Bazzite: empties its first-boot list, drops the
+#      Portal; Fedora: removes Kinoite's RPM apps)
+#    - fedora-gaming (Fedora only): Valve's controller/VR device rules, uinput, gaming sysctls
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
 #      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
@@ -142,8 +99,9 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
     /tmp/build_files/run-scripts.sh \
-        sparkos-identity.sh \
-        sparkos-apps.sh \
+        "sparkos-identity.sh|fedora-identity.sh" \
+        "sparkos-apps.sh|fedora-apps.sh" \
+        "-|fedora-gaming.sh" \
         soot.sh \
         freesuite.sh \
         spark-snip.sh \
@@ -181,15 +139,16 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     /tmp/build_files/post-build.sh
 
 # Labels last, so changing them never rebuilds a layer. The ones not set here (version,
-# containers.bootc, ostree.*) come from Bazzite.
+# containers.bootc, ostree.*) come from the base.
 ARG BUILD_DATE=unknown
 ARG REVISION=unknown
 ARG BASE_DIGEST=unknown
-LABEL org.opencontainers.image.title="sparkos" \
-      org.opencontainers.image.description="SparkOS, a desktop for gaming and everyday work, built on Bazzite." \
+ARG DESCRIPTION="SparkOS, a desktop for gaming and everyday work, built on Bazzite."
+LABEL org.opencontainers.image.title="${IMAGE_NAME}" \
+      org.opencontainers.image.description="${DESCRIPTION}" \
       org.opencontainers.image.source="https://github.com/Wolklaw/sparkos" \
       org.opencontainers.image.revision="${REVISION}" \
       org.opencontainers.image.created="${BUILD_DATE}" \
-      org.opencontainers.image.base.name="ghcr.io/ublue-os/bazzite:stable" \
+      org.opencontainers.image.base.name="${BASE_IMAGE}" \
       org.opencontainers.image.base.digest="${BASE_DIGEST}" \
       io.artifacthub.package.readme-url="https://raw.githubusercontent.com/Wolklaw/sparkos/main/README.md"

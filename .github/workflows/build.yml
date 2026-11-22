@@ -2,6 +2,9 @@ name: build
 # Builds SparkOS from the Containerfile, signs it with SparkOS's key and publishes it to
 # ghcr.io/wolklaw/sparkos. docs/building.md explains each step.
 #
+# build-fedora.yml calls this same workflow with base: fedora, which builds the same Containerfile
+# on Fedora Kinoite and publishes ghcr.io/wolklaw/sparkos-fedora with the same tags and signing.
+#
 # Tags (the same ones BlueBuild used, so nothing that reads them changes):
 #   main (push, the daily schedule, or Run workflow): <commit>-45, YYYYMMDD-45, YYYYMMDD, 45, latest
 #   another branch: br-<branch>-45 (never latest), for testing with boot-test's image_tag
@@ -20,28 +23,52 @@ on:
       - ".github/workflows/inspect.yml"
       - ".github/workflows/spark-*.yml"
       - ".github/workflows/build-fedora.yml"
-      - "recipes/recipe-fedora.yml"
       - "files/scripts/fedora-*.sh"
       - "installer/**"
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      base:
+        description: "bazzite (ghcr.io/wolklaw/sparkos) or fedora (ghcr.io/wolklaw/sparkos-fedora)"
+        type: string
+        default: bazzite
+      base_image:
+        description: "The image to build on, when not the Containerfile's BASE_IMAGE (Bazzite)"
+        type: string
+        default: ""
+    outputs:
+      tag:
+        description: "The commit or branch tag that was pushed and signed (empty for a pull request)"
+        value: ${{ jobs.build.outputs.tag }}
+      digest:
+        description: "Its digest"
+        value: ${{ jobs.build.outputs.digest }}
 
 concurrency:
-  # Pull requests queue by their branch, so a PR check never cancels or delays main's build
-  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || github.ref }}
+  # Pull requests queue by their branch, so a PR check never cancels or delays main's build.
+  # One group per base, and not named after the calling workflow, so build-fedora.yml's own
+  # group never waits on this one.
+  group: image-${{ inputs.base || 'bazzite' }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || github.ref }}
   cancel-in-progress: true
 
 env:
-  IMAGE_REPO: ghcr.io/wolklaw/sparkos
+  SPARKOS_BASE: ${{ inputs.base || 'bazzite' }}
+  IMAGE_NAME: ${{ inputs.base == 'fedora' && 'sparkos-fedora' || 'sparkos' }}
+  IMAGE_REPO: ghcr.io/wolklaw/${{ inputs.base == 'fedora' && 'sparkos-fedora' || 'sparkos' }}
+  BASE_OVERRIDE: ${{ inputs.base_image }}
 
 jobs:
   build:
-    name: Build, sign and publish
+    name: Build, sign and publish (${{ inputs.base || 'bazzite' }})
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
       contents: read
       packages: write
+    outputs:
+      tag: ${{ steps.tags.outputs.first }}
+      digest: ${{ steps.push.outputs.digest }}
     steps:
       - uses: actions/checkout@v7
 
@@ -53,10 +80,11 @@ jobs:
           sudo docker system prune -af >/dev/null || true
           df -h /
 
-      - name: Find the Bazzite base
+      - name: Find the base
         id: base
         run: |
-          BASE=$(sed -n 's/^ARG BASE_IMAGE=//p' Containerfile | head -1)
+          case "$SPARKOS_BASE" in bazzite|fedora) ;; *) echo "::error::base is '$SPARKOS_BASE' (bazzite or fedora)"; exit 1 ;; esac
+          BASE=${BASE_OVERRIDE:-$(sed -n 's/^ARG BASE_IMAGE=//p' Containerfile | head -1)}
           test -n "$BASE"
           for i in 1 2 3 4 5; do
             DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://$BASE") && break
@@ -72,6 +100,7 @@ jobs:
         env:
           BASE: ${{ steps.base.outputs.name }}
           BASE_DIGEST: ${{ steps.base.outputs.digest }}
+          DESCRIPTION: ${{ inputs.base == 'fedora' && 'SparkOS on plain Fedora Kinoite (test image, built from the same Containerfile as SparkOS).' || '' }}
         run: |
           # Pulled by digest, so the base is exactly the one recorded in the labels
           for i in 1 2 3 4 5; do sudo podman pull -q "${BASE%:*}@$BASE_DIGEST" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
@@ -79,6 +108,9 @@ jobs:
             --file Containerfile \
             --build-arg BASE_IMAGE="${BASE%:*}@$BASE_DIGEST" \
             --build-arg BASE_DIGEST="$BASE_DIGEST" \
+            --build-arg SPARKOS_BASE="$SPARKOS_BASE" \
+            --build-arg IMAGE_NAME="$IMAGE_NAME" \
+            ${DESCRIPTION:+--build-arg DESCRIPTION="$DESCRIPTION"} \
             --build-arg REVISION="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag localhost/sparkos:build \
@@ -96,6 +128,8 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           FEDORA=$(sudo podman image inspect localhost/sparkos:build --format '{{index .Labels "org.opencontainers.image.version"}}' | cut -d. -f1)
+          # Fedora Kinoite's version label isn't always the Fedora release; ask the image then
+          [[ $FEDORA =~ ^[0-9]+$ ]] || FEDORA=$(sudo podman run --rm localhost/sparkos:build rpm -E %fedora)
           [[ $FEDORA =~ ^[0-9]+$ ]] || { echo "no Fedora version in the labels ($FEDORA)"; exit 1; }
           DAY=$(date -u +%Y%m%d)
           if [ "$GITHUB_REF" = "refs/heads/main" ]; then
@@ -157,7 +191,7 @@ jobs:
         env:
           DIGEST: ${{ steps.push.outputs.digest }}
         run: |
-          # The same check a SparkOS PC makes with /etc/pki/containers/sparkos.pub
+          # The same check a SparkOS PC makes with /etc/pki/containers/$IMAGE_NAME.pub
           cosign verify --key=cosign.pub "$IMAGE_REPO@$DIGEST" > verify.json
           python3 -c 'import json; s = json.load(open("verify.json")); print(len(s), "signature(s):", [x["critical"]["identity"]["docker-reference"] for x in s])'
 

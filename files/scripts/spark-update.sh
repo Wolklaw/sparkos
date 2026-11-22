@@ -38,7 +38,8 @@
 #   6. /usr/share/sparkos/release.json: what's in this image (Soot, FreeSuite, the Spark apps,
 #      kernel, Mesa, Plasma), which the window compares between versions.
 # The self-test then fails the build unless exactly one updater's timer is on, the
-# notification timer is on, and the image name is ghcr.io/wolklaw/sparkos.
+# notification timer is on, and the image name is this image's own (ghcr.io/wolklaw/sparkos, or
+# sparkos-fedora on the Fedora base).
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-update"
@@ -139,7 +140,7 @@ esac
 echo "SparkOS updates and rollbacks are in Spark Update: open it from the menu, or run"
 echo "  spark-update --status     what's running and what starts next"
 echo "  spark-update --rollback   start the previous version at the next restart"
-echo "Switching to another image (rebase) isn't offered: SparkOS follows ghcr.io/wolklaw/sparkos."
+echo "Switching to another image (rebase) isn't offered: SparkOS follows its own signed image."
 exit 1
 EOF
   chmod 0755 "$helper"
@@ -182,7 +183,7 @@ report=$(/usr/bin/spark-update --self-test) || { echo "$report"; echo "Spark Upd
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
 grep -q '^others:    no other automatic updater is on' <<<"$report"
-grep -q '^image:     ghcr.io/wolklaw/sparkos ' <<<"$report"
+grep -qF "image:     ${IMAGE_REGISTRY:-ghcr.io/wolklaw}/${IMAGE_NAME:-sparkos} " <<<"$report"
 if [ "$ENGINE" = uupd ]; then
   grep -q "^updater:   Universal Blue's uupd" <<<"$report"
 else

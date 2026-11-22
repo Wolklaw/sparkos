@@ -146,6 +146,8 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
     base = str(info.get('version') or '') if isinstance(info, dict) else ''
     if base:
         platform.append({'id': 'base', 'name': 'Bazzite base', 'version': base})
+    elif osr.get('ID') == 'fedora' and osr.get('VERSION_ID'):
+        platform.append({'id': 'base', 'name': 'Fedora base', 'version': osr['VERSION_ID']})
     kernel = _kernel(root)
     if kernel:
         platform.append({'id': 'kernel', 'name': 'Linux kernel', 'version': kernel})

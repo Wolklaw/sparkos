@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# PROTOTYPE (recipes/recipe-fedora.yml). SparkOS's own gaming layer on plain Fedora, for AMD.
+# Fedora base only (Containerfile step 5, SPARKOS_BASE=fedora). SparkOS's own gaming layer on
+# plain Fedora, for AMD.
 #
-# What the recipe already adds from Fedora: gamescope, MangoHud, GameMode. Fedora's kernel
-# already has the controller drivers SparkOS's hardware needs (xpad, hid-playstation,
-# hid-nintendo, hid-steam) and Fedora's Mesa has RADV and RadeonSI.
+# What build_files/packages.sh already adds from Fedora: gamescope, MangoHud, GameMode.
+# Fedora's kernel already has the controller drivers SparkOS's hardware needs (xpad,
+# hid-playstation, hid-nintendo, hid-steam) and Fedora's Mesa has RADV and RadeonSI.
 #
 # What plain Fedora lacks: the udev rules that let Steam (and Steam from Flathub) talk to
 # controllers and VR headsets through hidraw/uinput. On Bazzite they come from the steam-devices

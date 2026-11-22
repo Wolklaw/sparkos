@@ -8,6 +8,10 @@ name: boot-test
 # installs), so a Bazzite update that breaks one is still caught within the week.
 # Update test (by hand, "update_from"): installs that tag, updates it to the tested one the way
 # a PC does (signed rebase, reboot), then runs the checks on the updated system.
+#
+# build-fedora.yml calls this with image_name: sparkos-fedora, after each build of SparkOS on
+# plain Fedora Kinoite: the same checks, minus the few about Bazzite's own parts (ujust,
+# Homebrew, Bazaar), which that image doesn't have.
 on:
   workflow_run:
     workflows: [build]
@@ -15,8 +19,25 @@ on:
     branches: [main]
   schedule:
     - cron: "0 10 * * 0" # Sundays, after the daily image build
+  workflow_call:
+    inputs:
+      image_name:
+        description: sparkos or sparkos-fedora
+        type: string
+        default: sparkos
+      image_tag:
+        type: string
+        default: latest
+      full:
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
+      image_name:
+        description: Which image (sparkos-fedora is SparkOS on plain Fedora Kinoite)
+        type: choice
+        options: [sparkos, sparkos-fedora]
+        default: sparkos
       full:
         description: Run every check, not just the quick set
         type: boolean
@@ -37,7 +58,7 @@ on:
 concurrency:
   # One queue per branch: main's runs (after builds, Sundays) never cancel a branch test waiting
   # in line, or the other way round
-  group: boot-test-${{ github.ref }}
+  group: boot-test-${{ inputs.image_name || 'sparkos' }}-${{ github.ref }}
   cancel-in-progress: false # a newer build waits for the running test instead of killing it
 
 jobs:
@@ -49,11 +70,14 @@ jobs:
       contents: read
       packages: read
     env:
-      IMAGE: ghcr.io/wolklaw/sparkos:${{ github.event_name == 'workflow_dispatch' && inputs.image_tag || 'latest' }}
-      UPDATE_FROM: ${{ github.event_name == 'workflow_dispatch' && inputs.update_from || '' }}
-      SPARK_UPDATE_TEST: ${{ github.event_name == 'workflow_dispatch' && inputs.spark_update_test }}
+      # inputs.* are empty after a build (workflow_run) and on Sundays (schedule): sparkos:latest
+      REPO: ghcr.io/wolklaw/${{ inputs.image_name || 'sparkos' }}
+      IMAGE: ghcr.io/wolklaw/${{ inputs.image_name || 'sparkos' }}:${{ inputs.image_tag || 'latest' }}
+      BASE: ${{ inputs.image_name == 'sparkos-fedora' && 'fedora' || 'bazzite' }}
+      UPDATE_FROM: ${{ inputs.update_from || '' }}
+      SPARK_UPDATE_TEST: ${{ inputs.spark_update_test == true }}
       WORK: /mnt/boot-test
-      FULL: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.full) }}
+      FULL: ${{ inputs.full == true || (github.event_name == 'schedule' && !inputs.image_name) }}
     steps:
       - uses: actions/checkout@v7
 
@@ -92,7 +116,7 @@ jobs:
           # Update test: the disk is installed from UPDATE_FROM, then updated to IMAGE
           INSTALL=$IMAGE
           if [ -n "$UPDATE_FROM" ]; then
-            INSTALL=ghcr.io/wolklaw/sparkos:$UPDATE_FROM
+            INSTALL=$REPO:$UPDATE_FROM
             for i in 1 2 3 4 5; do sudo podman pull -q "$INSTALL" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
             sudo podman image inspect "$INSTALL" --format '{{.Digest}} {{.Created}}'
           fi
@@ -101,9 +125,9 @@ jobs:
           # the registry is an update for it
           if [ "$SPARK_UPDATE_TEST" = true ]; then
             [ -z "$UPDATE_FROM" ] || { echo "::error::use update_from or spark_update_test, not both"; exit 1; }
-            [ "$IMAGE" != ghcr.io/wolklaw/sparkos:latest ] || { echo "::error::spark_update_test needs a branch image (image_tag)"; exit 1; }
-            sudo podman tag "$IMAGE" ghcr.io/wolklaw/sparkos:latest
-            INSTALL=ghcr.io/wolklaw/sparkos:latest
+            [ "$IMAGE" != "$REPO:latest" ] || { echo "::error::spark_update_test needs a branch image (image_tag)"; exit 1; }
+            sudo podman tag "$IMAGE" "$REPO:latest"
+            INSTALL=$REPO:latest
           fi
           echo "INSTALL=$INSTALL" >> "$GITHUB_ENV"
           echo "Installing $INSTALL, testing $IMAGE"
@@ -228,12 +252,12 @@ jobs:
           $SSH 'cat /etc/os-release' | tee "$WORK/os-release.txt"
           grep -q '^NAME="SparkOS"$' "$WORK/os-release.txt"
           $SSH 'rpm-ostree status' | tee "$WORK/rpm-ostree-status.txt"
-          grep -q 'ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
-          grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos' "$WORK/rpm-ostree-status.txt"
+          grep -q "$REPO" "$WORK/rpm-ostree-status.txt"
+          grep -q "ostree-image-signed:docker://$REPO" "$WORK/rpm-ostree-status.txt"
           # The policy entry must match the (lowercase) image name exactly, or updates aren't verified
-          $SSH 'jq -c ".transports.docker[\"ghcr.io/wolklaw/sparkos\"]" /etc/containers/policy.json; ls -l /etc/pki/containers/' | tee "$WORK/policy.txt"
+          $SSH "jq -c '.transports.docker[\"$REPO\"]' /etc/containers/policy.json; ls -l /etc/pki/containers/" | tee "$WORK/policy.txt"
           grep -q '"sigstoreSigned"' "$WORK/policy.txt"
-          grep -q 'sparkos.pub' "$WORK/policy.txt"
+          grep -q "${REPO##*/}.pub" "$WORK/policy.txt"
           $SSH 'rpm -q steam lutris gamescope mangohud 2>&1; flatpak --version'
 
       - name: Check Soot and FreeSuite
@@ -398,14 +422,17 @@ jobs:
           # updates never stop: exactly one updater on (Spark Update's own timer; Universal Blue's
           # uupd is gone) and the notification timer on
           $SSH 'spark-update --version; systemctl is-enabled spark-update.timer; systemctl is-active spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
-          $SSH 'rpm -q uupd bazzite-updater 2>&1; systemctl list-unit-files --no-legend "uupd*"; cat /usr/libexec/uupd-update' | tee "$WORK/spark-update-uupd.txt"
+          $SSH 'rpm -q uupd bazzite-updater 2>&1; systemctl list-unit-files --no-legend "uupd*"; cat /usr/libexec/uupd-update 2>&1' | tee "$WORK/spark-update-uupd.txt"
           grep -q 'package uupd is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::uupd is installed"; exit 1; }
           grep -q 'package bazzite-updater is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::bazzite-updater is installed"; exit 1; }
-          grep -q 'spark-update-now@stage.service' "$WORK/spark-update-uupd.txt" || { echo "::error::ujust update doesn't run Spark Update"; exit 1; }
+          # ujust exists on Bazzite only
+          if [ "$BASE" = bazzite ]; then
+            grep -q 'spark-update-now@stage.service' "$WORK/spark-update-uupd.txt" || { echo "::error::ujust update doesn't run Spark Update"; exit 1; }
+          fi
           $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"
           grep -q '^updater:   Spark Update' "$WORK/spark-update-self-test.txt"
-          grep -q '^image:     ghcr.io/wolklaw/sparkos (from rpm-ostree status)' "$WORK/spark-update-self-test.txt"
+          grep -qF "image:     $REPO (from rpm-ostree status)" "$WORK/spark-update-self-test.txt"
           grep -q '^others:    no other automatic updater is on' "$WORK/spark-update-self-test.txt"
           $SSH 'spark-update --status'
 
@@ -435,11 +462,14 @@ jobs:
           grep -qx 'countme timer: disabled' "$WORK/cleanup-calls.txt" || { echo "::error::rpm-ostree-countme.timer is not disabled"; exit 1; }
           grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
           grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
-          # Homebrew's update timers off until sparkos-dev-setup --brew; no COPR repository on
+          # Homebrew's update timers off until sparkos-dev-setup --brew (Bazzite only: plain
+          # Fedora has no Homebrew); no COPR repository on
           $SSH 'for t in brew-update.timer brew-upgrade.timer; do echo "$t: $(systemctl is-enabled $t 2>&1)"; done
                 echo "copr on: $(grep -l "^enabled=1" /etc/yum.repos.d/_copr* 2>/dev/null | wc -l)"' | tee "$WORK/cleanup-brew.txt"
-          grep -qx 'brew-update.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-update.timer is on"; exit 1; }
-          grep -qx 'brew-upgrade.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-upgrade.timer is on"; exit 1; }
+          if [ "$BASE" = bazzite ]; then
+            grep -qx 'brew-update.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-update.timer is on"; exit 1; }
+            grep -qx 'brew-upgrade.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-upgrade.timer is on"; exit 1; }
+          fi
           grep -qx 'copr on: 0' "$WORK/cleanup-brew.txt" || { echo "::error::a COPR repository is on"; exit 1; }
 
       - name: Check SparkOS's own AppImage handling
@@ -553,7 +583,8 @@ jobs:
           ! grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"
           ! grep -q 'bazzite-portal' "$WORK/apps.txt"
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH 'rpm -q dolphin konsole plasma-systemsettings ark bazaar >/dev/null && test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          STORE_RPM=$([ "$BASE" = bazzite ] && echo bazaar)
+          $SSH "rpm -q dolphin konsole plasma-systemsettings ark $STORE_RPM >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -563,11 +594,13 @@ jobs:
           $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
           grep -q 'application/x-ms-dos-executable -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.appimage -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          grep -q 'application/vnd.flatpak.ref -> io.github.kolunmi.Bazaar.desktop' "$WORK/install-defaults.txt"
+          # Flatpak links: Bazaar on Bazzite (it ships it); Spark Store on Fedora
+          STORE=$([ "$BASE" = bazzite ] && echo io.github.kolunmi.Bazaar || echo dev.wolklaw.SparkStore)
+          grep -q "application/vnd.flatpak.ref -> $STORE.desktop" "$WORK/install-defaults.txt"
           grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           # The Store and the guided package installer are there, and what the installer uses exists
-          $SSH 'ls /usr/share/applications/io.github.kolunmi.Bazaar.desktop /var/lib/flatpak/exports/share/applications/io.github.kolunmi.Bazaar.desktop 2>/dev/null | head -1 | grep -q . && echo "Store (Bazaar) present"'
+          $SSH "ls /usr/share/applications/$STORE.desktop /var/lib/flatpak/exports/share/applications/$STORE.desktop 2>/dev/null | head -1 | grep -q . && echo 'Store ($STORE) present'"
           $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog spark-terminal gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub set up for the Store"'
           $SSH 'grep -A2 "\*.exe|\*.msi)" /usr/bin/sparkos-open-package | grep -q "exec spark-run" && command -v spark-run && echo ".exe and .msi open in Spark Run"'
 
@@ -815,7 +848,7 @@ jobs:
           # The VM follows latest but runs the tested image, so the real latest is an update.
           # Spark Update's own engine must find it, download it, check its signature, stage it,
           # and the PC must start it after a restart.
-          WANT=$(skopeo inspect --no-creds --format '{{.Digest}}' docker://ghcr.io/wolklaw/sparkos:latest)
+          WANT=$(skopeo inspect --no-creds --format '{{.Digest}}' "docker://$REPO:latest")
           echo "latest in the registry: $WANT"
           $SSH 'rpm-ostree status --booted; df -h /sysroot'
           # what the Spark Update window's "Check now" starts (the signed-in user needs no password;
@@ -831,7 +864,7 @@ jobs:
           [ "$up" = 1 ] || { echo "::error::no SSH after restarting into the update"; tail -50 "$WORK/serial.log"; exit 1; }
           $SSH 'rpm-ostree status --booted' | tee "$WORK/spark-update-booted.txt"
           grep -q "$WANT" "$WORK/spark-update-booted.txt" || { echo "::error::the PC didn't start the update"; exit 1; }
-          grep -q 'ostree-image-signed:docker://ghcr.io/wolklaw/sparkos:latest' "$WORK/spark-update-booted.txt"
+          grep -qF "ostree-image-signed:docker://$REPO:latest" "$WORK/spark-update-booted.txt"
           echo "Spark Update downloaded, staged and started $WANT"
 
       - name: Screenshot at the end
