@@ -39,7 +39,7 @@ jobs:
 
       - name: A disk like a Windows PC's drives
         run: |
-          sudo bash .github/scripts/windows-drives/make_disk.sh "$RUNNER_TEMP/windows.img"
+          sudo bash -x .github/scripts/windows-drives/make_disk.sh "$RUNNER_TEMP/windows.img"
           echo "LOOP=$(sudo losetup -fP --show "$RUNNER_TEMP/windows.img")" >> "$GITHUB_ENV"
           sleep 2; lsblk -o NAME,FSTYPE,LABEL,PARTUUID
 
