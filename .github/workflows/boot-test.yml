@@ -140,20 +140,30 @@ jobs:
           [customizations.kernel]
           append = "systemd.wants=sshd.service rhgb quiet"
           EOF
-          mkdir -p "$WORK/output"
+          # image-builder's store and its output on a compressed btrfs loop file: the OS tree
+          # takes less room, and its final copy of the qcow2 from the store to the output is a
+          # reflink instead of a second full copy (the NVIDIA image's didn't fit otherwise)
+          sudo truncate -s 100G "$WORK/ib.img"
+          sudo mkfs.btrfs -q -f "$WORK/ib.img"
+          sudo mkdir -p /mnt/ib
+          sudo mount -o compress-force=zstd:1,discard=async,noatime "$WORK/ib.img" /mnt/ib
+          sudo mkdir -p /mnt/ib/store /mnt/ib/output
           sudo podman run --rm --privileged --pull=newer \
             --security-opt label=type:unconfined_t \
             -v "$WORK/blueprint.toml":/blueprint.toml:ro \
-            -v "$WORK/output":/output \
+            -v /mnt/ib/output:/output \
+            -v /mnt/ib/store:/var/cache/image-builder \
             -v /var/lib/containers/storage:/var/lib/containers/storage \
             ghcr.io/osbuild/image-builder-cli:latest \
             build --blueprint /blueprint.toml --output-dir /output \
             --bootc-ref "$INSTALL" --bootc-default-fs btrfs qcow2
-          sudo chown -R "$USER" "$WORK/output"
-          DISK=$(find "$WORK/output" -name '*.qcow2' | head -1)
-          test -n "$DISK" || { echo "no qcow2 produced"; find "$WORK/output"; exit 1; }
+          sudo rm -rf /mnt/ib/store
+          sudo chown -R "$USER" /mnt/ib/output
+          DISK=$(find /mnt/ib/output -name '*.qcow2' | head -1)
+          test -n "$DISK" || { echo "no qcow2 produced"; find /mnt/ib/output; exit 1; }
           echo "DISK=$DISK" >> "$GITHUB_ENV"
           ls -lh "$DISK"
+          df -h / /mnt/ib
 
       - name: Build a Windows test drive
         # GPT with NTFS C: (registry file naming the letters, a Claude Code profile), D: "Scrap", E: "Games" (a Git repository);
