@@ -91,7 +91,9 @@ def read_events(fd, seconds):
 
 
 def without_syn(events):
-    return [e for e in events if e[0] != EV_SYN and not (e[0] == EV_MSC and e[1] == MSC_SCAN)]
+    # Leaves out frame ends, scan codes and lights: the kernel's console keyboard sets the
+    # Caps Lock light on every keyboard, the copy included, when Caps Lock is pressed.
+    return [e for e in events if e[0] not in (EV_SYN, EV_LED) and not (e[0] == EV_MSC and e[1] == MSC_SCAN)]
 
 
 class TestKeyboard:
