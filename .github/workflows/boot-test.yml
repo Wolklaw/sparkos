@@ -471,6 +471,18 @@ jobs:
             grep -qx 'brew-upgrade.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-upgrade.timer is on"; exit 1; }
           fi
           grep -qx 'copr on: 0' "$WORK/cleanup-brew.txt" || { echo "::error::a COPR repository is on"; exit 1; }
+          # Fedora base: SparkOS's own Homebrew shell setup (a no-op here, no Homebrew installed),
+          # the tools Bazzite brought, umu-run from Terra, and no Terra repository left behind
+          if [ "$BASE" = fedora ]; then
+            $SSH 'for f in /etc/profile.d/brew.sh /etc/profile.d/brew-bash-completion.sh /usr/share/fish/vendor_conf.d/sparkos-brew.fish; do
+                    test -f $f && echo "$f: yes" || echo "$f: no"; done
+                  bash -lc "echo brew prefix: \${HOMEBREW_PREFIX:-none}"
+                  for c in umu-run distrobox btop sensors tmux fzf cabextract; do command -v $c >/dev/null && echo "$c: yes" || echo "$c: no"; done
+                  echo "terra repos: $(dnf repolist --all 2>/dev/null | grep -ci terra)"' | tee "$WORK/fedora-tools.txt"
+            grep -qx 'brew prefix: none' "$WORK/fedora-tools.txt" || { echo "::error::Homebrew setup isn't a no-op without Homebrew"; exit 1; }
+            if grep -q ': no$' "$WORK/fedora-tools.txt"; then echo "::error::a tool is missing"; exit 1; fi
+            grep -qx 'terra repos: 0' "$WORK/fedora-tools.txt" || { echo "::error::a Terra repository is configured"; exit 1; }
+          fi
 
       - name: Check SparkOS's own AppImage handling
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

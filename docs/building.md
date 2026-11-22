@@ -41,13 +41,15 @@ The same Containerfile also builds SparkOS on plain Fedora Kinoite, the test ima
 `IMAGE_NAME=sparkos-fedora`. Only two steps differ by base:
 
 - step 5, [packages.sh](../build_files/packages.sh): on Fedora, instead of removing Bazzite's apps,
-  it adds what Bazzite brought (printing, scanning, ImageMagick, gamescope, MangoHud, GameMode) and
-  RPM Fusion free's FFmpeg and Mesa video decode, so H.264 and H.265 play
+  it adds what Bazzite brought (printing, scanning, ImageMagick, gamescope, MangoHud, GameMode,
+  distrobox, btop, tmux and other tools, and `umu-run` from Terra for that one package) and RPM
+  Fusion free's FFmpeg and Mesa video decode, so H.264 and H.265 play
 - step 6: an entry `a.sh|b.sh` in the script list runs `a.sh` on Bazzite and `b.sh` on Fedora, and
   `-` means nothing. Fedora gets [fedora-identity.sh](../files/scripts/fedora-identity.sh),
   [fedora-apps.sh](../files/scripts/fedora-apps.sh) (removes Kinoite's apps) and
   [fedora-gaming.sh](../files/scripts/fedora-gaming.sh) (Valve's controller rules, `uinput`, gaming
-  kernel settings)
+  kernel settings) and [fedora-homebrew.sh](../files/scripts/fedora-homebrew.sh) (Homebrew on PATH
+  in bash, zsh and fish, when it's installed)
 
 [build-fedora.yml](../.github/workflows/build-fedora.yml) runs build.yml with `base: fedora` on the
 same pushes as the real build and every day at 06:30 UTC, then runs boot-test.yml on the result

@@ -69,8 +69,9 @@ COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
 
 # 4. Packages (build_files/packages.sh lists each one and why). On Bazzite: remove the other
 #    projects' apps it ships, Tailscale and Universal Blue's updater. On Fedora: add what Bazzite
-#    brought (printing, scanning, ImageMagick, the gaming layer) and RPM Fusion free's FFmpeg and
-#    Mesa video decode, so H.264/H.265 play. Then, on both, the SparkOS list (Claude Code's
+#    brought (printing, scanning, ImageMagick, the gaming layer, distrobox, btop, tmux and other
+#    tools, umu-run from Terra for this one package) and RPM Fusion free's FFmpeg and Mesa video
+#    decode, so H.264/H.265 play. Then, on both, the SparkOS list (Claude Code's
 #    sandbox, kdialog, FUSE 2 for AppImages, Inter, the libraries Androidbox needs).
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
@@ -83,6 +84,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #    - apps: no preinstalled third-party apps (Bazzite: empties its first-boot list, drops the
 #      Portal; Fedora: removes Kinoite's RPM apps)
 #    - fedora-gaming (Fedora only): Valve's controller/VR device rules, uinput, gaming sysctls
+#    - fedora-homebrew (Fedora only): Homebrew on PATH and completion in bash, zsh and fish,
+#      when Homebrew is installed (Bazzite's own files do this there)
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
 #      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
@@ -102,6 +105,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         "sparkos-identity.sh|fedora-identity.sh" \
         "sparkos-apps.sh|fedora-apps.sh" \
         "-|fedora-gaming.sh" \
+        "-|fedora-homebrew.sh" \
         soot.sh \
         freesuite.sh \
         spark-snip.sh \

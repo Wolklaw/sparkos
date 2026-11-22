@@ -5,7 +5,8 @@
 # Both bases get the same SparkOS list. Each base then gets what differs:
 #   bazzite  removes other projects' apps that Bazzite ships, and Universal Blue's updater
 #   fedora   adds what Bazzite brought and Fedora Kinoite doesn't (ImageMagick, printing,
-#            scanning, the gaming layer) and full video playback from RPM Fusion free
+#            scanning, the gaming layer, everyday tools, umu-run) and full video playback from
+#            RPM Fusion free
 set -euo pipefail
 
 base=${1:?base: bazzite or fedora}
@@ -70,6 +71,33 @@ fedora)
     gstreamer1-plugin-openh264 gstreamer1-plugin-libav \
     gstreamer1-plugins-bad-free gstreamer1-plugins-ugly-free
   rpm -q ffmpeg-libs mesa-va-drivers-freeworld openh264
+
+  # Tools Bazzite ships that SparkOS and its owner use, from Fedora's own repositories:
+  # distrobox (other distributions' software in a container), btop and lm_sensors (`sensors`:
+  # temperatures), tmux, fzf, cabextract (unpacks Windows .cab files; winetricks needs it).
+  dnf_install distrobox btop lm_sensors tmux fzf cabextract
+
+  # umu-run, which Spark Games uses to start Windows games with Proton. Fedora doesn't package
+  # umu-launcher; Terra (Fyra Labs, which builds Bazzite's copy) does, for Fedora 45. The Terra
+  # repository is used for this one package and isn't left on the system, so Terra's Mesa and
+  # other builds never replace Fedora's. Its signing key is checked against Terra's fingerprint.
+  terra_url="https://repos.fyralabs.com/terra${fedora}"
+  terra_fpr=C2AC02124AF114F086592E3C8DDE7D14C1C23D8C   # "Terra 45 <security@fyralabs.com>"
+  GNUPGHOME=$(mktemp -d)
+  export GNUPGHOME
+  curl -fsSL --retry 3 -o /tmp/terra.asc "${terra_url}/key.asc"
+  terra_key=$(gpg --show-keys --with-colons /tmp/terra.asc)
+  [[ $terra_key == *"fpr:::::::::${terra_fpr}:"* ]] \
+    || { echo "Terra's key isn't ${terra_fpr} (new Fedora release? update terra_fpr)"; exit 1; }
+  dnf_install \
+    --repofrompath="terra,${terra_url}" --setopt=terra.gpgcheck=1 \
+    --setopt=terra.gpgkey=file:///tmp/terra.asc --setopt=terra.includepkgs=umu-launcher \
+    umu-launcher
+  # dnf imported Terra's key into rpm's keyring; nothing else in the image should trust it
+  rpmkeys --delete "${terra_fpr,,}"
+  rm -rf /tmp/terra.asc "$GNUPGHOME"
+  unset GNUPGHOME
+  rpm -q umu-launcher
   ;;
 *)
   echo "unknown base '$base' (bazzite or fedora)"; exit 1 ;;
