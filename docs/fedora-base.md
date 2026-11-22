@@ -174,7 +174,7 @@ fixes, template files), `uupd` (updates, daily at 04:00), `brew-setup` (Homebrew
 | **Firmware** | Fedora's `linux-firmware` (449 MB) plus a few extras | Fedora's `linux-firmware` 20261019 (438 MB), `amd-gpu-firmware`, `amd-ucode-firmware` | Nothing for this PC. | Fedora |
 | **Flathub** | Bazzite's flatpak manager adds Flathub, turns Fedora's remote off, sets overrides | BlueBuild's `default-flatpaks` module adds Flathub (system and user); Kinoite 45 ships no Fedora remote in the image. Measured: only Flathub is configured. | Nothing extra. | Flathub; BlueBuild's module |
 | **Signing** | BlueBuild's signing module + `sparkos-signing-fix.sh`; Bazzite's `/usr/lib/bootc/install/20-bazzite.toml` makes installs deploy as `ostree-image-signed` | The same signing module and fix, and SparkOS's own `20-sparkos.toml` with the same setting | Nothing: one file. Without it (first prototype run) the test install deployed as `ostree-unverified-registry`, which never checks signatures. | BlueBuild's module |
-| **Updates** | `uupd` (Universal Blue) downloads, daily at 04:00; Spark Update adds the notification, the window and roll back | Spark Update does it all: with no `uupd` in the image, `spark-update.sh` turns on its own timer (every 6 hours, stages the new image, updates Flatpak apps). Measured: enabled and active, no other updater on. Its staging hasn't been tried against a newer image. | Nothing new: Spark Update already ships. Its built-in image name would need changing only for a separately named image like this one. | None |
+| **Updates** | `uupd` (Universal Blue) downloads, daily at 04:00; Spark Update adds the notification, the window and roll back | Spark Update does it all: with no `uupd` in the image, `spark-update.sh` turns on its own timer (every 6 hours, stages the new image, updates Flatpak apps). Measured: enabled and active, no other updater on. Staging a newer image, restarting into it and rolling back work (tried in a VM on 2026-11-22, see [Spark Update staging a newer image](#spark-update-staging-a-newer-image)). | Nothing new: Spark Update already ships. Its built-in image name would need changing only for a separately named image like this one. | None |
 | **The Store** | Bazaar (Universal Blue COPR), with Spark Store installed next to it | Bazaar isn't available in Fedora. Spark Store is installed and `.flatpakref` files already open in it (measured); Kinoite's Discover is there too. | Done (2026-11-22): the dock, `.flatpakref` files and `sparkos-open-package` all use Spark Store. | None |
 | **Homebrew** (`sparkos-dev-setup --brew`) | Bazzite ships a Homebrew tarball and a first-boot service | Not present: `sparkos-dev-setup --brew` says Homebrew isn't ready | Shell setup owned since 2026-11-22 (three small files; an existing `/var/home/linuxbrew` keeps working). `spark brew` installs Homebrew on request (Homebrew's installer pinned to one commit, SHA-256 checked). Not owned: Homebrew's update timers. Claude Code itself installs fine (`sparkos-dev-setup --claude` passed). | Homebrew's installer |
 | **ujust, rollback helper, motd** | Universal Blue | Gone. **Since 2026-11-22 SparkOS has its own `spark` command** ([spark-cli.md](spark-cli.md)), on both bases: update, rollback, pin, kernel arguments, initramfs, boot menu, services, SSH, cleaning, logs and a bug-report bundle, Homebrew and containers. | Nothing SparkOS's own files use them. Rollback is in the boot menu either way; Spark Update covers the rest. The handheld, Nvidia/Intel and app-installer recipes aren't carried over (list in spark-cli.md). | None |
@@ -300,6 +300,64 @@ would fail to load (the system still boots). To turn it on later:
    choose a password, reboot, and confirm in the blue MOK manager screen. Bazzite asks for the
    same step with Universal Blue's key.
 
+## Spark Update staging a newer image
+
+Tried on 2026-11-22 in a VM (QEMU with KVM on the owner's PC, 4 cores, 8 GB), with
+[tools/spark-update-vm-test.sh](../tools/spark-update-vm-test.sh), which repeats the whole test.
+The installed system was `ghcr.io/wolklaw/sparkos-fedora:latest` (45.20261122.0, built that
+morning) with this branch's Spark Update copied in and a marker file
+`/usr/share/sparkos-update-test` saying `old`. Two small images built on top of it, `new` (.91)
+and `newer` (.92), changed only the marker and the version. All three were served from a local
+registry, and the VM followed `10.0.2.2:5055/sparkos-fedora:latest` (installed with
+`bootc install to-disk --target-imgref`), so for the VM the registry was where updates come from.
+Every update below was started the way the timer starts it, `systemctl start
+spark-update.service`, with the next check made due.
+
+| Step | Result | Time |
+|---|---|---|
+| Install `old` and boot it | `spark-update.timer` enabled, nothing else updating; `spark-update --status` reads the booted image | first boot to SSH 20 s |
+| Timer run while the registry can't be reached (plain HTTP, before the VM knew it was allowed) | `result: failed` with bootc's error in `state.json` and the log; Flatpak still updated; the next hourly run did nothing (a failed check waits an hour) | 5.5 s |
+| `new` in the registry; timer run | `bootc upgrade` found it, downloaded one 184-byte layer, deployed and staged it (`result: staged`, 45.…91); system Flatpak apps updated (nothing to update) | 54 s (16 s of it deploying) |
+| Check now, check only (`spark-update-now@check`) | "No changes"; still `staged` | 1 s |
+| Restart | the marker says `new`; 45.…91 booted, 45.…90 is the rollback | SSH after 22 s; boot 9.7 s (`systemd-analyze`) |
+| `spark-update --rollback` (the window's Roll back) | `rpm-ostree rollback`; status says the next restart starts .90 | 3 s |
+| Restart | the marker says `old` | SSH after 13 s |
+| Next timer run | **bug: it staged .91 again** (33 s), so the notification would have offered it and the next restart undone the roll back | |
+| Same, with the fix below | not staged: `bootc upgrade --check` only, `result: up_to_date`, `--status` says `Held: SparkOS 45.…91` | under 1 s |
+| `newer` in the registry; timer run | staged .92 ("newer than the version you rolled back from"), the hold ends | 53 s |
+| Restart | the marker says `newer` | SSH after 24 s |
+
+The script then ran the whole sequence on its own, fixed code included, and passed in 15 minutes
+(884 s): building the tools and test images 1.5 min, `bootc install to-disk` 320 s, staging `new`
+102 s, the run after the roll back 1 s (nothing staged, `held` recorded), staging `newer` 55 s,
+SSH 15 to 55 s after each start.
+
+**The bug, fixed in this branch.** Roll back used to last only until the next scheduled check
+(at most 6 hours): Spark Update staged the newest image again even when it was the one you had
+just left, which is what the README and the roll back dialog said would happen ("Automatic updates
+will download the newest version again later"). A roll back is usually because that version has a
+problem, so now Roll back records the image it leaves (`held` in
+`/var/lib/spark-update/state.json`), scheduled runs skip that exact image and stage the next newer
+one, and Check now (your click) or booting the held image again ends the hold. The dialog and the
+README say so. Unit tests cover it; the VM test checks it for real.
+
+**Not tested here:**
+
+- **Signature checking.** The local registry is plain HTTP and unsigned, and the VM's policy
+  accepts any image from it. A real PC follows `ostree-image-signed:docker://ghcr.io/wolklaw/sparkos-fedora`
+  with the sigstore key; that path (download, check the signature, stage, boot) is what
+  `boot-test.yml`'s `spark_update_test` does against the real registry.
+- **A full-size download.** The test images differ by one tiny layer. A real update changes many
+  of the image's 81 layers; the download takes longer, the staging is the same.
+- **UEFI.** The disk was installed from a BIOS-booted helper VM and booted with BIOS, so
+  `bootloader-update.service` failed (no EFI directory to adopt). That comes from the test setup,
+  not SparkOS; the real boot test boots with UEFI.
+- **The notification and the window**: they need a signed-in desktop. The window doesn't show the
+  hold yet (it says "up to date"); `spark-update --status` does.
+- `mcelog.service` fails at every boot ("CPU is unsupported") with `-cpu host` on the 7800X3D. It's
+  Fedora's package and is enabled on the Bazzite image too, so not new with this base; it's
+  harmless but shows as a failed unit.
+
 ## What still ties the prototype to someone else
 
 - **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one
@@ -332,8 +390,9 @@ passed on Fedora unchanged. Suggested path for Release 3:
    only. One established repository replaces Terra, negativo17 and Universal Blue's packages for
    this. The alternative, dropping H.265 from Spark Media's requirements, would break phone videos.
 2. **Store and updates:** already covered. Spark Update runs on its own timer when `uupd` is
-   missing (measured); before switching, run its staging once against a newer image. Spark Store
-   is the store (done 2026-11-22).
+   missing, stages a newer image, restarts into it and rolls back (tried in a VM on 2026-11-22;
+   a roll back no longer gets undone by the next check). Spark Store is the store (done
+   2026-11-22).
 3. **Homebrew:** the shell setup is SparkOS's own since 2026-11-22, so an installed Homebrew keeps
    working after the switch. `spark brew` installs it on request. Claude Code doesn't need it.
 4. **Small things to own:** the device rules in `files/device-rules` (done 2026-11-22; refresh
