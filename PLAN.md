@@ -153,7 +153,9 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 
 **New Spark tools for gaps (no app at all today):** Spark Edit, a light text and code editor ([brief](briefs/spark-edit.md)); Spark Calc ([brief](briefs/spark-calc.md)); Spark Scan, for the Canon scanner ([brief](briefs/spark-scan.md)).
 
-**Kept on purpose:** the Linux kernel, Mesa, KDE Plasma, Wine/Proton, Soot's Firefox engine and FreeSuite's Chromium/Electron, Flathub as the source of other people's apps, Dolphin and Konsole, Sigstore signing and LVFS firmware updates. GitHub and GHCR stay for code, builds and downloads; a mirror on SparkOS's own server is the cheap insurance later.
+**Owner's decision (2026-11-22): as little software from others as possible, Dolphin and Konsole included.** Spark Files replaces Dolphin ([brief](briefs/spark-files.md)), Spark Terminal replaces Konsole ([brief](briefs/spark-terminal.md), on the VTE library) and Spark Launcher replaces Plasma's Kickoff menu ([brief](briefs/spark-launcher.md)). Each old app stays installed but hidden for one release, then goes. Next in line once their Spark app covers them: Spectacle (Spark Snip), Ark (Spark Archive), KDE Connect (Spark Link) and Bazaar (Spark Store, already on the dock).
+
+**Kept on purpose:** the Linux kernel, Mesa, KDE Plasma, Wine/Proton, Soot's Firefox engine and FreeSuite's Chromium/Electron, Flathub as the source of other people's apps, libraries the Spark apps are built on (Tk, GTK, VTE, GStreamer), Sigstore signing and LVFS firmware updates. GitHub and GHCR stay for code, builds and downloads; a mirror on SparkOS's own server is the cheap insurance later.
 
 ## Remote care: connector app and GestionDirecte tablet OS (owner's goal, 2026-11-21)
 Two new parts. Working names until the owner picks real ones: **Spark Connect** (the connector app) and **GD Tablet** (the tablet OS). Nothing is built yet; this section records the goal and the defaults I'd pick.
