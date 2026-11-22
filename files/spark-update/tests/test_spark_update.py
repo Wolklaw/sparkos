@@ -531,6 +531,47 @@ class SystemRunTests(unittest.TestCase):
         self.assertTrue(run.ran('upgrade'))
         self.assertNotIn('held', self.state())
 
+    def test_notify_mode_respects_the_hold(self):
+        settings.write_system(self.env, settings.SystemSettings(True, 'notify', 6, False))
+        held = 'sha256:' + '2' * 64
+        updater.save_state(self.env, {'held': {'digests': [held], 'version': B_VER},
+                                      'result': 'available', 'available_version': B_VER})
+        same = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: {B_VER}\n  Digest: {held}\n", 0))
+        self.assertEqual(updater.system_run(self.env, runner=same, clock=self.clock), 0)
+        st = self.state()
+        self.assertEqual((st['result'], st['available_version']), ('up_to_date', ''))
+        self.assertIn('held', st)
+        self.assertEqual(len(same.ran('upgrade --check')), 1)        # checked once
+        self.assertEqual([c for c in same.calls if c[1] == 'upgrade' and '--check' not in c], [])
+        host = status.read_host(self.env)
+        self.assertIsNone(updater.what_to_offer(host, st))            # no notification
+        # a newer version than the one rolled back from is reported and ends the hold
+        self.clock.t += 7 * 3600
+        newer = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: 45.20261120.0\n"
+            f"  Digest: sha256:{'3' * 64}\n", 0))
+        updater.system_run(self.env, runner=newer, clock=self.clock)
+        st = self.state()
+        self.assertEqual((st['result'], st['available_version']), ('available', '45.20261120.0'))
+        self.assertNotIn('held', st)
+        self.assertEqual(len(newer.ran('upgrade --check')), 1)       # not checked twice
+        self.assertEqual([c for c in newer.calls if c[1] == 'upgrade' and '--check' not in c],
+                         [])                                         # notify: downloads nothing
+        self.assertEqual(updater.what_to_offer(host, st).version, '45.20261120.0')
+
+    def test_check_now_in_notify_mode_ends_the_hold(self):
+        settings.write_system(self.env, settings.SystemSettings(True, 'notify', 6, False))
+        held = 'sha256:' + '2' * 64
+        updater.save_state(self.env, {'held': {'digests': [held], 'version': B_VER}})
+        run = FakeRunner(self.root, check_out=(
+            f"AvailableUpdate:\n  Version: {B_VER}\n  Digest: {held}\n", 0))
+        updater.system_run(self.env, now_mode='check', runner=run, clock=self.clock)
+        st = self.state()
+        self.assertEqual((st['result'], st['available_version']), ('available', B_VER))
+        self.assertNotIn('held', st)
+        self.assertEqual(len(run.ran('upgrade --check')), 1)
+
     def test_window_shows_the_hold_only_while_it_applies(self):
         from sparkupdate.app import held_version
         host = status.parse_rpm_ostree(fixture('rpm-ostree-none.json'))

@@ -54,8 +54,10 @@ pkexec, which asks for an administrator password). Nothing is deleted: files, se
 stay, and the current version stays on disk, so Cancel roll back undoes it. A staged update is
 dropped first so the restart really goes back. Automatic updates then skip the version you
 rolled back from (it's recorded as `held` in `/var/lib/spark-update/state.json`) and stage the
-next newer one when there is one; Check now stages whatever is newest. Turn automatic updates
-off in Settings to stay on the old one.
+next newer one when there is one (in notify mode they don't report it as available, and tell
+you about the next newer one). Check now, or booting that version again, ends the hold: Check
+now gets whatever is newest. The window says which version is held back. Turn automatic
+updates off in Settings to stay on the old one.
 
 ## Settings
 

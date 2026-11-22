@@ -229,7 +229,9 @@ def _system_pass(env: Env, conf: SystemSettings, state: Dict[str, Any], mode: st
         log.error("%s", state['error'])
         return 1
     state['booted_version'] = host.booted.version
-    if mode == CHECK:
+    if _held_back(host, state, runner, mode):
+        pass
+    elif mode == CHECK:
         result = check_image(host, runner)
         state['method'] = result['method']
         if not result['ok']:
@@ -240,8 +242,6 @@ def _system_pass(env: Env, conf: SystemSettings, state: Dict[str, Any], mode: st
             state.update(result='staged', staged_version=host.staged.version, error='')
         else:
             state.update(result='up_to_date', available_version='', error='')
-    elif _held_back(host, state, runner):
-        pass
     else:
         state['phase'] = 'downloading'
         save_state(env, state, state_path)
@@ -273,11 +273,12 @@ def _system_pass(env: Env, conf: SystemSettings, state: Dict[str, Any], mode: st
     return 0 if state.get('result') != 'failed' else 1
 
 
-def _held_back(host: Host, state: Dict[str, Any], runner: Runner) -> bool:
+def _held_back(host: Host, state: Dict[str, Any], runner: Runner, mode: str) -> bool:
     """After a roll back, a scheduled run doesn't stage the version you rolled back from
-    again (otherwise the next restart would bring it straight back). It stages the next
-    newer one. Check now (a manual run) and booting that version again end the hold.
-    True when this run is done (nothing staged); the state says why."""
+    again (otherwise the next restart would bring it straight back), and in notify mode
+    doesn't report it as available. It stages (or reports) the next newer one. Check now (a
+    manual run) and booting that version again end the hold. True when this run is done
+    (nothing more to do: no staging, no second check); the state says why."""
     held = state.get('held')
     if not isinstance(held, dict) or not held.get('digests'):
         state.pop('held', None)
@@ -291,14 +292,20 @@ def _held_back(host: Host, state: Dict[str, Any], runner: Runner) -> bool:
     if not result['ok']:
         state.update(result='failed', error=result['error'])
     elif result['available'] and result['digest'] not in held['digests']:
+        state.pop('held', None)
+        if mode == CHECK:
+            state.update(result='available', available_version=result['version'], error='')
+            log.info("SparkOS %s is newer than the version you rolled back from; it's "
+                     "available", result['version'] or '?')
+            return True
         log.info("SparkOS %s is newer than the version you rolled back from; staging it",
                  result['version'] or '?')
-        state.pop('held', None)
         return False
     else:
         state.update(result='up_to_date', staged_version='', available_version='', error='')
-        log.info("not staging SparkOS %s again: you rolled back from it. The next newer "
-                 "version will be staged", held.get('version', '?'))
+        log.info("not %s SparkOS %s again: you rolled back from it. The next newer version "
+                 "will be %s", 'reporting' if mode == CHECK else 'staging',
+                 held.get('version', '?'), 'reported' if mode == CHECK else 'staged')
     return True
 
 
