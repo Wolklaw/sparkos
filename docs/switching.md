@@ -20,6 +20,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Canon IJ Printer Assistant (nozzle check, cleaning) | **Replaced** | Open the printer's IP address in a browser to reach its own maintenance page (Remote UI). |
 | Logitech G502 HERO | **Works** | Mouse works as is. **Piper** (from the Store) sets DPI, buttons and lighting, replacing G HUB. Profiles already saved on the mouse keep working. |
 | Keychron keyboard (VIA) | **Works** | Keyboard works as is. Remapping: usevia.app in **Chrome** (from the Store). SparkOS includes the permission rule VIA needs. Soot and Firefox can't do this, because they lack WebHID. |
+| Caps Lock (any keyboard) | **Like Windows** | Turns on and off the moment you press it. On plain Linux it turns off when you release it, so a letter typed before the key is fully up still comes out in capitals. Tested in a VM so far, not yet on a real keyboard. To get Linux's way back: `sudo systemctl mask sparkos-capslock@.service`, then restart. |
 | HyperX QuadCast mic | **Works** | Standard USB audio. |
 | FiiO E10 USB DAC | **Works** | Standard USB audio. |
 | Logitech C920 webcam | **Works** | Standard USB camera. |
