@@ -33,7 +33,19 @@ The Store finds Spark apps by their `spark-app.json`:
 
 The apps that don't have a `spark-app.json` yet (Soot and FreeSuite, which come from their own repositories, and Spark Snip and Spark Media) are described in [sparkstore/own-apps.json](sparkstore/own-apps.json). The Spark apps don't all use the same keys yet (`summary` or `description`, `size_kb` or `installed_size_kb`); the reader takes both.
 
-An app is "installed" when its desktop entry is there, "for you" when it is in `~/.local`. An optional Spark app can be installed only when its source folder (with `install.sh` and `spark-app.json`) is on the PC, in `~/.local/share/spark-store/sources/<slug>` or `/usr/share/spark-store/sources/<slug>`: the Store then runs `install.sh --user` through the queue. **How optional Spark apps will be downloaded isn't decided** (release tarballs checked against SHA256SUMS, or the owner's own Flatpak repository), so the Store downloads none and says so on the app's page. Today every Spark app ships in the image, so this doesn't come up yet.
+An app is "installed" when its desktop entry is there, "for you" when it is in `~/.local`.
+
+### Optional Spark apps
+
+An optional Spark app is one that no image build step installs: its folder `files/spark-<name>/` has an `install.sh` and a `spark-app.json`, and there is no `files/scripts/spark-<name>.sh`. Today that's Spark Bench, Spark Connect and Spark Space; a new app is picked up the same way, with no list to edit. Its `spark-app.json` may also say `"optional": true`; if it says `"optional": false` or `"in_image": true` while no build step installs it (or `"optional": true` while one does), the build stops with an error. `bash install.sh --optional` prints the list.
+
+The image build (`files/scripts/spark-store.sh`) runs `install.sh --sources /usr/share/spark-store/sources`, which copies each optional app's folder there, read-only, without its `tests/`, `__pycache__` and `make_icons.py` (about 840 KB for the three). Nothing of them is installed: no `/usr/bin`, `/usr/lib` or menu entry. The build fails if a source is missing, if one of them is installed system-wide at that point, or if the Store's self-test doesn't offer to install it.
+
+On the app's page the Store shows **Install** ("Installs for you only, from this PC. No password."). Clicking it runs `bash /usr/share/spark-store/sources/<slug>/install.sh --user` through the queue: the app is copied into `~/.local/lib/<slug>`, with its command in `~/.local/bin` and its menu entry and icons in `~/.local/share`, and its self-test runs. **Remove** runs `install.sh --user --uninstall`, which deletes exactly what was installed. The source folder is only read (the installers compile Python files in the copy in your home, not in the source). A source in `~/.local/share/spark-store/sources/<slug>` wins over the one in `/usr/share`.
+
+What isn't built: **downloading Spark apps**. A newer version of an optional app arrives with a SparkOS update, in `/usr/share/spark-store/sources`; an app already installed for you stays at the version you installed until you remove it and install it again (the Store doesn't compare versions yet). An app whose source isn't on the PC (for example the Store run outside SparkOS) shows "Can't be installed: its files aren't on this PC."
+
+CI checks all of this: the `spark-store` workflow runs the build step in Fedora and in the published SparkOS image, then has a normal user install, run and remove each optional app from `/usr/share/spark-store/sources` through the Store's queue ([tests/spark_source_check.py](tests/spark_source_check.py)), checking the source folder isn't changed and nothing is left in `~/.local`. The image build checks the built image has the sources and doesn't install the apps; the boot test checks Spark Space's source is offered on a booted SparkOS.
 
 ## Speed
 
@@ -58,6 +70,9 @@ First paint counts from the moment the process started, Python's own start-up in
 bash install.sh --user                    # just you, into ~/.local; no root
 bash install.sh --user --uninstall        # removes exactly what --user installed
 sudo bash install.sh --deps               # system-wide, with Fedora packages (what the image build runs)
+bash install.sh --optional                # list the optional Spark apps (from the repo)
+bash install.sh --sources DIR             # copy their sources into DIR/<slug> (the image: /usr/share/spark-store/sources)
+python3 tests/spark_source_check.py SLUG  # install, run and remove one from its source as you (CI; use a test account)
 spark-store                               # open
 spark-store appstream://org.gimp.GIMP     # open on an app's page (also: an app ID, a .flatpakref file)
 spark-store --page updates                # open on Installed, Updates or Queue

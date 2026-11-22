@@ -5,6 +5,8 @@
 #   bash install.sh --user --uninstall          remove exactly what --user installed
 #   bash install.sh [--deps] [--prefix /usr/lib/spark-store] [--no-test]    system-wide, root
 #   bash install.sh --uninstall                 remove the system-wide install, root
+#   bash install.sh --sources DIR               copy the optional Spark apps' sources into DIR
+#   bash install.sh --optional                  list the optional Spark apps
 #
 # --user     SparkOS keeps /usr read-only, so optional Spark apps install here. Needs only
 #            what the SparkOS image has (Python 3 with tkinter, flatpak); nothing is downloaded.
@@ -17,6 +19,14 @@
 # makes it the default for them: the SparkOS image decides that (sparkos-defaults.sh).
 # Settings (~/.config/spark-store) and the catalog index (~/.cache/spark-store) are not
 # touched by --uninstall.
+#
+# Optional Spark apps: a sibling folder files/spark-<name>/ with install.sh and spark-app.json
+# is optional when no image build step installs it, that is when files/scripts/spark-<name>.sh
+# doesn't exist. Its spark-app.json may say so too ("optional": true); if it says the opposite
+# ("optional": false or "in_image": true), this stops with an error. --sources copies each
+# optional app's folder, without tests/, __pycache__ and make_icons.py, into DIR/<slug>
+# (the image build: /usr/share/spark-store/sources). Nothing is installed: the Store installs
+# an app from there for one user (install.sh --user) when they click Install.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -27,6 +37,8 @@ DEPS=0
 TEST=1
 USER_MODE=0
 UNINSTALL=0
+SOURCES=
+LIST_OPTIONAL=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --user) USER_MODE=1 ;;
@@ -34,7 +46,9 @@ while [ $# -gt 0 ]; do
     --deps) DEPS=1 ;;
     --no-test) TEST=0 ;;
     --prefix) PREFIX=$2; shift ;;
-    -h|--help) sed -n '2,21p' "$0"; exit 0 ;;
+    --sources) SOURCES=${2:?--sources needs a folder}; shift ;;
+    --optional) LIST_OPTIONAL=1 ;;
+    -h|--help) sed -n '2,32p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown option $1" >&2; exit 2 ;;
   esac
   shift
@@ -71,6 +85,58 @@ copy_app() {   # $1: destination folder
   done
   python3 -m compileall -q "$dest"
 }
+
+# The optional Spark apps (see the top of this file), one slug per line
+optional_apps() {
+  local scripts=$here/../scripts dir slug says
+  if [ ! -d "$scripts" ]; then
+    echo "install.sh: no $scripts: run this from the SparkOS repo's files/spark-store" >&2
+    return 1
+  fi
+  for dir in "$here"/../spark-*/; do
+    slug=$(basename "$dir")
+    [ -f "$dir/spark-app.json" ] && [ -f "$dir/install.sh" ] || continue
+    says=$(python3 -c 'import json,sys
+d = json.load(open(sys.argv[1], encoding="utf-8"))
+print("in-image" if d.get("optional") is False or d.get("in_image") is True
+      else "optional" if d.get("optional") is True else "")' "$dir/spark-app.json")
+    if [ -f "$scripts/$slug.sh" ]; then
+      if [ "$says" = optional ]; then
+        echo "install.sh: $slug/spark-app.json says optional, but files/scripts/$slug.sh installs it" >&2
+        return 1
+      fi
+    else
+      if [ "$says" = in-image ]; then
+        echo "install.sh: $slug/spark-app.json says it's in the image, but no files/scripts/$slug.sh installs it" >&2
+        return 1
+      fi
+      echo "$slug"
+    fi
+  done
+}
+
+if [ "$LIST_OPTIONAL" = 1 ]; then
+  optional_apps
+  exit 0
+fi
+
+if [ -n "$SOURCES" ]; then
+  apps=$(optional_apps)
+  install -d -m 0755 "$SOURCES"
+  for slug in $apps; do
+    rm -rf -- "${SOURCES:?}/$slug"
+    cp -r -- "$here/../$slug" "$SOURCES/$slug"
+    rm -rf -- "$SOURCES/$slug/tests"
+    find "$SOURCES/$slug" \( -name __pycache__ -o -name '*.pyc' -o -name make_icons.py \) -prune \
+      -exec rm -rf -- {} +
+    chmod -R u=rwX,go=rX "$SOURCES/$slug"
+    chmod 0755 "$SOURCES/$slug/install.sh"
+    test -f "$SOURCES/$slug/spark-app.json"
+    grep -q -- '--user' "$SOURCES/$slug/install.sh"
+    echo "source of $slug: $SOURCES/$slug ($(du -sk "$SOURCES/$slug" | cut -f1) KB)"
+  done
+  exit 0
+fi
 
 # ─── Per user, no root ───────────────────────────────────────
 

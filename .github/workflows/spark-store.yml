@@ -1,15 +1,20 @@
 name: spark-store
 # Spark Store, SparkOS's own app store (files/spark-store; image build step
-# files/scripts/spark-store.sh, not wired into the recipe yet).
+# files/scripts/spark-store.sh).
 #
-# fedora:  runs the image build step in a plain Fedora container, the self-test, the unit and
+# fedora:  runs the image build step in a plain Fedora container, checks it put every optional
+#          Spark app's source in /usr/share/spark-store/sources and installed none of them,
+#          has a normal user install Spark Space from there through the Store's queue and remove
+#          it (tests/spark_source_check.py), then the self-test, the unit and
 #          UI tests under Xvfb (installs, removals and updates run through the queue against a
 #          fake flatpak), then downloads the real Flathub catalog with flatpak, installs and
 #          removes one real app through the Store's window, and measures the time to first
 #          paint and to the catalog on screen, cold and cached.
 # sparkos: inside the published SparkOS image: runs the image build step as root, then, as a
 #          normal user, install.sh --user (no root), the self-test and the unit tests on the
-#          image's Python; has that user's flatpak download the Flathub catalog, self-tests
+#          image's Python. Checks the image installs no optional Spark app system-wide, and has
+#          the user install, run and remove each one from /usr/share/spark-store/sources
+#          through the Store's queue. Has that user's flatpak download the Flathub catalog, self-tests
 #          against it, installs, updates and removes one real app through the Store's queue,
 #          uninstalls the Store, and checks nothing is left behind.
 #
@@ -18,12 +23,16 @@ on:
   push:
     paths:
       - "files/spark-store/**"
-      - "files/scripts/spark-store.sh"
+      - "files/scripts/spark-*.sh"            # a new build step changes which apps are optional
+      - "files/spark-*/install.sh"
+      - "files/spark-*/spark-app.json"
       - ".github/workflows/spark-store.yml"
   pull_request:
     paths:
       - "files/spark-store/**"
-      - "files/scripts/spark-store.sh"
+      - "files/scripts/spark-*.sh"            # a new build step changes which apps are optional
+      - "files/spark-*/install.sh"
+      - "files/spark-*/spark-app.json"
       - ".github/workflows/spark-store.yml"
   workflow_dispatch:
 
@@ -42,6 +51,29 @@ jobs:
 
       - name: Install (the image build step)
         run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-store.sh
+
+      - name: Optional Spark apps (sources shipped, none installed, one installs for a user)
+        run: |
+          optional=$(bash files/spark-store/install.sh --optional)
+          echo "optional:" $optional
+          test -n "$optional"
+          for slug in $optional; do
+            id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["id"])' "files/$slug/spark-app.json")
+            test -f "/usr/share/spark-store/sources/$slug/install.sh"
+            test ! -e "/usr/share/spark-store/sources/$slug/tests"
+            test ! -e "/usr/lib/$slug" && test ! -e "/usr/bin/$slug"
+            test ! -e "/usr/share/applications/$id.desktop"
+          done
+          ls /usr/share/spark-store/sources
+          du -sh /usr/share/spark-store/sources
+          # as a normal user (install.sh --user refuses root), with the Store the build installed
+          command -v setpriv || dnf -y install --setopt=install_weak_deps=False util-linux
+          useradd -m tester
+          cp files/spark-store/tests/spark_source_check.py /home/tester/
+          chown tester: /home/tester/spark_source_check.py
+          setpriv --reuid=tester --regid=tester --init-groups \
+            env -i HOME=/home/tester USER=tester PATH=/usr/bin:/bin LANG=C.UTF-8 \
+            python3 /home/tester/spark_source_check.py --store /usr/lib/spark-store spark-space
 
       - name: Self-test
         run: spark-store --self-test
@@ -126,12 +158,25 @@ jobs:
             [ -s /etc/machine-id ] || systemd-machine-id-setup || dbus-uuidgen --ensure=/etc/machine-id
             home=$(getent passwd tester | cut -d: -f6)
             mkdir "$home/files"
-            for d in /src/spark-*; do cp -r "$d" "$home/files/"; done
+            for d in /src/spark-* /src/scripts; do cp -r "$d" "$home/files/"; done
             chown -R tester: "$home/files"
             # setpriv, not su or runuser: those open a PAM session, which fails in a container
             as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
                     env -i HOME="$home" USER=tester \
                     LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 bash -c "$1"); }
+
+            echo "--- the optional Spark apps: not installed system-wide by the image"
+            optional=$(bash /src/spark-store/install.sh --optional)
+            test -n "$optional"
+            for slug in $optional; do
+              id=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1]))[\"id\"])" "/src/$slug/spark-app.json")
+              test ! -e "/usr/lib/$slug" && test ! -e "/usr/bin/$slug"
+              test ! -e "/usr/share/applications/$id.desktop"
+              echo "$slug: not installed; source in the published image: $(test -f /usr/share/spark-store/sources/$slug/install.sh && echo yes || echo no)"
+            done
+            echo "--- the image build step from this commit, then each one installs from its source"
+            CONFIG_DIRECTORY=/src bash /src/scripts/spark-store.sh > /tmp/build-step.txt 2>&1 || { cat /tmp/build-step.txt; exit 1; }
+            tail -1 /tmp/build-step.txt
             usr_before=$(find /usr -newer /etc/hostname 2>/dev/null | wc -l)
 
             echo "--- what the image has"
@@ -150,6 +195,11 @@ jobs:
             as "~/.local/bin/spark-store --version"
             as "~/.local/bin/spark-store --self-test"
             as "cd ~/files/spark-store && python3 -m unittest discover -s tests -v"
+
+            echo "--- install, run and remove each optional Spark app from /usr/share/spark-store/sources"
+            for slug in $optional; do
+              as "python3 ~/files/spark-store/tests/spark_source_check.py --store ~/.local/lib/spark-store $slug"
+            done
 
             echo "--- the real Flathub catalog, downloaded by this user'"'"'s flatpak"
             as "flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo"
