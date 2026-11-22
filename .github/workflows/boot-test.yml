@@ -635,10 +635,12 @@ jobs:
           sleep 25
           echo "screendump $WORK/shots/3-desktop.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
           $SSH 'pgrep -u spark -a plasmashell; cat ~/.config/plasma-org.kde.plasma.desktop-appletsrc' > "$WORK/desktop-layout.txt" || true
-          # The SparkOS layout: kickoff in both bars, a floating dock with pinned apps
+          # The SparkOS layout: Spark Launcher in both bars, a floating dock with pinned apps
           grep -q "plasmashell" "$WORK/desktop-layout.txt" || { echo "::error::Plasma did not start for the test user"; exit 1; }
           grep -q "org.kde.plasma.icontasks" "$WORK/desktop-layout.txt"
           grep -q "menuLabel=SPARKOS" "$WORK/desktop-layout.txt" || { echo "::error::the SparkOS layout was not used"; exit 1; }
+          [ "$(grep -c "^plugin=dev.wolklaw.sparklauncher$" "$WORK/desktop-layout.txt")" = 2 ] || { echo "::error::Spark Launcher is not in both bars"; exit 1; }
+          if grep -q "^plugin=org.kde.plasma.kickoff$" "$WORK/desktop-layout.txt"; then echo "::error::Kickoff is still in the layout"; exit 1; fi
           grep -E "^launchers=" "$WORK/desktop-layout.txt" || true
           # Spark Snip captures through KWin in a real Plasma session.
           # Required: Spectacle is gone, so this is how Print works.
@@ -647,6 +649,43 @@ jobs:
             $SSH 'cat /tmp/snip.png' > "$WORK/shots/4-spark-snip-capture.png" || true
           else
             echo "::error::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"; exit 1
+          fi
+
+      # Spark Launcher (files/spark-launcher), SparkOS's app menu: the Meta key, pressed on QEMU's
+      # keyboard, must open it. .github/scripts/launcher-open.py compares the screen before and
+      # after (the open launcher fills at least 640x520 with its background colour). Then a sum
+      # typed into it, answered by Spark Calc. Screenshots: 5-launcher-*.png
+      - name: Open Spark Launcher with the Meta key
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        timeout-minutes: 5
+        run: |
+          sendkeys() { for k in "$@"; do echo "sendkey $k" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null; sleep 0.2; done; }
+          shot() { echo "screendump $WORK/shots/$1.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null; sleep 1; }
+          for i in $(seq 1 24); do $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break; sleep 5; done
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" loginctl unlock-sessions' || true
+          $SSH 'ls /usr/share/plasma/plasmoids/dev.wolklaw.sparklauncher/contents/ui/' | tee "$WORK/spark-launcher-files.txt"
+          $SSH 'bash -s -- --self-test' < files/spark-launcher/install.sh | tee "$WORK/spark-launcher-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-launcher-self-test.txt"
+          sleep 5
+          shot 5a-launcher-closed
+          sendkeys meta_l
+          sleep 4
+          shot 5b-launcher-meta
+          if python3 .github/scripts/launcher-open.py "$WORK/shots/5a-launcher-closed.png" "$WORK/shots/5b-launcher-meta.png"; then
+            echo "The Meta key opened Spark Launcher" | tee -a "$GITHUB_STEP_SUMMARY"
+          else
+            echo "::error::the Meta key did not open Spark Launcher (see 5b-launcher-meta.png)"
+            exit 1
+          fi
+          # A sum: Spark Calc answers it in the launcher
+          sendkeys 1 2 kp_multiply 3 kp_add 0 dot 5
+          sleep 3
+          shot 5c-launcher-sum
+          sendkeys esc esc
+          sleep 2
+          shot 5d-launcher-closed-again
+          if python3 .github/scripts/launcher-open.py "$WORK/shots/5a-launcher-closed.png" "$WORK/shots/5d-launcher-closed-again.png"; then
+            echo "::error::Escape did not close Spark Launcher (see 5d-launcher-closed-again.png)"; exit 1
           fi
 
       # Every preinstalled app opened on the real desktop, in the session the step above signed
