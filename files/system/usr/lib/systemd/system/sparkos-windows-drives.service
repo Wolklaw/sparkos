@@ -1,0 +1,16 @@
+[Unit]
+Description=Mount the Windows drives at /var/mnt/<letter>
+# Before the desktop, so the drives are there when you sign in; after the disks and /var are ready
+After=local-fs.target
+Before=display-manager.service systemd-user-sessions.service
+ConditionPathExists=/usr/libexec/sparkos-windows-drives
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/sparkos-windows-drives
+# A drive that hangs must never hold up the boot (Before= only orders; a failure here doesn't stop the desktop)
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target

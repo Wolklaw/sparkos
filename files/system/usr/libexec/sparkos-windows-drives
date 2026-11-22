@@ -1,0 +1,314 @@
+#!/usr/bin/python3
+"""Mounts the PC's Windows drives at every boot, at the same place each time: C: at /var/mnt/c, E: at /var/mnt/e, and so on
+(/mnt/c works too: /mnt is a link to /var/mnt). Run by sparkos-windows-drives.service, before the desktop starts.
+
+- The drive letters are Windows' own: read from the SYSTEM registry file on the Windows drive (MountedDevices, GPT disks). A drive
+  with no letter is named after its label, else the start of its partition ID.
+- /etc/sparkos/windows-drives.conf says, per letter, rw (read-write), ro (read-only) or off. A read-write mount that fails (Windows
+  hibernated, or Fast Startup left the drive "dirty") falls back to read-only, and the reason is recorded. Never forced.
+- The files belong to the PC's user (the first account, or user= in the conf), so Git and apps can use them normally.
+- BitLocker drives, the Windows Recovery partition and drives already mounted elsewhere are left alone (the last are listed).
+- /run/sparkos/windows-drives.json lists what was found: letter, label, device, partuuid, mountpoint, mode (rw/ro/off), problem.
+  Nova and other programs read it to find C:\\Users\\<you> and E:\\Personal Projects.
+
+Safe to run again: what is already mounted stays as it is. Environment overrides for tests: SPARKOS_WINDOWS_DRIVES_CONF, _STATE,
+_BASE. The registry reader is the one in Spark Welcome (files/spark-welcome/sparkwelcome/windows.py), cut down to what this needs."""
+import json
+import os
+import re
+import struct
+import subprocess
+import sys
+import tempfile
+import uuid
+
+CONF = os.environ.get("SPARKOS_WINDOWS_DRIVES_CONF", "/etc/sparkos/windows-drives.conf")
+STATE = os.environ.get("SPARKOS_WINDOWS_DRIVES_STATE", "/run/sparkos/windows-drives.json")
+BASE = os.environ.get("SPARKOS_WINDOWS_DRIVES_BASE", "/var/mnt")
+RECOVERY = "de94bba4-06d1-4d40-a16a-bfd50179d6ac"
+LSBLK = ["lsblk", "-J", "-b", "-o", "NAME,PATH,FSTYPE,LABEL,MOUNTPOINT,SIZE,PARTUUID,PARTTYPE"]
+
+
+def log(msg):
+    print(msg, flush=True)   # the journal keeps it (systemd captures stdout)
+
+
+# ---- the registry file (from Spark Welcome) ----
+
+class Hive:
+    """Just enough of the "regf" format to read one key's values."""
+
+    def __init__(self, data):
+        if len(data) < 0x1000 + 32 or data[:4] != b"regf":
+            raise ValueError("not a registry file")
+        self.data = data
+        self.root = self._u32(0x24)
+
+    def _u16(self, pos):
+        return struct.unpack_from("<H", self.data, pos)[0]
+
+    def _u32(self, pos):
+        return struct.unpack_from("<I", self.data, pos)[0]
+
+    def _cell(self, offset):
+        pos = 0x1000 + offset + 4
+        if offset in (0, 0xFFFFFFFF) or pos + 4 > len(self.data):
+            raise ValueError("bad cell offset")
+        return pos
+
+    def _text(self, pos, length, ascii_name):
+        raw = self.data[pos:pos + length]
+        return raw.decode("latin-1") if ascii_name else raw.decode("utf-16-le", "replace")
+
+    def _list(self, offset, depth=0):
+        if depth > 3:
+            raise ValueError("subkey lists nested too deep")
+        pos = self._cell(offset)
+        sig, count = self.data[pos:pos + 2], self._u16(pos + 2)
+        if sig in (b"lf", b"lh"):
+            for i in range(count):
+                yield self._u32(pos + 4 + i * 8)
+        elif sig == b"li":
+            for i in range(count):
+                yield self._u32(pos + 4 + i * 4)
+        elif sig == b"ri":
+            for i in range(count):
+                yield from self._list(self._u32(pos + 4 + i * 4), depth + 1)
+
+    def key(self, path):
+        nk = self._cell(self.root)
+        for part in filter(None, path.split("\\")):
+            if not self._u32(nk + 0x14):
+                return None
+            for offset in self._list(self._u32(nk + 0x1C)):
+                child = self._cell(offset)
+                name = self._text(child + 0x4C, self._u16(child + 0x48), bool(self._u16(child + 2) & 0x20))
+                if self.data[child:child + 2] == b"nk" and name.lower() == part.lower():
+                    nk = child
+                    break
+            else:
+                return None
+        return nk
+
+    def values(self, path):
+        nk = self.key(path)
+        out = {}
+        if nk is None or not self._u32(nk + 0x24):
+            return out
+        table = self._cell(self._u32(nk + 0x28))
+        for i in range(self._u32(nk + 0x24)):
+            vk = self._cell(self._u32(table + i * 4))
+            if self.data[vk:vk + 2] != b"vk":
+                continue
+            name = self._text(vk + 0x14, self._u16(vk + 2), bool(self._u16(vk + 0x10) & 1))
+            size = self._u32(vk + 4)
+            if size & 0x80000000:
+                raw = self.data[vk + 8:vk + 8 + min(size & 0x7FFFFFFF, 4)]
+            elif size > 16344:
+                continue
+            else:
+                pos = self._cell(self._u32(vk + 8))
+                raw = self.data[pos:pos + size]
+            out[name.lower()] = raw
+        return out
+
+
+def _child(parent, wanted):
+    """parent/wanted, matching the name in any case (NTFS keeps the case Windows used)."""
+    try:
+        for entry in os.listdir(parent):
+            if entry.lower() == wanted.lower():
+                return os.path.join(parent, entry)
+    except OSError:
+        pass
+    return None
+
+
+def system_hive(root):
+    path = root
+    for part in ("Windows", "System32", "config", "SYSTEM"):
+        path = _child(path, part) if path else None
+    return path if path and os.path.isfile(path) else None
+
+
+def drive_letters(hive_path):
+    """{'C': partition GUID, ...} from MountedDevices; {} when it can't be read."""
+    try:
+        with open(hive_path, "rb") as f:
+            values = Hive(f.read()).values("MountedDevices")
+    except (OSError, ValueError, struct.error) as e:
+        log(f"MountedDevices not read from {hive_path}: {e}")
+        return {}
+    letters = {}
+    for name, raw in values.items():
+        m = re.fullmatch(r"\\dosdevices\\([a-z]):", name)
+        if m and len(raw) == 24 and raw[:8] == b"DMIO:ID:":
+            letters[m.group(1).upper()] = str(uuid.UUID(bytes_le=raw[8:24]))
+    return letters
+
+
+# ---- partitions, config, mounting ----
+
+def partitions(lsblk_json):
+    """NTFS and BitLocker partitions from `lsblk -J`, without the Windows Recovery partition."""
+    found = []
+
+    def walk(devs):
+        for d in devs or []:
+            fs = (d.get("fstype") or "").lower()
+            if fs in ("ntfs", "ntfs3", "bitlocker") and (d.get("parttype") or "").lower() != RECOVERY:
+                found.append({"name": d.get("name") or "", "device": d.get("path") or "", "fstype": fs,
+                              "label": (d.get("label") or "").strip(), "mountpoint": (d.get("mountpoint") or "").strip(),
+                              "partuuid": (d.get("partuuid") or "").lower()})
+            walk(d.get("children"))
+    walk(json.loads(lsblk_json).get("blockdevices"))
+    return found
+
+
+def read_conf(text):
+    """({letter or '*': mode}, user or None)."""
+    modes, user = {}, None
+    for line in text.splitlines():
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        if line.startswith("user="):
+            user = line[5:].strip() or None
+            continue
+        parts = line.split()
+        if len(parts) == 2 and parts[1].lower() in ("rw", "ro", "off") and (parts[0] == "*" or re.fullmatch(r"[A-Za-z]:?", parts[0])):
+            modes[parts[0].rstrip(":").upper()] = parts[1].lower()
+    return modes, user
+
+
+def owner(user=None, passwd="/etc/passwd"):
+    """(uid, gid) of user=, else the first regular account (UID 1000 to 59999)."""
+    if user:
+        import pwd
+        try:
+            p = pwd.getpwnam(user)
+            return p.pw_uid, p.pw_gid
+        except KeyError:
+            log(f"user={user} in the conf doesn't exist; using the first account")
+    best = None
+    try:
+        for line in open(passwd, encoding="utf-8", errors="replace"):
+            f = line.split(":")
+            if len(f) > 3 and f[2].isdigit() and 1000 <= int(f[2]) < 60000 and (best is None or int(f[2]) < best[0]):
+                best = (int(f[2]), int(f[3]))
+    except OSError:
+        pass
+    return best or (0, 0)
+
+
+def name_for(part, letters_by_guid, taken):
+    letter = letters_by_guid.get(part["partuuid"])
+    if letter:
+        name = letter.lower()
+    else:
+        name = re.sub(r"[^a-z0-9._-]+", "-", part["label"].lower()).strip("-") or (part["partuuid"][:8] or part["name"])
+    base, n = name, 2
+    while name in taken:
+        name, n = f"{base}-{n}", n + 1
+    taken.add(name)
+    return letter or "", name
+
+
+def run(cmd):
+    r = subprocess.run(cmd, capture_output=True, text=True)
+    return r.returncode, (r.stderr or r.stdout).strip()
+
+
+def mount(device, point, mode, uid, gid):
+    """(mode actually used, problem). Read-write first when asked; read-only when that fails."""
+    os.makedirs(point, exist_ok=True)
+    owner_opts = f"uid={uid},gid={gid},umask=022"
+    attempts = [("rw", f"rw,{owner_opts},windows_names"), ("rw", f"rw,{owner_opts}")] if mode == "rw" else []
+    attempts += [("ro", f"ro,{owner_opts}")]
+    problem = ""
+    for used, opts in attempts:
+        code, err = run(["mount", "-t", "ntfs3", "-o", opts, device, point])
+        if code == 0:
+            return used, problem
+        if used == "rw" and "windows_names" not in opts:
+            problem = (f"mounted read-only: read-write failed ({err}). Usually Windows didn't shut down fully: turn off Fast Startup "
+                       "and hibernation in Windows, shut down from Windows once, then restart into SparkOS.")
+    try:
+        os.rmdir(point)
+    except OSError:
+        pass
+    return "off", f"not mounted: {err}"
+
+
+def find_letters(parts):
+    """Drive letters from the Windows SYSTEM hive on whichever partition has one (probed read-only)."""
+    for p in parts:
+        if p["fstype"] == "bitlocker":
+            continue
+        if p["mountpoint"]:
+            hive = system_hive(p["mountpoint"])
+            if hive:
+                return drive_letters(hive)
+            continue
+        probe = tempfile.mkdtemp(prefix="windows-drive-", dir="/run")
+        try:
+            if run(["mount", "-t", "ntfs3", "-o", "ro", p["device"], probe])[0] != 0:
+                continue
+            try:
+                hive = system_hive(probe)
+                if hive:
+                    return drive_letters(hive)
+            finally:
+                run(["umount", probe])
+        finally:
+            try:
+                os.rmdir(probe)
+            except OSError:
+                pass
+    return {}
+
+
+def main():
+    try:
+        conf_text = open(CONF, encoding="utf-8").read()
+    except OSError:
+        conf_text = "* rw\n"
+    modes, user = read_conf(conf_text)
+    uid, gid = owner(user)
+    code, out = run(LSBLK)
+    parts = partitions(out) if code == 0 else []
+    letters = find_letters(parts)
+    by_guid = {g: l for l, g in letters.items()}
+    taken, report = set(), []
+    for p in parts:
+        letter, name = name_for(p, by_guid, taken)
+        entry = {"letter": letter, "label": p["label"], "device": p["device"], "partuuid": p["partuuid"],
+                 "mountpoint": "", "mode": "off", "problem": ""}
+        mode = modes.get(letter) or modes.get("*", "rw")
+        point = os.path.join(BASE, name)
+        if p["fstype"] == "bitlocker":
+            entry["problem"] = "locked with BitLocker: unlock it in Windows (or turn BitLocker off) to use it here"
+        elif p["mountpoint"]:
+            entry["mountpoint"] = p["mountpoint"]
+            entry["mode"] = "ro" if run(["findmnt", "-n", "-o", "OPTIONS", p["mountpoint"]])[1].split(",")[0] == "ro" else "rw"
+            entry["problem"] = "" if p["mountpoint"] == point else "already mounted somewhere else"
+        elif mode == "off":
+            entry["problem"] = "off in " + CONF
+        else:
+            entry["mode"], entry["problem"] = mount(p["device"], point, mode, uid, gid)
+            entry["mountpoint"] = point if entry["mode"] != "off" else ""
+        log(f"{letter + ':' if letter else name}  {p['device']}  {entry['mountpoint'] or '-'}  {entry['mode']}  {entry['problem']}".rstrip())
+        report.append(entry)
+    os.makedirs(os.path.dirname(STATE), exist_ok=True)
+    tmp = STATE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=2)
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, STATE)
+    if not parts:
+        log("No Windows drives on this PC.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

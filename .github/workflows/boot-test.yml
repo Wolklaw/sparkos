@@ -129,6 +129,13 @@ jobs:
           echo "DISK=$DISK" >> "$GITHUB_ENV"
           ls -lh "$DISK"
 
+      - name: Build a Windows test drive
+        # GPT with NTFS C: (registry file naming the letters, a Claude Code profile), D: "Scrap", E: "Games" (a Git repository);
+        # sparkos-windows-drives must mount it at /var/mnt/<letter>. Built here, attached to the VM below
+        run: |
+          sudo bash .github/scripts/windows-drives/make_disk.sh "$WORK/windows.img"
+          sudo chown "$USER" "$WORK/windows.img"
+
       - name: Boot it
         run: |
           cp /usr/share/OVMF/OVMF_VARS_4M.fd "$WORK/vars.fd"
@@ -136,6 +143,7 @@ jobs:
             -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
             -drive if=pflash,format=raw,file="$WORK/vars.fd" \
             -drive file="$DISK",if=virtio,format=qcow2 \
+            -drive file="$WORK/windows.img",if=virtio,format=raw \
             -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2222-:22 \
             -vga virtio -display none \
             -serial file:"$WORK/serial.log" \
@@ -270,6 +278,16 @@ jobs:
           # Install Claude Code the way a user would, then run it (no sign-in needed for --version)
           $SSH 'sparkos-dev-setup --claude && ~/.local/bin/claude --version' 2>&1 | tee "$WORK/claude-install.txt"
           $SSH '~/.local/bin/claude --version' | grep -qiE '[0-9]+\.[0-9]+'
+
+      - name: Check the Windows drives
+        # sparkos-windows-drives mounted the test drive at /var/mnt/c, d, e at boot: letters from the registry file, owned by
+        # the user, D: read-only by the shipped conf, and /run/sparkos/windows-drives.json (what Nova reads) lists them
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          $SSH 'systemctl is-active sparkos-windows-drives.service; journalctl -b -u sparkos-windows-drives --no-pager -o cat' \
+            | tee "$WORK/windows-drives.txt"
+          $SSH 'bash -s spark' < .github/scripts/windows-drives/check_mounts.sh 2>&1 | tee -a "$WORK/windows-drives.txt"
+          test "${PIPESTATUS[0]}" = 0
 
       - name: Check Spark Snip
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}

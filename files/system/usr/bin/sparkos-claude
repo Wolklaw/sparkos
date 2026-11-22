@@ -21,6 +21,8 @@ dir="${1:-}"
 if [ -z "$dir" ]; then
   if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null 2>&1; then
     start=$(cat "$last" 2>/dev/null || true)
+    # first time: the projects folder on the Windows drive (sparkos-windows-drives mounts it), else home
+    [ -d "$start" ] || start=$(ls -d /var/mnt/*/"Personal Projects" 2>/dev/null | head -1)
     [ -d "$start" ] || start=$HOME
     dir=$(kdialog --title "Open Claude Code in which folder?" --getexistingdirectory "$start") || exit 0
   else
@@ -32,4 +34,7 @@ fi
 mkdir -p "$state" && printf '%s\n' "$dir" > "$last"
 cd "$dir"
 echo "Claude Code in $dir"
+# Nova (when installed: it isn't part of SparkOS) links the Windows Claude Code setup into ~/.claude: CLAUDE.md, skills,
+# settings and each project's memory and session history from C:\Users\<you>\.claude
+if command -v nova >/dev/null 2>&1; then nova --link-claude --quiet >/dev/null 2>&1 || true; fi
 exec claude

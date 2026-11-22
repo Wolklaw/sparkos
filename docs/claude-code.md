@@ -6,7 +6,7 @@ SparkOS is set up so Claude Code is a click away. Claude Code itself comes from 
 
 1. Open **Claude Code** from the app menu (Development). The first time, it installs Claude Code into `~/.local` with Anthropic's installer. No admin password is needed.
 2. Pick a project folder. Claude Code starts there and asks you to sign in through the browser.
-3. Bring over your Windows setup. Open the Windows drive (C:) once in Dolphin so it mounts, then run:
+3. Bring over your Windows setup. Your Windows drives are already open at `/var/mnt/<letter>` ([windows-drives.md](windows-drives.md)). **With Nova installed** (`bash "/var/mnt/e/Personal Projects/JARVIS/linux/install.sh" --user`), nothing else is needed: each time Claude Code starts, your Windows setup is shared live, not copied (global `CLAUDE.md`, skills, settings, and every project's memory and session history). Without Nova, copy the basics once with:
    ```bash
    sparkos-claude-import
    ```
@@ -33,4 +33,4 @@ SparkOS is set up so Claude Code is a click away. Claude Code itself comes from 
 
 - Anthropic's docs list Ubuntu, Debian and Alpine for Claude Code. Fedora-based systems like SparkOS aren't named. They aren't excluded either, and the SparkOS boot test installs and runs Claude Code on every build.
 - The **Claude desktop app** (Chat, Cowork, Code tab) has a Linux beta for Ubuntu and Debian only. Its docs say to use the CLI on Fedora. Use claude.ai in the browser for chat.
-- Your project memories from Windows (`~/.claude/projects/...`) are tied to Windows folder paths, so they don't carry over. Project `CLAUDE.md` files inside your repos come along with the repos.
+- Your project memories and session history from Windows (`~/.claude/projects/...`) are filed under Windows folder paths. Nova links each one to the same project's SparkOS path (`E:\Personal Projects\X` is `/var/mnt/e/Personal Projects/X`), so they load on SparkOS and `claude --resume` lists the Windows sessions. `sparkos-claude-import` alone doesn't do this. Project `CLAUDE.md` files inside your repos come along with the repos.
