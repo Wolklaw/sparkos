@@ -223,6 +223,15 @@ def device_test(program):
     os.write(out, EVENT.pack(0, 0, EV_LED, LED_CAPSL, 1) + EVENT.pack(0, 0, EV_SYN, SYN_REPORT, 0))
     got = [e for e in read_events(kbd.fd, 0.3) if e[0] == EV_LED]
     check(got == [(EV_LED, LED_CAPSL, 1)], f"the light set on the copy reaches the keyboard: {got}")
+    # Two changes in a row used to start a loop: the keyboard's report of each light went back to
+    # the copy, which sent it to the keyboard again, and the light flickered forever.
+    os.write(out, EVENT.pack(0, 0, EV_LED, LED_CAPSL, 0) + EVENT.pack(0, 0, EV_SYN, SYN_REPORT, 0)
+             + EVENT.pack(0, 0, EV_LED, LED_CAPSL, 1) + EVENT.pack(0, 0, EV_SYN, SYN_REPORT, 0))
+    read_events(kbd.fd, 0.3)
+    got = [e for e in read_events(kbd.fd, 0.5) if e[0] == EV_LED]
+    check(got == [], f"two quick light changes settle instead of flickering: {got}")
+    copy_on = bool(fcntl.ioctl(out, EVIOCGLED(8), bytes(8))[0] & (1 << LED_CAPSL))
+    check(copy_on, "the copy's light stays where the desktop set it (on)")
 
     print("-- Stopping it gives the keyboard back")
     os.close(out)
