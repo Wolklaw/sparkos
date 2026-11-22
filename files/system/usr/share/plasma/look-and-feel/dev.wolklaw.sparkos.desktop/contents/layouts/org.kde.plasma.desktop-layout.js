@@ -55,7 +55,7 @@ var pinned = [
     "org.kde.dolphin.desktop",
     "dev.wolklaw.SparkStore.desktop",
     "dev.wolklaw.SparkGames.desktop",
-    "org.kde.konsole.desktop"
+    "dev.wolklaw.SparkTerminal.desktop"
 ];
 var launchers = [];
 for (var j = 0; j < pinned.length; j++) {

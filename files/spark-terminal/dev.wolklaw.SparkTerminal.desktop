@@ -1,0 +1,28 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Terminal
+Name[fr]=Spark Terminal
+GenericName=Terminal
+GenericName[fr]=Terminal
+Comment=Run commands, with tabs and split panes
+Comment[fr]=Lancer des commandes, avec onglets et panneaux divisés
+Exec=spark-terminal
+Icon=dev.wolklaw.SparkTerminal
+Terminal=false
+Categories=System;TerminalEmulator;
+Keywords=terminal;shell;console;command;prompt;bash;cli;cmd;konsole;invite de commandes;
+Keywords[fr]=terminal;shell;console;commande;invite;bash;
+StartupNotify=true
+X-KDE-Shortcuts=Ctrl+Alt+T
+StartupWMClass=dev.wolklaw.SparkTerminal
+X-ExecArg=-e
+X-TerminalArgExec=-e
+X-TerminalArgDir=--workdir
+X-TerminalArgHold=--hold
+X-TerminalArgTitle=--title
+Actions=NewWindow;
+
+[Desktop Action NewWindow]
+Name=New window
+Name[fr]=Nouvelle fenêtre
+Exec=spark-terminal

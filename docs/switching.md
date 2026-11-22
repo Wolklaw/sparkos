@@ -81,7 +81,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Tailscale | **Works** | Not in the image (it's a company's service, and Bazzite's `ujust tailscale` no longer applies). To add it, run `sudo curl -fsSLo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo`, then `rpm-ostree install tailscale` and restart. Then `sudo systemctl enable --now tailscaled` and `sudo tailscale up` to sign in. It updates with SparkOS from then on. |
 | hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN work in System Settings > Network. |
 | TeamViewer | **Works** | Download the Linux .rpm from teamviewer.com and double-click it: SparkOS asks, installs it and offers a restart. |
-| PuTTY | **Replaced** | `ssh` in Konsole (built in). |
+| PuTTY | **Replaced** | `ssh` in Spark Terminal (built in). |
 | VirtualBox | **Replaced** | Run `ujust setup-virtualization` to get **virt-manager**. It uses KVM and runs VMs much faster than VirtualBox on this PC today. |
 | MuseHub | **No** | Windows and Mac only. |
 

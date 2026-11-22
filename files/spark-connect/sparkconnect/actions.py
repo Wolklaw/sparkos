@@ -78,7 +78,7 @@ def typed_not_run(command: str) -> str:
 def terminal_argv(machine: Machine, remote: Optional[str] = None,
                   ssh: Optional[str] = None) -> List[str]:
     """The command that opens a terminal window running ssh to machine (and remote there, if
-    given). Konsole on SparkOS, another terminal on other Linux desktops; on Windows, a new
+    given). Spark Terminal on SparkOS, another terminal on other Linux desktops; on Windows, a new
     console window (Windows Terminal when it is the default terminal)."""
     inner = [ssh or 'ssh']
     if machine.port:
@@ -88,7 +88,7 @@ def terminal_argv(machine: Machine, remote: Optional[str] = None,
         inner.append(remote)
     if WINDOWS:
         return inner                     # started with CREATE_NEW_CONSOLE
-    for term, flag in (('konsole', '-e'), ('x-terminal-emulator', '-e'),
+    for term, flag in (('spark-terminal', '-e'), ('konsole', '-e'), ('x-terminal-emulator', '-e'),
                        ('gnome-terminal', '--'), ('xterm', '-e')):
         if shutil.which(term):
             return [term, flag] + inner
