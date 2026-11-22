@@ -140,7 +140,7 @@ fixes, template files), `uupd` (updates, daily at 04:00), `brew-setup` (Homebrew
 | Piece | On SparkOS today (Bazzite) | On the prototype (Fedora) | What it costs to own | Whose packages it still needs |
 |---|---|---|---|---|
 | **Kernel** | OGC kernel 7.3.4, signed with Universal Blue's key (Secure Boot needs the key enrolled once) | Fedora's 7.3.4, signed by Fedora: Secure Boot works with no enrollment | Nothing. Same upstream version. The RX 6800 XT and 7800X3D are fully supported by stock kernels. | Fedora |
-| **Controller drivers** | xpad, hid-playstation, hid-nintendo, hid-steam in the kernel, plus xone and 19 other out-of-tree modules | The same four in Fedora's kernel (checked with `modinfo` in the VM); no xone | xone is for Microsoft's Xbox wireless USB dongle; wired Xbox controllers use xpad, which Fedora has. Owning an out-of-tree kernel module means building it for every kernel update and signing it for Secure Boot: real, ongoing work. Only worth it if the owner uses that dongle. | Fedora; xone would need its own build |
+| **Out-of-tree kernel modules** | 20 from Universal Blue's akmods, prebuilt for the OGC kernel (xone, zenergy, ryzen_smu, v4l2loopback, the wheel drivers, vhba, kvmfr, openrazer, ...) | Built by SparkOS while the image builds: zenergy, ryzen_smu, v4l2loopback, xone, hid-fanatecff, new-lg4ff, hid-tmff2 and vhba (see [Kernel modules](#kernel-modules)). xpad, hid-playstation, hid-nintendo and hid-steam are in Fedora's kernel. | About 1 to 2 minutes per build, and 254 MB of kernel-devel in a build stage that isn't kept. A source pin to bump when a module breaks on a new kernel. Signing, if Secure Boot is ever turned on. | The modules' own projects (pinned sources), RPM Fusion's akmod-v4l2loopback, Microsoft's xone firmware |
 | **Mesa (OpenGL, Vulkan)** | Terra's build of Mesa 26.2.7 | Fedora's Mesa 26.2.7, same version | Nothing for games: RADV and RadeonSI are the same code. | Fedora |
 | **Hardware video decode (VA-API)** | Terra's Mesa decodes H.264 and H.265 on the GPU | Fedora builds Mesa with Mesa's default, patent-free codecs only: no H.264/H.265 on the GPU. Software decoding of H.264 still works (OpenH264). | Not measurable in the VM (no AMD GPU). RPM Fusion has a `mesa-va-drivers-freeworld` package that adds them; see the RPM Fusion results below. | RPM Fusion (or Terra) |
 | **FFmpeg and codecs** | negativo17's full FFmpeg | Fedora's `ffmpeg-free` + Cisco's OpenH264 (from Fedora's `fedora-cisco-openh264` repo, swapped in for Kinoite's empty `noopenh264`). Measured by encoding and decoding: **H.264, AAC and MP3 decode; H.265 does not.** | One swap: `dnf swap ffmpeg-free ffmpeg` from RPM Fusion. Measured below. | RPM Fusion (or negativo17) |
@@ -170,6 +170,91 @@ Measured in a throwaway container from the prototype image (run 3):
   14 MiB download, +53 MiB**, with nothing removed (dry run). Whether the GPU then decodes can only
   be checked on real AMD hardware.
 
+## Kernel modules
+
+Bazzite ships about 20 kernel modules that aren't in Linux itself, prebuilt by Universal Blue for
+its own kernel. Fedora's kernel has none of them. On the Fedora base, SparkOS builds the ones the
+owner uses while the image builds ([build_files/kmods.sh](../build_files/kmods.sh), steps 0b and
+4b of the [Containerfile](../Containerfile)). On Bazzite both steps do nothing.
+
+| Module | What it's for | Source (pinned) | License |
+|---|---|---|---|
+| `zenergy` | CPU power for any user (see below) | BoukeHaarsma23/zenergy `2a40d24` | GPL-2.0 |
+| `ryzen_smu` | Access to the Ryzen SMU for `ryzenadj`, `ryzen_monitor` and similar tools | amkillam/ryzen_smu `d298366` (v0.1.7) | GPL-2.0 |
+| `v4l2loopback` | Virtual camera (OBS) | RPM Fusion's `akmod-v4l2loopback` 0.15.4, built with akmods | GPL-2.0 |
+| `xone_*` | Xbox wireless dongle, and Xbox controllers over USB | OpenGamingCollective/xonedo `982cbcb` | GPL-2.0 |
+| `hid-fanatec` | Fanatec wheels and pedals | gotzl/hid-fanatecff `136cb2d` | GPL-2.0 |
+| `hid-logitech-new` | Logitech wheels (G25 to G923) with full force feedback | berarma/new-lg4ff `2092db1` | GPL-2.0 |
+| `hid-tmff-new`, `hid-tminit-new`, `usb-tminit-new` | Thrustmaster wheels (T300, T248, TX, TS-XW, ...) | Kimplul/hid-tmff2 `7a1274d` with hid-tminit `8c45472` | GPL-2.0 |
+| `vhba` | Virtual CD/DVD drives (CDEmu) | cdemu vhba-module 20260313 | GPL-2.0-or-later |
+
+These are the commits Bazzite's current image uses, except xone: Bazzite's build names a commit
+that isn't public, so SparkOS uses xonedo's `master` at `982cbcb` (xonedo is the maintained fork;
+the original dlundqvist/xone is no longer maintained).
+
+**How it's built.** A separate build stage installs `kernel-devel` for the exact kernel in the
+base image, downloads each source, checks its SHA-256 and builds it with the kernel's own build
+system (`make -C /usr/src/kernels/<kernel> M=...`); v4l2loopback goes through akmods into a kmod
+RPM. The compiler and kernel headers stay in that stage; only the modules reach the image. There
+they go to `/usr/lib/modules/<kernel>/extra/`, compressed like Fedora's own, then `depmod` runs.
+The build stops with an error if:
+
+- the kernel-devel version isn't the base's kernel, or its symbol list differs from the kernel's;
+- a download's checksum doesn't match;
+- a module's `vermagic` isn't the base's kernel, or `modinfo` can't find it after `depmod`;
+- the image's kernel changed between the two stages.
+
+So a module that stops compiling on a new Fedora kernel fails the build instead of shipping a
+system without it. The fix is then to bump that module's pin.
+
+**Also installed:** the xone dongle's firmware (extracted from Microsoft's Windows Update
+packages, checked by SHA-256), the fanatec udev rules with `linuxconsoletools` (for
+`evdev-joystick`), the vhba rule that lets the signed-in user open `/dev/vhba_ctl`, and the same
+module options as Bazzite: `hid_logitech` and `mt76x2u` blacklisted so the new drivers take the
+devices, and v4l2loopback named "OBS Virtual Camera" with `exclusive_caps=1`. `ryzen_smu`, `vhba`,
+`v4l2loopback` and the three wheel drivers load at boot, as on Bazzite; `zenergy` and xone load
+when their hardware is there. The license texts and the exact sources are in
+`/usr/share/licenses/sparkos-kmods/`, and `/usr/share/sparkos/fedora-base/kmods.txt` lists what
+was built.
+
+**Who needs zenergy and ryzen_smu.** No Spark app reads CPU power: Spark Monitor shows CPU
+temperature (k10temp) and GPU power, and Spark Bench reads only frame times. What uses them:
+
+- **MangoHud's CPU power** (`cpu_power`). Without zenergy the only source is the kernel's RAPL
+  counter, `/sys/class/powercap/intel-rapl:0/energy_uj`, which Fedora makes readable by root
+  only, so MangoHud shows no CPU watts. zenergy gives the same counters through hwmon, readable by
+  any user. The owner's MangoHud config doesn't turn `cpu_power` on today.
+- **ryzen_smu**: `ryzenadj`, `ryzen_monitor` and other tuning tools. Nothing breaks without it
+  unless one of them is used.
+
+**Not built**, and why:
+
+- `kvmfr`, `system76`, `system76-io`, `gcadapter_oc`: loaded on the owner's PC only because
+  Bazzite's own list loads them on every PC. kvmfr is for Looking Glass GPU passthrough,
+  system76 for System76 computers, gcadapter_oc for overclocking a GameCube controller adapter;
+  none is used.
+- `openrazer`, `evdi` (DisplayLink), `nct6687d`, `wl` (Broadcom Wi-Fi), `ayaneo-platform`,
+  `sc0710`, `t150`, `logitech-trueforce`: hardware the owner doesn't have. Each can be added to
+  `kmods.sh` the same way if needed.
+
+**Cost.** The module stage adds about 1 to 2 minutes to a build (measured: about 1 minute for
+the stage, including the kernel-devel download, 254 MB installed, which isn't kept). The image
+grows by under 1 MB of modules and firmware, plus `linuxconsoletools`.
+
+**Secure Boot.** It is off on the owner's PC, so the modules aren't signed. With Secure Boot on,
+Fedora's kernel locks down and refuses any module not signed by a key it trusts: these modules
+would fail to load (the system still boots). To turn it on later:
+
+1. Make a key pair once (`openssl req -new -x509 -newkey rsa:2048 -nodes -days 36500
+   -outform DER -keyout MOK.priv -out MOK.der -subj "/CN=SparkOS kernel modules/"`) and store
+   the private key as a GitHub Actions secret, never in the repository.
+2. In the build stage, mount the secret and sign each `.ko` before it's compressed:
+   `/usr/src/kernels/<kernel>/scripts/sign-file sha256 MOK.priv MOK.der module.ko`. For
+   v4l2loopback, akmods signs with the key in `/etc/pki/akmods/` when one is there.
+3. Ship `MOK.der` in the image and enroll it once per PC: `sudo mokutil --import MOK.der`,
+   choose a password, reboot, and confirm in the blue MOK manager screen. Bazzite asks for the
+   same step with Universal Blue's key.
+
 ## What still ties the prototype to someone else
 
 - **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one
@@ -179,6 +264,11 @@ Measured in a throwaway container from the prototype image (run 3):
 - **Flathub**, for every app users install. Same as today.
 - **RPM Fusion free**, for FFmpeg and Mesa video decode (H.265, and H.264/H.265 on the GPU). In the
   image since 2026-11-22.
+- **RPM Fusion free** also for `akmod-v4l2loopback`, built into a kmod package for the image's kernel.
+- **The kernel modules' own projects** (zenergy, ryzen_smu, xonedo, hid-fanatecff, new-lg4ff,
+  hid-tmff2, hid-tminit, vhba-module), as source pinned to a commit or release with a SHA-256.
+- **Microsoft**, for the Xbox wireless dongle's firmware, taken from Windows Update packages and
+  checked by SHA-256.
 
 Gone compared with today: Universal Blue (images, COPRs, akmods, `uupd`, `ujust`, Bazaar), Terra,
 negativo17, the OGC kernel, Tailscale's repository, and several smaller COPRs.
@@ -199,7 +289,8 @@ passed on Fedora unchanged. Suggested path for Release 3:
 3. **Homebrew:** owner's call: keep it with a small setup service SparkOS owns, or move
    `sparkos-dev-setup`'s tools to a Toolbox. Claude Code doesn't need it.
 4. **Small things to own:** `game-devices-udev` rules, pinned like Valve's.
-5. **Skip unless needed:** xone and the other out-of-tree kernel modules.
+5. **Kernel modules:** the ones the owner uses are built while the image builds; see
+   [Kernel modules](#kernel-modules). They still need trying on the real PC.
 6. **Before switching:** try the prototype on the real PC (games, the GPU, controllers, video
    decode on the GPU), which a VM can't test. Later boot times swapped between runs 2 and 4
    (one sample each), so time them on the real PC too.

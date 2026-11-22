@@ -23,4 +23,15 @@ through GObject introspection and does not modify it. Writing a terminal emulato
 would break programs in ways VTE already handles, the same reason SparkOS uses Mesa and Linux
 rather than its own.
 
+On the Fedora base (sparkos-fedora), SparkOS also builds kernel modules from other projects'
+source while the image builds: zenergy, ryzen_smu, xone (xonedo), hid-fanatecff, new-lg4ff,
+hid-tmff2 with hid-tminit (GPL-2.0) and vhba (GPL-2.0-or-later), plus v4l2loopback (GPL-2.0)
+from RPM Fusion's akmod package. They are unchanged except that xone's version string is filled
+in. Their license texts, and the exact source each was built from, are in
+`/usr/share/licenses/sparkos-kmods/` in the image;
+[docs/fedora-base.md](docs/fedora-base.md#kernel-modules) lists the pins. The Xbox wireless
+dongle's firmware in that image is Microsoft's, extracted unchanged from its Windows Update
+packages; it is not under an open-source license, and is redistributed the way the xone project
+and other Linux distributions do.
+
 Soot and FreeSuite are separate Wolklaw projects with their own terms.

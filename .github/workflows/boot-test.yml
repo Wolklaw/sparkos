@@ -293,6 +293,30 @@ jobs:
           $SSH 'ls /usr/lib/cups/backend/driverless && systemctl is-enabled cups.socket avahi-daemon.service bluetooth.service'
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
 
+      - name: Check the out-of-tree kernel modules
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
+        run: |
+          # Bazzite ships them prebuilt; on Fedora build_files/kmods.sh builds them for the image's
+          # kernel. The ones loaded at boot must be loaded (the VM boots without Secure Boot, like
+          # the owner's PC), and the others must load by hand.
+          $SSH 'uname -r; systemctl is-failed systemd-modules-load.service; lsmod' | tee "$WORK/kmods.txt"
+          for m in v4l2loopback vhba ryzen_smu hid_fanatec hid_logitech_new hid_tmff_new; do
+            grep -q "^$m " "$WORK/kmods.txt" || { echo "::error::$m is not loaded at boot"; exit 1; }
+          done
+          # On Fedora nothing in SparkOS's list may fail to load (Bazzite's own list has modules for
+          # other hardware, so it isn't checked there)
+          if [ "$BASE" = fedora ] && grep -qx 'failed' "$WORK/kmods.txt"; then
+            echo "::error::systemd-modules-load failed"; exit 1
+          fi
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "modprobe -a xone_dongle xone_gip_gamepad hid-tminit-new usb-tminit-new && lsmod"' | tee "$WORK/kmods-by-hand.txt"
+          for m in xone_dongle xone_gip_gamepad hid_tminit_new usb_tminit_new; do
+            grep -q "^$m " "$WORK/kmods-by-hand.txt" || { echo "::error::$m doesn't load"; exit 1; }
+          done
+          # zenergy only loads on a Ryzen it knows (the runner's CPU may not be one): check it's
+          # there and for this kernel
+          $SSH 'test "$(modinfo -F vermagic zenergy | cut -d" " -f1)" = "$(uname -r)" && echo "zenergy is for $(uname -r)"'
+          $SSH 'ls /dev/video* /dev/vhba_ctl; ls /usr/lib/firmware/ | grep -E "^(xone|xow)_dongle"'
+
       - name: Check the startup sound
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
