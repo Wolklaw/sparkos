@@ -32,7 +32,8 @@ fedora)
   # What Bazzite brought that SparkOS's scripts and the boot test use, from Fedora's own
   # repositories: ImageMagick (sparkos-theme.sh draws the wallpaper and boot splash), Ark, KDE
   # Connect, printing, scanning, libratbag (gaming mice), the gaming layer (gamescope, MangoHud,
-  # GameMode) and vulkaninfo/vainfo to check the drivers. Kinoite's other projects' apps are
+  # GameMode), vulkaninfo/vainfo to check the drivers, and xdg-terminal-exec (how Plasma and apps
+  # open the default terminal, Spark Terminal). Kinoite's other projects' apps are
   # removed by fedora-apps.sh (step 5).
   dnf_install \
     ImageMagick \
@@ -40,7 +41,7 @@ fedora)
     plasma-print-manager cups-browsed ipp-usb \
     sane-airscan sane-backends-drivers-scanners \
     libratbag-ratbagd \
-    fastfetch jq \
+    fastfetch jq xdg-terminal-exec \
     gamescope mangohud gamemode \
     vulkan-tools libva-utils
 
