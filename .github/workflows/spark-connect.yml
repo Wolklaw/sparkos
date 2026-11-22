@@ -91,8 +91,9 @@ jobs:
           cp box/key.pub box/authorized_keys
           cat > box/Containerfile <<'EOF'
           FROM registry.fedoraproject.org/fedora:latest
-          RUN dnf -y install --setopt=install_weak_deps=False systemd openssh-server sudo \
-                procps-ng iproute && dnf clean all
+          RUN dnf -y install --setopt=install_weak_deps=False systemd dbus-broker \
+                openssh-server sudo procps-ng iproute && dnf clean all \
+              && systemctl enable dbus-broker
           RUN useradd -m tester && mkdir -p /home/tester/.ssh \
                 /home/tester/.config/systemd/user/default.target.wants /var/lib/systemd/linger \
               && touch /var/lib/systemd/linger/tester
@@ -133,7 +134,14 @@ jobs:
             IdentitiesOnly yes
             UserKnownHostsFile $PWD/box/empty_known_hosts
           EOF
-          ssh -F box/ssh_config -o BatchMode=yes box 'systemctl --user is-active spark-dummy' || {
+          # the user manager starts through logind's linger; give it a moment
+          for i in $(seq 1 30); do
+            ssh -F box/ssh_config -o BatchMode=yes box \
+              'XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user is-active spark-dummy' && break
+            sleep 2
+          done
+          ssh -F box/ssh_config -o BatchMode=yes box \
+            'XDG_RUNTIME_DIR=/run/user/$(id -u) systemctl --user is-active spark-dummy' || {
             sudo podman exec sc-box journalctl -n 80 --no-pager; exit 1; }
 
       - name: End to end through the real ssh client
