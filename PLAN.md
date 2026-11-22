@@ -155,6 +155,44 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 
 **Kept on purpose:** the Linux kernel, Mesa, KDE Plasma, Wine/Proton, Soot's Firefox engine and FreeSuite's Chromium/Electron, Flathub as the source of other people's apps, Dolphin and Konsole, Sigstore signing and LVFS firmware updates. GitHub and GHCR stay for code, builds and downloads; a mirror on SparkOS's own server is the cheap insurance later.
 
+## Remote care: connector app and GestionDirecte tablet OS (owner's goal, 2026-11-21)
+Two new parts. Working names until the owner picks real ones: **Spark Connect** (the connector app) and **GD Tablet** (the tablet OS). Nothing is built yet; this section records the goal and the defaults I'd pick.
+
+**What the owner wants**
+1. **The connector app:** one place to see and troubleshoot every Linux machine that runs the owner's websites, and every GestionDirecte tablet.
+2. **The tablet OS:** an Android-compatible system for tablets that opens only GestionDirecte, connects to the connector, and lets the owner see the tablet's screen and fix it remotely.
+
+**Machines it covers today** (details in wolklaw.dev's local notes, kept out of this public repo): the OptiPlex (Caddy, Cloudflare tunnel, wolklaw.dev, the GestionDirecte portal and the owner's other services), the old laptop (failover standby with the watchdog and net monitor), and the venue laptop that runs GestionDirecte at the convention center (its OS not checked yet).
+
+**First brief:** [spark-connect](briefs/spark-connect.md), the home servers over SSH.
+
+**Defaults I'd pick**
+- **Connection model: each machine and tablet dials out to a hub; nothing listens on the internet.** The hub runs on the OptiPlex behind the existing Cloudflare tunnel (or a WireGuard endpoint), so venue networks need no open ports and no outside service is involved (independence goal). Every device has its own key, enrolled once; the connector app authenticates to the hub with the owner's key. Losing a tablet means revoking one key.
+- **Linux machines, first version: no agent, over SSH.** The OptiPlex and laptop already trust this PC's key. The connector shows, per machine: up/down, the systemd units that matter (`gestiondirecte-portal`, `cloudflared`, `caddy`, the failover units), each public URL's status, disk, memory, load, temperature, recent journal errors, and the failover/netmon state that already exists on the laptop. Actions: open a terminal, tail a log, restart one unit (always confirmed, never `cloudflared` or other services without saying which hostnames it affects). A small dial-out agent comes second, for machines outside the home network (the venue laptop).
+- **Tablets: stock Android plus our own device-owner app first, not a custom ROM.** The app is set as device owner at setup (`dpm set-device-owner`, on a factory-reset tablet), runs in lock-task (kiosk) mode, shows the venue's GestionDirecte in a full-screen WebView, and blocks everything else (no status bar, no other apps, no settings). It reports battery, Wi-Fi, app version, last page load and errors to the hub, and can reload, clear cache, update itself and reboot on command. This works on most tablets with no per-model work.
+- **Seeing the tablet's screen is the hard part.** A normal app needs a consent tap on the tablet every time it captures the screen (Android's rule), and remote taps need an accessibility service. Options, in order: (a) screen share that someone at the venue accepts, which is fine when a staff member is there; (b) keep wireless ADB on and reach it through the hub, the same way Androidbox drives phones (scrcpy-style view and control with no taps on the tablet); (c) a custom AOSP/LineageOS build where our app is a system app with silent capture rights. (c) is the only true "OS" and needs a build per tablet model, so it waits until one tablet model is chosen.
+- **The tablet shows when it is being viewed.** A visible banner on the tablet whenever the screen is being watched or controlled, because these tablets sit in client venues with client data on screen.
+- **The connector app runs on SparkOS and Windows,** built like the other Spark apps, in the house style. It's the owner's admin tool, so it's an optional Spark app (Spark Store or per-user install), not preinstalled for everyone. Owner's call.
+
+**Owner's answers (2026-11-21)**
+- **Tablets:** probably Samsung; model and count not chosen yet.
+- **Where:** the convention center only, for now.
+- **What they open:** the venue's own GestionDirecte install, not the portal.
+- **Accounts:** each tablet signs in with its department's generic account. Department heads have their own private accounts, because they can edit and see more.
+- **Screen access:** the full version, a live mirror with remote control.
+- **Hub:** the OptiPlex is the central hub for GestionDirecte.
+
+**What the answers change**
+- **Sign-in on the tablet:** the tablet starts signed in as its department's generic account. A department head taps "Sign in as me", uses their own account, and the tablet signs them out after a few idle minutes and goes back to the generic account, so a head's edit rights never stay open on a shared screen. The generic account's password is set at enrollment and never shown on the tablet.
+- **Samsung and full remote control:** no custom ROM. On Samsung, unlocking the bootloader trips Knox for good (Samsung Pay, Secure Folder and Knox features stop working) and many North American models can't be unlocked at all. So GD Tablet stays our device-owner app on Samsung's own Android, and the full mirror-with-control comes from one of these, to be tested on the first tablet:
+  1. **Wireless ADB through the hub** (the Androidbox way: scrcpy-style view and control, no taps on the tablet). The thing to test: whether it stays on after a reboot on One UI, or needs re-enabling.
+  2. **Samsung's Knox SDK** inside our app, which allows screen capture and remote input for an enrolled device-owner app without a tap each time. It runs on the tablet, but needs a free license key from Samsung, a tie to an outside company that the owner should approve first.
+  3. **Fallback:** a staff member accepts the share once per session.
+- **Buy one test tablet first** (a recent Galaxy Tab A or S on the latest One UI), prove kiosk mode, sign-in switching and remote control on it, then pick the model for the venue.
+- **The venue's GestionDirecte install** runs on the venue laptop at the convention center. Its tablets and the laptop itself dial out to the hub on the OptiPlex, so the venue laptop is the first machine that needs the small agent instead of SSH.
+
+**Order:** Spark Connect for the home Linux machines first (SSH, no new software on the servers), then the agent for the venue laptop, then the GD Tablet kiosk app with status and remote reload on one test tablet, then the full screen mirror with control.
+
 ## Risks, plainly
 - **Kernel anti-cheat games** won't run, including League of Legends and Teamfight Tactics (Riot Vanguard) and GTA Online. Windows stays for those, on a small partition or as a VM.
 - **Windows-only device tools:** 8BitDo firmware updates and Focusrite's own app. The devices themselves work, and replacements are listed in the switching guide.
