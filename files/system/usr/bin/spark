@@ -488,7 +488,7 @@ cmd_ssh() {
       if have ip; then
         say "Addresses: $(ip -4 -brief addr show scope global 2>/dev/null | awk '{print $3}' | cut -d/ -f1 | paste -sd' ')"
       fi ;;
-    on)   cmd_service sshd on; say "Connect with: ssh $USER@$(hostname)" ;;
+    on)   cmd_service sshd on; say "Connect with: ssh ${USER:-$(id -un)}@$(hostname)" ;;
     off)  cmd_service sshd off ;;
     once) run_root systemctl disable sshd; run_root systemctl start sshd ;;
     *) die "ssh takes status, on, off or once" ;;
