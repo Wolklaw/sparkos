@@ -1,0 +1,37 @@
+name: caps-lock
+# Tests sparkos-capslock, which makes Caps Lock turn on and off when pressed (like Windows): built
+# with the same flags as the image, then run on the runner's kernel against a virtual keyboard
+# with a scroll wheel (.github/scripts/caps-lock/caps_test.py). boot-test.yml checks it in the
+# real image, through QEMU's keyboard and the desktop's Caps Lock light.
+on:
+  push:
+    paths:
+      - "files/sparkos-capslock/**"
+      - ".github/scripts/caps-lock/**"
+      - ".github/workflows/caps-lock.yml"
+  pull_request:
+    paths:
+      - "files/sparkos-capslock/**"
+      - ".github/scripts/caps-lock/**"
+      - ".github/workflows/caps-lock.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build it
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq libevdev-dev pkg-config >/dev/null
+          gcc -O2 -Wall -Wextra -Werror -std=gnu11 -D_FORTIFY_SOURCE=3 -fstack-protector-strong \
+            -o "$RUNNER_TEMP/sparkos-capslock" files/sparkos-capslock/sparkos-capslock.c $(pkg-config --cflags --libs libevdev)
+
+      - name: Run it on a virtual keyboard
+        run: |
+          sudo modprobe uinput
+          ls -l /dev/uinput
+          sudo python3 .github/scripts/caps-lock/caps_test.py device "$RUNNER_TEMP/sparkos-capslock"
