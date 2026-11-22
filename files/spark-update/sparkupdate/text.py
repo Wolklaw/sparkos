@@ -132,9 +132,9 @@ EN = {
     'rollback.body': "The next time you restart, your PC starts SparkOS {old} (from {date}) "
                      "instead of {current}.\n\nNothing is deleted: your files, settings and "
                      "apps stay as they are, and {current} stays on the PC, so you can come "
-                     "back to it with Cancel roll back.\n\nAutomatic updates skip {current} "
-                     "and download the next newer version when there is one; turn them off "
-                     "in Settings if you want to stay on {old}.",
+                     "back to it with Cancel roll back.\n\nAutomatic updates will skip {current} "
+                     "and wait for the next newer version; turn them off in Settings if you "
+                     "want to stay on {old}.",
     'rollback.go': "Roll back",
     'rollback.restart_now': "Rolled back. Restart now to start SparkOS {version}?",
     'rollback.later': "Not now",
@@ -328,9 +328,8 @@ FR = {
                      "lieu de {current}.\n\nRien n'est supprimé : vos fichiers, réglages et "
                      "applications restent comme ils sont, et {current} reste sur le PC, alors "
                      "vous pouvez y revenir avec Annuler le retour.\n\nLes mises à jour "
-                     "automatiques sautent {current} et téléchargeront la prochaine version "
-                     "plus récente quand il y en aura une; désactivez-les dans Réglages si "
-                     "vous voulez rester sur {old}.",
+                     "automatiques sauteront {current} et attendront la prochaine version plus "
+                     "récente; désactivez-les dans Réglages si vous voulez rester sur {old}.",
     'rollback.go': "Revenir en arrière",
     'rollback.restart_now': "C'est fait. Redémarrer maintenant pour lancer SparkOS {version}?",
     'rollback.later': "Pas maintenant",

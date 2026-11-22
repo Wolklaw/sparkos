@@ -133,6 +133,30 @@ class Window(unittest.TestCase):
             time.sleep(0.02)
         return app
 
+    def check_rollback_dialog(self, app):
+        """The Roll back question: the buttons and title fit, the body shows whole, and the
+        dialog stays smaller than the window it sits on."""
+        import tkinter as tk
+        from sparkupdate.core import Env
+        app.env = Env(None)               # not test data, so the dialog opens
+        app.on_rollback()
+        dialog = app.dialog
+        self.assertIsNotNone(dialog)
+        try:
+            for _ in range(5):
+                app.root.update()
+            with self.subTest(dialog='rollback'):
+                self.assertEqual(clipped(dialog), [])
+                body = [w for w in dialog.winfo_children()[0].winfo_children()[0]
+                        .winfo_children() if isinstance(w, tk.Label)][0]
+                self.assertIn(text.t('rollback.body', old='@', date='@', current='@')
+                              .split('\n\n')[2][:20], body.cget('text'))
+                self.assertGreaterEqual(body.winfo_height(), body.winfo_reqheight())
+                self.assertLessEqual(dialog.winfo_height(), app.root.winfo_height())
+        finally:
+            dialog.answer('cancel')
+            app.root.update()
+
     def test_text_fits_on_every_page(self):
         for status_file, updater_on in (('rpm-ostree-staged.json', 'uupd'),
                                         ('rpm-ostree-rollback-queued.json', 'spark'),
@@ -143,6 +167,8 @@ class Window(unittest.TestCase):
                 with self.subTest(status=status_file, page=page):
                     self.assertEqual(clipped(app.root), [])
             app.show('main', glitch=False)
+            if status_file == 'rpm-ostree-none.json':
+                self.check_rollback_dialog(app)
             for key in ('status.ready', 'status.rolled_back', 'status.no_image',
                         'status.failed', 'status.flatpak', 'status.held'):
                 app.status.config(text='● ' + text.t(key, version='45.20261119.0'))
