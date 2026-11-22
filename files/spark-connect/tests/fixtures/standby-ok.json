@@ -1,0 +1,113 @@
+{
+ "probe": 1,
+ "time": 1795000000,
+ "hostname": "standby",
+ "os": "Ubuntu 24.04.3 LTS",
+ "kernel": "6.8.0-88-generic",
+ "systemd": true,
+ "uptime_s": 300000,
+ "cpus": 8,
+ "load": [
+  0.42,
+  0.38,
+  0.35
+ ],
+ "cpu_pct": 6.3,
+ "memory": {
+  "total": 16000000000,
+  "available": 11000000000,
+  "swap_total": 4000000000,
+  "swap_free": 3900000000
+ },
+ "disks": [
+  {
+   "mount": "/",
+   "size": 250000000000,
+   "used": 80000000000,
+   "free": 157000000000
+  },
+  {
+   "mount": "/boot",
+   "size": 2000000000,
+   "used": 200000000,
+   "free": 1700000000
+  }
+ ],
+ "temps": [
+  {
+   "name": "x86_pkg_temp",
+   "c": 48.0
+  },
+  {
+   "name": "coretemp Package id 0",
+   "c": 49.0
+  }
+ ],
+ "net": [
+  {
+   "iface": "eno1",
+   "rx": 900000000000,
+   "tx": 1200000000000
+  }
+ ],
+ "units": [
+  {
+   "name": "failover-watchdog",
+   "scope": "user",
+   "load": "loaded",
+   "active": "active",
+   "sub": "running",
+   "result": "success",
+   "restarts": 0,
+   "since_s": 86400,
+   "description": "failover-watchdog service",
+   "log": [
+    "2026-11-20T09:00:00-05:00 main-server failover-watchdog[812]: started"
+   ]
+  },
+  {
+   "name": "failover-netmon",
+   "scope": "user",
+   "load": "loaded",
+   "active": "active",
+   "sub": "running",
+   "result": "success",
+   "restarts": 0,
+   "since_s": 86400,
+   "description": "failover-netmon service",
+   "log": [
+    "2026-11-20T09:00:00-05:00 main-server failover-netmon[812]: started"
+   ]
+  },
+  {
+   "name": "cloudflared",
+   "scope": "user",
+   "load": "loaded",
+   "active": "inactive",
+   "sub": "dead",
+   "result": "success",
+   "restarts": 0,
+   "since_s": null,
+   "description": "cloudflared service",
+   "log": []
+  }
+ ],
+ "failed": [],
+ "tunnel": null,
+ "failover": {
+  "dir_found": true,
+  "active_unit": "user:cloudflared",
+  "active_state": "inactive",
+  "incidents": [
+   {
+    "name": "slow-20261119-1412.log",
+    "mtime": 1794950000,
+    "first_line": "slow probe: example.org took 2.1 s"
+   }
+  ],
+  "netmon": [
+   "2026-11-20T09:20:00 router ok, wan ok, dns ok, example.org 200 140 ms"
+  ]
+ },
+ "local_checks": []
+}

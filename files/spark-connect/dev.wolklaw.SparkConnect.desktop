@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Connect
+Name[fr]=Spark Connect
+GenericName=Server monitor
+GenericName[fr]=Surveillance des serveurs
+Comment=See your home servers on one screen and fix them over SSH
+Comment[fr]=Voir vos serveurs sur un seul écran et les réparer par SSH
+Exec=spark-connect
+Icon=dev.wolklaw.SparkConnect
+Terminal=false
+Categories=Network;System;Monitor;
+Keywords=server;servers;ssh;systemd;uptime;monitor;website;tunnel;failover;serveur;serveurs;surveillance;site;bascule;
+StartupWMClass=SparkConnect
+SingleMainWindow=true
