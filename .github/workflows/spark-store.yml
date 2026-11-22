@@ -38,7 +38,7 @@ jobs:
       options: --privileged          # flatpak install runs its triggers in bubblewrap
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install (the image build step)
         run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-store.sh
@@ -94,7 +94,7 @@ jobs:
     env:
       IMAGE: ghcr.io/wolklaw/sparkos:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |

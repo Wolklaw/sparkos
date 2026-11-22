@@ -25,7 +25,7 @@ jobs:
     container: registry.fedoraproject.org/fedora:latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Install (system-wide, with --deps)
         run: bash files/spark-games/install.sh --deps
@@ -61,7 +61,7 @@ jobs:
     env:
       IMAGE: ghcr.io/wolklaw/sparkos:latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Free disk space
         run: |
