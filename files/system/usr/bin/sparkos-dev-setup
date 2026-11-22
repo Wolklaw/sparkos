@@ -38,7 +38,7 @@ if [ "$want_brew" = 1 ]; then
     if [ -f /usr/share/homebrew.tar.zst ]; then   # Bazzite base: unpacked by brew-setup.service
       echo "Homebrew isn't ready yet. Log out and back in once, then run: sparkos-dev-setup --brew" >&2
     else                                          # Fedora base: no Homebrew in the image
-      echo "Homebrew isn't installed. Install it with Homebrew's installer (https://brew.sh), open a new terminal, then run: sparkos-dev-setup --brew" >&2
+      echo "Homebrew isn't installed. Set it up with: spark brew. Then open a new terminal and run: sparkos-dev-setup --brew" >&2
     fi
     exit 1
   fi
@@ -46,9 +46,9 @@ if [ "$want_brew" = 1 ]; then
   grep -E '^brew ' "$BREWFILE" | sed 's/^/  /'
   brew bundle --file="$BREWFILE"
   # Homebrew's daily update timers are off until now (00-sparkos-homebrew.preset): turn them on.
-  # (Bazzite base only; the Fedora base has no such timers: update with brew upgrade.)
+  # They ship with Bazzite only; on Fedora, Homebrew updates when you run brew upgrade.
   for timer in brew-update.timer brew-upgrade.timer; do
-    [ -f "/usr/lib/systemd/system/$timer" ] || continue
+    systemctl cat "$timer" >/dev/null 2>&1 || continue
     if ! systemctl is-enabled --quiet "$timer" 2>/dev/null; then
       echo "Turning on Homebrew's daily updates (asks for your password)..."
       pkexec systemctl enable --now brew-update.timer brew-upgrade.timer \
