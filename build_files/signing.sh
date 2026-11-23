@@ -19,9 +19,9 @@ policy=/etc/containers/policy.json
 
 echo "Signing policy for $image (key $key)"
 test -s "$key" || { echo "missing $key (the Containerfile copies cosign.pub there first)"; exit 1; }
-# Bazzite writes its own /etc/containers/policy.json (default "reject"). Fedora Kinoite has
-# none there, only the containers-common default in /usr/share (default "insecureAcceptAnything",
-# which podman and toolbox rely on for other images): start from that one.
+# Fedora Kinoite has no /etc/containers/policy.json, only the containers-common default in
+# /usr/share (default "insecureAcceptAnything", which podman and toolbox rely on for other
+# images): start from that one. Its default is changed below.
 seeded=0
 if [ ! -f "$policy" ]; then
   fedora_policy=/usr/share/containers/policy.json
@@ -36,13 +36,24 @@ python3 - "$policy" "$image" "$key" "$seeded" <<'EOF'
 import json, sys
 path, image, key, seeded = sys.argv[1:5]
 policy = json.load(open(path))
-# SparkOS's entry below applies to its image whatever the default is (the most specific scope
-# wins). Bazzite's default is "reject"; if that changes, stop and look at what else changed.
-# Fedora's own default (seeded above) accepts other images, as on any Fedora.
+# rpm-ostree and bootc refuse to check a signature (ostree-image-signed) while the policy's
+# default is "insecureAcceptAnything": updates would fail with "containers-policy.json specifies
+# a default of `insecureAcceptAnything`; refusing usage". So the default is "reject", and every
+# transport gets its own "accept anything" entry (""), which keeps podman, toolbox and distrobox
+# working with other images as before. Bazzite's policy.json is laid out the same way.
 default = policy.get("default", [{}])[0].get("type")
-allowed = {"reject", "insecureAcceptAnything"} if seeded == "1" else {"reject"}
-if default not in allowed:
-    sys.exit(f"{path}: default is {default!r}, expected {sorted(allowed)}; tell the owner (the base changed its policy)")
+if default not in {"reject", "insecureAcceptAnything"}:
+    sys.exit(f"{path}: default is {default!r}, expected reject or insecureAcceptAnything; tell the owner (the base changed its policy)")
+if default == "insecureAcceptAnything":
+    if seeded != "1":
+        sys.exit(f"{path}: the base's own policy accepts anything by default; tell the owner")
+    policy["default"] = [{"type": "reject"}]
+    accept = [{"type": "insecureAcceptAnything"}]
+    transports = policy.setdefault("transports", {})
+    for t in ("docker", "docker-daemon", "atomic", "containers-storage", "dir", "oci",
+              "oci-archive", "docker-archive", "tarball"):
+        transports.setdefault(t, {}).setdefault("", accept)
+    print("policy: default reject, each transport accepts other images")
 entry = [{"type": "sigstoreSigned", "keyPath": key, "signedIdentity": {"type": "matchRepository"}}]
 docker = policy.setdefault("transports", {}).get("docker", {})
 # SparkOS's entry last, where BlueBuild's images had it (so policy.json on machines installed
