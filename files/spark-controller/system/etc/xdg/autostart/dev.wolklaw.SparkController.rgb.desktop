@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Controller lighting
+Name[fr]=Éclairage Spark Controller
+Comment=Applies the lighting saved in Spark Controller
+Comment[fr]=Applique l'éclairage enregistré dans Spark Controller
+Exec=spark-controller --apply-rgb
+NoDisplay=true
+Terminal=false
+X-KDE-autostart-phase=2

@@ -1,0 +1,30 @@
+[Unit]
+Description=Spark Controller fan service
+Documentation=https://github.com/Wolklaw/sparkos/blob/main/briefs/spark-controller.md
+# Runs only once fan curves have been saved from the Spark Controller window
+ConditionPathExists=/etc/spark-controller/fans.json
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/spark-controller-daemon
+# Whatever way it stopped (a crash, a kill), put every fan back on its own control
+ExecStopPost=/usr/bin/spark-controller-daemon --release
+Restart=on-failure
+RestartSec=2
+# /run/spark-controller holds state.json (read by the window) and originals.json (what to give
+# back); it survives a restart so a crash can still be cleaned up
+RuntimeDirectory=spark-controller
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+# liquidctl keeps its runtime data under $XDG_RUNTIME_DIR; /run is otherwise read only here
+Environment=XDG_RUNTIME_DIR=/run/spark-controller
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/sys /run/spark-controller
+LockPersonality=yes
+RestrictRealtime=yes
+
+[Install]
+WantedBy=multi-user.target
