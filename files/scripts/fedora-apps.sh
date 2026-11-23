@@ -37,4 +37,6 @@ done
 # The removals must not have taken the platform with them
 rpm -q plasma-workspace plasma-login-manager dolphin konsole ark plasma-systemsettings \
   plasma-discover flatpak kde-connect kwin
+# nor what packages.sh installed for SparkOS that Firefox also used (H.264 in Soot)
+rpm -q mozilla-openh264
 echo "No third-party apps preinstalled as RPMs."

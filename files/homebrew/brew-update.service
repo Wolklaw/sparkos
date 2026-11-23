@@ -1,0 +1,11 @@
+# SparkOS (Fedora base): Homebrew's automatic update, under the name Bazzite gives it, so a PC that
+# had it on under Bazzite keeps it. Off until `sparkos-dev-setup --brew` (00-sparkos-homebrew.preset).
+[Unit]
+Description=Homebrew: brew update
+After=local-fs.target network-online.target
+Wants=network-online.target
+ConditionPathIsSymbolicLink=/home/linuxbrew/.linuxbrew/bin/brew
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/sparkos-brew-run update

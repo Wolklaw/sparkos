@@ -103,6 +103,16 @@ fedora)
     ncurses-term lzip unrar 7zip-standalone icoutils mtools symlinks msedit libinput-utils \
     libimobiledevice-utils libbluray-utils sbsigntools grub2-tools-extra udica python3-pip \
     yad zenity
+  # - unrar: Fedora's `unrar` is unrar-free 0.3, which can't decrypt RAR, so password-protected
+  #   RAR (which Spark Archive hands to unrar) wouldn't open. RARLAB's unrar 7, as on Bazzite,
+  #   comes from RPM Fusion nonfree. That repository is used for this one package and isn't
+  #   left on the system; the daily image build keeps unrar current.
+  dnf_install "https://mirrors.rpmfusion.org/nonfree/fedora/rpmfusion-nonfree-release-${fedora}.noarch.rpm"
+  dnf -y upgrade --setopt=rpmfusion-nonfree.includepkgs=unrar \
+    --setopt=rpmfusion-nonfree-updates.includepkgs=unrar unrar
+  dnf -y remove rpmfusion-nonfree-release
+  [ "$(rpm -q --qf '%{VENDOR}' unrar)" = "RPM Fusion" ] \
+    || { echo "unrar isn't RPM Fusion's: $(rpm -q unrar)"; exit 1; }
   # - gcc, gcc-c++, make: Bazzite has a C/C++ compiler; Rust (cargo links with cc), pip and npm
   #   packages with native parts, and Claude Code's builds need one
   dnf_install gcc gcc-c++ make
@@ -150,6 +160,9 @@ fedora)
   # Firefox-based browsers
   dnf_install libheif-freeworld pipewire-codec-aptx
   dnf_install --enablerepo=fedora-cisco-openh264 mozilla-openh264
+  # Kinoite already has it as a dependency of Firefox, so removing Firefox (fedora-apps.sh)
+  # would take it too; marking it installed on purpose keeps it
+  dnf -y mark user mozilla-openh264
 
   # Tuning Bazzite has (files/scripts/fedora-tuning.sh sets the rest up), from Fedora:
   # vkBasalt (Vulkan post-processing layer, off unless ENABLE_VKBASALT=1) and python3-pyinotify
