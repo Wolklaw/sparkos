@@ -16,8 +16,8 @@ It opens by itself at the first sign-in (later: menu > Spark Welcome).
 - **Games:** tick the launchers you use: Steam, Heroic (Epic, GOG, Amazon), Lutris (Battle.net,
   EA app, Ubisoft Connect). Your games and their licences stay in those accounts: sign in to each,
   and **Spark Games** then shows everything they installed in one library.
-- **Apps:** Discord, Signal, Spotify, OBS and others from Flathub. Services with no Linux app, such
-  as Amazon Music, are added as a menu entry that opens their web player in your browser.
+- **Apps:** Discord, Signal, Spotify, OBS and others from Flathub. Amazon Music has no Linux app,
+  so it installs Amazon's Windows app with Spark Run (about 90 MB, checked before it runs).
 - **Files from Windows:** pick the Windows drive, then the folders. Spark Welcome reads where
   Windows really keeps each one (OneDrive, or another drive), and shows each folder's Windows path
   so you can check it. It opens your drives read-only and never writes to them; it may ask for

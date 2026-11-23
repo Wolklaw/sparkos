@@ -8,7 +8,7 @@ import os
 import sys
 from typing import List, Optional
 
-from . import APP_NAME, APP_SLUG, GUIDE_URL, VERSION, apps, sources
+from . import APP_NAME, APP_SLUG, GUIDE_URL, VERSION, apps, catalog, sources
 from . import wine as winemod
 from .core import data_dir, log, setup_logging, size, state_dir
 from .errors import Problem
@@ -135,6 +135,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     do.add_argument('--folder', metavar='APP', help="open an app's C: folder")
     do.add_argument('--in', dest='run_in', metavar='APP',
                     help="run FILE (for example a runtime installer) inside an app's folder")
+    do.add_argument('--get', metavar='APP',
+                    help="install a known app (%s) unless it is installed already"
+                    % ', '.join(c.key for c in catalog.CATALOG))
     do.add_argument('--list', action='store_true', help="list installed apps")
     do.add_argument('--uninstall', metavar='APP', help="remove an app and its folder")
     do.add_argument('--set', metavar='APP', help="change an app's options (with --windows, "
@@ -186,6 +189,20 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 1
         print(f"Wine {wine.version} ready at {wine.root}"
               f"{' with Wine Mono' if wine.has_mono else ''}")
+        return 0
+
+    if args.get:
+        item = catalog.find(args.get)
+        if item is None:
+            print(f"{APP_SLUG}: no known app called {args.get!r} "
+                  f"(known: {', '.join(c.key for c in catalog.CATALOG)})", file=sys.stderr)
+            return 2
+        try:
+            got = catalog.get(item, report)
+        except apps.RunError as exc:
+            say_problem(exc.problem, item.name, window=window, install=True)
+            return 1
+        print(t('done.installed', name=got.name))
         return 0
 
     slug = args.open or args.folder or args.uninstall or args.set or args.run_in

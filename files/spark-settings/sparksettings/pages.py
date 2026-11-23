@@ -321,6 +321,7 @@ class SoundPage(Page):
     index = [("Output device", "speakers headphones dac fiio audio"),
              ("Input device", "microphone mic quadcast"),
              ("Volume", "loud quiet louder mute"),
+             ("Output sample rate", "hz khz 44100 48000 96000 192000 hi-res ultra hd amazon music dac"),
              ("Volume per app", "application stream mixer"),
              ("Test tone", "beep check speakers")]
 
@@ -347,12 +348,14 @@ class SoundPage(Page):
         if st is None:
             return
         sig = [(n.id, n.name, n.volume, n.muted, n.default) for n in st.sinks + st.sources + st.streams]
+        sig.append(sound.read_rate())
         if sig == self.sig:
             return
         self.sig = sig
         h = self.holder
         clear(h)
         self.device_box(h, _("Output"), st.sinks, True)
+        self.rate_box(h, next((n for n in st.sinks if n.default), None))
         self.device_box(h, _("Input"), st.sources, False)
         box = self.section(h, _("Volume per app"))
         if not st.streams:
@@ -391,6 +394,41 @@ class SoundPage(Page):
         if is_out:
             WolkButton(line, _("Play a test tone"), lambda n=cur: self.tone(n), self.app.font(9),
                        'ghost').pack(side='left', padx=12)
+
+    def rate_box(self, h, sink):
+        box = self.section(h, _("Output sample rate"))
+        have_rate = sound.read_rate()
+        rates = sound.device_rates(sink.name if sink else '')
+        if have_rate and have_rate not in rates:
+            rates = sorted(rates + [have_rate])
+        r = self.row(box, _("Sample rate"))
+        choices = [(_("Follow the track (default)"), '0')] + [(sound.rate_label(n), str(n)) for n in rates]
+        Choice(r, choices, str(have_rate), lambda v: self.pick_rate(int(v)), self.app.font(10),
+               40).pack(anchor='w')
+        label(box, _("Windows apps under Spark Run, such as Amazon Music Ultra HD, only offer hi-res "
+                     "when the device already runs at that rate, so pick the highest rate your DAC "
+                     "supports. A fixed rate also makes every other app play at that rate. "
+                     "Follow the track lets PipeWire switch between 44.1 and 192 kHz, but Windows "
+                     "apps then see whatever rate it is on."),
+              self.app.font(9), fg=T["muted"], wraplength=640).pack(anchor='w', pady=(6, 0))
+
+    def pick_rate(self, rate):
+        def work():
+            saved = sound.write_rate(rate)
+            return saved, saved and sound.apply_rate(rate)
+        self.app.bg(work, lambda res: self.rate_done(rate, res))
+
+    def rate_done(self, rate, res):
+        saved, applied = res or (False, False)
+        if not saved:
+            self.say(_("Could not save the sample rate."), True)
+        elif not applied:
+            self.say(_("Saved. It applies the next time PipeWire starts."))
+        elif rate:
+            self.say(_("Output set to {rate}.").format(rate=sound.rate_label(rate)))
+        else:
+            self.say(_("The output follows the track again."))
+        self.refresh_now()
 
     def pick(self, id_):
         self.app.bg(lambda: sound.set_default(id_), lambda ok: (self.say(

@@ -148,14 +148,33 @@ class CatalogTests(unittest.TestCase):
                        'Krita', 'Kdenlive', 'Blender', 'KCalc', 'Bitwarden'):
             self.assertIn(wanted, names)
         for entry in cat.all():
-            if entry.web:
+            if entry.run:
+                self.assertEqual(entry.id, f'run.{entry.run}')
+                self.assertIn(entry.run, flatpak.RUN_KEYS)
+            elif entry.web:
                 self.assertTrue(catalog.WEB_ID.match(entry.id), entry.id)
                 self.assertTrue(entry.web.startswith('https://'), entry.id)
             else:
                 self.assertTrue(catalog.FLATPAK_ID.match(entry.id), entry.id)
             self.assertTrue(entry.by and entry.blurb, entry.id)
         self.assertEqual(cat.find('org.gimp.GIMP').name, 'GIMP')
-        self.assertEqual(cat.find('web.amazon-music').web, 'https://music.amazon.ca')
+        amazon = cat.find('run.amazon-music')
+        self.assertEqual((amazon.run, amazon.web), ('amazon-music', ''))
+        self.assertEqual(amazon.label(), 'Amazon Music (Windows app, Ultra HD)')
+        self.assertEqual(amazon.label('fr'), 'Amazon Music (application Windows, Ultra HD)')
+        self.assertIn('Spark Run', amazon.text())
+        self.assertIn('Spark Run', amazon.text('fr'))
+        self.assertIsNone(cat.find('web.amazon-music'))
+
+    def test_run_apps(self):
+        """A Windows app that Spark Run installs: id run.<key> with a matching 'run' key."""
+        good = {'id': 'run.amazon-music', 'name': 'A', 'by': 'B', 'blurb': 'C',
+                'run': 'amazon-music'}
+        self.assertEqual(catalog.parse({'launchers': [good]}).launchers[0].run, 'amazon-music')
+        for bad in (dict(good, id='run.other'), dict(good, id='org.a.B'),
+                    dict(good, web='https://x.ca')):
+            with self.assertRaises(catalog.CatalogError):
+                catalog.parse({'launchers': [bad]})
 
     def test_web_apps(self):
         """Amazon Music has no Linux app: Spark Welcome adds a menu entry for its web player."""
@@ -202,6 +221,21 @@ class CatalogTests(unittest.TestCase):
 
 # ─── Flatpak ──────────────────────────────────────────────────
 
+FAKE_SPARK_RUN = '''
+import os, sys
+with open(os.environ['FAKE_SPARK_RUN_LOG'], 'a') as f:
+    f.write(' '.join(sys.argv[1:]) + '\\n')
+key = sys.argv[2]
+if key == 'fail':
+    sys.stderr.write("spark-run: Couldn't download the installer.\\n")
+    sys.exit(1)
+print('download: 50%', flush=True)
+base = os.environ['XDG_DATA_HOME']
+os.makedirs(os.path.join(base, 'applications'), exist_ok=True)
+open(os.path.join(base, 'applications', 'dev.wolklaw.SparkRun.app-' + key + '.desktop'), 'w').close()
+'''
+
+
 class FlatpakTests(unittest.TestCase):
     def test_commands(self):
         self.assertEqual(flatpak.install_cmd('com.valvesoftware.Steam'),
@@ -222,6 +256,32 @@ class FlatpakTests(unittest.TestCase):
         self.assertEqual(flatpak.error_from(['a', 'error: No remote refs found', '']),
                          'No remote refs found')
         self.assertEqual(flatpak.error_from(['a', 'last words']), 'last words')
+
+    def test_spark_run_apps(self):
+        self.assertEqual(flatpak.run_cmd('amazon-music'),
+                         ['spark-run', '--get', 'amazon-music', '--no-window'])
+        folder = tempfile.mkdtemp()
+        fake = touch(os.path.join(folder, 'fake_spark_run.py'), FAKE_SPARK_RUN.encode('utf-8'))
+        data = os.path.join(folder, 'data')
+        log_file = os.path.join(folder, 'calls.log')
+        with mock.patch.dict(os.environ, {'XDG_DATA_HOME': data, 'FAKE_SPARK_RUN_LOG': log_file,
+                                          'PYTHONIOENCODING': 'utf-8'}):
+            self.assertNotIn('run.amazon-music', flatpak.installed_ids(['no-flatpak-here']))
+            inst = flatpak.Installer(['no-flatpak-here'], spark_run=[sys.executable, fake])
+            inst.add('run.amazon-music', 'Amazon Music', run='amazon-music')
+            self.assertTrue(inst.wait(30))
+            inst.poll()
+            job = inst.jobs['run.amazon-music']
+            self.assertEqual((job.state, job.percent), (flatpak.DONE, 100))
+            self.assertIn('run.amazon-music', flatpak.installed_ids(['no-flatpak-here']))
+            bad = flatpak.Installer(['no-flatpak-here'], spark_run=[sys.executable, fake])
+            bad.add('run.fail', 'Broken', run='fail')
+            self.assertTrue(bad.wait(30))
+            self.assertEqual(bad.jobs['run.fail'].state, flatpak.FAILED)
+            self.assertIn('Couldn', bad.jobs['run.fail'].error)
+        with open(log_file) as f:
+            self.assertEqual(f.read().splitlines(),
+                             ['--get amazon-music --no-window', '--get fail --no-window'])
 
     def test_installer_queue(self):
         folder = tempfile.mkdtemp()

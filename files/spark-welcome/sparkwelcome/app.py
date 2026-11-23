@@ -331,7 +331,8 @@ class App:
 
     def install(self, entries: List[Any]) -> None:
         for entry in entries:
-            self.installer.add(entry.id, entry.label(), getattr(entry, "web", ""))
+            self.installer.add(entry.id, entry.label(), getattr(entry, "web", ""),
+                               getattr(entry, "run", ""))
         log.info("queued %s", ', '.join(e.id for e in entries))
         self.event()
         self._ensure_pump()

@@ -28,7 +28,7 @@ sys.path.insert(0, HERE)
 
 import fakewine  # noqa: E402
 import forge  # noqa: E402
-from sparkrun import apps, cli, errors, fetch, fixes, lnk, pe, sources, text  # noqa: E402
+from sparkrun import apps, catalog, cli, errors, fetch, fixes, lnk, pe, sources, text  # noqa: E402
 from sparkrun import wine as winemod  # noqa: E402
 
 try:
@@ -630,6 +630,28 @@ class FlowTests(Temp):
         with contextlib.redirect_stdout(io.StringIO()):
             self.assertEqual(cli.main(['--uninstall', 'fake', '--quiet']), 0)
         self.assertEqual(apps.all_apps(), [])
+
+    def test_catalog_get(self):
+        # the pinned installer is checked by fetch.download; here it is a forged local file
+        item = catalog.find('amazon-music')
+        self.assertEqual((item.name, item.installer.size), ("Amazon Music", 89754336))
+        self.assertTrue(item.installer.url.startswith('https://'))
+        self.assertEqual(len(item.installer.sha256), 64)
+        self.assertIsNone(catalog.find('nope'))
+        setup = self.installer()
+        with mock.patch.object(fetch, 'download', return_value=setup) as dl:
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                self.assertEqual(cli.main(['--get', 'amazon-music', '--no-window']), 0)
+            self.assertEqual(dl.call_count, 1)
+            self.assertIn('Amazon Music', out.getvalue())
+            self.assertEqual([a.slug for a in apps.all_apps()], ['amazon-music'])
+            self.assertEqual(apps.load('amazon-music').name, 'Amazon Music')
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(['--get', 'amazon-music', '--no-window']), 0)
+            self.assertEqual(dl.call_count, 1)         # already installed: nothing downloaded
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(cli.main(['--get', 'nope']), 2)
+        self.assertIn('amazon-music', err.getvalue())
 
     def test_self_test(self):
         out = io.StringIO()
