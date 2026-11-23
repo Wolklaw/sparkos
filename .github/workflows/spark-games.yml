@@ -3,7 +3,7 @@ name: spark-games
 #
 # fedora:  installs it system-wide in a plain Fedora container, runs the self-test and the unit
 #          and UI tests under Xvfb, then installs and removes it for a normal user.
-# sparkos: inside each published SparkOS image (sparkos and sparkos-fedora): the image build step as root and --self-test (what
+# sparkos: inside each published SparkOS image (ghcr.io/wolklaw/sparkos): the image build step as root and --self-test (what
 #          the boot test runs), then as a normal user with no root and no network:
 #          install.sh --user, --self-test, --uninstall, and checks nothing is left behind.
 on:
@@ -59,7 +59,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [sparkos, sparkos-fedora]     # the Bazzite and the plain Fedora Kinoite builds
+        image: [sparkos]
     permissions:
       contents: read
       packages: read

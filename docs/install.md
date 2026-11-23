@@ -63,20 +63,14 @@ space on a drive. 200 GB or more leaves room for games.
 6. **Create Account:** your name, user name and password.
 7. **Review and install:** check that the destination is the one drive you picked, then
    **Install**. When it's done, restart and take the stick out.
-8. **Secure Boot:** if a blue **"Perform MOK management"** screen appears on the first start,
-   choose **Enroll MOK > Continue > Yes**, type the password `universalblue` (Universal Blue's
-   documented key password; it lets the SparkOS kernel start with Secure Boot on), then **Reboot**.
-   It happens once. With Secure Boot off it may not appear; enroll anyway if it does.
-   - Missed it? The next start gives only 10 seconds ("Press any key to perform MOK
-     management"), and with Secure Boot on, GRUB then says "bad shim signature". To get the
-     screen back: start the USB stick, open Konsole, run
-     `sudo mokutil --import /usr/share/ublue-os/sb_pubkey.der`, type `universalblue` twice, and
-     restart without the stick.
+8. **Secure Boot** can stay on or off: SparkOS runs Fedora's kernel, signed by Fedora, so there's
+   no key to enroll. With it on, the extra kernel modules SparkOS adds (Xbox wireless adapters,
+   racing wheels, CPU power sensors) don't load yet, because they aren't signed; turn Secure Boot
+   off in the firmware if you need those.
 
 ## First start
 
-- The boot splash says "Preparing System" and **restarts the PC once** by itself the first time.
-  Then the sign-in screen, and **Spark Welcome**: your apps and game launchers, files from Windows
+- The first start takes a little longer than the next ones. Then the sign-in screen, and **Spark Welcome**: your apps and game launchers, files from Windows
   (it reads the Windows drive and never writes to it), and a check of graphics, sound, printers
   and network.
 - **Choosing Windows:** use your firmware's boot menu key and pick "Windows Boot Manager", or set

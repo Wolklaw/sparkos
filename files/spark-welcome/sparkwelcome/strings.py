@@ -35,8 +35,8 @@ EN: Dict[str, str] = {
 
     # 1. welcome
     'welcome.title': "Welcome to SparkOS",
-    'welcome.intro': "SparkOS is a Linux system for gaming and everyday use, built on Fedora "
-                     "and Bazzite. It updates itself in the background and keeps the system "
+    'welcome.intro': "SparkOS is a Linux system for gaming and everyday use, built on Fedora. "
+                     "It updates itself in the background and keeps the system "
                      "files read-only, so an update or an app can't break it.",
     'welcome.rest': "It comes with only its own apps. Everything else, from Steam to Discord, "
                     "is one click away: the next pages offer the common ones, and the Store "
@@ -270,7 +270,7 @@ FR: Dict[str, str] = {
     # 1. welcome
     'welcome.title': "Bienvenue dans SparkOS",
     'welcome.intro': "SparkOS est un système Linux pour les jeux et l'usage de tous les jours, "
-                     "construit sur Fedora et Bazzite. Il se met à jour en arrière-plan et "
+                     "construit sur Fedora. Il se met à jour en arrière-plan et "
                      "garde les fichiers du système en lecture seule, alors une mise à jour ou "
                      "une application ne peut pas le briser.",
     'welcome.rest': "Il vient seulement avec ses propres applications. Tout le reste, de Steam "

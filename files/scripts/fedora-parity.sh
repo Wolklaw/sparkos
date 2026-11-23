@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Fedora base only (Containerfile step 5, SPARKOS_BASE=fedora). What Bazzite has as loose files
-# or as packages Fedora doesn't carry, as SparkOS's own (docs/fedora-base.md, "Package parity").
+# Containerfile step 5. What Bazzite had as loose files or as packages Fedora doesn't carry, as SparkOS's own (docs/fedora-base.md, "Package parity").
 # The packages Fedora does carry are installed by build_files/packages.sh (step 4).
 #
 #   winetricks              upstream's script, pinned and checked (Fedora's package pulls in all

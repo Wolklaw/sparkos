@@ -1,31 +1,41 @@
 #!/usr/bin/env bash
-# SparkOS ships only the owner's own apps (Soot, FreeSuite, Spark Snip, Spark Media). This removes what
-# Bazzite would otherwise add on top of the platform: its first-boot Flatpak apps, its Portal
-# window at login, and menu entries left behind by apps the recipe removes. Everything removed
-# here can be installed from Spark Store.
+# Containerfile step 5. The app policy on the Fedora Kinoite base: SparkOS ships only the
+# owner's own apps. Kinoite installs a few other projects' apps as RPMs; they go. Each removal is skipped when the package isn't there, so
+# the list is safe to keep as Kinoite changes. Every app here is installable from Flathub.
+#
+# Also removed:
+#   plasma-setup        Fedora KDE's first-boot wizard; it opens before the SparkOS sign-in
+#                       even when the installer already made a user (seen in the first boot test)
+#   plasma-drkonqi      the crash reporter that sends reports to KDE's bug tracker
+#   fedora-third-party, fedora-workstation-repositories
+#                       Fedora's switch for Google Chrome, NVIDIA and Steam repositories
+#   spectacle, plasma-systemmonitor
+#                       replaced by Spark Snip and Spark Monitor, as on Bazzite
 set -oue pipefail
 
-# Bazzite's first-boot app list (Firefox, Gwenview, Okular, KCalc, Haruna, Filelight, Gear Lever,
-# Flatseal, Warehouse, ProtonUp-Qt, DistroShelf and overlay layers). Its manager still runs, for
-# the Flathub setup and Flatpak permission fixes it does, but installs nothing.
-for list in /usr/share/ublue-os/bazzite/flatpak/install; do
-  if [ -f "$list" ]; then
-    echo "--- emptying $list (was: $(tr '\n' ' ' < "$list"))"
-    : > "$list"
-  fi
+remove=()
+for pkg in firefox firefox-langpacks kwrite kate filelight kfind krdc krfb kwalletmanager5 \
+           kdebugsettings khelpcenter kmahjongg kmines kpat elisa-player dragon \
+           gwenview okular kcalc skanpage haruna plasma-welcome kcharselect kde-partitionmanager \
+           plasma-setup plasma-drkonqi fedora-third-party fedora-workstation-repositories \
+           spectacle plasma-systemmonitor; do
+  rpm -q "$pkg" >/dev/null 2>&1 && remove+=("$pkg")
 done
+if [ ${#remove[@]} -gt 0 ]; then
+  echo "--- removing: ${remove[*]}"
+  dnf -y remove "${remove[@]}"
+else
+  echo "--- none of Kinoite's third-party apps are installed as RPMs"
+fi
 
-# The Bazzite Portal that opens at every new user's first login, and its menu entries
-rm -fv /etc/skel/.config/autostart/bazzite-portal.desktop
-find /usr/share/applications -maxdepth 1 -iname '*portal*.desktop' ! -name 'org.freedesktop.*' -print -delete || true
-
-# Menu entries and autostarts for Steam, which the recipe removes
-rm -fv /etc/skel/.config/autostart/steam*.desktop
-find /usr/share/applications -maxdepth 1 -iname 'bazzite-steam*.desktop' -print -delete || true
-
-# Fail the build if a removed app is still installed
-for pkg in steam lutris waydroid kate kwrite filelight; do
+# Flatpak: Kinoite 45 configures no remote in the image; build_files/flathub.sh adds Flathub (step 6)
+# (the boot test lists the remotes the user gets).
+for pkg in "${remove[@]}"; do
   if rpm -q "$pkg" >/dev/null 2>&1; then echo "still installed: $pkg"; exit 1; fi
 done
-test ! -s /usr/share/ublue-os/bazzite/flatpak/install
-echo "No third-party apps preinstalled."
+# The removals must not have taken the platform with them
+rpm -q plasma-workspace plasma-login-manager dolphin konsole ark plasma-systemsettings \
+  plasma-discover flatpak kde-connect kwin
+# nor what packages.sh installed for SparkOS that Firefox also used (H.264 in Soot)
+rpm -q mozilla-openh264
+echo "No third-party apps preinstalled as RPMs."

@@ -5,13 +5,11 @@ name: boot-test
 # present, Spark Media, and boot/idle measurements.
 # Full run (Sundays, or by hand with "full"): everything, including the checks that have passed
 # many times (Soot/FreeSuite, printing, startup sound, Claude Code, Spark Snip, Windows-style
-# installs), so a Bazzite update that breaks one is still caught within the week.
+# installs), so a Fedora update that breaks one is still caught within the week.
 # Update test (by hand, "update_from"): installs that tag, updates it to the tested one the way
 # a PC does (signed rebase, reboot), then runs the checks on the updated system.
 #
-# build-fedora.yml calls this with image_name: sparkos-fedora, after each build of SparkOS on
-# plain Fedora Kinoite: the same checks, minus the few about Bazzite's own parts (ujust,
-# Homebrew, Bazaar), which that image doesn't have.
+# SparkOS is built on Fedora Kinoite (since 2026-11-23; on Bazzite before that).
 on:
   workflow_run:
     workflows: [build]
@@ -21,10 +19,6 @@ on:
     - cron: "0 10 * * 0" # Sundays, after the daily image build
   workflow_call:
     inputs:
-      image_name:
-        description: sparkos or sparkos-fedora
-        type: string
-        default: sparkos
       image_tag:
         type: string
         default: latest
@@ -33,11 +27,6 @@ on:
         default: false
   workflow_dispatch:
     inputs:
-      image_name:
-        description: Which image (sparkos-fedora is SparkOS on plain Fedora Kinoite)
-        type: choice
-        options: [sparkos, sparkos-fedora]
-        default: sparkos
       full:
         description: Run every check, not just the quick set
         type: boolean
@@ -58,7 +47,7 @@ on:
 concurrency:
   # One queue per branch: main's runs (after builds, Sundays) never cancel a branch test waiting
   # in line, or the other way round
-  group: boot-test-${{ inputs.image_name || 'sparkos' }}-${{ github.ref }}
+  group: boot-test-${{ github.ref }}
   cancel-in-progress: false # a newer build waits for the running test instead of killing it
 
 jobs:
@@ -71,13 +60,12 @@ jobs:
       packages: read
     env:
       # inputs.* are empty after a build (workflow_run) and on Sundays (schedule): sparkos:latest
-      REPO: ghcr.io/wolklaw/${{ inputs.image_name || 'sparkos' }}
-      IMAGE: ghcr.io/wolklaw/${{ inputs.image_name || 'sparkos' }}:${{ inputs.image_tag || 'latest' }}
-      BASE: ${{ inputs.image_name == 'sparkos-fedora' && 'fedora' || 'bazzite' }}
+      REPO: ghcr.io/wolklaw/sparkos
+      IMAGE: ghcr.io/wolklaw/sparkos:${{ inputs.image_tag || 'latest' }}
       UPDATE_FROM: ${{ inputs.update_from || '' }}
       SPARK_UPDATE_TEST: ${{ inputs.spark_update_test == true }}
       WORK: /mnt/boot-test
-      FULL: ${{ inputs.full == true || (github.event_name == 'schedule' && !inputs.image_name) }}
+      FULL: ${{ inputs.full == true || github.event_name == 'schedule' }}
     steps:
       - uses: actions/checkout@v7
 
@@ -143,7 +131,7 @@ jobs:
           password = "sparkos-boot-test"
           groups = ["wheel"]
 
-          # Bazzite ships with sshd off (SparkOS keeps that). Start it on this
+          # SparkOS ships with sshd off. Start it on this
           # test disk only, through a kernel argument.
           [customizations.kernel]
           append = "systemd.wants=sshd.service rhgb quiet"
@@ -185,9 +173,9 @@ jobs:
             -daemonize -pidfile "$WORK/qemu.pid"
           echo "QEMU started"
           mkdir -p "$WORK/shots"
-          # The first boot restarts once (Bazzite's hardware setup adds a kernel argument), and
-          # the splash of that second boot never fit the screenshots below. Watch the serial log
-          # for GRUB's second "Booting `SparkOS" and photograph the next 15 s, once a second.
+          # If the first boot restarts (it did on Bazzite, whose hardware setup added a kernel
+          # argument), watch the serial log for GRUB's second "Booting `SparkOS" and photograph the
+          # next 15 s, once a second.
           # Not a check: the pictures are for looking at the splash. Runs in the background.
           nohup bash -c '
             booted() { [ "$(grep -ac "Booting .SparkOS" "$WORK/serial.log" 2>/dev/null)" -ge 2 ]; }
@@ -306,16 +294,15 @@ jobs:
       - name: Check the out-of-tree kernel modules
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          # Bazzite ships them prebuilt; on Fedora build_files/kmods.sh builds them for the image's
+          # build_files/kmods.sh builds them for the image's
           # kernel. The ones loaded at boot must be loaded (the VM boots without Secure Boot, like
           # the owner's PC), and the others must load by hand.
           $SSH 'uname -r; systemctl is-failed systemd-modules-load.service; lsmod' | tee "$WORK/kmods.txt"
           for m in v4l2loopback vhba ryzen_smu hid_fanatec hid_logitech_new hid_tmff_new; do
             grep -q "^$m " "$WORK/kmods.txt" || { echo "::error::$m is not loaded at boot"; exit 1; }
           done
-          # On Fedora nothing in SparkOS's list may fail to load (Bazzite's own list has modules for
-          # other hardware, so it isn't checked there)
-          if [ "$BASE" = fedora ] && grep -qx 'failed' "$WORK/kmods.txt"; then
+          # Nothing in SparkOS's list may fail to load
+          if grep -qx 'failed' "$WORK/kmods.txt"; then
             echo "::error::systemd-modules-load failed"; exit 1
           fi
           $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "modprobe -a xone_dongle xone_gip_gamepad hid-tminit-new usb-tminit-new && lsmod"' | tee "$WORK/kmods-by-hand.txt"
@@ -491,10 +478,6 @@ jobs:
           $SSH 'rpm -q uupd bazzite-updater 2>&1; systemctl list-unit-files --no-legend "uupd*"; cat /usr/libexec/uupd-update 2>&1' | tee "$WORK/spark-update-uupd.txt"
           grep -q 'package uupd is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::uupd is installed"; exit 1; }
           grep -q 'package bazzite-updater is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::bazzite-updater is installed"; exit 1; }
-          # ujust exists on Bazzite only
-          if [ "$BASE" = bazzite ]; then
-            grep -q 'spark-update-now@stage.service' "$WORK/spark-update-uupd.txt" || { echo "::error::ujust update doesn't run Spark Update"; exit 1; }
-          fi
           $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"
           grep -q '^updater:   Spark Update' "$WORK/spark-update-self-test.txt"
@@ -529,24 +512,22 @@ jobs:
           grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
           grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
           # Homebrew's update timers off until sparkos-dev-setup --brew (on Fedora, SparkOS's own
-          # units with Bazzite's names); no COPR repository on
+          # units, under the names Bazzite used); no COPR repository on
           $SSH 'for t in brew-update.timer brew-upgrade.timer; do echo "$t: $(systemctl is-enabled $t 2>&1)"; done
                 echo "copr on: $(grep -l "^enabled=1" /etc/yum.repos.d/_copr* 2>/dev/null | wc -l)"' | tee "$WORK/cleanup-brew.txt"
           grep -qx 'brew-update.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-update.timer isn't installed and off"; exit 1; }
           grep -qx 'brew-upgrade.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-upgrade.timer isn't installed and off"; exit 1; }
           grep -qx 'copr on: 0' "$WORK/cleanup-brew.txt" || { echo "::error::a COPR repository is on"; exit 1; }
-          # Fedora base: SparkOS's own Homebrew shell setup (a no-op here, no Homebrew installed),
-          # the tools Bazzite brought, umu-run from Terra, and no Terra repository left behind
-          if [ "$BASE" = fedora ]; then
-            $SSH 'for f in /etc/profile.d/brew.sh /etc/profile.d/brew-bash-completion.sh /usr/share/fish/vendor_conf.d/sparkos-brew.fish; do
-                    test -f $f && echo "$f: yes" || echo "$f: no"; done
-                  bash -lc "echo brew prefix: \${HOMEBREW_PREFIX:-none}"
-                  for c in umu-run distrobox btop sensors tmux fzf cabextract; do command -v $c >/dev/null && echo "$c: yes" || echo "$c: no"; done
-                  echo "terra repos: $(dnf repolist --all 2>/dev/null | grep -ci terra)"' | tee "$WORK/fedora-tools.txt"
-            grep -qx 'brew prefix: none' "$WORK/fedora-tools.txt" || { echo "::error::Homebrew setup isn't a no-op without Homebrew"; exit 1; }
-            if grep -q ': no$' "$WORK/fedora-tools.txt"; then echo "::error::a tool is missing"; exit 1; fi
-            grep -qx 'terra repos: 0' "$WORK/fedora-tools.txt" || { echo "::error::a Terra repository is configured"; exit 1; }
-          fi
+          # SparkOS's own Homebrew shell setup (a no-op here, no Homebrew installed), the everyday
+          # tools, umu-run from Terra, and no Terra repository left behind
+          $SSH 'for f in /etc/profile.d/brew.sh /etc/profile.d/brew-bash-completion.sh /usr/share/fish/vendor_conf.d/sparkos-brew.fish; do
+                  test -f $f && echo "$f: yes" || echo "$f: no"; done
+                bash -lc "echo brew prefix: \${HOMEBREW_PREFIX:-none}"
+                for c in umu-run distrobox btop sensors tmux fzf cabextract; do command -v $c >/dev/null && echo "$c: yes" || echo "$c: no"; done
+                echo "terra repos: $(dnf repolist --all 2>/dev/null | grep -ci terra)"' | tee "$WORK/fedora-tools.txt"
+          grep -qx 'brew prefix: none' "$WORK/fedora-tools.txt" || { echo "::error::Homebrew setup isn't a no-op without Homebrew"; exit 1; }
+          if grep -q ': no$' "$WORK/fedora-tools.txt"; then echo "::error::a tool is missing"; exit 1; fi
+          grep -qx 'terra repos: 0' "$WORK/fedora-tools.txt" || { echo "::error::a Terra repository is configured"; exit 1; }
 
       - name: Check SparkOS's own AppImage handling
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -665,8 +646,7 @@ jobs:
             echo "::error::Bazzite's Portal still starts at sign-in"; exit 1
           fi
           # What stays: the platform SparkOS needs, and the owner's apps
-          STORE_RPM=$([ "$BASE" != bazzite ] || echo bazaar)
-          $SSH "rpm -q dolphin konsole plasma-systemsettings ark $STORE_RPM >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          $SSH "rpm -q dolphin konsole plasma-systemsettings ark >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -676,8 +656,7 @@ jobs:
           $SSH 'for m in application/x-ms-dos-executable application/x-msi application/vnd.appimage application/vnd.flatpak.ref application/x-rpm application/vnd.debian.binary-package; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/install-defaults.txt"
           grep -q 'application/x-ms-dos-executable -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           grep -q 'application/vnd.appimage -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
-          # Flatpak links open in Spark Store on both bases (sparkos-defaults.sh; Bazaar, which
-          # Bazzite still ships, is no longer the default since #15)
+          # Flatpak links open in Spark Store (sparkos-defaults.sh)
           STORE=dev.wolklaw.SparkStore
           grep -q "application/vnd.flatpak.ref -> $STORE.desktop" "$WORK/install-defaults.txt"
           grep -q 'application/x-rpm -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"

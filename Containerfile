@@ -1,18 +1,14 @@
 # SparkOS: the whole image, built from this file (no BlueBuild since 2026-11-20).
 #
-# Base: Bazzite (KDE Plasma, AMD/Intel GPUs, current Mesa drivers, gaming kernel).
+# Base: Fedora Kinoite (Fedora's atomic KDE Plasma image), since 2026-11-23. Bazzite was the base
+# before that; docs/fedora-base.md has what SparkOS took over from it and how the two compared.
 # Built and signed by .github/workflows/build.yml and published as ghcr.io/wolklaw/sparkos:latest.
-#
-# The same file builds the test image on plain Fedora Kinoite (ghcr.io/wolklaw/sparkos-fedora,
-# .github/workflows/build-fedora.yml), so the two never drift apart:
-#   --build-arg BASE_IMAGE=quay.io/fedora/fedora-kinoite:45 --build-arg SPARKOS_BASE=fedora
-#   --build-arg IMAGE_NAME=sparkos-fedora
 # docs/building.md explains each step.
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
 # FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
-# Run, Link, Store, Launcher, Files, Terminal and Update). Every other company's or project's app is removed, Bazzite's
-# included; people install what they want from the Store (Spark Store, or Bazaar next to it). What
+# Run, Link, Store, Launcher, Files, Terminal and Update). Every other company's or project's app is removed;
+# people install what they want from Spark Store. What
 # stays is the platform SparkOS needs to work: Plasma, Dolphin, System Settings, Ark (zip
 # support), KDE Connect, the Store, drivers, printing and scanning. Where a Spark app does the job,
 # KDE's own is removed too: Spark Monitor replaces Plasma System Monitor (and takes its shortcuts),
@@ -26,7 +22,7 @@
 # Build it locally (from the repo root, as root, with about 40 GB free):
 #   sudo podman build -t localhost/sparkos:test .
 
-ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
+ARG BASE_IMAGE=quay.io/fedora/fedora-kinoite:45
 
 # 0. sparkos-capslock, compiled on the same base so it links against the image's own libevdev.
 #    Only the program is copied into the image (step 3b); the compiler stays in this stage.
@@ -37,28 +33,23 @@ RUN --mount=type=bind,source=files/sparkos-capslock,target=/src \
     gcc -O2 -Wall -Wextra -Werror -std=gnu11 -D_FORTIFY_SOURCE=3 -fstack-protector-strong \
         -o /sparkos-capslock /src/sparkos-capslock.c $(pkg-config --cflags --libs libevdev)
 
-# 0b. Fedora base only: the out-of-tree kernel modules Bazzite ships prebuilt for its own kernel
-#     (zenergy, ryzen_smu, v4l2loopback, xone, the racing wheel drivers, vhba), compiled here
-#     against kernel-devel of the exact kernel in the base, from pinned, checksummed sources
-#     (build_files/kmods.sh). Step 4b puts them in the image. On Bazzite this stage is empty.
+# 0b. The out-of-tree kernel modules Fedora's kernel doesn't have (zenergy, ryzen_smu,
+#     v4l2loopback, xone, the racing wheel drivers, vhba), compiled here against kernel-devel of
+#     the exact kernel in the base, from pinned, checksummed sources (build_files/kmods.sh).
+#     Step 4b puts them in the image.
 FROM ${BASE_IMAGE} AS kmods-build
-ARG SPARKOS_BASE=bazzite
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
-    /tmp/build_files/kmods.sh build "${SPARKOS_BASE}"
+    /tmp/build_files/kmods.sh build
 
 FROM ${BASE_IMAGE}
 
-ARG BASE_IMAGE=ghcr.io/ublue-os/bazzite:stable
+ARG BASE_IMAGE=quay.io/fedora/fedora-kinoite:45
 # Where the scripts find the repo's files/ folder (they read CONFIG_DIRECTORY). It's a bind mount:
 # nothing in files/ is copied into the image except what the steps install.
 ARG CONFIG_DIRECTORY=/tmp/files
 ARG IMAGE_REGISTRY=ghcr.io/wolklaw
 ARG IMAGE_NAME=sparkos
-# Which base this build is on: bazzite (the real SparkOS) or fedora (sparkos-fedora, the test
-# image on plain Fedora Kinoite). Steps 4 and 5 differ by base; everything else is shared.
-# (An ARG, so the scripts see it while building but it isn't set in the finished system.)
-ARG SPARKOS_BASE=bazzite
 
 # 1. The public key that signed updates are checked against, named after the image.
 COPY cosign.pub /etc/pki/containers/${IMAGE_NAME}.pub
@@ -77,38 +68,35 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 #     sparkos-capslock@<device>.service for each physical keyboard (80-sparkos-capslock.rules).
 COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
 
-# 4. Packages (build_files/packages.sh lists each one and why). On Bazzite: remove the other
-#    projects' apps it ships, Tailscale and Universal Blue's updater. On Fedora: add what Bazzite
+# 4. Packages (build_files/packages.sh lists each one and why): what Bazzite
 #    brought (printing, scanning, ImageMagick, the gaming layer, distrobox, btop, tmux and other
 #    tools, compilers, ROCm OpenCL, fonts, greenboot, umu-run from Terra for this one package;
 #    docs/fedora-base.md "Package parity") and RPM Fusion free's FFmpeg and Mesa video
-#    decode, so H.264/H.265 play. Then, on both, the SparkOS list (Claude Code's
+#    decode, so H.264/H.265 play. Then the SparkOS list (Claude Code's
 #    sandbox, kdialog, FUSE 2 for AppImages, Inter, the libraries Androidbox needs).
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
-    /tmp/build_files/packages.sh "${SPARKOS_BASE}"
+    /tmp/build_files/packages.sh
 
-# 4b. Fedora base only: the kernel modules from step 0b into /usr/lib/modules/<kernel>/extra, with
-#     their firmware, udev rules and boot-time loading, then depmod. Stops the build if the
-#     image's kernel isn't the one they were built for. Nothing happens on Bazzite.
+# 4b. The kernel modules from step 0b into /usr/lib/modules/<kernel>/extra, with their firmware,
+#     udev rules and boot-time loading, then depmod. Stops the build if the image's kernel isn't
+#     the one they were built for.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=bind,from=kmods-build,source=/kmods,target=/tmp/kmods \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
-    /tmp/build_files/kmods.sh install "${SPARKOS_BASE}"
+    /tmp/build_files/kmods.sh install
 
 # 5. SparkOS's own scripts (files/scripts), in this order:
-#    "a|b" means a on Bazzite, b on Fedora; "-" is nothing (build_files/run-scripts.sh)
 #    - identity: shows "SparkOS" as the system name
-#    - apps: no preinstalled third-party apps (Bazzite: empties its first-boot list, drops the
-#      Portal; Fedora: removes Kinoite's RPM apps)
-#    - fedora-gaming (Fedora only): the device rules Fedora doesn't package (controllers,
+#    - apps: no preinstalled third-party apps (removes Kinoite's RPM apps and first-boot wizard)
+#    - fedora-gaming: the device rules Fedora doesn't package (controllers,
 #      not-a-joystick list, wheels; files/device-rules), uinput, gaming sysctls
-#    - fedora-tuning (Fedora only): Bazzite's system tuning as SparkOS config (network sysctls,
+#    - fedora-tuning: Bazzite's system tuning as SparkOS config (network sysctls,
 #      zram, I/O schedulers, btrfs reclaim, stop timeouts, memlock, ds-inhibit, VRAM booster)
-#    - fedora-homebrew (Fedora only): Homebrew on PATH and completion in bash, zsh and fish,
-#      when Homebrew is installed (Bazzite's own files do this there)
-#    - fedora-parity (Fedora only): what Bazzite has that Fedora doesn't package, as SparkOS's
+#    - fedora-homebrew: Homebrew on PATH and completion in bash, zsh and fish, when Homebrew
+#      is installed
+#    - fedora-parity: what Bazzite had that Fedora doesn't package, as SparkOS's
 #      own (winetricks, the Nerd Font symbols, ls-iommu, boot-windows, protontricks), and
 #      greenboot's settings (back to the previous system after three failed boots)
 #    - soot, freesuite: the browser and the office apps, latest releases
@@ -129,12 +117,12 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     --mount=type=cache,dst=/var/cache/rpm-ostree,id=rpm-ostree-cache-sparkos,sharing=locked \
     /tmp/build_files/run-scripts.sh \
-        "sparkos-identity.sh|fedora-identity.sh" \
-        "sparkos-apps.sh|fedora-apps.sh" \
-        "-|fedora-gaming.sh" \
-        "-|fedora-tuning.sh" \
-        "-|fedora-homebrew.sh" \
-        "-|fedora-parity.sh" \
+        sparkos-identity.sh \
+        sparkos-apps.sh \
+        fedora-gaming.sh \
+        fedora-tuning.sh \
+        fedora-homebrew.sh \
+        fedora-parity.sh \
         soot.sh \
         freesuite.sh \
         spark-snip.sh \
@@ -178,7 +166,7 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 ARG BUILD_DATE=unknown
 ARG REVISION=unknown
 ARG BASE_DIGEST=unknown
-ARG DESCRIPTION="SparkOS, a desktop for gaming and everyday work, built on Bazzite."
+ARG DESCRIPTION="SparkOS, a desktop for gaming and everyday work, built on Fedora Kinoite."
 LABEL org.opencontainers.image.title="${IMAGE_NAME}" \
       org.opencontainers.image.description="${DESCRIPTION}" \
       org.opencontainers.image.source="https://github.com/Wolklaw/sparkos" \

@@ -5,8 +5,9 @@
       Boots the installer ISO from a USB stick, types test-only kernel arguments at GRUB
       (a root shell on ttyS0), runs run-in-live.sh from the KSTEST disk, waits for it.
   vm.py boot --work W --layout L [--sb] [--expect-digest sha256:...]
-      Boots the installed disks without the ISO, enrolls the Secure Boot key in MokManager
-      the way the installer tells people to, waits for the installed system's report.
+      Boots the installed disks without the ISO and waits for the installed system's report.
+      SparkOS runs Fedora's kernel, signed by Fedora, so Secure Boot needs no key enrollment;
+      a MokManager screen is a failure (the MokManager driver below stays for that check).
 
 Screens are read with tesseract (GRUB, MokManager). Results go to W/results.tsv.
 """
@@ -22,7 +23,7 @@ import time
 
 from PIL import Image, ImageOps, ImageStat
 
-MOK_PASSWORD = "universalblue"  # the installer's own enrollment password (secureboot-enroll-key.ks)
+MOK_PASSWORD = "universalblue"  # Bazzite-era installers' enrollment password (until 2026-11-23)
 
 
 def log(msg):
@@ -386,8 +387,10 @@ def boot(a):
                 state, since = nxt, time.time()
                 time.sleep(2)
                 continue
-            if state == "wait" and time.time() - since > 300:
-                log("no MokManager screen in 5 min; going on without it")
+            # No key to enroll (Fedora's signed kernel): MokManager would show in the first
+            # minute if an old installer still asked for it
+            if state == "wait" and time.time() - since > 90:
+                log("no MokManager screen; none expected")
                 state = "done"
         if time.time() - last_shot > 45:
             vm.shot("booting")
@@ -398,10 +401,8 @@ def boot(a):
     signin = vm.ocr("sign-in-screen", keep=True)
     vm.stop(240)
     W = a.work
-    if a.sb or mok_seen:
-        result(W, "PASS" if mok_seen and state == "done" else ("FAIL" if a.sb else "WARN"),
-               "MokManager: Secure Boot key enrolled with the installer's password",
-               "Enroll MOK > Continue > Yes > password > Reboot" if mok_seen else "MokManager screen not seen")
+    result(W, "FAIL" if mok_seen else "PASS", "No Secure Boot key to enroll (Fedora's signed kernel)",
+           "MokManager asked to enroll a key" if mok_seen else "no MokManager screen")
     if not done:
         result(W, "FAIL", "Installed SparkOS boots without the ISO", "no report from the installed system in 25 min")
         return 1

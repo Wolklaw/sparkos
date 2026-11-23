@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Fedora base only (Containerfile step 5, SPARKOS_BASE=fedora). Homebrew works in every shell
-# once it's installed in /home/linuxbrew/.linuxbrew (sources: files/homebrew).
+# Containerfile step 5. Homebrew works in every shell once it's installed in /home/linuxbrew/.linuxbrew (sources: files/homebrew).
 #
 # On Bazzite, Homebrew's shell setup comes from Universal Blue: /etc/profile.d/brew.sh and
 # brew-bash-completion.sh (in the image, but no package owns them) and

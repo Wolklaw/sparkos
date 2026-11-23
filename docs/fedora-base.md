@@ -1,11 +1,45 @@
-# SparkOS on plain Fedora: prototype results
+# SparkOS on Fedora Kinoite
 
-SparkOS is built on Bazzite today. This prototype builds the same SparkOS layer on Fedora's own
-atomic KDE image, Fedora Kinoite 45, to find out what moving off Bazzite (Release 3 in
-[PLAN.md](../PLAN.md)) would cost. It's a separate test image, `ghcr.io/wolklaw/sparkos-fedora`.
+**Since 2026-11-23, SparkOS is built only on Fedora Kinoite 45.** The Bazzite build is gone:
+one image, `ghcr.io/wolklaw/sparkos`, from the [Containerfile](../Containerfile)
+([building.md](building.md)). The test image `ghcr.io/wolklaw/sparkos-fedora` is no longer built;
+PCs that followed it move to `ghcr.io/wolklaw/sparkos` (Spark Update still recognises the old name
+until they do). The scripts that were Fedora-only took the plain names: `fedora-identity.sh` is now
+`sparkos-identity.sh` and `fedora-apps.sh` is now `sparkos-apps.sh`.
+
+## On the real PC (2026-11-23)
+
+The owner's PC (Radeon RX 6800 XT, Ryzen 7 7800X3D, dual boot with Windows 11, Secure Boot off)
+ran the Fedora image, kernel 7.3.4-300.fc45, compared with its last Bazzite boot (kernel 7.3.4-ogc10.1):
+
+| | Bazzite | Fedora |
+|---|---|---|
+| Failed system or user units | none | none |
+| Boot, userspace (`systemd-analyze`) | 12.5 s | 9.1 s (14.8 s on the first boot, which built the man page index once) |
+| Errors in the boot log | UDisks2, Avahi and BlueZ activation errors, plus Bluetooth L2CAP | Bluetooth L2CAP only (the same on both) |
+| GPU video (`vainfo`, Mesa 26.2.7 radeonsi) | not measured that day | H.264, HEVC and HEVC Main10 decode and encode, VP9 and AV1 decode. A real H.265 file decoded with GStreamer's `vah265dec`, and FFmpeg decoded and encoded HEVC on the GPU |
+| Vulkan (RADV), OpenGL (radeonsi), `vkcube` with MangoHud | worked in daily use | works |
+| Kernel modules | Universal Blue's | SparkOS's own, all loaded: zenergy (CPU power reads), ryzen_smu, v4l2loopback, vhba, hid_fanatec, hid_logitech_new, hid_tmff_new, ntsync, uinput |
+| Device rules (not-a-joystick list, OpenRGB, Steam Input, SteamVR, vhba, Fanatec) | from Bazzite's packages | there |
+| Audio (USB DAC, USB mic, webcam mic, HDMI), wired network, Flatpak Steam, Heroic, Lutris, Discord | worked in daily use | work |
+| Self-tests of the 15 Spark apps (Snip, Media with H.264, H.265, AAC and MP3, Welcome, Games, Monitor, Files, Edit, Calc, Archive, Scan, Run, Link, Store, Terminal, Update) | not run that day | pass |
+
+Two things seen on Fedora that weren't on Bazzite, neither a regression:
+
+- **GameMode** (`gamemoded -t`) passes everything except switching the CPU governor, which stays
+  on powersave when run from a terminal. Bazzite had no GameMode at all. Not yet looked into.
+- **Secure Boot.** Fedora's kernel is signed by Fedora, so Secure Boot needs no key enrollment and
+  the installer no longer asks for one. The kernel modules SparkOS builds aren't signed yet: with
+  Secure Boot on they don't load (the system still boots). See [Secure Boot](#kernel-modules) under
+  Kernel modules.
+
+The rest of this page is the prototype record from before the switch, kept as it was written; file
+names in it are the old ones.
+
+## Prototype results (2026-11-20 to 2026-11-22)
 
 **Since 2026-11-22 it's built from the same Containerfile as SparkOS** (see
-[building.md, The Fedora build](building.md#the-fedora-build)), every time main's image builds and
+[building.md](building.md)), every time main's image builds and
 every day, and booted with the same boot test. Before that it had its own BlueBuild recipe and its
 own copy of the checks, which fell behind main (it missed the icon theme, the Caps Lock fix, the new
 boot splash and the sign-in screen change). Two of the gaps below are fixed by that change:

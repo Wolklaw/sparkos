@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 # spark: SparkOS's own system commands, in place of Universal Blue's `ujust` (which plain Fedora
-# doesn't have). Plain bash, no `just`. Works on both bases (Bazzite and Fedora Kinoite).
+# doesn't have). Plain bash, no `just`. Built for Fedora Kinoite, SparkOS's base.
 #
 #   spark help                 list the commands
 #   spark help COMMAND         what one command does
@@ -99,7 +99,7 @@ need_terminal() { [ -t 0 ] || [ "$DRY_RUN" = 1 ] || die "$1 needs a terminal (it
 # One field of /etc/os-release, e.g. os_field VERSION_ID
 os_field() { sed -n "s/^$1=//p" /etc/os-release 2>/dev/null | head -1 | sed -E 's/^"(.*)"$/\1/'; }
 
-# The booted image, e.g. ostree-image-signed:docker://ghcr.io/wolklaw/sparkos-fedora:latest
+# The booted image, e.g. ostree-image-signed:docker://ghcr.io/wolklaw/sparkos:latest
 booted_image_ref() {
   [ -e /run/ostree-booted ] || return 0
   rpm-ostree status --json --booted 2>/dev/null \
@@ -573,9 +573,8 @@ BREW_INSTALLER_COMMIT=c9c975046f78e6e6d662deb801bd461ebd6a54ed
 BREW_INSTALLER_SHA256=8fd2f1a5287a7c2e3d7362924c677edcc04c5a0e16448c77132d056bc88cf1ed
 BREW_PREFIX=/home/linuxbrew/.linuxbrew
 HELP[brew]="Homebrew installs command-line tools into /home/linuxbrew, for your user, without changing
-the system. On Bazzite it ships in the image and this only unpacks it; on Fedora this downloads
-Homebrew's official installer (pinned to commit ${BREW_INSTALLER_COMMIT:0:7} and checked), which
-asks for your password once to make /home/linuxbrew. Then: sparkos-dev-setup --brew installs
+the system. This downloads Homebrew's official installer (pinned to commit
+${BREW_INSTALLER_COMMIT:0:7} and checked), which asks for your password once to make /home/linuxbrew. Then: sparkos-dev-setup --brew installs
 SparkOS's developer tools from it."
 cmd_brew() {
   if [ -x "$BREW_PREFIX/bin/brew" ]; then

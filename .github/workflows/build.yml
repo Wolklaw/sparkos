@@ -1,9 +1,7 @@
 name: build
 # Builds SparkOS from the Containerfile, signs it with SparkOS's key and publishes it to
-# ghcr.io/wolklaw/sparkos. docs/building.md explains each step.
-#
-# build-fedora.yml calls this same workflow with base: fedora, which builds the same Containerfile
-# on Fedora Kinoite and publishes ghcr.io/wolklaw/sparkos-fedora with the same tags and signing.
+# ghcr.io/wolklaw/sparkos. docs/building.md explains each step. The base is Fedora Kinoite
+# (the Containerfile's BASE_IMAGE), pulled fresh on every build.
 #
 # Tags (the same ones BlueBuild used, so nothing that reads them changes):
 #   main (push, the daily schedule, or Run workflow): <commit>-45, YYYYMMDD-45, YYYYMMDD, 45, latest
@@ -13,7 +11,7 @@ name: build
 # included, move to it. A PC never sees a latest whose signature isn't there yet.
 on:
   schedule:
-    - cron: "00 06 * * *" # 06:00 UTC every day, after Bazzite's own images are built
+    - cron: "00 06 * * *" # 06:00 UTC every day, so Fedora's updates land within a day
   push:
     paths-ignore: # don't rebuild if only docs or the test/inventory workflows changed
       - "**.md"
@@ -22,21 +20,10 @@ on:
       - ".github/workflows/installer-iso.yml"
       - ".github/workflows/inspect.yml"
       - ".github/workflows/spark-*.yml"
-      - ".github/workflows/build-fedora.yml"
-      - "files/scripts/fedora-*.sh"
       - "installer/**"
   pull_request:
   workflow_dispatch:
   workflow_call:
-    inputs:
-      base:
-        description: "bazzite (ghcr.io/wolklaw/sparkos) or fedora (ghcr.io/wolklaw/sparkos-fedora)"
-        type: string
-        default: bazzite
-      base_image:
-        description: "The image to build on, when not the Containerfile's BASE_IMAGE (Bazzite)"
-        type: string
-        default: ""
     outputs:
       tag:
         description: "The commit or branch tag that was pushed and signed (empty for a pull request)"
@@ -47,20 +34,16 @@ on:
 
 concurrency:
   # Pull requests queue by their branch, so a PR check never cancels or delays main's build.
-  # One group per base, and not named after the calling workflow, so build-fedora.yml's own
-  # group never waits on this one.
-  group: image-${{ inputs.base || 'bazzite' }}-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || github.ref }}
+  group: image-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || github.ref }}
   cancel-in-progress: true
 
 env:
-  SPARKOS_BASE: ${{ inputs.base || 'bazzite' }}
-  IMAGE_NAME: ${{ inputs.base == 'fedora' && 'sparkos-fedora' || 'sparkos' }}
-  IMAGE_REPO: ghcr.io/wolklaw/${{ inputs.base == 'fedora' && 'sparkos-fedora' || 'sparkos' }}
-  BASE_OVERRIDE: ${{ inputs.base_image }}
+  IMAGE_NAME: sparkos
+  IMAGE_REPO: ghcr.io/wolklaw/sparkos
 
 jobs:
   build:
-    name: Build, sign and publish (${{ inputs.base || 'bazzite' }})
+    name: Build, sign and publish
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
@@ -83,8 +66,7 @@ jobs:
       - name: Find the base
         id: base
         run: |
-          case "$SPARKOS_BASE" in bazzite|fedora) ;; *) echo "::error::base is '$SPARKOS_BASE' (bazzite or fedora)"; exit 1 ;; esac
-          BASE=${BASE_OVERRIDE:-$(sed -n 's/^ARG BASE_IMAGE=//p' Containerfile | head -1)}
+          BASE=$(sed -n 's/^ARG BASE_IMAGE=//p' Containerfile | head -1)
           test -n "$BASE"
           for i in 1 2 3 4 5; do
             DIGEST=$(skopeo inspect --format '{{.Digest}}' "docker://$BASE") && break
@@ -100,7 +82,6 @@ jobs:
         env:
           BASE: ${{ steps.base.outputs.name }}
           BASE_DIGEST: ${{ steps.base.outputs.digest }}
-          DESCRIPTION: ${{ inputs.base == 'fedora' && 'SparkOS on plain Fedora Kinoite (test image, built from the same Containerfile as SparkOS).' || '' }}
         run: |
           # Pulled by digest, so the base is exactly the one recorded in the labels
           for i in 1 2 3 4 5; do sudo podman pull -q "${BASE%:*}@$BASE_DIGEST" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
@@ -108,9 +89,7 @@ jobs:
             --file Containerfile \
             --build-arg BASE_IMAGE="${BASE%:*}@$BASE_DIGEST" \
             --build-arg BASE_DIGEST="$BASE_DIGEST" \
-            --build-arg SPARKOS_BASE="$SPARKOS_BASE" \
             --build-arg IMAGE_NAME="$IMAGE_NAME" \
-            ${DESCRIPTION:+--build-arg DESCRIPTION="$DESCRIPTION"} \
             --build-arg REVISION="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             --tag localhost/sparkos:build \
