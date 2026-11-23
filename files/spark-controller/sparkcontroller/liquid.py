@@ -5,7 +5,9 @@ liquidctl is optional at run time: without it, nothing here finds a device. The 
 parameter so the tests can hand in fake devices; no test touches real USB.
 """
 
+import os
 import re
+import tempfile
 from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple
 
 from .log import log
@@ -17,12 +19,21 @@ PUMP_MIN_DUTY = 50
 RELEASE_DUTY = 60
 
 
+def _runtime_dir() -> None:
+    """liquidctl refuses to load when it has nowhere to keep runtime data: no XDG_RUNTIME_DIR
+    (a root service, a build container) and no /var/run. Point it at a temp folder then."""
+    if not os.environ.get("XDG_RUNTIME_DIR") and not os.path.isdir("/var/run"):
+        os.environ["XDG_RUNTIME_DIR"] = tempfile.gettempdir()
+
+
 def default_finder() -> Iterable[Any]:
+    _runtime_dir()
     from liquidctl.driver import find_liquidctl_devices   # imported late: it's optional
     return find_liquidctl_devices()
 
 
 def library_version() -> Optional[str]:
+    _runtime_dir()
     try:
         import liquidctl
         return getattr(liquidctl, "__version__", None) or "installed"

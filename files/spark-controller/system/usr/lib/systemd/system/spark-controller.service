@@ -16,6 +16,8 @@ RestartSec=2
 RuntimeDirectory=spark-controller
 RuntimeDirectoryMode=0755
 RuntimeDirectoryPreserve=yes
+# liquidctl keeps its runtime data under $XDG_RUNTIME_DIR; /run is otherwise read only here
+Environment=XDG_RUNTIME_DIR=/run/spark-controller
 NoNewPrivileges=yes
 PrivateTmp=yes
 ProtectHome=yes

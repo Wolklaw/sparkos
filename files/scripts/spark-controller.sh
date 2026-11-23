@@ -28,7 +28,7 @@ grep -qx 'nct6775' /usr/lib/modules-load.d/sparkos-nct6775.conf
 # The helper's path in the polkit action is what lets pkexec use it
 grep -q 'exec.path">/usr/libexec/spark-controller-helper<' \
   /usr/share/polkit-1/actions/dev.wolklaw.SparkController.policy
-python3 -c 'import liquidctl' || { echo "python3-liquidctl isn't installed"; exit 1; }
+XDG_RUNTIME_DIR="$(mktemp -d)" python3 -c 'import liquidctl' || { echo "python3-liquidctl isn't installed"; exit 1; }
 test -x /usr/bin/openrgb
 command -v fwupdmgr >/dev/null
 
