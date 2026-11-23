@@ -360,6 +360,10 @@ class StoresView(tk.Frame):
             if active:
                 WolkButton(row, tr('job_cancel'), lambda j=job: jobs.cancel(j['id']), font(8),
                            variant="danger", padx=px(10), pady=px(3)).pack(side="left")
+            elif have and launchers.native(slug):
+                WolkButton(row, tr('launcher_remove'), lambda s=slug: self.remove_native(s),
+                           font(8), variant="danger", padx=px(10),
+                           pady=px(3)).pack(side="left")
             elif not have:
                 WolkButton(row, tr('launcher_add'), lambda s=slug: self.add_launcher(s),
                            font(8), variant="primary", padx=px(10),
@@ -446,12 +450,20 @@ class StoresView(tk.Frame):
     # launchers
     def add_launcher(self, slug: str):
         name = launchers.LAUNCHERS[slug]['name']
-        if not messagebox.askyesno(tr('launcher_add'), tr('launcher_add_confirm', name=name),
-                                   parent=self):
+        ask = 'launcher_add_confirm_native' if launchers.native(slug) else 'launcher_add_confirm'
+        if not messagebox.askyesno(tr('launcher_add'), tr(ask, name=name), parent=self):
             return
         jobs.spawn({'kind': 'launcher', 'store': slug, 'key': f'{slug}:launcher',
                     'title': name, 'path': launchers.prefix_dir(slug)})
         self.rebuild()
+
+    def remove_native(self, slug: str):
+        name = launchers.LAUNCHERS[slug]['name']
+        if messagebox.askyesno(tr('launcher_remove'), tr('launcher_remove_native_confirm',
+                                                         name=name), parent=self):
+            launchers.remove(slug)
+            self.app.rescan()
+            self.rebuild()
 
     def use_lutris(self, item: Dict[str, str]):
         if messagebox.askyesno(tr('launcher_use_lutris'), tr('launcher_lutris_confirm',

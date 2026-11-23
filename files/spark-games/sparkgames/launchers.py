@@ -1,4 +1,5 @@
-"""Battle.net, EA, Ubisoft Connect and Rockstar launchers, run by Spark Games through umu-run.
+"""Battle.net, EA, Ubisoft Connect and Rockstar launchers, run by Spark Games through umu-run,
+and Mojang's own Linux Minecraft Launcher.
 
 "Add a launcher" downloads the vendor's installer, runs it in its own Wine prefix under
 ~/.local/share/spark-games/prefixes/<launcher>, and when the launcher's program shows up there
@@ -8,6 +9,11 @@ The installers can't be pinned to a SHA-256: each vendor replaces the file at th
 whenever it updates, so any pin would fail within weeks. What Spark Games checks instead: HTTPS
 only (also after every redirect), a host allowlist, a plausible size, a Windows program header
 ("MZ"), and it logs the SHA-256 of what it ran. The README says so.
+
+The Minecraft Launcher is native ("native": True): its download is a .tar.gz holding one Linux
+program, unpacked into ~/.local/share/spark-games/minecraft-launcher. No Wine, no installer window.
+It gets no tile of its own: minecraft.py shows "Minecraft: Java Edition" and starts this program.
+Its worlds and settings stay in ~/.minecraft, as with any copy of the launcher.
 
 umu-protonfixes has no entry for these launchers, so they run with a placeholder GAMEID
 (umu-<launcher>), which means no launcher-specific fixes.
@@ -19,6 +25,7 @@ import re
 import shutil
 import sqlite3
 import subprocess
+import tarfile
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -61,6 +68,13 @@ LAUNCHERS: Dict[str, Dict[str, Any]] = {
         'hosts': ('rockstargames.com',),
         'exes': ('drive_c/Program Files/Rockstar Games/Launcher/Launcher.exe',),
         'lutris': ('rockstar-games-launcher', 'rockstar-launcher', 'rockstar')},
+    'minecraft': {
+        'name': 'Minecraft Launcher',
+        'url': 'https://launcher.mojang.com/download/Minecraft.tar.gz',
+        'hosts': ('mojang.com', 'minecraft.net'),
+        'native': True, 'header': b'\x1f\x8b', 'ext': '.tar.gz',
+        'exes': ('minecraft-launcher/minecraft-launcher',),
+        'lutris': ()},
 }
 assert tuple(LAUNCHERS) == ADDED_LAUNCHERS
 
@@ -90,7 +104,14 @@ class _Redirects(urllib.request.HTTPRedirectHandler):
         return super().redirect_request(req, fp, code, msg, headers, newurl)
 
 
+def native(slug: str) -> bool:
+    return bool(LAUNCHERS[slug].get('native'))
+
+
 def prefix_dir(slug: str) -> str:
+    """The launcher's Wine prefix, or for a native launcher the folder its program is in."""
+    if native(slug):
+        return os.path.join(data_dir(), f'{slug}-launcher')
     return os.path.join(data_dir(), 'prefixes', slug)
 
 
@@ -103,7 +124,7 @@ def download_installer(slug: str, dest_dir: str,
     if not host_allowed(slug, url):
         raise InstallerError('host', urllib.parse.urlsplit(url).hostname or '')
     private_dir(dest_dir)
-    target = os.path.join(dest_dir, f'{slug}-installer.exe')
+    target = os.path.join(dest_dir, f"{slug}-installer{LAUNCHERS[slug].get('ext', '.exe')}")
     part = target + '.part'
     opener = urllib.request.build_opener(_Redirects(slug))
     request = urllib.request.Request(url, headers={'User-Agent': f'{APP_SLUG}/{VERSION}'})
@@ -130,7 +151,7 @@ def download_installer(slug: str, dest_dir: str,
                     progress(done, total or done)
         if done < MIN_SIZE:
             raise InstallerError('size', str(done))
-        if first != b'MZ':
+        if first != LAUNCHERS[slug].get('header', b'MZ'):
             raise InstallerError('header')
         os.replace(part, target)
     except InstallerError:
@@ -168,12 +189,35 @@ def detect_exe(slug: str, prefix: str) -> str:
     return ''
 
 
+def unpack(archive: str, dest: str) -> None:
+    """Unpack a native launcher's .tar.gz: regular files and folders only, nothing outside dest."""
+    root = os.path.realpath(dest)
+    with tarfile.open(archive, 'r:gz') as tar:
+        members = tar.getmembers()
+        for m in members:
+            target = os.path.realpath(os.path.join(root, m.name))
+            if not (m.isfile() or m.isdir()) or not target.startswith(root + os.sep):
+                raise InstallerError('header', m.name)
+        os.makedirs(root, exist_ok=True)
+        for m in members:
+            target = os.path.join(root, m.name)
+            if m.isdir():
+                os.makedirs(target, exist_ok=True)
+                continue
+            os.makedirs(os.path.dirname(target), exist_ok=True)
+            src = tar.extractfile(m)
+            with src, open(target, 'wb') as out:
+                shutil.copyfileobj(src, out)
+            os.chmod(target, 0o755 if m.mode & 0o111 else 0o644)
+
+
 def perform(helper: Any, spec: Dict[str, Any]) -> str:
-    """The job helper's part: download the installer, run it through umu-run, find the launcher."""
+    """The job helper's part: download the installer, run it through umu-run (or unpack a native
+    launcher), find the launcher."""
     slug = spec['store']
     prefix = prefix_dir(slug)
     umu = real_which('umu-run')
-    if not umu:
+    if not umu and not native(slug):
         return helper.finish('failed', 'err_no_umu')
     try:
         def got(done: int, total: int) -> None:
@@ -186,6 +230,15 @@ def perform(helper: Any, spec: Dict[str, Any]) -> str:
         return helper.finish('failed', {'network': 'err_network', 'host': 'err_installer_host',
                                         'size': 'err_installer_bad',
                                         'header': 'err_installer_bad'}[exc.kind])
+    if native(slug):
+        try:
+            shutil.rmtree(prefix, ignore_errors=True)
+            unpack(installer, prefix)
+        except (InstallerError, tarfile.TarError, OSError) as exc:
+            log.warning("%s: could not unpack %s: %s", slug, installer, exc)
+            shutil.rmtree(prefix, ignore_errors=True)
+            return helper.finish('failed', 'err_installer_bad')
+        return _found(helper, slug, prefix, installer)
     os.makedirs(prefix, exist_ok=True)
     helper.save(percent=0.0, message='installer_open')
     env = dict(os.environ)
@@ -199,6 +252,10 @@ def perform(helper: Any, spec: Dict[str, Any]) -> str:
         return helper.finish('failed', 'err_job_start', str(exc))
     if helper.cancelled:
         return helper.finish('cancelled')
+    return _found(helper, slug, prefix, installer)
+
+
+def _found(helper: Any, slug: str, prefix: str, installer: str) -> str:
     exe = detect_exe(slug, prefix)
     if not exe:
         return helper.finish('failed', 'err_launcher_not_found')
@@ -226,7 +283,7 @@ def scan(_base: str, watch: List[str]) -> List[Game]:
     watch.append(registry.path())
     games = []
     for slug, info in LAUNCHERS.items():
-        rec = known(slug)
+        rec = None if native(slug) else known(slug)
         if rec:
             games.append(Game(key=f'{slug}:launcher', title=info['name'], source=slug,
                               install_dir=rec['prefix'], store_id=slug,

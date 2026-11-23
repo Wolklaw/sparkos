@@ -13,6 +13,7 @@ import os
 import shutil
 import stat
 import sys
+import tarfile
 import tempfile
 import threading
 import time
@@ -24,8 +25,8 @@ APP_DIR = os.path.dirname(HERE)
 sys.path.insert(0, APP_DIR)
 os.environ['SPARK_LANG'] = 'en'
 
-from sparkgames import (clients, fixtures, jobs, launch, launchers, library, registry,  # noqa: E402
-                        stores, strings)
+from sparkgames import (clients, fixtures, jobs, launch, launchers, library, minecraft,  # noqa: E402
+                        registry, stores, strings)
 from sparkgames.core import Game, data_dir  # noqa: E402
 
 TOKEN = 'fake-secret-token-123'
@@ -823,6 +824,74 @@ class LauncherTests(StoreCase):
         launchers.remove('ubisoft')
         self.assertFalse(os.path.exists(launchers.prefix_dir('ubisoft')))
         self.assertEqual(launchers.scan(self.home, []), [])
+
+    def make_tarball(self, members):
+        """A .tar.gz with members [(name, data or None for a folder, mode)]."""
+        path = os.path.join(self.tmp, 'Minecraft.tar.gz')
+        with tarfile.open(path, 'w:gz') as tar:
+            for name, data, mode in members:
+                info = tarfile.TarInfo(name)
+                info.mode = mode
+                if data is None:
+                    info.type = tarfile.DIRTYPE
+                    tar.addfile(info)
+                else:
+                    info.size = len(data)
+                    tar.addfile(info, io.BytesIO(data))
+        return path
+
+    def test_minecraft_download_wants_a_gzip(self):
+        gz = b'\x1f\x8b' + b'\0' * (launchers.MIN_SIZE + 10)
+        self.assertTrue(self.download('minecraft', gz).endswith('minecraft-installer.tar.gz'))
+        with self.assertRaises(launchers.InstallerError) as ctx:
+            self.download('minecraft', b'MZ' + b'\0' * launchers.MIN_SIZE)
+        self.assertEqual(ctx.exception.kind, 'header')
+        with self.assertRaises(launchers.InstallerError):
+            self.download('minecraft', gz, url='https://evil.example.com/Minecraft.tar.gz')
+
+    def test_minecraft_launcher_install_tile_and_remove(self):
+        tarball = self.make_tarball([('minecraft-launcher/', None, 0o755),
+                                     ('minecraft-launcher/minecraft-launcher', b'\x7fELF', 0o755)])
+
+        def fake_download(slug, dest, progress=None, cancel=None, url=None):
+            os.makedirs(dest, exist_ok=True)
+            return shutil.copy(tarball, dest)
+
+        with mock.patch.object(launchers, 'real_which', lambda n: None), \
+                mock.patch.object(launchers, 'download_installer', fake_download):
+            job_id, code = self.run_job(kind='launcher', store='minecraft',
+                                        key='minecraft:launcher', title='Minecraft Launcher',
+                                        path=launchers.prefix_dir('minecraft'))
+        self.assertEqual((code, jobs.read_job(job_id)['state']), (0, 'done'))   # no umu needed
+        binary = launchers.known('minecraft')['exe']
+        self.assertTrue(binary.startswith(data_dir()))
+        self.assertTrue(os.access(binary, os.X_OK))
+        self.assertEqual(launchers.scan(self.home, []), [])       # no Wine tile for it
+        shutil.rmtree(os.path.join(self.home, '.minecraft'))        # before its first run
+        games = minecraft.official(self.home, [])
+        self.assertEqual([g.key for g in games], ['minecraft:java'])
+        self.assertEqual(launch.plan(games[0], which=fake_which()).argv, [binary])
+        os.makedirs(os.path.join(self.home, '.minecraft'))
+        worlds = os.path.join(self.home, '.minecraft', 'saves')
+        os.makedirs(worlds)
+        launchers.remove('minecraft')
+        self.assertFalse(os.path.exists(launchers.prefix_dir('minecraft')))
+        self.assertTrue(os.path.isdir(worlds))
+        self.assertEqual(minecraft.official(self.home, []), [])
+
+    def test_minecraft_unpack_stays_in_its_folder(self):
+        dest = os.path.join(self.tmp, 'out')
+        for bad in (('../escape', b'x', 0o644), ('/etc/x', b'x', 0o644)):
+            with self.assertRaises(launchers.InstallerError):
+                launchers.unpack(self.make_tarball([bad]), dest)
+        link = os.path.join(self.tmp, 'link.tar.gz')
+        with tarfile.open(link, 'w:gz') as tar:
+            info = tarfile.TarInfo('minecraft-launcher/minecraft-launcher')
+            info.type, info.linkname = tarfile.SYMTYPE, '/usr/bin/sh'
+            tar.addfile(info)
+        with self.assertRaises(launchers.InstallerError):
+            launchers.unpack(link, dest)
+        self.assertFalse(os.path.exists(os.path.join(self.tmp, 'escape')))
 
     def test_lutris_launcher_is_used_once_and_kept(self):
         before = [g for g in library.scan_all(self.home).games if g.source == 'lutris']
