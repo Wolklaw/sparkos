@@ -331,6 +331,7 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
           $SSH 'test -s /usr/share/sounds/sparkos/startup.wav && test -x /usr/bin/sparkos-startup-sound && test -f /etc/xdg/autostart/sparkos-startup-sound.desktop && echo "startup sound present"'
+          $SSH 'test -s /usr/share/pipewire/pipewire.conf.d/10-sparkos-sample-rates.conf && grep -q "default.clock.allowed-rates" /usr/share/pipewire/pipewire.conf.d/10-sparkos-sample-rates.conf && fc-match "Noto Sans CJK SC" family | grep -q "Noto Sans CJK" && echo "sample rates and CJK fonts present"'
           $SSH 'sparkos-startup-sound --off && test -e ~/.config/sparkos/startup-sound-off && sparkos-startup-sound --on && test ! -e ~/.config/sparkos/startup-sound-off && echo "off/on switch works"'
 
       - name: Check Claude Code setup

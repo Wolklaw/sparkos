@@ -130,6 +130,16 @@ def main(argv) -> int:
     if args[0] == 'wineboot':
         return wineboot()
     if args[0] == 'reg':
+        if args[1:2] == ['import']:      # keep what was imported, for the tests
+            name = args[2].replace(chr(92), '/').split(':', 1)[-1].lstrip('/')
+            try:
+                with open(os.path.join(_drive_c(), name), encoding='utf-8') as f:
+                    text = f.read()
+            except OSError:
+                return 1
+            with open(os.path.join(_prefix(), 'fake-reg-imports.txt'), 'a',
+                      encoding='utf-8') as f:
+                f.write(text + '\n')
         if args[1:2] == ['query']:
             print('    Version    REG_SZ    win10')
         return 0

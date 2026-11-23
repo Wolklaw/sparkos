@@ -28,7 +28,7 @@ sys.path.insert(0, HERE)
 
 import fakewine  # noqa: E402
 import forge  # noqa: E402
-from sparkrun import apps, cli, errors, fetch, lnk, pe, sources, text  # noqa: E402
+from sparkrun import apps, cli, errors, fetch, fixes, lnk, pe, sources, text  # noqa: E402
 from sparkrun import wine as winemod  # noqa: E402
 
 try:
@@ -442,6 +442,77 @@ class FlowTests(Temp):
         self.assertFalse(os.path.exists(app.prefix))
         self.assertFalse(os.path.exists(app.entry))
         self.assertEqual([a.slug for a in apps.all_apps()], ['fake-2'])
+
+    def imported(self, app) -> str:
+        path = os.path.join(app.prefix, 'fake-reg-imports.txt')
+        return open(path, encoding='utf-8').read() if os.path.isfile(path) else ''
+
+    def test_cjk_fonts_in_new_and_old_prefixes(self):
+        app = apps.install(self.installer(), self.report)
+        mark = os.path.join(app.prefix, winemod.FONTS_MARK)
+        self.assertEqual(open(mark, encoding='utf-8').read().strip(), winemod.fonts_version())
+        reg = self.imported(app)
+        self.assertIn(BS.join(['[HKEY_CURRENT_USER', 'Software', 'Wine', 'Fonts',
+                               'Replacements]']), reg)
+        for line in ('"Microsoft YaHei"="Noto Sans CJK SC"', '"SimHei"="Noto Sans CJK SC"',
+                     '"PMingLiU"="Noto Sans CJK TC"', '"Yu Gothic UI"="Noto Sans CJK JP"',
+                     '"Batang"="Noto Sans CJK KR"'):
+            self.assertIn(line, reg)
+        before = self.calls().count('reg import')
+        apps.open_app(apps.load('fake')).wait()
+        self.assertEqual(self.calls().count('reg import'), before)     # already done
+
+        os.unlink(mark)                                  # a prefix made before the fonts
+        os.unlink(os.path.join(app.prefix, 'fake-reg-imports.txt'))
+        apps.open_app(apps.load('fake')).wait()
+        self.assertEqual(self.calls().count('reg import'), before + 1)
+        self.assertIn('"Meiryo"="Noto Sans CJK JP"', self.imported(app))
+        self.assertTrue(os.path.isfile(mark))
+        self.assertFalse(os.path.exists(os.path.join(app.drive_c, 'spark-run-fonts.reg')))
+        apps.open_app(apps.load('fake')).wait()
+        self.assertEqual(self.calls().count('reg import'), before + 1)  # and only once
+
+    def test_font_table_is_complete(self):
+        names = {n: t for t, ns in winemod.FONT_REPLACEMENTS for n in ns}
+        self.assertEqual(len(names), 5 + 4 + 7 + 4)
+        self.assertEqual(set(names.values()), {'Noto Sans CJK SC', 'Noto Sans CJK TC',
+                                               'Noto Sans CJK JP', 'Noto Sans CJK KR'})
+
+    def test_known_app_fix_amazon_music(self):
+        app = apps.install(self.installer(), self.report)
+        folder = os.path.join(app.drive_c, 'users', 'tester', 'AppData', 'Local',
+                              'Amazon Music')
+        self.write(os.path.relpath(os.path.join(folder, 'Amazon Music.exe'), self.tmp),
+                   forge.pe())
+        app.program = win('C:', 'users', 'tester', 'AppData', 'Local', 'Amazon Music',
+                          'Amazon Music.exe')
+        app.save()
+        ini = os.path.join(folder, 'update.ini')
+        self.assertFalse(os.path.exists(ini))
+        apps.open_app(apps.load('fake')).wait()
+        self.assertEqual(os.path.getsize(ini), 0)         # empty, made before the start
+        with open(ini, 'w') as f:
+            f.write('keep')
+        apps.open_app(apps.load('fake')).wait()
+        self.assertEqual(open(ini).read(), 'keep')        # never overwritten
+        self.assertEqual(fixes.apply(app.prefix, app.program), [])
+
+    def test_known_app_fix_matching(self):
+        self.assertEqual(fixes.matching('C:/x/Amazon Music/AMAZON MUSIC.EXE')[0].name,
+                         'Amazon Music')
+        self.assertEqual(fixes.matching(win('C:', 'Program Files', 'Fake App', 'fakeapp.exe')),
+                         [])
+        with tempfile.TemporaryDirectory() as prefix:
+            self.assertEqual(fixes.apply(prefix, win('C:', 'nope', 'Amazon Music',
+                                                     'Amazon Music.exe')), [])
+
+    def test_amazon_music_fix_after_install(self):
+        # the installer path: the fix is applied before the first start too
+        orig = fixes.apply
+        seen = []
+        with mock.patch.object(fixes, 'apply', side_effect=lambda *a: seen.append(a) or orig(*a)):
+            app = apps.install(self.installer(), self.report)
+        self.assertEqual(seen[0][1], app.program)
 
     def test_choosing_among_programs(self):
         offered = []

@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass, field
 from typing import Callable, Dict, List, Optional
 
-from . import APP_ID, APP_SLUG, errors, lnk, pe, sources, wine as winemod
+from . import APP_ID, APP_SLUG, errors, fixes, lnk, pe, sources, wine as winemod
 from .core import (applications_dir, data_dir, ensure, folder_size, log, name_from_file,
                    prefixes_dir, read_json, remove_tree, run_once_prefix, slugify, write_json,
                    write_text)
@@ -161,6 +161,7 @@ def ensure_wine(report: Report, cancel: Optional[threading.Event] = None) -> win
 def _prepare_prefix(wine: winemod.Wine, prefix: str, report: Report, windows: str,
                     log_path: str) -> None:
     if wine.prefix_ready(prefix):
+        wine.ensure_fonts(prefix, log_path)
         return
     if os.path.isdir(prefix):
         remove_tree(prefix)               # a half-made prefix from an interrupted run
@@ -169,6 +170,7 @@ def _prepare_prefix(wine: winemod.Wine, prefix: str, report: Report, windows: st
         wine.create_prefix(prefix, windows, log_path)
     except (winemod.WineError, OSError) as exc:
         raise RunError(Problem('error.prefix', {'detail': str(exc)})) from exc
+    wine.ensure_fonts(prefix, log_path)
 
 
 # ─── Run once ────────────────────────────────────────────────
@@ -239,6 +241,7 @@ def install(path: str, report: Report = lambda *a, **k: None, choose: Optional[C
                   candidates=[{'name': c.name, 'path': c.path, 'arguments': c.arguments}
                               for c in found])
         app.save()
+        fixes.apply(prefix, app.program, chosen.unix)
         save_icon(app, chosen.unix)
         write_entry(app)
         log.info("installed %s as %s (%s)", path, slug, app.program)
@@ -549,6 +552,9 @@ def open_app(app: App, files: Optional[List[str]] = None,
              for f in files or []]
     overrides = _dxvk_overrides(app)
     log_path = winemod.app_log(app.slug)
+    if wine.prefix_ready(app.prefix):
+        wine.ensure_fonts(app.prefix, log_path)
+    fixes.apply(app.prefix, app.program, exe)
     proc = wine.start(app.prefix, exe, args, overrides=overrides, log_path=log_path,
                       cwd=os.path.dirname(exe))
     return Launch(proc, log_path, wine.has_mono, app.name)
