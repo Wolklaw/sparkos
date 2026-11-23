@@ -878,6 +878,21 @@ class StoreUITests(StoreCase):
         self.pump(0.3)
         self.assertEqual(app.view.__class__.__name__, 'GamePage')
 
+    def test_added_launcher_page_opens(self):
+        # An added launcher has no games folder; its page used to fail with KeyError
+        from sparkgames import launchers
+        exe = os.path.join(launchers.prefix_dir('battlenet'),
+                           launchers.LAUNCHERS['battlenet']['exes'][0])
+        os.makedirs(os.path.dirname(exe), exist_ok=True)
+        open(exe, 'w').close()
+        app = self.start()
+        tile = [g for g in app.library.games if g.key == 'battlenet:launcher']
+        self.assertEqual(len(tile), 1)
+        app.show_game(tile[0])
+        self.pump(0.3)
+        self.assertEqual(app.view.__class__.__name__, 'GamePage')
+        self.assertTrue(app.view.store_panel.is_launcher)
+
 
 class StringTests(unittest.TestCase):
     def test_every_new_key_is_in_french_too(self):

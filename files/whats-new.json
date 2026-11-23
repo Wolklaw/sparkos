@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-games-launcher-page",
+      "date": "2026-11-23",
+      "en": "Spark Games: clicking an added launcher such as Battle.net opens its page again instead of showing an error.",
+      "fr": "Spark Games : cliquer sur un lanceur ajouté comme Battle.net ouvre de nouveau sa page au lieu d'afficher une erreur."
+    },
+    {
       "id": "2026-11-23-update-notes",
       "date": "2026-11-23",
       "en": "Spark Update lists what's new in words, and covers every update since the version you had before, not only the last one.",
