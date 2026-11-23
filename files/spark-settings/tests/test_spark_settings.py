@@ -354,6 +354,8 @@ class Window(unittest.TestCase):
         old = os.environ['XDG_CONFIG_HOME']
         os.environ['XDG_CONFIG_HOME'] = tempfile.mkdtemp()
         try:
+            self.app.open_page('sound')
+            self.app.idle(3)
             page = self.app.pages['sound']
             st = sound.parse_status(open(os.path.join(FIX, 'wpctl-status.txt')).read())
 
@@ -363,7 +365,7 @@ class Window(unittest.TestCase):
                 found = []
 
                 def walk(w):
-                    if isinstance(w, Choice) and ('Follow the track (default)', '0') in w.options:
+                    if isinstance(w, Choice) and w.options[0][1] == '0':
                         found.append(w)
                     for c in w.winfo_children():
                         walk(c)
