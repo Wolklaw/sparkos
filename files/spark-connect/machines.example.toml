@@ -26,6 +26,11 @@ tunnel_hostnames = ["example.org", "www.example.org", "app.example.org"]
 # Health URLs fetched on the server itself (127.0.0.1 or localhost only), for endpoints that
 # aren't public. Spark Connect never reads a key file to reach a protected public URL.
 local_checks = { api = "http://127.0.0.1:8000/health" }
+# Machine-wide buttons. "update" opens a terminal that runs the package manager's upgrade (it
+# lists the changes and asks before doing anything). "reboot" restarts the whole machine through
+# `sudo -n systemctl reboot`, after a confirmation that names the sites it takes down. Leave
+# either out to hide its button.
+allow = ["update", "reboot"]
 
 [[machine]]
 name = "Standby laptop"
@@ -37,6 +42,7 @@ dir = "~/failover"                        # incidents/ in here is listed, read o
 active_unit = "user:cloudflared"          # running only after the standby has taken over
 netmon_log = "monitor.log"               # last lines shown, relative to dir
 failback = "~/failover/hand-back.sh"     # typed in a terminal for you, never run by itself
+watches = "Main server"                   # rebooting that one says this one may take over
 
 [[site]]
 name = "example.org"

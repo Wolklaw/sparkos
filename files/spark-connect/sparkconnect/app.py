@@ -20,7 +20,7 @@ import tkinter.font as tkfont
 from . import (APP_CLASS, APP_NAME, APP_SLUG, BACKGROUND_REFRESH_S, OPEN_REFRESH_S, VERSION,
                actions, alerts, config as configmod, core, dialogs, report, sites)
 from .core import log, reduced_motion
-from .probe import OK, Problem, Result, problems
+from .probe import OK, REBOOT_GRACE_S, Problem, Result, problems
 from .text import t, verdict_text
 from .transport import DONE, NEEDS_PASSWORD, SshTransport
 from .widgets import MONO_FAMILIES, T, Glitch, GlitchText, Mark, Strip
@@ -101,6 +101,7 @@ class App:
         self.results: Dict[str, Result] = {}
         self.previous: Dict[str, Result] = {}
         self.down_since: Dict[str, float] = {}
+        self.rebooting: Dict[str, float] = {}       # machine -> when we sent it a reboot
         self.site_results: Dict[str, sites.SiteResult] = {}
         self.due: Dict[Tuple, float] = {}
         self.pending: set = set()
@@ -247,7 +248,7 @@ class App:
 
     def problems_of(self, machine: configmod.Machine) -> List[Problem]:
         return problems(machine, self.results.get(machine.name),
-                        self.down_since.get(machine.name))
+                        self.down_since.get(machine.name), self.rebooting.get(machine.name))
 
     def net_rates(self, name: str) -> Dict[str, Tuple[float, float]]:
         new, old = self.results.get(name), self.previous.get(name)
@@ -379,6 +380,12 @@ class App:
         if machine is None:
             return
         old = self.results.get(name)
+        sent = self.rebooting.get(name)
+        if sent is not None and (result.at - sent >= REBOOT_GRACE_S or (
+                result.ok and result.data.get('uptime_s') is not None
+                and result.at - result.data['uptime_s'] > sent - 30)):
+            self.rebooting.pop(name)                # back up, or silent for too long
+            sent = None
         if result.ok:
             self.down_since.pop(name, None)
             if old is not None and old.ok:
@@ -392,6 +399,8 @@ class App:
                                                   p.args.get('name') or '')): verdict_text(p)
                      for p in found if p.level != OK}
             events = self.alerts.update(wrong, scope=('machine', name))
+        elif sent is not None:                      # the reboot we sent, not an outage
+            events = self.alerts.update({}, scope=('machine', name, 'down'))
         else:
             events = self.alerts.update({('machine', name, 'down'): verdict_text(found[0])},
                                         scope=('machine', name, 'down'))
@@ -455,6 +464,55 @@ class App:
 
         self.submit(('restart', machine.name, scope, unit),
                     lambda: self.transport.restart(machine, scope, unit), finished)
+
+    def standbys_for(self, machine: configmod.Machine) -> List[str]:
+        return [m.name for m in self.config.machines
+                if m.failover and m.failover.watches == machine.name]
+
+    def ask_update(self, machine: configmod.Machine):
+        result = self.results.get(machine.name)
+        pk = result.data.get('packages', {}) if result is not None and result.ok else {}
+        command = actions.update_command(pk.get('manager', ''))
+        if 'update' not in machine.allow:
+            return
+        if not command:
+            dialogs.showinfo(t('result.update_unknown_title'),
+                             t('result.update_unknown', machine=machine.name), parent=self.root)
+            return
+        if self.confirm(actions.confirm_update(machine, pk['manager'], pk.get('updates'),
+                                               pk.get('security'))):
+            self._terminal(machine, actions.update_remote(command))
+
+    def ask_reboot(self, machine: configmod.Machine):
+        if 'reboot' not in machine.allow:
+            return
+        if not self.confirm(actions.confirm_reboot(machine, self.standbys_for(machine))):
+            log.info("reboot of %s cancelled", machine.name)
+            return
+        self.set_status(t('status.rebooting', machine=machine.name), T["gold"], hold_ms=60000)
+
+        def finished(outcome):
+            if not hasattr(outcome, 'outcome'):
+                outcome = type('R', (), {'outcome': 'failed', 'message': str(outcome)})()
+            if outcome.outcome == DONE:
+                self.rebooting[machine.name] = time.time()
+                self.redraw()
+                for delay in (20000, 60000, 120000):
+                    self.root.after(delay, lambda: self.refresh_machine(machine.name))
+            elif outcome.outcome == NEEDS_PASSWORD:
+                self._status_idle()
+                if dialogs.askyesno(t('result.needs_password_title'),
+                                    t('result.reboot_password', machine=machine.name),
+                                    parent=self.root, detail=outcome.message):
+                    self._terminal(machine, actions.typed_not_run("sudo systemctl reboot"))
+            else:
+                self._status_idle()
+                self.glitch.now(self.title, strong=True)
+                dialogs.showerror(t('result.reboot_failed_title'),
+                                  t('result.reboot_failed', machine=machine.name,
+                                    message=outcome.message), parent=self.root)
+
+        self.submit(('reboot', machine.name), lambda: self.transport.reboot(machine), finished)
 
     def ask_terminal(self, machine: configmod.Machine):
         if self.confirm(actions.confirm_terminal(machine)):

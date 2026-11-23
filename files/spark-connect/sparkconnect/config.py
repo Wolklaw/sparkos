@@ -18,6 +18,7 @@ except ImportError:                     # pragma: no cover - older Pythons
 
 KINDS = ('linux',)                      # 'tablet' comes with a later part
 TRANSPORTS = ('ssh',)                   # 'hub' comes with a later part
+POWER = ('update', 'reboot')            # what a machine's `allow` can name
 SYSTEM, USER = 'system', 'user'
 
 _UNIT = re.compile(r'^[A-Za-z0-9][A-Za-z0-9@._\-\\:]{0,127}$')
@@ -38,6 +39,7 @@ class Failover:
     active_unit: Optional[Tuple[str, str]] = None   # (scope, name): runs only after a takeover
     netmon_log: str = ''
     failback: str = ''
+    watches: str = ''                               # the machine this standby takes over for
 
 
 @dataclass
@@ -55,6 +57,7 @@ class Machine:
     tunnel_hostnames: List[str] = field(default_factory=list)
     local_checks: List[Tuple[str, str]] = field(default_factory=list)
     failover: Optional[Failover] = None
+    allow: List[str] = field(default_factory=list)  # 'update', 'reboot'
 
     def watched(self) -> List[Tuple[str, str]]:
         return [(SYSTEM, u) for u in self.units] + [(USER, u) for u in self.user_units]
@@ -124,7 +127,8 @@ def _machine(raw: Any, index: int) -> Machine:
         raise ConfigError(f"{where}: needs a name")
     where = f"machine '{name}'"
     known = {'name', 'host', 'port', 'kind', 'transport', 'units', 'user_units', 'restartable',
-             'known_failed', 'tunnel', 'tunnel_hostnames', 'local_checks', 'failover'}
+             'known_failed', 'tunnel', 'tunnel_hostnames', 'local_checks', 'failover',
+             'allow'}
     extra = sorted(set(raw) - known)
     if extra:
         raise ConfigError(f"{where}: unknown setting {', '.join(extra)}")
@@ -183,11 +187,18 @@ def _machine(raw: Any, index: int) -> Machine:
             raise ConfigError(f"{where}: failover failback should be one command line")
         active = parse_scoped(fo['active_unit'], f"{where} failover active_unit") \
             if fo.get('active_unit') else None
-        failover = Failover(fo['dir'], active, netmon, failback)
+        watches = fo.get('watches', '')
+        if not isinstance(watches, str):
+            raise ConfigError(f"{where}: failover watches should be a machine's name")
+        failover = Failover(fo['dir'], active, netmon, failback, watches.strip())
+    allow = _strings(raw.get('allow'), f"{where} allow")
+    for a in allow:
+        if a not in POWER:
+            raise ConfigError(f"{where}: allow '{a}' should be one of {', '.join(POWER)}")
     return Machine(name=name.strip(), host=host, port=port, kind=kind, transport=transport,
                    units=units, user_units=user_units, restartable=restartable,
                    known_failed=known_failed, tunnel=tunnel, tunnel_hostnames=hostnames,
-                   local_checks=checks, failover=failover)
+                   local_checks=checks, failover=failover, allow=list(dict.fromkeys(allow)))
 
 
 def parse(data: Dict[str, Any], path: str = '') -> Config:
@@ -203,6 +214,10 @@ def parse(data: Dict[str, Any], path: str = '') -> Config:
     for n in names:
         if names.count(n) > 1:
             raise ConfigError(f"two machines are called '{n}'")
+    for m in machines:
+        if m.failover and m.failover.watches and m.failover.watches not in names:
+            raise ConfigError(f"machine '{m.name}': failover watches '{m.failover.watches}', "
+                              "which isn't in the list")
     sites = []
     for i, s in enumerate(sites_raw):
         if not isinstance(s, dict) or not isinstance(s.get('url'), str) \

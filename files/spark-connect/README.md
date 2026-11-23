@@ -11,7 +11,7 @@ It follows the PC's language: French when the system language is French, English
 - **Overview:** one card per machine with up/down, uptime, load, memory, fullest disk, hottest sensor, and a one-line verdict ("All good", "example-portal failed", "Disk 94% full (/)", "Unreachable since 14:02"). Below them, one row per website with its HTTP status and response time, checked from this PC. Anything that isn't fine sorts to the top and gets the magenta/cyan slip; a calm screen has none.
 - **Machine view:**
   - **Services:** the units listed in the config (system and user), each with state, how long in that state, restart count and the last 5 log lines; plus any other failed unit, minus the ones marked known-failed.
-  - **Health:** OS and kernel, CPU, load, memory, swap, each disk, temperatures, network rate, last reboot.
+  - **Health:** OS and kernel, CPU, load, memory, swap, each disk, temperatures, network rate, last reboot, updates waiting, and whether an update waits on a reboot (Ubuntu's `/var/run/reboot-required`, which also puts "Reboot needed" on the machine's card).
   - **Tunnel:** whether the tunnel's unit runs and how many connections it holds, and the sites behind it.
   - **Failover** (machines with a `[machine.failover]` section): standing by or taken over, the newest incident files (name, date, first line) and the network monitor's last lines. Read only.
   - **Logs:** a live tail of one unit's journal, with a filter box. It runs only while that tab is open.
@@ -23,9 +23,11 @@ Every action says what it will run and what it touches, and runs only after you 
 - **Open terminal:** Spark Terminal (or Konsole, or another terminal) running `ssh <host>`; on Windows, a new console window.
 - **Restart** a unit listed as `restartable` in the config. User units: `systemctl --user restart`. System units: `sudo -n systemctl restart`; if sudo wants a password nothing runs, and it offers a terminal with the command typed instead. It never asks for, types or stores a password. Restarting the tunnel names every hostname behind it in the confirmation.
 - **Failback** (shown only when a standby has taken over): opens a terminal on the standby with the failback command typed but not run. You press Enter.
+- **Update…** (machines with `allow = ["update", ...]`): opens a terminal on the machine running `sudo apt update && sudo apt full-upgrade` (or `sudo dnf upgrade --refresh`). The package manager lists the changes and asks before it does anything; sudo asks for its password there if it needs one.
+- **Reboot…** (machines with `allow = [..., "reboot"]`): `sudo -n systemctl reboot`, after a confirmation that names the sites behind the machine's tunnel and, if a standby `watches` it, says the standby may take over and needs a failback afterwards. If sudo wants a password nothing runs, and it offers a terminal with the command typed instead. For ten minutes after, the machine shows as rebooting, not unreachable, and sends no notification.
 - **Copy report:** a plain-text snapshot of one machine (services, health, last errors) for a note or a Claude session. Copying runs nothing, so it doesn't ask first.
 
-No stop, disable, reboot, file editing or package installs. Nothing runs on a timer or by itself.
+No stop, disable or file editing, and no update or reboot on machines whose config doesn't allow it. Nothing runs on a timer or by itself.
 
 While it is open, a machine going unreachable, a watched unit failing or a site returning an error shows a desktop notification once, and once more when it recovers (Linux, through `notify-send`; on Windows the window's status line shows it instead). It doesn't send Discord alerts; the servers' own watchdog does that.
 

@@ -4,8 +4,10 @@
 # What it reads: /proc (uptime, load, CPU, memory, network counters), /sys (temperatures),
 # df, ss (the tunnel's connections), systemctl show and journalctl for the units named below,
 # the list of failed units, and, on a failover standby, the names, dates and first lines of
-# the newest incident files and the last lines of the network monitor's log. It reads no
-# other file: no keys, no credentials, no configuration.
+# the newest incident files and the last lines of the network monitor's log, the reboot flag
+# (/var/run/reboot-required and its .pkgs list) and update-notifier's count of waiting updates
+# (/var/lib/update-notifier/updates-available). It reads no other file: no keys, no
+# credentials, no configuration.
 #
 # Spark Connect puts these settings above this comment (each one quoted for sh); with none set
 # the probe still runs and reports the machine itself:
@@ -100,6 +102,29 @@ awk -F'[: ]+' 'NR>2 {o=($1==""?1:0); i=$(1+o);
      if (i!="lo") printf "%s{\"iface\":\"%s\",\"rx\":%s,\"tx\":%s}", (n++?",":""), i, $(2+o), $(10+o)}' \
   /proc/net/dev 2>/dev/null
 printf '],'
+
+# packages: which package manager, whether an update waits on a reboot, and how many updates wait.
+# Ubuntu and Debian create /var/run/reboot-required (and .pkgs, the packages that asked) when an
+# update needs one. The update count is update-notifier's cached summary, the same text the login
+# message shows; apt-check itself takes seconds, too slow for every refresh.
+pm=
+if have apt-get; then pm=apt; elif have dnf; then pm=dnf; fi
+reboot=null
+if [ -f /var/run/reboot-required ]; then
+  since=$(stat -c %Y /var/run/reboot-required 2>/dev/null)
+  reboot="{\"since\":$(num "$since"),\"pkgs\":$(sort -u /var/run/reboot-required.pkgs 2>/dev/null \
+    | sed '/^$/d' | head -n 20 | lines)}"
+fi
+ua=/var/lib/update-notifier/updates-available
+n= ; sec=
+if [ -r $ua ]; then
+  n=$(sed -n -E 's/^ *([0-9]+) updates? can be applied immediately.*/\1/p' $ua | head -n 1)
+  sec=$(sed -n -E 's/^ *([0-9]+) of these updates (is|are) .*security update.*/\1/p' $ua \
+    | head -n 1)
+  [ -n "$n" ] && [ -z "$sec" ] && sec=0
+fi
+printf '"packages":{"manager":%s,"reboot":%s,"updates":%s,"security":%s},' \
+  "$(str "$pm")" "$reboot" "$(num "$n")" "$(num "$sec")"
 
 # ─── units ────────────────────────────────────────────────────
 # unit SCOPE NAME: one JSON object. SCOPE is system or user.

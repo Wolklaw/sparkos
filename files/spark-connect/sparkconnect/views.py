@@ -367,6 +367,12 @@ class MachineView(tk.Frame):
                    app.font(8)).pack(side="right", padx=(px(4), 0))
         WolkButton(buttons, t('action.terminal'), lambda: app.ask_terminal(machine),
                    app.font(8), "primary").pack(side="right", padx=(px(4), 0))
+        if 'update' in machine.allow:
+            WolkButton(buttons, t('action.update'), lambda: app.ask_update(machine),
+                       app.font(8)).pack(side="right", padx=(px(4), 0))
+        if 'reboot' in machine.allow:
+            WolkButton(buttons, t('action.reboot_menu'), lambda: app.ask_reboot(machine),
+                       app.font(8), "danger").pack(side="right", padx=(px(4), 0))
         self.buttons = buttons
 
         tabs = [('services', t('tab.services')), ('health', t('tab.health')),
@@ -552,7 +558,10 @@ class MachineView(tk.Frame):
             (t('health.swap'), t('health.used_of', used=core.size(swap_used),
                                  total=core.size(mem['swap_total']))),
         ]
+        colours = {}
         for disk in d['disks']:
+            if disk['pct'] is not None and disk['pct'] >= 90:
+                colours[len(rows)] = T["pink"]
             rows.append((f"{t('health.disks')} {disk['mount']}",
                          t('health.free_of', pct=core.pct(disk['pct']),
                            free=core.size(disk['free']), total=core.size(disk['size']))))
@@ -564,12 +573,17 @@ class MachineView(tk.Frame):
             value = t('health.rx_tx', rx=core.rate(r[0]), tx=core.rate(r[1])) if r \
                 else t('health.rate_next')
             rows.append((f"{t('health.network')} {n['iface']}", value))
-        colours = {}
-        for i, (k, _v) in enumerate(rows):
-            if k.startswith(t('health.disks')):
-                disk = d['disks'][i - 7]
-                if disk['pct'] is not None and disk['pct'] >= 90:
-                    colours[i] = T["pink"]
+        pk = d['packages']
+        if pk['updates'] is not None:
+            rows.append((t('health.updates'),
+                         t('health.updates_n', n=int(pk['updates']),
+                           security=int(pk['security'] or 0)) if pk['updates']
+                         else t('health.updates_none')))
+        if pk['reboot'] is not None:
+            colours[len(rows)] = T["gold"]
+            rows.append((t('health.reboot'),
+                         t('health.reboot_needed', day=core.date(pk['reboot']['since']),
+                           pkgs=', '.join(pk['reboot']['pkgs']) or '?')))
         self._kv(box, rows, colours)
 
     def _tunnel(self, box, result: Result):

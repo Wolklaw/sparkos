@@ -126,5 +126,9 @@ def clock(epoch: Optional[float]) -> str:
     return "—" if epoch is None else time.strftime('%H:%M', time.localtime(epoch))
 
 
+def date(epoch: Optional[float]) -> str:
+    return "—" if epoch is None else time.strftime('%Y-%m-%d', time.localtime(epoch))
+
+
 def day_clock(epoch: Optional[float]) -> str:
     return "—" if epoch is None else time.strftime('%Y-%m-%d %H:%M', time.localtime(epoch))
