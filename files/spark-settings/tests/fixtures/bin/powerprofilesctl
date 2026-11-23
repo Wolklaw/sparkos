@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "powerprofilesctl $*" >> "${FAKE_LOG:-/dev/null}"
+case "$1" in list) printf "  performance:\n    Driver: x\n\n* balanced:\n    Driver: x\n\n  power-saver:\n    Driver: x\n";; get) echo balanced;; esac

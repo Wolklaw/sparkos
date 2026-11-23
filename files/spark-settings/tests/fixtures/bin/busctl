@@ -1,0 +1,7 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "busctl $*" >> "${FAKE_LOG:-/dev/null}"
+case "$*" in
+  *get-property*ActiveProfile*) echo 's "balanced"';;
+  *get-property*Profiles*) echo 'aa{sv} 3 2 "Profile" s "power-saver" "Driver" s "tuned" 2 "Profile" s "balanced" "Driver" s "tuned" 2 "Profile" s "performance" "Driver" s "tuned"';;
+esac

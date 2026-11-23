@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "nmcli $*" >> "${FAKE_LOG:-/dev/null}"
+case "$*" in *"dev wifi"*) cat "$D/nmcli-wifi.txt";; "radio wifi") echo enabled;; *"DEVICE,TYPE"*) cat "$D/nmcli-dev.txt";; *"NAME,TYPE,DEVICE"*) cat "$D/nmcli-con.txt";; esac

@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "kscreen-doctor $*" >> "${FAKE_LOG:-/dev/null}"
+case "$1" in -j) cat "$D/displays.json";; esac

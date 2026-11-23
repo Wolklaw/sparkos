@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Test Player
+Exec=player %f
+MimeType=audio/mpeg;audio/flac;video/mp4;

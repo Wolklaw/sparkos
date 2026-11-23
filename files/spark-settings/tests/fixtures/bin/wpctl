@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "wpctl $*" >> "${FAKE_LOG:-/dev/null}"
+case "$1" in status) cat "$D/wpctl-status.txt";; get-volume) echo "Volume: 0.40";; esac

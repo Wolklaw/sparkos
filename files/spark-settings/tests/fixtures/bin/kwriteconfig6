@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "kwriteconfig6 $*" >> "${FAKE_LOG:-/dev/null}"
+:

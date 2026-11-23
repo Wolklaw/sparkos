@@ -1,0 +1,5 @@
+[Desktop Entry]
+Type=Application
+Name=Test Browser
+Exec=browser %u
+MimeType=text/html;x-scheme-handler/http;x-scheme-handler/https;

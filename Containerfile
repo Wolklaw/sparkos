@@ -148,6 +148,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-link.sh \
         spark-store.sh \
         spark-files.sh \
+        spark-settings.sh \
         spark-terminal.sh \
         spark-launcher.sh \
         spark-update.sh \

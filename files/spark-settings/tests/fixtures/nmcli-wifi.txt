@@ -1,0 +1,3 @@
+yes:HomeNet:82:WPA2
+no:Neighbour\:5G:45:WPA2 WPA3
+no:CoffeeShop:30:

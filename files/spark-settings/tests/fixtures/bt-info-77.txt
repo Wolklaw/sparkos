@@ -1,0 +1,6 @@
+Device 77:88:99:AA:BB:CC (public)
+	Name: Controller
+	Icon: input-gaming
+	Paired: yes
+	Trusted: no
+	Connected: no

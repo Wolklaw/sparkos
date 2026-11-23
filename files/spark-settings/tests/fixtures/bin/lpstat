@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "lpstat $*" >> "${FAKE_LOG:-/dev/null}"
+case "$1" in -p) cat "$D/lpstat-p.txt";; -v) cat "$D/lpstat-v.txt";; -d) cat "$D/lpstat-d.txt";; esac

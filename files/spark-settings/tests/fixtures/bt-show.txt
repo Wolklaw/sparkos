@@ -1,0 +1,4 @@
+Controller AA:BB:CC:00:00:01 (public)
+	Name: host
+	Powered: yes
+	Discoverable: no

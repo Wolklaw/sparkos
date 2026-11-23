@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "timedatectl $*" >> "${FAKE_LOG:-/dev/null}"
+case "$*" in *Timezone*) echo Timezone=America/Toronto;; *NTP*) echo NTP=yes;; list-timezones) printf "America/Toronto\nAmerica/Vancouver\nEurope/Paris\nUTC\n";; esac
