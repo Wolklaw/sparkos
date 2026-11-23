@@ -246,6 +246,11 @@ jobs:
           $SSH "jq -c '.transports.docker[\"$REPO\"]' /etc/containers/policy.json; ls -l /etc/pki/containers/" | tee "$WORK/policy.txt"
           grep -q '"sigstoreSigned"' "$WORK/policy.txt"
           grep -q "${REPO##*/}.pub" "$WORK/policy.txt"
+          # rpm-ostree and bootc refuse signed updates while the default accepts anything
+          $SSH "jq -c '.default' /etc/containers/policy.json" | tee -a "$WORK/policy.txt" | grep -q '"reject"'
+          $SSH "jq -e '.transports.docker[\"\"][0].type == \"insecureAcceptAnything\"' /etc/containers/policy.json"
+          $SSH "echo sparkos-boot-test | sudo -S -p '' rpm-ostree upgrade --check" 2>&1 | tee "$WORK/upgrade-check.txt" || true
+          ! grep -q 'refusing usage' "$WORK/upgrade-check.txt"
           $SSH 'rpm -q steam lutris gamescope mangohud 2>&1; flatpak --version'
 
       - name: Check Soot and FreeSuite
