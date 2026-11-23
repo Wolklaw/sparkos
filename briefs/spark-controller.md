@@ -1,6 +1,6 @@
 # Spark Controller
 
-One app for the PC's hardware: fans, RGB lighting, and driver and firmware updates. It replaces SignalRGB, Armoury Crate, NZXT CAM and Fan Xpert for the owner. Source: [files/spark-controller](../files/spark-controller). In the image on both bases (bazzite and fedora).
+One app for the PC's hardware: fans, RGB lighting, and driver and firmware updates. It replaces SignalRGB, Armoury Crate, NZXT CAM and Fan Xpert for the owner. Source: [files/spark-controller](../files/spark-controller). In the SparkOS image.
 
 Status: built 2026-11-23. Tested against a fake `/sys/class/hwmon` tree, a fake liquidctl and recorded fwupd output, and the window was opened on the owner's PC with nothing written. **Nothing has been written to a real fan, light or firmware yet.** See "Not tried on hardware".
 
@@ -42,7 +42,7 @@ liquidctl is imported as a Python library for NZXT and other USB controllers. Op
 
 ## Packages
 
-`python3-liquidctl openrgb fwupd` for both bases (`build_files/packages.sh`). Both bases already have the udev rules for OpenRGB; `71-spark-controller.rules` repeats the owner's devices so lighting works without them. Both exist in Fedora 45 (liquidctl 1.16, OpenRGB 1.0 candidate).
+`python3-liquidctl openrgb fwupd` (`build_files/packages.sh`). The image already has OpenRGB's udev rules (`openrgb-udev-rules`); `71-spark-controller.rules` repeats the owner's devices so lighting works without them. Both exist in Fedora 45 (liquidctl 1.16, OpenRGB 1.0 candidate).
 
 ## Not tried on hardware
 

@@ -4,7 +4,7 @@ One app for the PC's hardware: fans, RGB lighting, and driver and firmware updat
 
 It follows the PC's language: French when the system language is French, English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 
-Spark Controller ships in the SparkOS image on both bases ([build step](../scripts/spark-controller.sh)). It installs system-wide only (`sudo bash install.sh --deps`), because a root service sets the fan speeds. Design and the reasons for the choices: [briefs/spark-controller.md](../../briefs/spark-controller.md).
+Spark Controller ships in the SparkOS image ([build step](../scripts/spark-controller.sh)). It installs system-wide only (`sudo bash install.sh --deps`), because a root service sets the fan speeds. Design and the reasons for the choices: [briefs/spark-controller.md](../../briefs/spark-controller.md).
 
 - **Overview:** CPU, GPU and liquid temperatures, every fan with its speed and who controls it, the current profile.
 - **Fans:** a curve per fan from CPU, GPU, liquid or the hotter of CPU and GPU. Presets Quiet, Balanced, Performance and Fixed. The service smooths the temperature, waits before slowing down and limits how fast the power moves, so fans don't run in bursts. Every fan goes back to automatic when the service stops, crashes, or you turn it off.

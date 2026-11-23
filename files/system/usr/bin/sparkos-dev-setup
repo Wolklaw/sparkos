@@ -46,7 +46,7 @@ if [ "$want_brew" = 1 ]; then
   grep -E '^brew ' "$BREWFILE" | sed 's/^/  /'
   brew bundle --file="$BREWFILE"
   # Homebrew's daily update timers are off until now (00-sparkos-homebrew.preset): turn them on.
-  # On both bases, under the same names (on Fedora, from fedora-homebrew.sh).
+  # They come from fedora-homebrew.sh.
   for timer in brew-update.timer brew-upgrade.timer; do
     systemctl cat "$timer" >/dev/null 2>&1 || continue
     if ! systemctl is-enabled --quiet "$timer" 2>/dev/null; then
