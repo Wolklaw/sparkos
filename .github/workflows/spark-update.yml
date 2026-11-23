@@ -69,6 +69,7 @@ jobs:
         run: |
           useradd -m tester
           cp -r files/spark-update /home/tester/spark-update
+          cp files/whats-new.json /home/tester/whats-new.json   # tests read ../../whats-new.json
           chown -R tester: /home/tester/spark-update
           setpriv --reuid=tester --regid=tester --init-groups env -i HOME=/home/tester \
             PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
