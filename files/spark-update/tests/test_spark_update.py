@@ -32,7 +32,7 @@ os.environ['SPARK_UPDATE_REDUCED_MOTION'] = '1'
 from sparkupdate import IMAGE, STATE_PATH, VERSION, core, release  # noqa: E402
 from sparkupdate import guard, notify, settings, status, updater  # noqa: E402
 from sparkupdate.cli import main as cli_main, other_updaters, self_test  # noqa: E402
-from sparkupdate.core import Env  # noqa: E402
+from sparkupdate.core import Env, load_json  # noqa: E402
 from sparkupdate.text import t  # noqa: E402
 
 LINUX = sys.platform.startswith('linux')
@@ -307,6 +307,76 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(kinds['FreeSuite'], ('removed', '0.4.1', ''))
         self.assertEqual(kinds[t('platform.kernel')], ('changed', '6.17.7', '6.17.8'))
         self.assertTrue(all(c.kind == 'added' for c in release.diff(None, new)))
+
+    def test_base_shows_its_kind(self):
+        old = manifest(A_VER, '0.2.0', '1.0.0', '6.17.7')
+        new = manifest(B_VER, '0.2.0', '1.0.0', '6.17.7')
+        old['platform'].append({'id': 'base', 'name': 'Bazzite base', 'version': '45.20261123'})
+        new['platform'].append({'id': 'base', 'name': 'Fedora base', 'version': '45'})
+        base = [c for c in release.diff(old, new) if c.name == t('platform.base')][0]
+        self.assertEqual((base.old, base.new), ('Bazzite 45.20261123', 'Fedora 45'))
+
+
+def note(nid, day):
+    return {'id': nid, 'date': day, 'en': f'note {nid}', 'fr': f'note {nid} (fr)'}
+
+
+class NotesTests(unittest.TestCase):
+    def test_read_notes_cleans_and_sorts(self):
+        folder = tempfile.mkdtemp()
+        path = os.path.join(folder, 'whats-new.json')
+        with open(path, 'w') as f:
+            json.dump({'notes': [note('a', '2026-11-20'), note('b', '2026-11-23'),
+                                 {'id': 'c', 'date': 'soon', 'en': 'x'},      # bad date
+                                 {'id': 'd', 'date': '2026-11-24'},           # no text
+                                 note('a', '2026-11-25'),                      # same id twice
+                                 'junk']}, f)
+        notes = release.read_notes(path)
+        self.assertEqual([n['id'] for n in notes], ['b', 'a'])
+        self.assertEqual(release.read_notes(os.path.join(folder, 'missing.json')), [])
+
+    def test_every_note_since_the_version_you_had(self):
+        v1 = dict(manifest('1', '0', '0', '0'), notes=[note('n1', '2026-11-20')])
+        v3 = dict(manifest('3', '0', '0', '0'),
+                  notes=[note('n3', '2026-11-22'), note('n2', '2026-11-21'),
+                         note('n1', '2026-11-20')])
+        # skipped version 2: its note still shows
+        self.assertEqual([n['id'] for n in release.new_notes(v1, v3)], ['n3', 'n2'])
+        self.assertEqual(release.new_notes(v3, v3), [])
+
+    def test_notes_you_never_opened_the_window_for(self):
+        v2 = dict(manifest('2', '0', '0', '0'),
+                  notes=[note('n2', '2026-11-21'), note('n1', '2026-11-20')])
+        v3 = dict(manifest('3', '0', '0', '0'), notes=[note('n3', '2026-11-22')] + v2['notes'])
+        # restarted into 2 without opening Spark Update; last looked on version 1
+        self.assertEqual([n['id'] for n in release.new_notes(v2, v3, seen=['n1'])],
+                         ['n3', 'n2'])
+        self.assertEqual([n['id'] for n in release.new_notes(v2, v3, seen=['n1', 'n2'])],
+                         ['n3'])
+
+    def test_old_version_without_notes(self):
+        old = dict(manifest('1', '0', '0', '0'), built='2026-11-22T06:00:00Z')
+        new = dict(manifest('2', '0', '0', '0'),
+                   notes=[note('n3', '2026-11-23'), note('n2', '2026-11-22'),
+                          note('n1', '2026-11-20')])
+        self.assertEqual([n['id'] for n in release.new_notes(old, new)], ['n3', 'n2'])
+        self.assertEqual(release.new_notes(new, old), [])         # new without notes: none
+        self.assertIsNone(release.notes_of(old))
+
+    def test_note_text_language(self):
+        n = note('x', '2026-11-23')
+        self.assertEqual(release.note_text(n, 'fr'), 'note x (fr)')
+        self.assertEqual(release.note_text({'id': 'y', 'date': '2026-11-23', 'en': 'hi'}, 'fr'),
+                         'hi')
+
+    def test_shipped_notes_file(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        path = os.path.join(here, '..', '..', 'whats-new.json')
+        with open(path, encoding='utf-8') as f:
+            raw = json.load(f)['notes']
+        notes = release.read_notes(path)
+        self.assertEqual(len(notes), len(raw), "an entry in files/whats-new.json is broken")
+        self.assertTrue(all(n.get('fr') for n in notes), "every note needs its French")
 
 
 # ─── Settings ───────────────────────────────────────────────
@@ -1005,6 +1075,26 @@ class UITests(unittest.TestCase):
         self.assertNotIn('Spark Monitor', rows)                      # unchanged, counted
         self.assertTrue(app.buttons['restart'].winfo_ismapped())
         self.assertEqual(app.buttons['restart'].label.cget('text'), t('btn.restart').upper())
+
+    def test_release_notes_in_the_window(self):
+        root = make_root()
+        cur = load_json(os.path.join(root, 'usr/share/sparkos/release.json'))
+        cur['notes'] = [note('n1', '2026-11-20')]
+        write(root, '/usr/share/sparkos/release.json', json.dumps(cur))
+        staged = os.path.join(root, f'ostree/deploy/default/deploy/{B_SUM}.0',
+                              'usr/share/sparkos/release.json')
+        nxt = load_json(staged)
+        nxt['notes'] = [note('n3', '2026-11-22'), note('n2', '2026-11-21'), note('n1', '2026-11-20')]
+        with open(staged, 'w') as f:
+            json.dump(nxt, f)
+        app = self.open(root=root)
+        self.assertEqual(app.note_rows, [release.note_text(note('n3', '')),
+                                         release.note_text(note('n2', ''))])
+        self.assertTrue(app.notes_box.winfo_ismapped())
+        self.assertEqual(app.changes_note.cget('text'), t('changes.notes_update'))
+        # the window remembers the notes of the version it opened on
+        from sparkupdate.updater import user_state_path
+        self.assertEqual(load_json(user_state_path()).get('seen_notes'), ['n1'])
 
     def test_previous_version_from_files(self):
         app = self.open('rpm-ostree-none.json')

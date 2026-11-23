@@ -5,7 +5,7 @@
   "name_fr": "Spark Terminal",
   "summary": "Terminal with tabs, split panes, search in the scrollback and clickable links, in the SparkOS colours.",
   "summary_fr": "Terminal avec onglets, panneaux divisés, recherche dans l'historique et liens cliquables, aux couleurs de SparkOS.",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "installed_size_kb": 0,
   "icon": "icons/spark-terminal-256.png",
   "categories": ["System", "TerminalEmulator"],

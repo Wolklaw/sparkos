@@ -61,6 +61,12 @@ EN = {
     'changes.unreadable': "Can't read the files of {version} on this PC.",
     'changes.no_previous': "There's no earlier version on this PC to compare with.",
     'changes.from_files': "read from the version's files",
+    'changes.notes_since': "What's new since {version}, the version you had before:",
+    'changes.notes_update': "What's new in the update:",
+    'changes.notes_rollback': "Rolling back undoes these:",
+    'changes.versions': "Versions",
+    'changes.no_notes': "No release notes for this version: it was built before SparkOS "
+                        "wrote them. The versions below are what changed.",
 
     'apps.updated': "{n} updated {when}: {names}",
     'apps.none': "Up to date (checked {when}).",
@@ -186,7 +192,7 @@ EN = {
     'err.no_previous': "there is no previous version on this PC",
 
     # parts of the system in "What's in this version" (release.py ids)
-    'platform.base': "Bazzite base",
+    'platform.base': "Base system",
     'platform.kernel': "Linux kernel",
     'platform.mesa': "Mesa graphics drivers",
     'platform.plasma': "KDE Plasma",
@@ -252,6 +258,12 @@ FR = {
     'changes.unreadable': "Impossible de lire les fichiers de {version} sur ce PC.",
     'changes.no_previous': "Il n'y a pas de version antérieure sur ce PC pour comparer.",
     'changes.from_files': "lu dans les fichiers de la version",
+    'changes.notes_since': "Les nouveautés depuis {version}, la version que vous aviez avant :",
+    'changes.notes_update': "Les nouveautés de la mise à jour :",
+    'changes.notes_rollback': "Revenir en arrière annule ceci :",
+    'changes.versions': "Versions",
+    'changes.no_notes': "Pas de notes pour cette version : elle a été compilée avant que "
+                        "SparkOS les écrive. Les versions ci-dessous montrent ce qui a changé.",
 
     'apps.updated': "{n} mises à jour {when} : {names}",
     'apps.none': "À jour (vérifié {when}).",
@@ -382,7 +394,7 @@ FR = {
     'err.no_previous': "il n'y a pas de version précédente sur ce PC",
 
     # parts of the system in "What's in this version" (release.py ids)
-    'platform.base': "Base Bazzite",
+    'platform.base': "Système de base",
     'platform.kernel': "Noyau Linux",
     'platform.mesa': "Pilotes graphiques Mesa",
     'platform.plasma': "KDE Plasma",

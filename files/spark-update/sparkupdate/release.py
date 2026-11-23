@@ -14,9 +14,11 @@ from dataclasses import dataclass
 from typing import Any, Dict, List, Optional
 
 from . import IMAGE, RELEASE_PATH
-from .text import EN, t
+from .text import EN, LANG, t
 
 SCHEMA = 1
+# How many release notes each image carries (newest first); older ones drop off
+NOTES_KEPT = 200
 
 
 def _read(path: str) -> Optional[str]:
@@ -126,9 +128,33 @@ def _os_release(root: str) -> Dict[str, str]:
     return out
 
 
+def read_notes(path: str) -> List[Dict[str, str]]:
+    """The release notes the build ships (files/whats-new.json), cleaned: each one an id, a
+    date (YYYY-MM-DD) and its sentence in English (and French when written), newest first.
+    A broken entry is dropped, never shown half; a missing file gives no notes."""
+    data = _json(path)
+    raw = data.get('notes') if isinstance(data, dict) else None
+    notes, ids = [], set()
+    for n in raw if isinstance(raw, list) else []:
+        if not isinstance(n, dict):
+            continue
+        nid, day, en = (str(n.get(k) or '').strip() for k in ('id', 'date', 'en'))
+        if not nid or nid in ids or not en or not re.fullmatch(r'\d{4}-\d{2}-\d{2}', day):
+            continue
+        ids.add(nid)
+        note = {'id': nid, 'date': day, 'en': en}
+        fr = str(n.get('fr') or '').strip()
+        if fr:
+            note['fr'] = fr
+        notes.append(note)
+    notes.sort(key=lambda n: n['date'], reverse=True)       # stable: file order within a day
+    return notes[:NOTES_KEPT]
+
+
 def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None,
-            image: str = IMAGE) -> Dict[str, Any]:
-    """Read what's in the SparkOS files under root."""
+            image: str = IMAGE, notes: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    """Read what's in the SparkOS files under root. notes: the release notes this version
+    ships (read_notes); None leaves them out (a version read from its files has none)."""
     osr = _os_release(root)
     info = _json(os.path.join(root, 'usr', 'share', 'ublue-os', 'image-info.json')) or {}
     components: List[Dict[str, str]] = []
@@ -145,6 +171,7 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
     platform: List[Dict[str, str]] = []
     base = str(info.get('version') or '') if isinstance(info, dict) else ''
     if base:   # Bazzite's image-info.json: an image from before 2026-11-23
+        # (the window shows "Base system: Bazzite 45.2026... -> Fedora 45", base_version)
         platform.append({'id': 'base', 'name': 'Bazzite base', 'version': base})
     elif osr.get('ID') == 'fedora' and osr.get('VERSION_ID'):
         platform.append({'id': 'base', 'name': 'Fedora base', 'version': osr['VERSION_ID']})
@@ -158,7 +185,7 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
                           ('flatpak', 'Flatpak')):
             if key in found:
                 platform.append({'id': key, 'name': name, 'version': found[key]})
-    return {
+    data = {
         'schema': SCHEMA,
         'name': osr.get('NAME', 'SparkOS'),
         'image': image,
@@ -167,6 +194,9 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
         'components': components,
         'platform': platform,
     }
+    if notes is not None:
+        data['notes'] = notes
+    return data
 
 
 def load(root: str, use_rpm: bool = True) -> Optional[Dict[str, Any]]:
@@ -212,7 +242,57 @@ def diff(old: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]]) -> List[C
             name = (b or a).get('name', cid)
             if group == 'platform' and f'platform.{cid}' in EN:
                 name = t(f'platform.{cid}')          # release.json has the English name
-            changes.append(Change(name=name,
-                                  old=str((a or {}).get('version', '')),
-                                  new=str((b or {}).get('version', '')), group=group))
+            old_v, new_v = (str((x or {}).get('version', '')) for x in (a, b))
+            if group == 'platform' and cid == 'base':
+                old_v, new_v = base_version(a), base_version(b)
+            changes.append(Change(name=name, old=old_v, new=new_v, group=group))
     return changes
+
+
+def base_version(part: Optional[Dict[str, Any]]) -> str:
+    """'Fedora 45' from {'name': 'Fedora base', 'version': '45'}: the base's own name goes
+    with its version, so moving from Bazzite to Fedora doesn't read as Bazzite 45 -> 45."""
+    if not part or not part.get('version'):
+        return ''
+    kind = str(part.get('name') or '').replace(' base', '').strip()
+    return f"{kind} {part['version']}".strip()
+
+
+def notes_of(data: Optional[Dict[str, Any]]) -> Optional[List[Dict[str, str]]]:
+    """A version's release notes; None when it was built before versions carried them."""
+    notes = (data or {}).get('notes')
+    if not isinstance(notes, list):
+        return None
+    return [n for n in notes if isinstance(n, dict) and n.get('id') and n.get('en')]
+
+
+def note_ids(data: Optional[Dict[str, Any]]) -> List[str]:
+    return [n['id'] for n in notes_of(data) or []]
+
+
+def new_notes(old: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]],
+              seen: Optional[List[str]] = None) -> List[Dict[str, str]]:
+    """The notes in new that weren't in old, newest first. Every image carries all the recent
+    notes, so going from a version three updates back lists all three updates' notes.
+
+    seen: the notes of the last version you opened Spark Update on (user state). A note in old
+    you never had the window open for is still new to you, so it shows too: updates you
+    restarted into without looking aren't skipped.
+    old built before versions carried notes: the notes dated on or after its build day."""
+    after = notes_of(new)
+    if not after:
+        return []
+    before = notes_of(old)
+    if before is not None:
+        known = {n['id'] for n in before}
+    else:
+        day = str((old or {}).get('built') or '')[:10]
+        known = {n['id'] for n in after if day and n['date'] < day}
+    if seen is not None:
+        known &= set(seen)
+    return [n for n in after if n['id'] not in known]
+
+
+def note_text(note: Dict[str, str], language: str = '') -> str:
+    language = language or LANG
+    return note.get(language) or note['en']

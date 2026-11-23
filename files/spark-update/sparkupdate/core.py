@@ -194,6 +194,15 @@ def day(ts: Optional[float]) -> str:
     return t('day.date', month=_month(lt), day=lt.tm_mday, year=lt.tm_year)
 
 
+def day_from_iso(date: str) -> str:
+    """'Nov 23, 2026' from '2026-11-23' (a release note's date); the text itself if it isn't one"""
+    try:
+        lt = time.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        return date
+    return t('day.date', month=_month(lt), day=lt.tm_mday, year=lt.tm_year)
+
+
 def _month(lt: time.struct_time) -> str:
     return t('months').split()[lt.tm_mon - 1]
 

@@ -6,7 +6,7 @@ emulation (escape codes, Unicode, mouse, true colour); everything around it is S
 APP_NAME = "Spark Terminal"
 APP_SLUG = "spark-terminal"      # command, folders, log names
 APP_ID = "dev.wolklaw.SparkTerminal"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 GTK_VERSION = "4.0"
 VTE_VERSION = "3.91"             # VTE's GTK 4 API (Fedora package vte291-gtk4)

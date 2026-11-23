@@ -66,6 +66,7 @@ DEFAULTS: Dict[str, Any] = {
     "font_size": 11,
     "scrollback": 10000,
     "copy_on_select": True,
+    "ctrl_c_v": True,            # Ctrl+C copies a selection, Ctrl+V pastes (pane.py)
     "confirm_close": True,
     "cursor": "block",
     "cursor_blink": True,
@@ -100,7 +101,7 @@ def clean_settings(raw: Any) -> Dict[str, Any]:
     data['font_size'] = _clamp_int(raw.get('font_size'), *FONT_SIZE_RANGE, DEFAULTS['font_size'])
     data['scrollback'] = _clamp_int(raw.get('scrollback'), *SCROLLBACK_RANGE,
                                     DEFAULTS['scrollback'])
-    for key in ('copy_on_select', 'confirm_close', 'cursor_blink', 'glitch'):
+    for key in ('copy_on_select', 'ctrl_c_v', 'confirm_close', 'cursor_blink', 'glitch'):
         if isinstance(raw.get(key), bool):
             data[key] = raw[key]
     if raw.get('cursor') in CURSORS:

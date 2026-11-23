@@ -197,7 +197,7 @@ def cli_rollback(env: Env) -> int:
     return code
 
 
-def write_release(path: str) -> int:
+def write_release(path: str, notes_path: str = '') -> int:
     import json
     from . import release
     # The build passes the image's own name (Containerfile ARGs IMAGE_REGISTRY and IMAGE_NAME)
@@ -206,7 +206,13 @@ def write_release(path: str) -> int:
     if image not in IMAGES:
         print(f"unknown image {image}; expected {' or '.join(IMAGES)}")
         return 1
-    data = release.collect('/', use_rpm=True, built=time.time(), image=image)
+    notes = None
+    if notes_path:
+        notes = release.read_notes(notes_path)
+        if not notes:
+            print(f"no release notes in {notes_path}")
+            return 1
+    data = release.collect('/', use_rpm=True, built=time.time(), image=image, notes=notes)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
@@ -247,6 +253,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="show the notification with a made-up version")
     parser.add_argument('--write-release', metavar='PATH',
                         help="write what's in this image to PATH (the image build)")
+    parser.add_argument('--notes', metavar='PATH',
+                        help="with --write-release: the release notes to put in it "
+                             "(files/whats-new.json)")
     parser.add_argument('--self-test', action='store_true',
                         help="check what Spark Update needs; no display needed")
     parser.add_argument('--root', help="read a fake system under this folder (tests)")
@@ -258,7 +267,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.status:
         return print_status(env)
     if args.write_release:
-        return write_release(args.write_release)
+        return write_release(args.write_release, args.notes or '')
     if args.notify_test:
         return notify_test()
     if args.system_run:

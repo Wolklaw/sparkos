@@ -1,5 +1,5 @@
 """One terminal: a VTE widget, its scrollbar, the shell or command running in it, and the
-things Spark Terminal adds on top (links, copy on select, the bell, its title)."""
+things Spark Terminal adds on top (links, copy on select, Ctrl+C/V, the bell, its title)."""
 
 import os
 import re
@@ -83,6 +83,13 @@ class Pane(Gtk.Box):
         focus = Gtk.EventControllerFocus()
         focus.connect('enter', lambda _c: self.cb['focus'](self))
         term.add_controller(focus)
+
+        # Ctrl+C copies a selection and Ctrl+V pastes (the ctrl_c_v setting). Capture phase:
+        # VTE would otherwise send them to the program as ^C and ^V.
+        keys = Gtk.EventControllerKey()
+        keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
+        keys.connect('key-pressed', self._on_key)
+        term.add_controller(keys)
 
         # Ctrl+click opens links; right click is our own menu. Capture phase, so VTE doesn't
         # start a selection or show its own menu first.
@@ -233,6 +240,30 @@ class Pane(Gtk.Box):
     def _on_selection(self, term) -> None:
         if self.settings.get('copy_on_select') and term.get_has_selection():
             term.copy_clipboard_format(Vte.Format.TEXT)
+
+    def _on_key(self, _ctl, keyval: int, _code: int, state: Gdk.ModifierType) -> bool:
+        """Ctrl+C with text selected copies it and clears the selection, so the next Ctrl+C
+        interrupts the program as usual; with nothing selected it is ^C. Ctrl+V pastes.
+        Ctrl+Shift+C/V still work, and with the setting off Ctrl+C/V go to the program."""
+        if not self.settings.get('ctrl_c_v'):
+            return False
+        mods = state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.SHIFT_MASK |
+                        Gdk.ModifierType.ALT_MASK | Gdk.ModifierType.SUPER_MASK)
+        if mods != Gdk.ModifierType.CONTROL_MASK:
+            return False
+        return self.ctrl_key(Gdk.keyval_to_lower(keyval))
+
+    def ctrl_key(self, keyval: int) -> bool:
+        """What Ctrl+keyval does; True when Spark Terminal took it (tests call this)."""
+        term = self.terminal
+        if keyval == Gdk.KEY_c and term.get_has_selection():
+            term.copy_clipboard_format(Vte.Format.TEXT)
+            term.unselect_all()
+            return True
+        if keyval == Gdk.KEY_v:
+            term.paste_clipboard()
+            return True
+        return False
 
     def link_at(self, x: float, y: float) -> Optional[Dict[str, str]]:
         """{'kind': 'url'|'path', 'text': ..., 'target': uri} for a link under (x, y)."""

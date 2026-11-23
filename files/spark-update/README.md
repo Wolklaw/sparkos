@@ -47,6 +47,14 @@ the one of the staged version (or, with no update waiting, with the previous ver
 version built before that file existed, it reads the same things from that version's files on
 disk (`/ostree/deploy/...`). If neither can be read, it says so.
 
+Above the versions, the window lists the **release notes**: what's new, in words. They're
+written in `files/whats-new.json` (one entry per change people will notice: id, date, English
+and French), and the image build puts the newest 200 into `release.json`. Every image carries
+all of them, so the window shows each note the other version didn't have: someone who skipped
+three updates sees all three updates' notes. It also remembers the notes of the version you last
+opened the window on (`seen_notes` in `~/.local/state/spark-update/state.json`), so an update
+you restarted into without looking isn't skipped either.
+
 ## Roll back
 
 Roll back makes the next restart start the previous version (`rpm-ostree rollback`, through

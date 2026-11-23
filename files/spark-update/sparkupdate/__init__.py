@@ -8,7 +8,7 @@ APP_NAME = "Spark Update"
 APP_SLUG = "spark-update"        # command, folders, log names
 APP_CLASS = "SparkUpdate"        # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkUpdate"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 IMAGE = "ghcr.io/wolklaw/sparkos"
 # Every image Spark Update knows: SparkOS, and sparkos-fedora, the name SparkOS on Fedora had

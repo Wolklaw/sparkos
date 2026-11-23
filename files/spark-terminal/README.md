@@ -17,6 +17,7 @@ and VTE through PyGObject.
 | Ctrl+Shift+W | close the pane (or the tab, when it has one pane) |
 | Alt+Arrows | move between panes |
 | Ctrl+PgUp / Ctrl+PgDn, Alt+1 … 9 | previous / next tab, go to a tab |
+| Ctrl+C / Ctrl+V | copy the selection / paste. With nothing selected, Ctrl+C stops the running program as usual; copying clears the selection, so the next Ctrl+C does too. Off in Settings (`ctrl_c_v`) for programs that need ^V |
 | Ctrl+Shift+C / Ctrl+Shift+V, Shift+Insert | copy / paste |
 | Ctrl+Shift+F | find in the scrollback (Enter: older match, Shift+Enter: newer, Esc closes) |
 | Ctrl+Plus / Minus / 0 | zoom in / out / actual size |
