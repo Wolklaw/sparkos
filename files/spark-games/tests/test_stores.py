@@ -197,7 +197,7 @@ class OwnedTests(StoreCase):
         registry.add_game('epic:Sugar', {'store': 'epic', 'app': 'Sugar', 'title': 'Celeste',
                                          'path': '/x', 'version': '1.4.0.0', 'via': 'heroic'})
         data = stores.refresh_owned('epic')
-        self.assertEqual([g['app'] for g in data['games']], ['Sugar', 'Fox'])   # no Mac-only
+        self.assertEqual([g['app'] for g in data['games']], ['Sugar', 'Fox'])   # no Mac-only, no UE sample
         self.assertEqual(data['updates'], ['Sugar'])
         self.assertEqual(data['games'][0]['art'], 'https://cdn.example.invalid/celeste.jpg')
         before = len([c for c in self.calls_made() if c[0] == 'legendary' and 'list' in c])

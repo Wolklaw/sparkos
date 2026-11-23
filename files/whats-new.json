@@ -4,8 +4,8 @@
     {
       "id": "2026-11-23-games-store-covers",
       "date": "2026-11-23",
-      "en": "Spark Games shows the covers of every Epic game you own. One cover with spaces in its address stopped all the others from downloading.",
-      "fr": "Spark Games affiche les couvertures de tous vos jeux Epic. Une couverture avec des espaces dans son adresse empêchait toutes les autres de se télécharger."
+      "en": "Spark Games shows the covers of every Epic game you own (one cover with spaces in its address stopped all the others from downloading), and no longer lists the Unreal Engine samples and plugins an Epic account owns as games.",
+      "fr": "Spark Games affiche les couvertures de tous vos jeux Epic (une couverture avec des espaces dans son adresse empêchait toutes les autres de se télécharger), et ne liste plus comme jeux les exemples et modules Unreal Engine d'un compte Epic."
     },
     {
       "id": "2026-11-23-games-launcher-page",

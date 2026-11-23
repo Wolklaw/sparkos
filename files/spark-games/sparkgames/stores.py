@@ -218,6 +218,13 @@ def owned_stale(store: str) -> bool:
     return now() - int(load_owned(store).get('fetched') or 0) > OWNED_MAX_AGE
 
 
+def _unreal_asset(meta: Dict[str, Any]) -> bool:
+    """Unreal Engine samples, projects and plugins an Epic account owns (free from Unreal or
+    Fab): Epic files them under asset-format/..., games under games."""
+    paths = [str(c.get('path') or '') for c in meta.get('categories') or [] if isinstance(c, dict)]
+    return any(p == 'asset-format' or p.startswith('asset-format/') for p in paths)
+
+
 def _epic_owned() -> List[Dict[str, str]]:
     rc, out, _e = clients.run('epic', ['list', '--json'], timeout=300)
     data = _first_json(out)
@@ -230,8 +237,10 @@ def _epic_owned() -> List[Dict[str, str]]:
         assets = item.get('asset_infos')
         if isinstance(assets, dict) and assets and 'Windows' not in assets:
             continue
-        art = ''
         meta = item.get('metadata') if isinstance(item.get('metadata'), dict) else {}
+        if _unreal_asset(meta):
+            continue
+        art = ''
         images = [i for i in meta.get('keyImages') or [] if isinstance(i, dict)]
         for wanted in ('DieselGameBoxTall', 'DieselGameBox', 'Thumbnail'):
             art = next((i.get('url', '') for i in images if i.get('type') == wanted), '')
