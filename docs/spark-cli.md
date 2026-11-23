@@ -2,8 +2,8 @@
 
 `spark` is SparkOS's own command for system jobs: updates, rollbacks, kernel arguments, services,
 logs for a bug report. It replaces Universal Blue's `ujust` (Bazzite's `just` recipes), which plain
-Fedora doesn't have. It's one bash script, [files/system/usr/bin/spark](../files/system/usr/bin/spark),
-with no `just` and no other new package, and works on both bases (Bazzite and Fedora Kinoite).
+Fedora doesn't have (SparkOS was built on Bazzite until 2026-11-23). It's one bash script, [files/system/usr/bin/spark](../files/system/usr/bin/spark),
+with no `just` and no other new package, built for Fedora Kinoite, SparkOS's base.
 Tab completion: [files/system/usr/share/bash-completion/completions/spark](../files/system/usr/share/bash-completion/completions/spark).
 
 ```
@@ -48,14 +48,14 @@ restarts) ask "Continue?" first.
 | `spark audio-restart` | Restart PipeWire for your session | `restart-pipewire` |
 | `spark audio-channels [status\|on\|off]` | Game, Voice, Browser and Music outputs (for OBS and the like) | `setup-virtual-channels` |
 | **Developer tools** | | |
-| `spark brew` | Set up Homebrew if it isn't there (Bazzite: unpack the shipped copy; Fedora: Homebrew's installer, pinned to one commit and checked by SHA-256) | Bazzite's `brew-setup` |
+| `spark brew` | Set up Homebrew if it isn't there (Homebrew's installer, pinned to one commit and checked by SHA-256) | Bazzite's `brew-setup` |
 | `spark box [list\|new\|enter\|rm]` | Linux containers with Distrobox, or Toolbox when Distrobox isn't installed (plain Fedora) | `distrobox-new` |
 | **Problems** | | |
 | `spark logs [this\|last\|errors]` | The system log of this boot or the one before | `logs-this-boot`, `logs-last-boot` |
 | `spark report [FOLDER]` | One `.tar.gz` with `spark info`, deployments, devices, Vulkan, failed services, crashes, Flatpak apps and both boots' logs. **Nothing is uploaded.** | `get-logs`, `device-info` (those upload to a pastebin) |
 
-Once it's set up, `/etc/profile.d/brew.sh` puts Homebrew at the end of `PATH` (on Fedora it's
-SparkOS's own, from [files/homebrew](../files/homebrew); on Bazzite, Bazzite's). `sparkos-dev-setup --brew` now points to
+Once it's set up, `/etc/profile.d/brew.sh` puts Homebrew at the end of `PATH` (SparkOS's own, from
+[files/homebrew](../files/homebrew)). `sparkos-dev-setup --brew` now points to
 `spark brew` when Homebrew is missing.
 
 ## ujust recipes left out, and why
@@ -91,12 +91,11 @@ SparkOS's own, from [files/homebrew](../files/homebrew); on Bazzite, Bazzite's).
   (SparkOS mounts Windows drives itself, see [windows-drives.md](windows-drives.md)),
   `setup-virtual-surround`, `toggle-bt-mic`.
 
-On Bazzite, `ujust` is still there next to `spark` (and `ujust update` runs Spark Update).
-[switching.md](switching.md) still names a few `ujust` recipes; on the Fedora base those are gone.
+SparkOS has no `ujust`; `spark` is the only one.
 
 ## Tested
 
-In containers of `ghcr.io/wolklaw/sparkos-fedora:latest` (not a booted system), on 2026-11-22:
+In containers of `ghcr.io/wolklaw/sparkos-fedora:latest`, the Fedora test image before it became the only one (not a booted system), on 2026-11-22:
 `bash -n` and ShellCheck 0.11 clean; every command's help; every command that changes something,
 with `--dry-run`; `info`, `kargs`, `watchdog`, `sysrq`, `ssh` and `service` status for real;
 `audio-channels on/off` for real (PipeWire's `pw-config` reads the file); `stop-proton` against

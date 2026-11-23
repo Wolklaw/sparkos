@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Fedora base only (Containerfile step 5, SPARKOS_BASE=fedora). SparkOS's own gaming layer on
-# plain Fedora, for AMD.
+# Containerfile step 5. SparkOS's own gaming layer on Fedora, for AMD.
 #
 # What build_files/packages.sh already adds from Fedora: gamescope, MangoHud, GameMode.
 # Fedora's kernel already has the controller drivers SparkOS's hardware needs (xpad,

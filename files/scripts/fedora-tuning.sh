@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Fedora base only (Containerfile step 5, SPARKOS_BASE=fedora). The system tuning Bazzite has
-# that plain Fedora Kinoite doesn't, as SparkOS's own config. docs/fedora-base.md ("Performance
+# Containerfile step 5. The system tuning Bazzite had that plain Fedora Kinoite doesn't, as SparkOS's own config. docs/fedora-base.md ("Performance
 # and tuning") lists every Bazzite tweak and why each one is here or left out.
 #
 # Packages for this are installed by build_files/packages.sh: vkBasalt and python3-pyinotify

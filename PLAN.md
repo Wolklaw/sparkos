@@ -1,14 +1,14 @@
 # SparkOS plan
 
-SparkOS is a custom Linux image for gaming and everyday work. It is built on **Bazzite** (Fedora Atomic + Universal Blue) from SparkOS's own **Containerfile** (BlueBuild until 2026-11-20; see [docs/building.md](docs/building.md)), which GitHub Actions turns into a signed OS image on every change and again each day when upstream updates.
+SparkOS is a custom Linux image for gaming and everyday work. It is built on **Fedora Kinoite 45** (Fedora's atomic KDE image; Bazzite until 2026-11-23) from SparkOS's own **Containerfile** (BlueBuild until 2026-11-20; see [docs/building.md](docs/building.md)), which GitHub Actions turns into a signed OS image on every change and again each day when upstream updates.
 
-We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. SparkOS adds the apps, defaults and branding.
+We don't maintain a kernel or drivers: Fedora handles those. SparkOS adds the gaming layer Bazzite used to provide (kernel modules, device rules, tuning, gamescope/MangoHud/GameMode), the apps, defaults and branding. See [docs/fedora-base.md](docs/fedora-base.md).
 
 ## Status (2026-11-20)
 - **Phase 0: done.** Repo `Wolklaw/sparkos` is public, the cosign key is in `SIGNING_SECRET` (a local copy is in the git-ignored `cosign.key`), and the first CI build passed in about 5 minutes. `ghcr.io/wolklaw/sparkos:latest` is public, and its signature verifies against `cosign.pub`.
 - **Phase 1: done in CI.** The boot-test workflow boots every build in QEMU/KVM on GitHub. Local VirtualBox testing on this PC froze because Windows' Memory Integrity holds the CPU's virtualization. [docs/vm-test.md](docs/vm-test.md) stays as the manual path for a PC without that.
 - Renamed from WolkOS to SparkOS on 2026-11-19: the repo is now `Wolklaw/sparkos` (GitHub redirects the old URL) and the image is `ghcr.io/wolklaw/sparkos`. The old `ghcr.io/wolklaw/wolkos` image is no longer updated. The local folder is still named `WolkOS`.
-- Note: only the visible name changes to SparkOS. `ID=bazzite` and Bazzite's `image-info.json` stay as they are, because Bazzite's own tools read them. Bazzite's rollback helper therefore offers stock Bazzite images, which is a fine way out if SparkOS ever breaks.
+- **Base: Fedora Kinoite only since 2026-11-23.** The `sparkos-fedora` test image passed on the real PC (no failed units, faster boot than Bazzite, GPU video, Vulkan, every kernel module and Spark app self-test; [docs/fedora-base.md](docs/fedora-base.md)), so the Bazzite build was dropped and `ghcr.io/wolklaw/sparkos` is built from Fedora. Only the visible name is SparkOS: `ID=fedora` stays, because Fedora's own tools read it.
 
 ## Starting point (checked on this PC, 2026-11-19)
 
@@ -22,7 +22,7 @@ We don't maintain a kernel, drivers or the gaming stack. Bazzite handles those. 
 
 ## Decisions (defaults I'd pick)
 
-1. **Base image:** `ghcr.io/ublue-os/bazzite:stable` (KDE Plasma, AMD/Intel). It already includes Steam, gamescope, Lutris and current Mesa.
+1. **Base image:** `quay.io/fedora/fedora-kinoite:45` (KDE Plasma) since 2026-11-23; `ghcr.io/ublue-os/bazzite:stable` before that (Release 3 below).
 2. **Your own apps ship preinstalled:** **Soot** as the browser and **FreeSuite** as the office suite (mail, documents, sheets, slides, PDF). Both are Windows-only today, so each needs a Linux build first:
    - **Soot: in the image, always the latest release** (`files/scripts/soot.sh`). It installs to `/usr/lib/soot` and is the default browser. The installed release is recorded in `/usr/lib/soot/SOOT_RELEASE`.
    - **FreeSuite: in the image** (`files/scripts/freesuite.sh`, always the latest release, checked against that release's SHA256SUMS). It installs to `/usr/lib/opt/freesuite`, because `/opt` is in `/var` on Fedora Atomic. It's the default for mail, calendar, PDF and every Office format it opens, including .doc/.xls/.ppt, OpenDocument and RTF.
@@ -104,7 +104,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 
 ### Phase 5: Real hardware and your games (ongoing)
 - Uninstall the Windows games on E:, back up `Personal Projects`, shrink E:, and install SparkOS into the freed space (see decision 3). At startup, choose SparkOS or Windows from the boot menu.
-- Reinstall the games inside SparkOS, onto its own partition. If Secure Boot is on, enroll the Universal Blue key once, using the steps Bazzite provides.
+- Reinstall the games inside SparkOS, onto its own partition. Secure Boot needs no key (Fedora's signed kernel), but SparkOS's extra kernel modules don't load with it on until they're signed.
 - Work through [docs/switching.md](docs/switching.md): every app and device on this PC, with its SparkOS answer. Settle the **Check** items first.
 - Day-one hardware checks:
   - Print and scan a page on the Canon TR4700.
@@ -123,8 +123,8 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 - **Done when:** a normal week of work and games happens on SparkOS without reaching for Windows, except for the games and tools marked **No** in the switching guide.
 
 ### Phase 6: Upkeep (minutes a week)
-- CI rebuilds daily against the latest Bazzite. Updates are atomic, and a bad update rolls back from the boot menu.
-- When Bazzite changes something, it's usually a one-line fix in the Containerfile or a build script.
+- CI rebuilds daily against the latest Fedora Kinoite. Updates are atomic, and a bad update rolls back from the boot menu.
+- When Fedora changes something, it's usually a one-line fix in the Containerfile or a build script. A new kernel can break a kernel module's build: the build stops, and the module's pinned source gets bumped (build_files/kmods.sh).
 
 ## Independence roadmap (owner's goal, 2026-11-20)
 Rely on other people's products as little as possible by Release 2 or 3. Replace what a Spark app or a small change can own; keep what no one person can maintain. Work items have briefs in [briefs/](briefs/README.md).
@@ -138,14 +138,14 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 | Tailscale, preinstalled by Bazzite | Removed (installable by anyone who wants it) | PR [#13](https://github.com/Wolklaw/sparkos/pull/13) |
 | Fedora's usage counting and connectivity check, KDE's "Get New Stuff" | Usage counting off and Get New Stuff hidden in PR [#13](https://github.com/Wolklaw/sparkos/pull/13); the connectivity check is the owner's call (in the PR) |
 | Spectacle, which Spark Snip uses to capture | Spark Snip captures through KWin directly | Done in the first release: Spectacle removed after the boot test's real-session capture passed |
-| Bazzite/ublue update tools (`ujust`, their update service and rollback helper) | **Spark Update**: "SparkOS updated, restart?", what changed, one-click rollback | **Done 2026-11-20**: Spark Update downloads and stages updates itself (the boot test had it stage and start a real update); `uupd` and the Bazzite Updater are removed, and `ujust update` runs Spark Update. `ujust` itself stays until the Fedora move (Bazzite's own tools call it) |
+| Bazzite/ublue update tools (`ujust`, their update service and rollback helper) | **Spark Update**: "SparkOS updated, restart?", what changed, one-click rollback | **Done 2026-11-20**: Spark Update downloads and stages updates itself (the boot test had it stage and start a real update); `uupd` and the Bazzite Updater are removed, and `ujust update` runs Spark Update. `ujust` went with the Fedora move (2026-11-23) |
 | Homebrew's daily update timers, Universal Blue's akmods repository | Homebrew quiet until `sparkos-dev-setup --brew`; the repository off | **Done 2026-11-20** |
 
 **Release 3: bigger moves**
 | Today | SparkOS's own | Status |
 |---|---|---|
 | Bazaar, the store | **Spark Store**: SparkOS's own store over Flathub, with the Spark apps in it (the Spark Portal idea) | Brief: [spark-store](briefs/spark-store.md) |
-| Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Prototype merged as a separate image, `sparkos-fedora` ([#16](https://github.com/Wolklaw/sparkos/pull/16)): it builds and boots, and 19 of 22 checks pass (missing: H.265, Bazaar, Homebrew). Since 2026-11-22 it's built from the same Containerfile as SparkOS (`SPARKOS_BASE=fedora`), with RPM Fusion free for H.265, on every build of main and daily, and runs the same boot test. Results in [docs/fedora-base.md](docs/fedora-base.md) |
+| Bazzite as the base, and Universal Blue's tooling | Build on Fedora's own atomic KDE image with SparkOS's own gaming layer (Mesa, gamescope, MangoHud, kernel settings) | Prototype merged as a separate image, `sparkos-fedora` ([#16](https://github.com/Wolklaw/sparkos/pull/16)): it builds and boots, and 19 of 22 checks pass (missing: H.265, Bazaar, Homebrew). **Done 2026-11-23**: tried on the real PC for a day and passed, so it became the only image; the Bazzite build is gone and `ujust` with it (`spark` replaces it). Results in [docs/fedora-base.md](docs/fedora-base.md) |
 | BlueBuild | A plain Containerfile and SparkOS's scripts | **Done 2026-11-20**: the real build uses SparkOS's own Containerfile ([#15](https://github.com/Wolklaw/sparkos/pull/15), [docs/building.md](docs/building.md)) |
 | Bottles, fetched to open `.exe` files | Spark Run, on Wine/Proton | In the first release ([#17](https://github.com/Wolklaw/sparkos/pull/17)). The Wine it downloads is now built by SparkOS's own CI from WineHQ's signed source (release [wine-11.22-2](https://github.com/Wolklaw/sparkos/releases/tag/wine-11.22-2), reproducible), no longer Kron4ek's build |
 | KDE System Settings | **Spark Settings**: displays, sound, network, Bluetooth, power, default apps, printers and more; KDE's modules open for the rest until covered | Brief: [spark-settings](briefs/spark-settings.md) (2026-11-22) |
@@ -203,5 +203,5 @@ Two new parts. Working names until the owner picks real ones: **Spark Connect** 
 - **Windows-only device tools:** 8BitDo firmware updates and Focusrite's own app. The devices themselves work, and replacements are listed in the switching guide.
 - **Microsoft Office desktop and Adobe apps** don't run. FreeSuite and the web versions do.
 - **GPU-heavy gaming can't be tested in a VM.** Real performance testing happens in Phase 5.
-- **Dependence on Bazzite and Universal Blue.** They do the hard parts today. The independence roadmap moves SparkOS to plain Fedora Atomic in Release 3, which also covers the case where they stop.
+- **Dependence on Fedora, RPM Fusion and Terra.** Fedora does the hard parts; RPM Fusion supplies full video codecs and Terra two small packages. SparkOS now owns the gaming layer Bazzite used to provide, so keeping the kernel modules building on new kernels is SparkOS's job.
 - **Battle.net** occasionally breaks for a few days after a client update.

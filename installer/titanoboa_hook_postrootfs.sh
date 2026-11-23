@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Sets up the SparkOS live installer: Anaconda, the install kickstart, and live-session tweaks.
 # Adapted from Bazzite's installer/titanoboa_hook_postrootfs.sh (github.com/ublue-os/bazzite,
-# Apache-2.0). Kept: Anaconda, the BitLocker warning, Secure Boot key enrollment, the Flatpak
-# copy. Left out: NVIDIA and Steam Deck handling, Bazzite's wallpaper and panel pins.
+# Apache-2.0). Kept: Anaconda, the BitLocker warning, the Flatpak copy. Left out: NVIDIA and
+# Steam Deck handling, Bazzite's wallpaper and panel pins, and Secure Boot key enrollment
+# (SparkOS runs Fedora's kernel, signed by Fedora, so Secure Boot needs no extra key; the
+# kernel modules SparkOS builds aren't signed, see docs/fedora-base.md "Secure Boot").
 set -exo pipefail
 
 source /etc/os-release
@@ -22,13 +24,12 @@ imagetag="$(podman images --format '{{ .Tag }}\n' "$imageref" | head -1)"
 [ -n "$imageref" ] && [ -n "$imagetag" ] || { echo "SparkOS image not found in container storage"; exit 1; }
 echo "Installer will install: $imageref:$imagetag"
 
-# Bazzite's kernel is signed with the Universal Blue key; offer to enroll it for Secure Boot
-sbkey='https://github.com/ublue-os/akmods/raw/main/certs/public_key.der'
-SECUREBOOT_KEY="/usr/share/ublue-os/sb_pubkey.der"
-SECUREBOOT_DOC_URL="https://docs.bazzite.gg/sb"
-SECUREBOOT_DOC_URL_QR="/usr/share/ublue-os/secure_boot_qr.png"
-mkdir -p /usr/share/ublue-os
-curl -fLo "$SECUREBOOT_KEY" "$sbkey"
+# SparkOS's os-release matches Anaconda's own Fedora Kinoite profile too; remove that one so
+# SparkOS's (installer/system_files/.../profile.d/sparkos.conf) is the only match
+for f in /usr/share/anaconda/profile.d/*.conf; do
+    if grep -qE '^os_id *= *fedora' "$f" && grep -qE '^variant_id *= *kinoite' "$f"; then rm -v "$f"; fi
+done
+test -f /etc/anaconda/profile.d/sparkos.conf
 
 echo "SparkOS release $VERSION_ID" >/etc/system-release
 
@@ -67,7 +68,7 @@ rm -rf /mnt/sysroot/boot/efi/EFI/fedora
 set -x
 xboot_dev=\$(findmnt -o SOURCE --nofsroot --noheadings -f --target /mnt/sysroot/boot)
 [[ -n \$xboot_dev ]] || { echo "ERROR: xboot_dev not found"; exit 1; }
-e2label "\$xboot_dev" "bazzite_xboot"
+e2label "\$xboot_dev" "sparkos_xboot"
 %end
 
 %onerror
@@ -80,8 +81,6 @@ ostreecontainer --url=$imageref:$imagetag --transport=containers-storage --no-si
 %include /usr/share/anaconda/post-scripts/disable-fedora-flatpak.ks
 %include /usr/share/anaconda/post-scripts/install-flatpaks.ks
 %include /usr/share/anaconda/post-scripts/restore-selinux-labels.ks
-%include /usr/share/anaconda/post-scripts/secureboot-enroll-key.ks
-%include /usr/share/anaconda/post-scripts/secureboot-docs.ks
 
 EOF
 
@@ -92,26 +91,6 @@ bootc switch --mutate-in-place --enforce-container-sigpolicy --transport registr
 %end
 EOF
 
-cat <<EOF >>/usr/share/anaconda/post-scripts/secureboot-enroll-key.ks
-%post --erroronfail --nochroot --log=/tmp/anacoda_custom_logs/secureboot-enroll-key.log
-set -oue pipefail
-readonly ENROLLMENT_PASSWORD="universalblue"
-readonly SECUREBOOT_KEY="$SECUREBOOT_KEY"
-if [[ ! -d "/sys/firmware/efi" ]]; then echo "EFI mode not detected. Skipping key enrollment."; exit 0; fi
-if [[ ! -f "\$SECUREBOOT_KEY" ]]; then echo "Secure boot key not provided: \$SECUREBOOT_KEY"; exit 0; fi
-mokutil --timeout -1 || :
-echo -e "\$ENROLLMENT_PASSWORD\n\$ENROLLMENT_PASSWORD" | mokutil --import "\$SECUREBOOT_KEY" || :
-%end
-EOF
-
-cat <<EOF >>/usr/share/anaconda/post-scripts/secureboot-docs.ks
-%post --nochroot --log=/tmp/anacoda_custom_logs/secureboot-docs.log
-LC_ALL=C mokutil -t "$SECUREBOOT_KEY" | grep -q "is already in the enrollment request" && \
-    run0 --user=liveuser yad --timeout=0 --on-top --button=OK:0 --image="$SECUREBOOT_DOC_URL_QR" \
-    --text="<b>Secure Boot key added.</b>\nOn the next start, a blue screen (MOK manager) asks to enroll it:\nchoose Enroll MOK, then Continue, and type the password <b>universalblue</b>.\nDetails: $SECUREBOOT_DOC_URL"
-%end
-EOF
-qrencode -o "$SECUREBOOT_DOC_URL_QR" "$SECUREBOOT_DOC_URL"
 
 ### Live session only ###
 

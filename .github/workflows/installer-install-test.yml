@@ -7,8 +7,8 @@ name: installer-install-test
 # GRUB gets one test-only kernel argument (a root shell on the serial port); from there
 # Anaconda runs in command-line mode with a kickstart that starts from the ISO's own
 # interactive-defaults.ks (the WebUI's defaults: same scripts, same payload) and answers
-# "Use free space" on one disk. Then the disks boot without the ISO, the Secure Boot key
-# is enrolled in MokManager with the installer's password, and the system reports itself.
+# "Use free space" on one disk. Then the disks boot without the ISO (with Secure Boot on, no key
+# has to be enrolled: SparkOS runs Fedora's signed kernel), and the system reports itself.
 #
 # Layouts (see .github/scripts/install-test/disks.sh):
 #   shared-esp             one disk: Windows EFI partition + NTFS (half the disk) + free space

@@ -38,8 +38,7 @@
 #   6. /usr/share/sparkos/release.json: what's in this image (Soot, FreeSuite, the Spark apps,
 #      kernel, Mesa, Plasma), which the window compares between versions.
 # The self-test then fails the build unless exactly one updater's timer is on, the
-# notification timer is on, and the image name is this image's own (ghcr.io/wolklaw/sparkos, or
-# sparkos-fedora on the Fedora base).
+# notification timer is on, and the image name is this image's own (ghcr.io/wolklaw/sparkos).
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-update"

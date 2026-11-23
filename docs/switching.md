@@ -31,7 +31,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | RX 6800 XT | **Works** | Open drivers are built in. **LACT** (Flathub) replaces Adrenalin for fan curves and overclocking. It isn't in the image yet because it needs a system service. |
 | Three monitors, mixed refresh rates | **Works** | KDE Plasma on Wayland handles mixed refresh rates, VRR and HDR. Set them up in System Settings > Display. |
 | RGB: ASUS Aura, Patriot Viper RAM and SSD, Corsair RAM, Holtek RAM (SignalRGB) | **Partly** | **OpenRGB** (from the Store) drives most of these. RAM lighting sometimes needs one extra setting to work, so check it on day one. |
-| Steam virtual mic and speakers, VB-CABLE | **Replaced** | PipeWire virtual devices. Route audio with **qpwgraph** (from the Store), or run `ujust setup-virtual-channels`. |
+| Steam virtual mic and speakers, VB-CABLE | **Replaced** | PipeWire virtual devices. Route audio with **qpwgraph** (from the Store), or run `spark audio-channels on` for Game, Voice, Browser and Music outputs. |
 
 ## Games and launchers
 
@@ -51,7 +51,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Dragon Ball Sparking! Zero | **Works** | ProtonDB Gold, trending Platinum (97 reports, strong confidence). Steam Deck: Playable. Checked 2026-11-19. |
 | Forza Horizon 6 | **Works** | ProtonDB Gold (best report Platinum), 1,099 reports, strong confidence. Steam Deck: Verified. Checked 2026-11-19. |
 | Harry Potter: Quidditch Champions | **Works** | ProtonDB Gold (best report Platinum), only 10 reports. Steam Deck: Verified. Needs an internet connection even for single player. Checked 2026-11-19. |
-| Pokémon TCG Live | **Check** | Not on Steam or ProtonDB. Lutris has one community install script whose author calls it temporary: click past install errors, and you may need to pick the language several times (last updated 2024-11). Fallback: the Android version in Waydroid (`ujust setup-waydroid`), not confirmed. If neither works, use Windows or a phone. |
+| Pokémon TCG Live | **Check** | Not on Steam or ProtonDB. Lutris has one community install script whose author calls it temporary: click past install errors, and you may need to pick the language several times (last updated 2024-11). Fallback: the Android version in an Android emulator, not confirmed. If neither works, use Windows or a phone. |
 | Blitz (League companion) | **No** | Not needed without League. |
 
 ## Work, creative and everyday apps
@@ -79,11 +79,11 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Ryzen Master | **No** | Set PBO and Curve Optimizer in the BIOS instead. They then apply to both systems. |
 | Logitech G HUB, SignalRGB, 8BitDo, Focusrite Control | See Devices above | |
 | Wallpaper Engine | **Partly** | A community KDE plugin plays many Wallpaper Engine scenes. It isn't in the image. |
-| Tailscale | **Works** | Not in the image (it's a company's service, and Bazzite's `ujust tailscale` no longer applies). To add it, run `sudo curl -fsSLo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo`, then `rpm-ostree install tailscale` and restart. Then `sudo systemctl enable --now tailscaled` and `sudo tailscale up` to sign in. It updates with SparkOS from then on. |
+| Tailscale | **Works** | Not in the image (it's a company's service). To add it, run `sudo curl -fsSLo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo`, then `rpm-ostree install tailscale` and restart. Then `sudo systemctl enable --now tailscaled` and `sudo tailscale up` to sign in. It updates with SparkOS from then on. |
 | hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN work in System Settings > Network. |
 | TeamViewer | **Works** | Download the Linux .rpm from teamviewer.com and double-click it: SparkOS asks, installs it and offers a restart. |
 | PuTTY | **Replaced** | `ssh` in Spark Terminal (built in). |
-| VirtualBox | **Replaced** | Run `ujust setup-virtualization` to get **virt-manager**. It uses KVM and runs VMs much faster than VirtualBox on this PC today. |
+| VirtualBox | **Partly** | **virt-manager** with KVM is the replacement and runs VMs faster than VirtualBox, but SparkOS doesn't set it up yet (Bazzite's `ujust setup-virtualization` went with Bazzite, and `spark` has no replacement yet). |
 | MuseHub | **No** | Windows and Mac only. |
 
 ## Development
@@ -105,7 +105,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 ## Faster than Windows 11?
 
 Honest answer: for most of what you do, it should be at least as fast, but some things can be slower, and it gets measured rather than assumed (Phase 5 in PLAN.md).
-- **Usually as fast or faster:** boot to desktop, the desktop itself, file operations, and many games on an AMD GPU. Bazzite's kernel and Mesa drivers are tuned for gaming, and Windows background services are gone.
+- **Usually as fast or faster:** boot to desktop, the desktop itself, file operations, and many games on an AMD GPU. Current Mesa drivers do well on AMD GPUs, and Windows background services are gone.
 - **Can be slower:** some DirectX 12 games under Proton run a few percent behind Windows. The first run of a game can stutter while shaders compile, and it settles after that.
 - **The measurement:** the same games at the same settings and resolution on both systems. Linux is logged with MangoHud and Windows with PresentMon/CapFrameX, comparing average FPS and 1% lows. Boot time is timed on both. Results go into `docs/benchmarks.md`.
 

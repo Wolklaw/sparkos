@@ -10,16 +10,16 @@ Use either one:
 
 Virtualization (SVM) is already on in your BIOS (checked 2026-11-19).
 
-## 2. Get the Bazzite ISO
+## 2. Get the SparkOS installer
 
-From bazzite.gg, choose: **Desktop**, GPU **AMD/Intel**, desktop **KDE Plasma**. That's the image SparkOS is built on.
+Download every file of the [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer) and join them with `join-iso.cmd` (Windows) or `join-iso.sh` (Linux), as in [install.md](install.md).
 
 ## 3. Create the VM
 
 | Setting | Value |
 |---|---|
 | Guest OS type | Linux, Fedora 64-bit |
-| Firmware | **UEFI**, with Secure Boot **off** |
+| Firmware | **UEFI** (Secure Boot on or off: SparkOS runs Fedora's signed kernel) |
 | CPU | 4 cores or more |
 | RAM | 8 GB or more (you have 32 GB) |
 | Disk | 80 GB or more, on C: or E: (not D:) |
@@ -27,9 +27,9 @@ From bazzite.gg, choose: **Desktop**, GPU **AMD/Intel**, desktop **KDE Plasma**.
 
 Boot the ISO and install with the defaults, then create your user.
 
-## 4. Switch the VM to SparkOS
+## 4. Or switch an existing Fedora atomic VM
 
-Open Konsole in the VM:
+A VM already running Fedora Kinoite (or Bazzite, or another Fedora atomic desktop) can move to SparkOS instead. In a terminal:
 
 ```
 rpm-ostree rebase ostree-unverified-registry:ghcr.io/wolklaw/sparkos:latest
@@ -48,15 +48,8 @@ systemctl reboot
 ```
 grep -E '^(NAME|PRETTY_NAME)=' /etc/os-release   # should say SparkOS
 rpm-ostree status | head -5                        # should show ghcr.io/wolklaw/sparkos, signed
-flatpak list --app | grep -Ei 'heroic|onlyoffice'  # both listed
 ```
 
-Heroic and ONLYOFFICE install in the background a few minutes after the first login, and a notification appears when they're done. If they don't appear after 10 minutes, send me the output of:
+Spark Welcome opens at the first login. Also open **Spark Settings** (or System Settings > About this System) and confirm it says SparkOS.
 
-```
-systemctl status system-flatpak-setup.service
-```
-
-Also open **System Settings > About this System** and confirm it says SparkOS.
-
-**Phase 1 is done when** all of the above checks out. Send me what you see, including anything that looks wrong.
+Send me what you see, including anything that looks wrong.

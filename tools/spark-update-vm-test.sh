@@ -2,7 +2,7 @@
 # Spark Update in a real VM: a SparkOS system updates itself to a newer image, restarts into it,
 # rolls back, doesn't take the same image again, and takes the next newer one.
 #
-#   tools/spark-update-vm-test.sh [image]      (default ghcr.io/wolklaw/sparkos-fedora:latest)
+#   tools/spark-update-vm-test.sh [image]      (default ghcr.io/wolklaw/sparkos:latest)
 #
 # Rootless: needs podman and /dev/kvm, no sudo, nothing installed on the host. QEMU runs in a
 # Fedora container. From the image it builds three test images (this checkout's Spark Update
@@ -21,12 +21,12 @@
 # Ports: REG_PORT (5055) and SSH_PORT (2245) on 127.0.0.1. Takes about 15 minutes.
 set -euo pipefail
 
-BASE=${1:-ghcr.io/wolklaw/sparkos-fedora:latest}
+BASE=${1:-ghcr.io/wolklaw/sparkos:latest}
 WORK=${WORK:-/var/tmp/spark-update-vm-test}
 REG_PORT=${REG_PORT:-5055}
 SSH_PORT=${SSH_PORT:-2245}
 REPO=$(cd "$(dirname "$0")/.." && pwd)
-NAME=$(basename "${BASE%%[:@]*}")              # sparkos-fedora: Spark Update knows the name
+NAME=$(basename "${BASE%%[:@]*}")              # sparkos: Spark Update knows the name
 REG=localhost:$REG_PORT/$NAME                  # as the host sees it
 VMREG=10.0.2.2:$REG_PORT/$NAME                 # as the VMs see it (QEMU user network)
 TOOLS=localhost/spark-update-vm-test-tools

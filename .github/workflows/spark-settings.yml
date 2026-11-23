@@ -80,7 +80,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        image: [ghcr.io/wolklaw/sparkos:latest, ghcr.io/wolklaw/sparkos-fedora:latest]
+        image: [ghcr.io/wolklaw/sparkos:latest]
     env:
       IMAGE: ${{ matrix.image }}
     steps:

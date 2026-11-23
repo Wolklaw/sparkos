@@ -144,7 +144,7 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
 
     platform: List[Dict[str, str]] = []
     base = str(info.get('version') or '') if isinstance(info, dict) else ''
-    if base:
+    if base:   # Bazzite's image-info.json: an image from before 2026-11-23
         platform.append({'id': 'base', 'name': 'Bazzite base', 'version': base})
     elif osr.get('ID') == 'fedora' and osr.get('VERSION_ID'):
         platform.append({'id': 'base', 'name': 'Fedora base', 'version': osr['VERSION_ID']})

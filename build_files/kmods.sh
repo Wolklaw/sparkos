@@ -1,12 +1,11 @@
 #!/usr/bin/bash
-# Out-of-tree kernel modules for the Fedora base (SPARKOS_BASE=fedora). Bazzite ships its own,
-# built for its OGC kernel; Fedora's kernel has none of these, so SparkOS builds them for the
-# exact kernel in the image, at image build time.
+# Out-of-tree kernel modules. Fedora's kernel has none of these (Bazzite, SparkOS's base until
+# 2026-11-23, shipped them prebuilt for its own kernel), so SparkOS builds them for the exact
+# kernel in the image, at image build time.
 #
-#   kmods.sh build   <base>   Containerfile stage "kmods-build": compiles into /kmods
-#   kmods.sh install <base>   Containerfile step 4b: puts /tmp/kmods (that stage's /kmods) into
-#                             the image and runs depmod
-# On the Bazzite base both do nothing (Bazzite's own modules stay as they are).
+#   kmods.sh build     Containerfile stage "kmods-build": compiles into /kmods
+#   kmods.sh install   Containerfile step 4b: puts /tmp/kmods (that stage's /kmods) into the
+#                      image and runs depmod
 #
 # What's built and why (docs/fedora-base.md, "Kernel modules"):
 #   zenergy        CPU power per core and per socket as hwmon sensors anyone can read (Fedora's
@@ -24,15 +23,6 @@
 set -euo pipefail
 
 mode=${1:?build or install}
-base=${2:?base: bazzite or fedora}
-case "$base" in
-  bazzite)
-    echo "kmods.sh: Bazzite base, its own kernel modules are used"
-    if [ "$mode" = build ]; then mkdir -p /kmods; fi # step 4b mounts it either way
-    exit 0 ;;
-  fedora) ;;
-  *) echo "kmods.sh: unknown base '$base' (bazzite or fedora)"; exit 1 ;;
-esac
 
 # The one kernel in the image. A bootc image has exactly one; more (or none) means something
 # upgraded or removed the kernel and the modules would not match it.
