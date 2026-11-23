@@ -196,6 +196,8 @@ Two new parts. Working names until the owner picks real ones: **Spark Connect** 
 - **Buy one test tablet first** (a recent Galaxy Tab A or S on the latest One UI), prove kiosk mode, sign-in switching and remote control on it, then pick the model for the venue.
 - **The venue's GestionDirecte install** runs on the venue laptop at the convention center. Its tablets and the laptop itself dial out to the hub on the OptiPlex, so the venue laptop is the first machine that needs the small agent instead of SSH.
 
+**Desktops (owner's ask, 2026-11-23):** Spark Connect can also see and control a SparkOS desktop: the person at it accepts a prompt, or the owner skips the prompt with `sudo` on that machine; a banner shows while it is shared. Over SSH with KDE's own RDP server (krdp, already in the image), nothing listening on the network. The Ubuntu servers don't get it. Brief: [spark-connect-screen](briefs/spark-connect-screen.md).
+
 **Order:** Spark Connect for the home Linux machines first (SSH, no new software on the servers), then the agent for the venue laptop, then the GD Tablet kiosk app with status and remote reload on one test tablet, then the full screen mirror with control.
 
 ## Risks, plainly
