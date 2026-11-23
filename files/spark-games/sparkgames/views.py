@@ -11,7 +11,7 @@ from . import dialogs as messagebox
 
 from PIL import Image, ImageTk
 
-from . import SOURCES, anticheat, covers, launch, owngames
+from . import SOURCES, STORES, anticheat, covers, launch, owngames
 from .core import (Game, cache_dir, config_dir, data_dir, flatpak_installed, home, is_windows_program,
                    matches, open_uri, pick_program, sort_recent, sort_title, which)
 from .strings import last_played, playtime, tr
@@ -28,7 +28,7 @@ def source_word(game: Game) -> str:
 
 def launcher_line(game: Game) -> str:
     name = tr(f'launcher_{game.launcher}')
-    if game.launcher == 'heroic':
+    if game.launcher == 'heroic' or (game.launcher == 'spark' and game.source in STORES):
         name = f"{name} ({tr(f'store_{game.source}')})"
     elif (game.launch or {}).get('shortcut'):
         name = f"{name} ({tr('shortcut')})"
@@ -69,6 +69,8 @@ class LibraryView(tk.Frame):
         self.sort = app.settings.get('sort') if app.settings.get('sort') in ('recent', 'title') \
             else 'recent'
         self.source = 'all'
+        self.scope = 'all' if app.settings.get('scope') == 'all' else 'installed'
+        self._has_owned = False
         self.games: List[Game] = []
         self.shown: List[Game] = []
         self.selected = 0
@@ -150,7 +152,7 @@ class LibraryView(tk.Frame):
     def refilter(self, keep: Optional[str] = None):
         query = self.query.get().strip()
         games = [g for g in self.games if (self.source == 'all' or g.source == self.source)
-                 and matches(g, query)]
+                 and (self.scope == 'all' or g.installed) and matches(g, query)]
         self.shown = sort_recent(games) if self.sort == 'recent' else sort_title(games)
         self.selected = 0
         if keep:
@@ -166,9 +168,10 @@ class LibraryView(tk.Frame):
 
     def _rebuild_filters(self):
         present = tuple(s for s in SOURCES if any(g.source == s for g in self.games))
-        if present == self._filter_sources:
+        has_owned = any(not g.installed for g in self.games)
+        if (present, has_owned) == (self._filter_sources, self._has_owned):
             return
-        self._filter_sources = present
+        self._filter_sources, self._has_owned = present, has_owned
         for child in self.filters.winfo_children():
             child.destroy()
         if self.source not in present:
@@ -177,6 +180,16 @@ class LibraryView(tk.Frame):
             Segmented(self.filters, [(tr('src_all'), 'all')] + [(tr(f'src_{s}'), s)
                                                                 for s in present],
                       self.source, self.set_source, self.app.font(8)).pack(side="left")
+        if has_owned:        # games you own in a store but haven't installed
+            Segmented(self.filters, [(tr('scope_installed'), 'installed'),
+                                     (tr('scope_all'), 'all')], self.scope, self.set_scope,
+                      self.app.font(8)).pack(side="left", padx=(self.app.px(12), 0))
+
+    def set_scope(self, scope: str):
+        self.scope = scope
+        self.app.settings['scope'] = scope
+        self.refilter()
+        self.app.glitch.now(self.app.title)
 
     def set_source(self, source: str):
         self.source = source
@@ -390,14 +403,18 @@ class LibraryView(tk.Frame):
             c.create_text(x0 + px(5), y0 + px(8), text=tr('anticheat_badge'), anchor="w",
                           fill=T["on_accent"], font=self.app.font(7))
         sel, hov = i == self.selected, i == self.hover
+        if not game.installed:               # owned, not installed: greyed out
+            c.create_rectangle(x0, y0, x1, cy1, fill=T["bg"], stipple="gray50", outline="")
         if sel or hov:
             self._split_frame(x0, y0, x1, cy1, strong=sel)
         c.create_text(x0, cy1 + px(7), text=self._fit(game.title, m['tile_w']), anchor="nw",
-                      fill=T["text"] if sel or hov else T["muted"],
+                      fill=(T["dim"] if not game.installed else T["text"] if sel or hov
+                            else T["muted"]),
                       font=self.app.font(9))
         c.create_text(x0, cy1 + px(26), text=source_word(game), anchor="nw", fill=T["dim"],
                       font=self.app.font(7))
-        c.create_text(x1, cy1 + px(26), text=playtime(game.playtime), anchor="ne",
+        c.create_text(x1, cy1 + px(26), text=playtime(game.playtime) if game.installed
+                      else tr('not_installed'), anchor="ne",
                       fill=T["dim"], font=self.app.font(7, False))
 
     def _row(self, i: int, game: Game, m: Dict[str, int]):
@@ -420,8 +437,9 @@ class LibraryView(tk.Frame):
         title_w = max(px(60), col_play - left - px(16))
         mid = (y0 + y1) / 2
         c.create_text(left, mid - px(8), text=self._fit(game.title, title_w, 10), anchor="w",
-                      fill=T["text"], font=self.app.font(10))
-        sub = source_word(game) + (f"   {tr('anticheat_badge')}" if game.anticheat else "")
+                      fill=T["text"] if game.installed else T["dim"], font=self.app.font(10))
+        sub = source_word(game) + (f"   {tr('anticheat_badge')}" if game.anticheat else "") + \
+            ('' if game.installed else f"   {tr('not_installed')}")
         c.create_text(left, mid + px(10), text=sub, anchor="w",
                       fill=T["pink"] if game.anticheat else T["dim"], font=self.app.font(7))
         c.create_text(col_play, mid, text=playtime(game.playtime), anchor="w", fill=T["muted"],
@@ -632,7 +650,8 @@ class GamePage(tk.Frame):
         actions.pack(anchor="w", pady=(px(16), px(4)))
         self.play_btn = WolkButton(actions, tr('play'), lambda: app.play(game), font(11),
                                    variant="primary", padx=px(26), pady=px(8))
-        self.play_btn.pack(side="left")
+        if game.installed:
+            self.play_btn.pack(side="left")
         if game.install_dir and os.path.isdir(game.install_dir):
             WolkButton(actions, tr('open_folder'), lambda: open_uri(game.install_dir), font(8),
                        padx=px(10), pady=px(4)).pack(side="left", padx=(px(10), 0))
@@ -664,6 +683,12 @@ class GamePage(tk.Frame):
                      anchor="w", justify="left", wraplength=px(520)).grid(
                          row=r, column=1, sticky="w", padx=(px(14), 0), pady=px(3))
 
+        self.store_panel = None
+        if game.launcher == 'spark':
+            from .storeviews import StorePanel
+            self.store_panel = StorePanel(col, app, game)
+            self.store_panel.pack(anchor="w", fill="x", pady=(px(14), 0))
+
         section(col, app, tr('perf_title'))
         perf = tk.Frame(col, bg=T["bg"])
         perf.pack(anchor="w", fill="x")
@@ -672,10 +697,19 @@ class GamePage(tk.Frame):
                                lambda v: self._option('mangohud', v), font(8))
         self.gamemode = Toggle(toggles, tr('perf_gamemode'), bool(options.get('gamemode')),
                                lambda v: self._option('gamemode', v), font(8))
-        if game.source == 'own' or game.source == 'steam':
+        if game.source == 'own' or game.source == 'steam' or game.launcher == 'spark':
             toggles.pack(anchor="w")
             self.mangohud.pack(side="left")
             self.gamemode.pack(side="left", padx=(px(8), 0))
+        if game.launcher == 'spark':
+            self.proton = Toggle(toggles, tr('perf_ge_proton'), bool(options.get('ge_proton')),
+                                 lambda v: self._option('ge_proton', v), font(8))
+            self.proton.pack(side="left", padx=(px(8), 0))
+            if game.source == 'epic':
+                self.saves = Toggle(toggles, tr('perf_cloud_saves'),
+                                    options.get('cloud_saves', True) is not False,
+                                    lambda v: self._option('cloud_saves', v), font(8))
+                self.saves.pack(side="left", padx=(px(8), 0))
         tk.Label(perf, text=tr(f'perf_{game.launcher}'), bg=T["bg"], fg=T["muted"], font=font(8, False),
                  justify="left", anchor="w", wraplength=px(560)).pack(anchor="w",
                                                                       pady=(px(8), 0))
@@ -721,14 +755,21 @@ class GamePage(tk.Frame):
             self.app.go_back()
             self.app.rescan()
 
+    def start_job(self, kind: str):
+        if self.store_panel is not None:
+            self.store_panel.start_job(kind)
+
     def key(self, event) -> bool:
-        if event.keysym in ('Return', 'KP_Enter'):
+        if event.keysym in ('Return', 'KP_Enter') and self.game.installed:
             self.app.play(self.game)
             return True
         return False
 
     def focus_default(self):
-        self.play_btn.label.focus_set()
+        if self.game.installed:
+            self.play_btn.label.focus_set()
+        else:
+            self.focus_set()
 
 
 # ─── Adding a game ────────────────────────────────────────────
@@ -826,6 +867,10 @@ class SettingsView(tk.Frame):
                         (tr('after_close'), 'close')],
                   app.settings.get('after_launch', 'stay'),
                   lambda v: app.settings.__setitem__('after_launch', v), font(8)).pack(anchor="w")
+
+        section(col, app, tr('stores_title'))
+        WolkButton(col, tr('stores_open'), app.show_stores, font(8), padx=px(10),
+                   pady=px(3)).pack(anchor="w")
 
         section(col, app, tr('set_online'))
         Toggle(col, tr('set_anticheat'), app.anticheat_on(), app.set_anticheat,

@@ -42,4 +42,20 @@ The Fedora image also downloads, unchanged and checked by SHA-256 while it build
 `winetricks` script 20260125 (LGPL-2.1-or-later) and Nerd Fonts' Symbols Nerd Font 3.5.1 with
 its fontconfig file (MIT). Their license texts are in `/usr/share/licenses/sparkos-parity/`.
 
+Spark Games downloads three store programs the first time you use them, into
+`~/.local/share/spark-games/runners/`, unchanged and checked by SHA-256 before they are ever
+run. They are not in the image and Spark Games never imports their code; it starts each one as
+a separate process and reads what it prints. All three are GPL-3.0; their source is in the
+repository each link comes from.
+
+| Program | For | Version | Download | SHA-256 |
+|---|---|---|---|---|
+| legendary | Epic Games Store | 0.21.1 | https://github.com/legendary-gl/legendary/releases/download/0.21.1/legendary_linux_x64 | dbed33bbe96031e65858233e4badf0a1d401bb6cb0cc995d1237cf3a0c826a45 |
+| gogdl | GOG | 1.4.0 | https://github.com/Heroic-Games-Launcher/heroic-gogdl/releases/download/v1.4.0/gogdl_linux_x86_64 | 2aa2b59c83d3bfbe7b60ead91c6297b263b5d1e6c233a04b7409bafe26738f02 |
+| nile | Amazon Games | 1.2.0 | https://github.com/imLinguin/nile/releases/download/v1.2.0/nile_linux_x86_64 | d73519514df9d52c50c6feec629373cc3a0d9504e087b6c7372a8ca8a95e7bfe |
+
+Spark Games' "Add a launcher" downloads the Battle.net, EA app, Ubisoft Connect and Rockstar
+installers from their companies' own sites when you ask, and runs them in their own Wine
+folder. Those are the companies' programs under their own terms; nothing of them is bundled.
+
 Soot and FreeSuite are separate Wolklaw projects with their own terms.

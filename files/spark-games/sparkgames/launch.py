@@ -62,6 +62,8 @@ class Plan:
     cwd: str = ''
     wait: bool = False            # the game is this process: wait for it to exit
     watch_dir: str = ''           # a launcher starts it: look for processes in this folder
+    pre: List[Dict[str, Any]] = field(default_factory=list)    # {argv, env}: run before (cloud saves)
+    post: List[Dict[str, Any]] = field(default_factory=list)   # ... and after the game ends
 
 
 def steam_paste_line(mangohud: bool, gamemode: bool) -> str:
@@ -92,6 +94,10 @@ def plan(game: Game, options: Optional[Dict[str, Any]] = None,
         else:
             raise LaunchError('missing_program', 'steam')
         return Plan(argv, watch_dir=game.install_dir)
+
+    if game.launcher == 'spark':          # Epic, GOG, Amazon and added launchers (stores.py)
+        from . import stores
+        return stores.plan(game, options, which)
 
     if game.launcher == 'heroic':
         if not which('xdg-open'):
@@ -172,14 +178,17 @@ def plan(game: Game, options: Optional[Dict[str, Any]] = None,
     raise LaunchError('unknown_source', game.source)
 
 
-def start(game: Game, options: Optional[Dict[str, Any]] = None) -> None:
-    """Start the game through the helper process, which records the session."""
-    p = plan(game, options)
+def start(game: Game, options: Optional[Dict[str, Any]] = None,
+          plan_: Optional[Plan] = None) -> None:
+    """Start the game through the helper process, which records the session. plan_ is a plan
+    already made (store games make theirs in a thread, since it can ask the network)."""
+    p = plan_ or plan(game, options)
     if p.env.get('WINEPREFIX'):
         os.makedirs(p.env['WINEPREFIX'], exist_ok=True)
     spec = {'key': game.key, 'title': game.title, 'argv': p.argv, 'env': p.env, 'cwd': p.cwd,
-            'wait': p.wait, 'watch_dir': p.watch_dir}
-    log.info("starting %s: %s", game.key, ' '.join(p.argv))
+            'wait': p.wait, 'watch_dir': p.watch_dir, 'pre': p.pre, 'post': p.post}
+    # Store games carry a sign-in token in their arguments: log the program only.
+    log.info("starting %s: %s", game.key, os.path.basename(p.argv[0]) if p.argv else '')
     try:
         subprocess.Popen([sys.executable, ENTRY, '--track', json.dumps(spec)],
                          stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
@@ -210,12 +219,29 @@ def running_from(folder: str, proc: str = '/proc', skip: Optional[set] = None) -
     return False
 
 
+def _hooks(hooks: Optional[List[Dict[str, Any]]], base_env: Dict[str, str],
+           timeout: float = 300.0) -> None:
+    """Run the before/after commands (cloud save sync). A failure never stops the game, and
+    the arguments are never logged."""
+    for hook in hooks or []:
+        env = dict(base_env)
+        env.update(hook.get('env') or {})
+        try:
+            done = subprocess.run(hook['argv'], env=env, stdin=subprocess.DEVNULL,
+                                  stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                                  timeout=timeout)
+            log.info("hook %s: exit %d", os.path.basename(hook['argv'][0]), done.returncode)
+        except (OSError, subprocess.TimeoutExpired, KeyError, IndexError):
+            log.warning("a before/after command failed")
+
+
 def track(spec: Dict[str, Any], proc: str = '/proc', poll: float = POLL, appear: float = APPEAR,
           clock: Callable[[], float] = time.time,
           sleep: Callable[[float], None] = time.sleep) -> Optional[Dict[str, Any]]:
     """Start the game, wait for it to end, and record the session. Returns the session."""
     env = dict(os.environ)
     env.update(spec.get('env') or {})
+    _hooks(spec.get('pre'), env)
     start_time = clock()
     try:
         child = subprocess.Popen(spec['argv'], env=env, cwd=spec.get('cwd') or None,
@@ -248,6 +274,7 @@ def track(spec: Dict[str, Any], proc: str = '/proc', poll: float = POLL, appear:
                 end, misses = clock(), 0
             else:
                 misses += 1
+    _hooks(spec.get('post'), env)
     if end - start_time < MIN_SESSION:
         return None
     return record(spec['key'], spec.get('title', ''), int(start_time), int(end))

@@ -55,7 +55,8 @@ def _installed(store: str, data: Any) -> List[Dict[str, str]]:
                 continue
             out.append({'app': info.get('app_name') or app, 'title': info.get('title') or '',
                         'path': info.get('install_path') or '',
-                        'platform': info.get('platform') or ''})
+                        'platform': info.get('platform') or '',
+                        'version': str(info.get('version') or '')})
     elif store == 'gog':
         items = data.get('installed') if isinstance(data, dict) else None
         if not isinstance(items, list):
@@ -65,7 +66,8 @@ def _installed(store: str, data: Any) -> List[Dict[str, str]]:
                 continue
             out.append({'app': str(info['appName']), 'title': info.get('title') or '',
                         'path': info.get('install_path') or '',
-                        'platform': info.get('platform') or ''})
+                        'platform': info.get('platform') or '',
+                        'version': str(info.get('version') or info.get('buildId') or '')})
     else:
         if not isinstance(data, list):
             raise FormatError("Amazon installed.json is not a list")
@@ -73,7 +75,7 @@ def _installed(store: str, data: Any) -> List[Dict[str, str]]:
             if not isinstance(info, dict) or not info.get('id'):
                 continue
             out.append({'app': str(info['id']), 'title': '', 'path': info.get('path') or '',
-                        'platform': 'windows'})
+                        'platform': 'windows', 'version': str(info.get('version') or '')})
     return out
 
 

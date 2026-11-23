@@ -33,9 +33,12 @@ class Game:
     flatpak: bool = False       # the launcher is the Flatpak one
     store_id: str = ''          # the store's own ID (Steam appid...), for the anti-cheat list
     anticheat: str = ''         # "Denied" or "Broken" when AreWeAntiCheatYet lists it so
+    installed: bool = True      # False: owned in a store but not installed yet
 
     @property
     def launcher(self) -> str:
+        if (self.launch or {}).get('spark'):      # Spark Games itself installs and starts it
+            return 'spark'
         return LAUNCHER_OF.get(self.source, self.source)
 
     def to_json(self) -> Dict[str, Any]:
@@ -104,6 +107,34 @@ def cache_dir() -> str:
 
 def data_dir() -> str:
     return _xdg_dir('XDG_DATA_HOME', os.path.join('.local', 'share'))
+
+
+def private_dir(path: str) -> str:
+    """A folder only this user can open (mode 0700), made if it isn't there."""
+    try:
+        os.makedirs(path, mode=0o700, exist_ok=True)
+        os.chmod(path, 0o700)
+    except OSError:
+        pass
+    return path
+
+
+def accounts_dir() -> str:
+    """Store sign-ins (tokens). Mode 0700; the files in it are 0600. Never logged."""
+    return private_dir(os.path.join(config_dir(), 'accounts'))
+
+
+def pick_folder(start: str) -> Optional[str]:
+    """The desktop's folder dialog (kdialog on Plasma), Tk's as a fallback."""
+    if which('kdialog') and os.name != 'nt':
+        try:
+            result = subprocess.run(['kdialog', '--getexistingdirectory', start, '--title',
+                                     APP_NAME], capture_output=True, text=True)
+            return result.stdout.strip() or None
+        except OSError:
+            pass
+    from tkinter import filedialog
+    return filedialog.askdirectory(title=APP_NAME, initialdir=start) or None
 
 
 def setup_logging() -> None:
