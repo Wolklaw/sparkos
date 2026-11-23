@@ -535,6 +535,9 @@ class App:
         except launch.LaunchError as exc:
             self._play_failed(game, exc)
             return
+        if not game.installed:               # Steam's install dialog opened: stay here
+            self.set_status(tr('steam_installing', title=game.title.upper())[:60])
+            return
         self._play_started(game)
 
     def _play_planned(self, game: Game, options: Dict[str, Any], plan):

@@ -142,6 +142,126 @@ class SteamTests(FixtureHome):
         self.assertEqual(len(steam.library_folders(root)), 2)
 
 
+# Steam's binary caches, written the way Steam writes them (tests only)
+
+def binary_kv(data, strings=None):
+    """KeyValues as Steam writes them in appinfo.vdf (strings: the v29 string table, filled in
+    as keys are met) and packageinfo.vdf (strings None: keys inline)."""
+    import struct
+    out = bytearray()
+    for key, value in data.items():
+        if strings is None:
+            name = key.encode() + b'\x00'
+        else:
+            if key not in strings:
+                strings.append(key)
+            name = struct.pack('<I', strings.index(key))
+        if isinstance(value, dict):
+            out += b'\x00' + name + binary_kv(value, strings)
+        elif isinstance(value, str):
+            out += b'\x01' + name + value.encode() + b'\x00'
+        else:
+            out += b'\x02' + name + struct.pack('<i', value)
+    return bytes(out) + b'\x08'
+
+
+def write_packageinfo(path, packages):
+    import struct
+    out = bytearray(struct.pack('<II', 0x06565528, 1))
+    for package, apps in packages.items():
+        out += struct.pack('<I', package) + b'\x11' * 20 + struct.pack('<IQ', 7, 0)
+        out += binary_kv({str(package): {'packageid': package,
+                                         'appids': {str(i): a for i, a in enumerate(apps)}}})
+    out += struct.pack('<I', 0xFFFFFFFF)
+    with open(path, 'wb') as f:
+        f.write(out)
+
+
+def write_appinfo(path, apps, version=29):
+    """apps: appid -> (name, type)."""
+    import struct
+    strings = [] if version == 29 else None
+    body = bytearray()
+    for appid, (name, kind) in apps.items():
+        data = binary_kv({'appinfo': {'appid': appid, 'common': {'name': name, 'type': kind}}},
+                         strings)
+        head = struct.pack('<IIQ', 2, 1700000000, 0) + b'\x22' * 20 + struct.pack('<I', 9) \
+            + b'\x33' * 20
+        body += struct.pack('<II', appid, len(head) + len(data)) + head + data
+    body += struct.pack('<I', 0)
+    if version == 29:
+        table = struct.pack('<I', len(strings)) + b''.join(k.encode() + b'\x00' for k in strings)
+        header = struct.pack('<IIq', 0x07564429, 1, 16 + len(body))
+        out = header + bytes(body) + table
+    else:
+        out = struct.pack('<II', 0x07564428, 1) + bytes(body)
+    with open(path, 'wb') as f:
+        f.write(out)
+
+
+class SteamOwnedTests(FixtureHome):
+    """Games you own on Steam and haven't installed, from Steam's binary caches."""
+    APPS = {620: ('Portal 2', 'game'), 400: ('Portal', 'game'), 8930: ('Civilization V', 'Game'),
+            65980: ('Civ V: Gods and Kings', 'dlc'), 393380: ('Squad', 'game'),
+            480: ('Spacewar', 'game'), 228980: ('Steamworks Common Redistributables', 'game')}
+
+    def setUp(self):
+        super().setUp()
+        self.root = os.path.join(self.home, fixtures.STEAM)
+        self.cache = os.path.join(self.root, 'appcache')
+        # 393380 is a free weekend that ended: a package, but no art in the library
+        write_packageinfo(os.path.join(self.cache, 'packageinfo.vdf'),
+                          {0: [480], 7: [620, 400, 228980], 31: [8930, 65980], 9001: [393380]})
+        for appid in (620, 400, 8930, 65980, 480, 228980):
+            os.makedirs(os.path.join(self.cache, 'librarycache', str(appid)), exist_ok=True)
+        with open(os.path.join(self.cache, 'librarycache', '400', 'library_600x900.jpg'),
+                  'wb') as f:
+            f.write(b'jpg')
+
+    def check(self):
+        games = self.by_key(steam.scan(self.home, []))
+        owned = {k for k, g in games.items() if not g.installed}
+        # the DLC, the free weekend, package 0's Spacewar and the redistributables are left out
+        self.assertEqual(owned, {'steam:400', 'steam:8930'})
+        self.assertTrue(games['steam:620'].installed)          # installed wins
+        self.assertEqual(games['steam:8930'].title, 'Civilization V')
+        portal = games['steam:400']
+        self.assertTrue(portal.cover.endswith('library_600x900.jpg'))
+        self.assertEqual(portal.launch, {'appid': '400', 'flatpak': True})
+        self.assertEqual(launch.plan(portal, which=fake_which('flatpak')).argv,
+                         ['flatpak', 'run', 'com.valvesoftware.Steam', 'steam://install/400'])
+
+    def test_appinfo_29(self):
+        write_appinfo(os.path.join(self.cache, 'appinfo.vdf'), self.APPS, 29)
+        self.check()
+
+    def test_appinfo_28(self):
+        write_appinfo(os.path.join(self.cache, 'appinfo.vdf'), self.APPS, 28)
+        self.check()
+
+    def test_broken_caches_keep_the_installed_games(self):
+        with open(os.path.join(self.cache, 'appinfo.vdf'), 'wb') as f:
+            f.write(b'\x29\x44\x56\x07\x01\x00\x00\x00\xff\xff\xff\x7f\x00\x00\x00\x00')
+        watch = []
+        games = steam.scan(self.home, watch)
+        self.assertEqual(len(games), fixtures.EXPECTED['steam'])
+        self.assertTrue(all(g.installed for g in games))
+        self.assertTrue(any(w.endswith('packageinfo.vdf') for w in watch))
+        with open(os.path.join(self.cache, 'appinfo.vdf'), 'wb') as f:
+            f.write(b'\x99\x99\x99\x99\x01\x00\x00\x00')        # a version we don't know
+        self.assertEqual(len(steam.scan(self.home, [])), fixtures.EXPECTED['steam'])
+
+    def test_no_caches_yet(self):
+        os.remove(os.path.join(self.cache, 'packageinfo.vdf'))
+        self.assertEqual(steam.owned(self.root), {})
+
+    def test_owned_steam_games_in_the_library(self):
+        write_appinfo(os.path.join(self.cache, 'appinfo.vdf'), self.APPS, 29)
+        games = self.by_key(library.scan_all(self.home).games)
+        self.assertFalse(games['steam:400'].installed)
+        self.assertTrue(games['steam:620'].installed)
+
+
 class HeroicTests(FixtureHome):
     def test_each_store(self):
         games = self.by_key(heroic.scan(self.home, []))

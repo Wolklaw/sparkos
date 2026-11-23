@@ -652,6 +652,9 @@ class GamePage(tk.Frame):
                                    variant="primary", padx=px(26), pady=px(8))
         if game.installed:
             self.play_btn.pack(side="left")
+        elif game.source == 'steam':          # owned on Steam: Steam installs it
+            self.play_btn.label.configure(text=tr('install_in_steam').upper())
+            self.play_btn.pack(side="left")
         if game.install_dir and os.path.isdir(game.install_dir):
             WolkButton(actions, tr('open_folder'), lambda: open_uri(game.install_dir), font(8),
                        padx=px(10), pady=px(4)).pack(side="left", padx=(px(10), 0))
@@ -760,13 +763,14 @@ class GamePage(tk.Frame):
             self.store_panel.start_job(kind)
 
     def key(self, event) -> bool:
-        if event.keysym in ('Return', 'KP_Enter') and self.game.installed:
+        if event.keysym in ('Return', 'KP_Enter') and (self.game.installed
+                                                        or self.game.source == 'steam'):
             self.app.play(self.game)
             return True
         return False
 
     def focus_default(self):
-        if self.game.installed:
+        if self.game.installed or self.game.source == 'steam':
             self.play_btn.label.focus_set()
         else:
             self.focus_set()

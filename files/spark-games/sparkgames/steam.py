@@ -6,6 +6,12 @@
   <root>/userdata/<id>/config/localconfig.vdf    playtime and last played, per Steam account
   <root>/userdata/<id>/config/shortcuts.vdf      non-Steam games added to Steam (binary VDF)
   <root>/userdata/<id>/config/grid/              their covers, if the user set any
+  <root>/appcache/packageinfo.vdf                the packages (licenses) the account has
+  <root>/appcache/appinfo.vdf                    each app's name and type (game, DLC, tool...)
+
+Games you own but haven't installed come from the last two (binary VDF). Steam keeps a
+package after a free weekend ends, so an owned game must also have art in librarycache:
+Steam downloads it for the games your library shows.
 
 <root> is ~/.local/share/Steam for the regular Steam, and
 ~/.var/app/com.valvesoftware.Steam/.local/share/Steam for the Flatpak (SparkOS's usual one).
@@ -14,6 +20,7 @@
 import glob
 import os
 import re
+import struct
 import zlib
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -32,6 +39,10 @@ TOOL_APPIDS = {
 TOOL_NAME = re.compile(r'^(Proton\b|Steam Linux Runtime|Steamworks Common|SteamVR\b|'
                        r'Steam Audio|Steamworks SDK)', re.I)
 INSTALLED = 4          # StateFlags bit: fully installed
+# appinfo.vdf versions: 27 and 28 keep keys inline (28 adds a second hash per app), 29 keeps
+# them in a string table at the end. packageinfo.vdf 28 has a token per package, 27 doesn't.
+APPINFO = {0x07564427: 40, 0x07564428: 60, 0x07564429: 60}    # magic -> bytes before the data
+PACKAGEINFO = {0x06565527: 28, 0x06565528: 36}                # magic -> bytes before the data
 
 
 def roots(home: str) -> List[Tuple[str, bool]]:
@@ -145,6 +156,87 @@ def cover(root: str, appid: str) -> str:
     return ''
 
 
+def package_apps(path: str) -> Set[int]:
+    """Every app in the account's packages, from packageinfo.vdf. Package 0 is the one every
+    account has (Spacewar, servers): not yours."""
+    with open(path, 'rb') as f:
+        data = f.read()
+    if len(data) < 8:
+        raise vdf.VDFError("packageinfo.vdf is too short")
+    magic = struct.unpack_from('<I', data, 0)[0]
+    if magic not in PACKAGEINFO:
+        raise vdf.VDFError(f"packageinfo.vdf: unknown version {magic:#x}")
+    pos, apps = 8, set()
+    while pos + 4 <= len(data):
+        package = struct.unpack_from('<I', data, pos)[0]
+        if package == 0xFFFFFFFF:
+            break
+        info, pos = vdf.read_binary(data, pos + PACKAGEINFO[magic])
+        if package == 0:
+            continue
+        block = info.get(str(package), info)
+        ids = block.get('appids') if isinstance(block, dict) else None
+        if isinstance(ids, dict):
+            apps.update(v for v in ids.values() if isinstance(v, int) and v > 0)
+    return apps
+
+
+def app_names(path: str, wanted: Set[int]) -> Dict[int, str]:
+    """appid -> name, for the apps in wanted that appinfo.vdf calls a game."""
+    with open(path, 'rb') as f:
+        data = f.read()
+    if len(data) < 8:
+        raise vdf.VDFError("appinfo.vdf is too short")
+    magic = struct.unpack_from('<I', data, 0)[0]
+    if magic not in APPINFO:
+        raise vdf.VDFError(f"appinfo.vdf: unknown version {magic:#x}")
+    pos, strings = 8, None
+    if magic == 0x07564429:
+        table = struct.unpack_from('<q', data, 8)[0]
+        pos = 16
+        count = struct.unpack_from('<I', data, table)[0]
+        strings, at = [], table + 4
+        for _ in range(count):
+            end = data.index(b'\x00', at)
+            strings.append(data[at:end].decode('utf-8', errors='replace'))
+            at = end + 1
+    names: Dict[int, str] = {}
+    while pos + 8 <= len(data):
+        appid, size = struct.unpack_from('<II', data, pos)
+        if appid == 0:
+            break
+        if appid in wanted:
+            info, _end = vdf.read_binary(data, pos + 8 + APPINFO[magic], strings)
+            common = vdf.get(info, 'appinfo', 'common') or vdf.get(info, 'common') or {}
+            kind = str(vdf.get(common, 'type', default='')).lower() if isinstance(common, dict) else ''
+            name = str(vdf.get(common, 'name', default='')).strip() if kind == 'game' else ''
+            if name:
+                names[appid] = name
+        pos += 8 + size
+    return names
+
+
+def has_art(root: str, appid: str) -> bool:
+    cache = os.path.join(root, 'appcache', 'librarycache')
+    return os.path.isdir(os.path.join(cache, appid)) or bool(
+        glob.glob(os.path.join(cache, f'{appid}_*')))
+
+
+def owned(root: str) -> Dict[str, str]:
+    """appid -> name of every game this Steam's accounts own, installed or not. Empty when
+    Steam hasn't written its caches yet (never signed in)."""
+    packages = os.path.join(root, 'appcache', 'packageinfo.vdf')
+    appinfo = os.path.join(root, 'appcache', 'appinfo.vdf')
+    if not (os.path.isfile(packages) and os.path.isfile(appinfo)):
+        return {}
+    try:
+        wanted = {a for a in package_apps(packages) if has_art(root, str(a))}
+        names = app_names(appinfo, wanted)
+    except (struct.error, IndexError, UnicodeError) as exc:     # cut short, or not Steam's
+        raise vdf.VDFError(f"Steam's app caches are damaged: {exc}") from exc
+    return {str(a): name for a, name in names.items() if not is_tool(str(a), name, '')}
+
+
 # A shortcut that only starts a game another launcher already lists (Heroic's, Lutris's and
 # Bottles' "add to Steam", Prism instances) would show the same game twice.
 OTHER_LAUNCHERS = re.compile(r'heroic://|lutris:rungame|bottles-cli|prismlauncher|itch://',
@@ -232,4 +324,17 @@ def scan(home: str, watch: List[str]) -> List[Game]:
                                   launch={'appid': appid, 'flatpak': flatpak})
         for game in shortcuts(root, flatpak, watch):
             games.setdefault(game.key, game)
+        # then the games you own and haven't installed; an installed one already has its key
+        watch.append(os.path.join(root, 'appcache', 'packageinfo.vdf'))
+        try:
+            mine = owned(root)
+        except (OSError, vdf.VDFError) as exc:
+            log.warning("steam: owned games not read: %s", exc)
+            mine = {}
+        for appid, name in mine.items():
+            minutes, last = stats.get(appid, (0, 0))
+            games.setdefault(f'steam:{appid}', Game(
+                key=f'steam:{appid}', title=name, source='steam', playtime=minutes,
+                last_played=last, cover=cover(root, appid), flatpak=flatpak, store_id=appid,
+                installed=False, launch={'appid': appid, 'flatpak': flatpak}))
     return list(games.values())
