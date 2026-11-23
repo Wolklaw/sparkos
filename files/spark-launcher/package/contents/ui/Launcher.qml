@@ -528,8 +528,13 @@ FocusScope {
                         Layout.fillHeight: true
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
-                        // Re-read when the category changes (modelForRow makes no binding of its own)
-                        model: root.categoriesModel ? root.categoryModelFor(root.category) : null
+                        // Re-read when the category changes (modelForRow makes no binding of its own).
+                        // Row 0 is bound to allAppsModel, which main.qml sets again once Plasma's
+                        // models fill on the first open; before that modelForRow(0) is null and the
+                        // list would stay empty until another category was clicked.
+                        model: !root.categoriesModel ? null
+                             : root.category === 0 ? root.allAppsModel
+                             : root.categoryModelFor(root.category)
                         QQC.ScrollBar.vertical: QQC.ScrollBar { policy: QQC.ScrollBar.AsNeeded }
                         delegate: ItemRow {
                             required property int index
