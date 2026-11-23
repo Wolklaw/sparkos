@@ -60,7 +60,8 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 |---|---|---|
 | Microsoft 365: Word, Excel, PowerPoint | **Replaced** | **FreeSuite** 0.4.1 (in the image) is the default for .docx/.xlsx/.pptx, the old .doc/.xls/.ppt, OpenDocument, RTF, CSV and PDF. It reads old binary files only partly: .doc without formatting or pictures, .ppt as text only, .xls without charts or merged cells. For those, install **ONLYOFFICE** from the Store; it then shows under "Open with". Office on the web works in any browser. |
 | Outlook | **Replaced** | **FreeSuite Mail** (in the image, default for email links). |
-| Teams, OneNote, Copilot, Amazon Music | **Replaced** | Their web versions, in Soot or Chrome. |
+| Teams, OneNote, Copilot | **Replaced** | Their web versions, in Soot or Chrome. |
+| Amazon Music | **Works** | The Windows app runs through **Spark Run**, with Ultra HD (lossless FLAC) up to your DAC's sample rate. Spark Run adds the CJK font mapping and the empty `update.ini` it needs. Wine apps use the device's current rate, 48 kHz by default; for Ultra HD above that, set a higher fixed rate in `~/.config/pipewire/pipewire.conf.d/` (see the note in `/usr/share/pipewire/pipewire.conf.d/10-sparkos-sample-rates.conf`). The web player is standard quality only. |
 | PDFgear | **Replaced** | **FreeSuite PDF** (in the image, default for PDFs). |
 | Firefox, Chrome | **Works** | **Soot** (in the image) is the default browser. Chrome and Firefox install from the Store. |
 | Google Drive | **Partly** | Add your Google account in System Settings > Online Accounts and Drive appears in Dolphin, which is still in the image for this release (start it with `dolphin`; Spark Files doesn't show online accounts yet). Unlike the Windows client, it doesn't keep offline copies. For that, use rclone or a paid client such as Insync. |

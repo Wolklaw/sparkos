@@ -6,6 +6,7 @@ runtimes can't break another.
 """
 
 import ctypes
+import hashlib
 import os
 import shutil
 import subprocess
@@ -18,6 +19,7 @@ from .core import data_dir, ensure, log, runtime_dir, state_dir, write_text
 from .fetch import Progress, fetch
 
 READY_MARK = '.spark-run-ready'
+FONTS_MARK = '.spark-run-fonts'
 WINDOWS_VERSIONS = ('win11', 'win10', 'win81', 'win8', 'win7', 'winxp')
 DEFAULT_WINDOWS = 'win10'
 
@@ -41,6 +43,31 @@ HOST_LIBS = (
     ('libgstreamer-1.0.so.0', 'audio and video playback', False),
     ('libcups.so.2', 'printing', False),
 )
+
+# Windows fonts that Wine doesn't have, mapped to the system's Noto CJK fonts. Without them an
+# embedded Chromium (CEF, as in Amazon Music) can crash on a page with Chinese, Japanese or
+# Korean text. The Noto CJK fonts come with SparkOS.
+FONT_REPLACEMENTS = (
+    ('Noto Sans CJK SC', ('Microsoft YaHei', 'Microsoft YaHei UI', 'SimSun', 'NSimSun',
+                          'SimHei')),
+    ('Noto Sans CJK TC', ('Microsoft JhengHei', 'Microsoft JhengHei UI', 'PMingLiU',
+                          'MingLiU')),
+    ('Noto Sans CJK JP', ('Meiryo', 'Meiryo UI', 'MS Gothic', 'MS PGothic', 'MS UI Gothic',
+                         'Yu Gothic', 'Yu Gothic UI')),
+    ('Noto Sans CJK KR', ('Malgun Gothic', 'Gulim', 'Dotum', 'Batang')),
+)
+
+
+def fonts_reg_lines() -> List[str]:
+    """The .reg lines that apply FONT_REPLACEMENTS."""
+    lines = [r'[HKEY_CURRENT_USER\Software\Wine\Fonts\Replacements]']
+    lines += [f'"{name}"="{target}"' for target, names in FONT_REPLACEMENTS for name in names]
+    return lines + ['']
+
+
+def fonts_version() -> str:
+    """What the font marker holds, so a changed table is applied again to old prefixes."""
+    return hashlib.sha256('\n'.join(fonts_reg_lines()).encode()).hexdigest()[:16]
 
 
 class WineError(Exception):
@@ -165,7 +192,7 @@ class Wine:
                 r'[HKEY_CURRENT_USER\Software\Wine\WineDbg]',
                 '"ShowCrashDialog"=dword:00000000', '',      # Spark Run explains crashes
                 r'[HKEY_CURRENT_USER\Software\Wine]',
-                f'"Version"="{windows}"', '', '']))
+                f'"Version"="{windows}"', ''] + fonts_reg_lines()))
             code = subprocess.call([self.wine, 'reg', 'import', r'C:\spark-run-defaults.reg'],
                                    env=env, stdout=out, stderr=subprocess.STDOUT,
                                    stdin=subprocess.DEVNULL, cwd=prefix)
@@ -173,11 +200,44 @@ class Wine:
             if code != 0:
                 log.warning("reg import exited with %s in %s", code, prefix)
             self.wait(prefix)
+            if code == 0:
+                write_text(os.path.join(prefix, FONTS_MARK), fonts_version() + '\n')
             _own_desktop(prefix)
             write_text(os.path.join(prefix, READY_MARK), self.version + '\n')
         finally:
             if out is not subprocess.DEVNULL:
                 out.close()
+
+    def ensure_fonts(self, prefix: str, log_path: Optional[str] = None) -> bool:
+        """Apply FONT_REPLACEMENTS to a prefix that doesn't have them yet (prefixes made
+        before they existed). Cheap when done: one small file is read. True if applied now."""
+        mark = os.path.join(prefix, FONTS_MARK)
+        try:
+            with open(mark, encoding='utf-8') as f:
+                if f.read().strip() == fonts_version():
+                    return False
+        except OSError:
+            pass
+        reg = os.path.join(prefix, 'drive_c', 'spark-run-fonts.reg')
+        write_text(reg, '\r\n'.join(['REGEDIT4', ''] + fonts_reg_lines()))
+        out = _log_file(log_path)
+        try:
+            code = subprocess.call([self.wine, 'reg', 'import', r'C:\spark-run-fonts.reg'],
+                                   env=self.env(prefix), stdout=out, stderr=subprocess.STDOUT,
+                                   stdin=subprocess.DEVNULL, cwd=prefix)
+            self.wait(prefix)
+        finally:
+            if out is not subprocess.DEVNULL:
+                out.close()
+            try:
+                os.unlink(reg)
+            except OSError:
+                pass
+        if code != 0:
+            log.warning("font reg import exited with %s in %s", code, prefix)
+            return False
+        write_text(mark, fonts_version() + '\n')
+        return True
 
     def set_windows_version(self, prefix: str, version: str) -> None:
         if version not in WINDOWS_VERSIONS:

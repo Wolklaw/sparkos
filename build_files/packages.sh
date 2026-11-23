@@ -149,9 +149,10 @@ fedora)
   #   rocm-clinfo, rocm-smi and amdsmi to check the GPU. Fedora lets every user open /dev/kfd.
   dnf_install rocm-opencl rocm-clinfo rocm-smi amdsmi
   # - fonts Bazzite ships: Fira Code, Lato, Twemoji, and Noto for Balinese, Javanese, Sundanese
-  #   and Egyptian hieroglyphs (Noto CJK is already in Kinoite, as variable fonts)
+  #   and Egyptian hieroglyphs (Noto CJK is already in Kinoite, as variable fonts; named here
+  #   because Spark Run maps Windows CJK fonts to "Noto Sans CJK SC/TC/JP/KR")
   dnf_install \
-    fira-code-fonts lato-fonts twitter-twemoji-fonts google-noto-sans-balinese-fonts \
+    google-noto-sans-cjk-vf-fonts fira-code-fonts lato-fonts twitter-twemoji-fonts google-noto-sans-balinese-fonts \
     google-noto-sans-javanese-fonts google-noto-sans-sundanese-fonts \
     google-noto-sans-egyptian-hieroglyphs-fonts
   # - text recognition in the languages Bazzite has (English and French come with Spark Scan)
