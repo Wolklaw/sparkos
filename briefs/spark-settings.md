@@ -64,6 +64,14 @@ of them into Spark pages; the PR lists what's left.
 - System Settings stays installed but hidden (`NoDisplay=true`) for one release, then goes, like
   Dolphin and Konsole. `spark-settings --kde` opens it while it's there.
 
+## Both bases
+
+It must work natively on both images: `ghcr.io/wolklaw/sparkos` (Bazzite) and `ghcr.io/wolklaw/sparkos-fedora`
+(plain Fedora Kinoite, the same Containerfile with `SPARKOS_BASE=fedora`; see
+[docs/fedora-base.md](../docs/fedora-base.md)). Check each tool a page uses is in both; where one is
+missing on a base, add it in `build_files/packages.sh` for that base (say what it adds) or have the
+page say plainly what's missing. CI runs `--self-test` inside both images.
+
 ## Speed
 
 Opens in under a second. Each page reads its state when you open it, not at start. Nothing polls:

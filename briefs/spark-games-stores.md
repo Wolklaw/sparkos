@@ -81,6 +81,13 @@ never show twice.
 (`files/spark-store/sparkstore/catalog.py`); they stay installable by search. Don't change the
 catalog in this PR; say in the PR that it's ready for the main session to do.
 
+## Both bases
+
+It must work natively on both images, `ghcr.io/wolklaw/sparkos` (Bazzite) and
+`ghcr.io/wolklaw/sparkos-fedora` (plain Fedora; [docs/fedora-base.md](../docs/fedora-base.md)).
+`umu-run` is in both. WebKit isn't pulled in on the Fedora base, so check each image before picking
+the sign-in window; the paste fallback must work on both. CI runs the in-image job in both.
+
 ## Speed and safety
 
 - Opening the app stays under a second: accounts and owned lists come from cache, refreshed in the
