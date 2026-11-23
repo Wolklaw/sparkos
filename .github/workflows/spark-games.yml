@@ -3,7 +3,7 @@ name: spark-games
 #
 # fedora:  installs it system-wide in a plain Fedora container, runs the self-test and the unit
 #          and UI tests under Xvfb, then installs and removes it for a normal user.
-# sparkos: inside the published SparkOS image: the image build step as root and --self-test (what
+# sparkos: inside each published SparkOS image (sparkos and sparkos-fedora): the image build step as root and --self-test (what
 #          the boot test runs), then as a normal user with no root and no network:
 #          install.sh --user, --self-test, --uninstall, and checks nothing is left behind.
 on:
@@ -53,13 +53,18 @@ jobs:
             LANG=C.UTF-8 bash "$home/spark-games-src/tests/user_install_check.sh" "$home/spark-games-src"
 
   sparkos:
+    name: ${{ matrix.image }}
     runs-on: ubuntu-24.04
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        image: [sparkos, sparkos-fedora]     # the Bazzite and the plain Fedora Kinoite builds
     permissions:
       contents: read
       packages: read
     env:
-      IMAGE: ghcr.io/wolklaw/sparkos:latest
+      IMAGE: ghcr.io/wolklaw/${{ matrix.image }}:latest
     steps:
       - uses: actions/checkout@v7
 
@@ -81,7 +86,10 @@ jobs:
           sudo podman run --rm -v "$PWD/files:/tmp/files:ro" -e CONFIG_DIRECTORY=/tmp/files "$IMAGE" bash -euxc '
             bash /tmp/files/scripts/spark-games.sh
             spark-games --self-test | tee /tmp/self-test.txt
-            grep -q "^self-test passed" /tmp/self-test.txt'
+            grep -q "^self-test passed" /tmp/self-test.txt
+            # what the sign-in window and the store programs can rely on in this image
+            command -v umu-run
+            python3 -c "import gi; gi.require_version(\"WebKit2\", \"4.1\")" && echo "WebKitGTK: present" || echo "WebKitGTK: absent (paste sign-in only)"'
 
       - name: Install, self-test and uninstall as a normal user (no root, no network)
         run: |
