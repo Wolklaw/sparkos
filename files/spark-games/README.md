@@ -1,6 +1,6 @@
 # Spark Games
 
-One library for every game installed on the computer, whatever launcher it came from. Spark Games reads what Steam (including non-Steam shortcuts), Heroic (Epic, GOG, Amazon), Lutris, the itch app, Bottles, the Minecraft launcher and Prism Launcher have installed, adds the programs you add yourself, and starts each game through the launcher that owns it. It never changes the launchers' files, and it is not a store: buying, downloading, updates, cloud saves and friends stay in each launcher.
+One library for every game installed on the computer, whatever launcher it came from. Spark Games reads what Steam (including non-Steam shortcuts), Heroic (Epic, GOG, Amazon), Lutris, the itch app, Bottles, the Minecraft launcher and Prism Launcher have installed, adds the programs you add yourself, and starts each game through the launcher that owns it. It never changes the launchers' files. It is not a store: you buy games on each company's site. But it can sign in to Epic, GOG and Amazon itself, list what you own, and install, update, verify, uninstall and start those games (see [Stores and launchers](#stores-and-launchers)), so Heroic and Lutris are no longer needed.
 
 It ships in SparkOS (the image build runs [files/scripts/spark-games.sh](../scripts/spark-games.sh), which runs `install.sh --deps`). It can also install for one user with no root, which the future Spark Portal can use (see below).
 
@@ -50,6 +50,33 @@ It ships in SparkOS (the image build runs [files/scripts/spark-games.sh](../scri
 
 A missing launcher isn't an error; its games just don't appear. A file in a format Spark Games doesn't understand is logged and skipped, and the other launchers still show.
 
+## Stores and launchers
+
+Settings, then "Accounts and launchers" opens the Stores view.
+
+**Accounts.** Epic, GOG and Amazon each have a Sign in button. Spark Games opens the company's own login page. If WebKitGTK is installed it shows the page in its own window and reads the code itself. If not, or if that window fails, it opens your browser and you paste what the page ends on (Epic: the page's text, which holds `authorizationCode`; GOG and Amazon: the address of the last page). The paste always works. Sign out removes the saved token. Tokens are in `~/.config/spark-games/accounts/`, folders `0700`, files `0600`, and are never written to the log.
+
+**Store programs.** The work is done by three GPL-3.0 programs, started as separate processes and never imported: [legendary](https://github.com/legendary-gl/legendary) (Epic) 0.21.1, [gogdl](https://github.com/Heroic-Games-Launcher/heroic-gogdl) (GOG) 1.4.0 and [nile](https://github.com/imLinguin/nile) (Amazon) 1.2.0. They are not in the image. The first time one is needed Spark Games downloads that exact release into `~/.local/share/spark-games/runners/`, checks its SHA-256 (the same way Spark Run downloads Wine) and deletes it if it does not match. A copy in `/usr/lib/spark-games/runners/` is used when present, and `SPARK_GAMES_LEGENDARY`, `SPARK_GAMES_GOGDL` and `SPARK_GAMES_NILE` point at another build. Versions, links and checksums: [THIRD-PARTY.md](../../THIRD-PARTY.md). `--self-test` lists which are present and their versions.
+
+| | Epic | GOG | Amazon |
+|---|---|---|---|
+| Program | legendary | gogdl | nile |
+| Owned list | `legendary list --json` | the account's product list, read with the token gogdl saved | `nile library sync` and `nile library list --json` |
+| Install, update, verify | yes | yes (update and verify both run `gogdl update/repair`) | yes |
+| Update detected | yes (the installed build differs from the one in `legendary list --json`) | no, see Known gaps | yes (`nile list-updates`) |
+| Cloud saves | per-game switch, `legendary sync-saves` before and after | not supported | not supported |
+| Started with | `legendary launch --json`, then the command it prints through umu-run | `gogdl launch` through umu-run (Linux builds start directly) | `nile launch` through umu-run |
+
+- **Owned games** are listed greyed, with an Installed / All owned filter (Installed is the default and is remembered). The list is cached in `~/.cache/spark-games/owned-<store>.json`, refreshed at most once a day and on F5, and covers are fetched once. An owned game that is installed (by Spark Games or Heroic) shows once.
+- **Install, update, verify** run in a helper process (`spark-games --job`) so the window can close. The game page shows progress, speed and time left, with Pause (SIGSTOP the client), Resume and Cancel. One install runs per disk; the others show "Waiting for another install on this disk". Before installing it asks the store for the download and disk size and compares it with the free space. Games go in `~/Games/<store>/` unless you pick a folder (Settings key `games_dir`).
+- **Uninstall** deletes the game's folder only if Spark Games installed it and the folder is inside the folders it installs into. A game taken over from Heroic is only forgotten, and its files stay.
+- **Starting a game** goes through Spark Games: Proton through `umu-run` (UMU-Proton, or GE-Proton with a per-game switch), MangoHud and GameMode switches as for your own games, a Wine folder per game in `~/.local/share/spark-games/prefixes/`. Spark Games never logs the launch command, since Epic's holds a session token.
+- **Taking over Heroic.** On first start, if Heroic installed games, Spark Games asks once whether to use them. Nothing is downloaded again and nothing of Heroic's is changed or deleted: Epic games are handed to legendary with `import --disable-check`, GOG games are recorded in place, Amazon games go through `nile import`. Heroic's Wine folders are not reused (Heroic's Proton is not the one Spark Games starts the game with); the game gets its own. Games Heroic still lists are hidden once taken over, so none shows twice. The Stores view has a button to ask again.
+
+### Added launchers
+
+Battle.net, EA app, Ubisoft Connect and Rockstar Games Launcher each have an Add button. Spark Games downloads the installer from the company's own address (HTTPS, a fixed list of hosts that a redirect must also stay on, 500 KB to 400 MB, must start with `MZ`), logs its SHA-256, and runs it through `umu-run` in `~/.local/share/spark-games/prefixes/<launcher>`; the installer's window opens for you to finish. The companies replace these installers in place, so unlike the store programs they **cannot** be checked against a fixed checksum, and the game IDs umu uses for them (`umu-<launcher>`) are placeholders, not entries from umu's database. The launcher then has its own tile. If Lutris already installed one, "Use Lutris's" takes it over without copying or moving it; Spark Games starts it with its own Proton, which can change that Lutris folder, and the confirmation says so. Removing a launcher deletes only a folder Spark Games made. Lutris's own tile for it is hidden.
+
 ## Speed
 
 - The library from the last run (`~/.cache/spark-games/library.json`) shows at once; launchers are scanned again in a background thread.
@@ -68,7 +95,7 @@ Spark Games reads controllers straight from the kernel (evdev) with Python's sta
 
 ## Files
 
-Settings in `~/.config/spark-games/` (`config.json`, `games.json`), playtime in `~/.local/share/spark-games/`, cache in `~/.cache/spark-games/`, log in `~/.local/state/spark-games/`. Windows games you add get their own Wine prefix in `~/.local/share/spark-games/prefixes/`.
+Settings in `~/.config/spark-games/` (`config.json`, `games.json`), playtime in `~/.local/share/spark-games/`, cache in `~/.cache/spark-games/`, log in `~/.local/state/spark-games/`. Windows games you add get their own Wine prefix in `~/.local/share/spark-games/prefixes/`. Store accounts: `~/.config/spark-games/accounts/` (owner only). Store state: `stores.json` (installed store games and added launchers) and `jobs/` in the data folder; the owned lists in the cache folder.
 
 ## Install, run, test
 
@@ -99,3 +126,14 @@ Controllers are tested with recordings in evtest's format (`tests/fixtures/gamep
 - No covers for itch, Bottles and the official Minecraft launcher.
 - The playtime helper for launcher games finds the game by its install folder on the command line. A game started some other way (a launcher stub elsewhere) may not be counted; the launcher's own playtime is still shown.
 - MangoHud and GameMode switches only apply to games you added. For the other launchers, use their own settings.
+- **Stores and launchers were built without a real account or the real programs.** legendary, gogdl and nile were never run during development: the tests use fake clients that print recorded output, so the exact output formats, the Epic and Amazon sign-in, the GOG product list endpoint (`embed.gog.com`, read with gogdl's token) and GOG cover addresses are unverified against the real services. Not done yet, each for the owner to try on a real PC:
+  - [ ] Sign in to Epic by paste, and with the WebKitGTK window.
+  - [ ] Sign in to GOG and to Amazon.
+  - [ ] Install a small free game from one store, pause, resume, cancel, then finish it and start it.
+  - [ ] Take over one Heroic game and confirm Heroic still works with it.
+  - [ ] Add one launcher (Battle.net) and start it.
+- The WebKitGTK sign-in window (`signin_window.py`) has not been run: the image has no WebKitGTK, and WebKitGTK is optional. Without it only the paste way is used.
+- While legendary, gogdl or nile checks a sign-in code, the code is in their command line, so other programs of your own user can see it in the process list for a moment. The window says so. It is used once and expires.
+- GOG: no update detection (gogdl has no cheap check), and no cloud saves. Amazon: no cloud saves. GOG and Amazon games are updated with Update, which you choose yourself.
+- The added launchers' installers have no checksum (see above), and their game IDs are placeholders, so Proton may apply fewer fixes than umu's database would.
+- The owned list is Windows and Linux only; Mac-only games are left out.

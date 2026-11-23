@@ -8,13 +8,16 @@ at the launchers' files (their modification times) decides whether to scan again
 import os
 from typing import Dict, List, Optional, Set, Tuple
 
-from . import bottles, heroic, itch, lutris, minecraft, owngames, steam
+from . import bottles, heroic, itch, launchers as added, lutris, minecraft, owngames, steam, stores
 from .core import Game, cache_dir, home, log, mtime, now, read_json, write_json
 
 CACHE_VERSION = 1
-SCANNERS = (('steam', steam.scan), ('heroic', heroic.scan), ('lutris', lutris.scan),
+# Spark Games' own installs come first so they win over the same game in Heroic; the games you
+# own but haven't installed come last, so an installed copy anywhere hides them (first key wins).
+SCANNERS = (('stores', stores.scan_installed), ('added', added.scan),
+            ('steam', steam.scan), ('heroic', heroic.scan), ('lutris', lutris.scan),
             ('itch', itch.scan), ('bottles', bottles.scan), ('minecraft', minecraft.scan),
-            ('own', owngames.scan))
+            ('own', owngames.scan), ('owned', stores.scan_owned))
 # a launcher counts as found when its folder is there, even with no games in it
 ROOTS = {'steam': steam.roots, 'heroic': heroic.roots, 'lutris': lutris.roots,
          'itch': itch.roots, 'bottles': bottles.roots, 'minecraft': minecraft.roots}
@@ -56,6 +59,7 @@ def scan_all(base: Optional[str] = None) -> Scan:
         if game.key not in seen:
             seen.add(game.key)
             unique.append(game)
+    unique = added.hide_lutris(unique)
     return Scan(unique, watch, launchers, problems)
 
 

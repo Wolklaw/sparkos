@@ -1,0 +1,5 @@
+game:
+  exe: "@HOME@/Games/battlenet/drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe"
+  prefix: @HOME@/Games/battlenet
+wine:
+  version: ge-proton

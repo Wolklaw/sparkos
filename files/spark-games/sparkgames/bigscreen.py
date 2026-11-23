@@ -95,7 +95,7 @@ class BigScreen(tk.Frame):
         self.canvas.bind("<ButtonRelease-1>", self._click)
         for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
             self.canvas.bind(seq, self._wheel)
-        self.set_games(app.games)
+        self.set_games([g for g in app.games if g.installed])
 
     def destroy(self):
         for after_id in (self._render_id, self._poll_id, self._toast_id):

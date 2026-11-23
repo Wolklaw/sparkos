@@ -13,9 +13,9 @@ import threading
 import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
-from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, VERSION
-from . import (anticheat, bottles, gamepad, heroic, itch, launch, library, lutris, minecraft,
-               steam)
+from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, STORES, VERSION
+from . import (anticheat, bottles, clients, gamepad, heroic, itch, jobs, launch, library, lutris,
+               minecraft, steam, stores)
 from .core import (Game, home, load_settings, log, mtime, open_uri, reduced_motion,
                    save_settings, setup_logging, spawn, which)
 from .strings import tr
@@ -111,6 +111,7 @@ class App:
         self.sig: Optional[list] = None
         self.scanning = False
         self._scan_again = False
+        self._startup_done = False
         self._last_focus_check = 0.0
         self._calls: "queue.Queue[Tuple[Callable, Any]]" = queue.Queue()
         self._busy = 0
@@ -267,6 +268,11 @@ class App:
         from .views import AddGameView
         self._show(AddGameView(self))
 
+    def show_stores(self):
+        from .storeviews import StoresView
+        self._show(StoresView(self))
+        self.glitch.now(self.view.heading)
+
     def show_settings(self):
         from .views import SettingsView
         self._show(SettingsView(self))
@@ -339,6 +345,10 @@ class App:
         if self._scan_again:
             self._scan_again = False
             self.rescan()
+        elif not self._startup_done:
+            self._startup_done = True
+            self.refresh_owned()
+            self.root.after(400, self.offer_heroic_takeover)
 
     def _apply(self, result, scanning: bool):
         self.games = result.games
@@ -348,7 +358,13 @@ class App:
             anticheat.mark(self.games, self.ac_entries)
         self.library.set_games(self.games, scanning)
         if self.big is not None:
-            self.big.set_games(self.games)
+            self.big.set_games([g for g in self.games if g.installed])
+        page = self.view
+        if hasattr(page, 'game') and hasattr(page, 'store_panel'):
+            fresh = next((g for g in self.games if g.key == page.game.key), None)
+            if fresh is not None and (fresh.installed, fresh.install_dir) != (
+                    page.game.installed, page.game.install_dir):
+                self.show_game(fresh)       # an install or update just finished
         if not scanning:
             self._status_idle()
 
@@ -498,16 +514,51 @@ class App:
     # playing
     def play(self, game: Game):
         from . import dialogs as messagebox
-        from .widgets import T
-        try:
-            launch.start(game, self.game_options(game.key))
-        except launch.LaunchError as exc:
-            log.warning("can't start %s: %s %s", game.key, exc.code, exc.detail)
-            self.set_status(tr('err_' + exc.code, detail=exc.detail).upper()[:60], T["pink"])
-            self.glitch.now(self.title, strong=True)
-            messagebox.showerror(APP_NAME, tr('err_' + exc.code, detail=exc.detail),
-                                 parent=self.root)
+        options = self.game_options(game.key)
+        if game.launcher == 'spark':
+            if not game.installed:
+                self.show_game(game)
+                return
+            if game.launch.get('store') in STORES and stores.update_available(game):
+                if messagebox.askyesno(APP_NAME, tr('update_first', title=game.title),
+                                       parent=self.root):
+                    self.show_game(game)
+                    self.view.start_job('update')
+                    return
+            # Epic asks the network for its launch command (and a fresh token): off the UI thread
+            self.set_status(tr('starting', title=game.title.upper())[:60])
+            self.background(lambda: launch.plan(game, options),
+                            lambda plan: self._play_planned(game, options, plan))
             return
+        try:
+            launch.start(game, options)
+        except launch.LaunchError as exc:
+            self._play_failed(game, exc)
+            return
+        self._play_started(game)
+
+    def _play_planned(self, game: Game, options: Dict[str, Any], plan):
+        if isinstance(plan, Exception):
+            self._play_failed(game, plan if isinstance(plan, launch.LaunchError)
+                              else launch.LaunchError('unexpected', str(plan)))
+            return
+        try:
+            launch.start(game, options, plan_=plan)
+        except launch.LaunchError as exc:
+            self._play_failed(game, exc)
+            return
+        self._play_started(game)
+
+    def _play_failed(self, game: Game, exc: 'launch.LaunchError'):
+        from . import dialogs as messagebox
+        from .widgets import T
+        log.warning("can't start %s: %s", game.key, exc.code)      # the detail can hold a token
+        text = tr('err_' + exc.code, detail=stores.scrub(exc.detail))
+        self.set_status(text.upper()[:60], T["pink"])
+        self.glitch.now(self.title, strong=True)
+        messagebox.showerror(APP_NAME, text, parent=self.root)
+
+    def _play_started(self, game: Game):
         self.set_status(tr('starting', title=game.title.upper())[:60])
         self.glitch.now(self.title, self.mark, strong=True)
         after = self.settings.get('after_launch', 'stay')
@@ -515,6 +566,69 @@ class App:
             self.root.after(800, self.root.iconify)
         elif after == 'close':
             self.root.after(800, self._on_close)
+
+    # the stores: owned lists and taking over Heroic's installs
+    def refresh_owned(self, force: bool = False):
+        """Fetch the owned lists that are over a day old (all of them when forced), in the
+        background, then show them. Does nothing for a store you haven't signed in to."""
+        due = [s for s in STORES if stores.signed_in(s) and (force or stores.owned_stale(s))]
+        if not due:
+            return
+
+        def work():
+            problems = []
+            for store in due:
+                try:
+                    stores.refresh_owned(store, force=force)
+                    stores.fetch_covers(store)
+                except clients.ClientError as exc:
+                    log.warning("%s: owned list not refreshed: %s", store, exc.kind)
+                    problems.append((store, exc.kind))
+            return problems
+
+        def done(problems):
+            from .widgets import T
+            if isinstance(problems, Exception):
+                return
+            self.rescan()
+            if problems:
+                names = ', '.join(tr('src_' + s) for s, _k in problems)
+                self.set_status(tr('owned_problem', names=names), T["gold"], hold_ms=6000)
+
+        self.background(work, done)
+
+    def offer_heroic_takeover(self):
+        """Once: ask whether Spark Games should use the games Heroic installed."""
+        if self.settings.get('heroic_takeover_asked'):
+            return
+        found = stores.takeable(self.scan_home or home())
+        if not found:
+            return
+        from . import dialogs as messagebox
+        self.settings['heroic_takeover_asked'] = True
+        save_settings(self.settings)
+        if messagebox.askyesno(APP_NAME, tr('takeover_ask', count=len(found)), parent=self.root):
+            self.take_over_heroic()
+
+    def take_over_heroic(self):
+        base = self.scan_home or home()
+
+        def work():
+            taken = failed = 0
+            for store in STORES:
+                if stores.signed_in(store) or store == 'gog':
+                    t, f = stores.take_over(base, store)
+                    taken, failed = taken + t, failed + f
+            return taken, failed
+
+        def done(result):
+            if isinstance(result, Exception):
+                self.set_status(tr('err_unexpected', detail=result).upper()[:60])
+                return
+            self.set_status(tr('takeover_done', count=result[0], failed=result[1]), hold_ms=6000)
+            self.rescan()
+
+        self.background(work, done)
 
     def open_store(self):
         for folder in ('/usr/share/applications', '/var/lib/flatpak/exports/share/applications',
@@ -539,6 +653,7 @@ class App:
             return "break"
         if k == 'F5':
             self.rescan()
+            self.refresh_owned(force=True)
             return "break"
         if k == 'F11':
             if self.big is None:
@@ -650,6 +765,11 @@ def self_test() -> int:
     finally:
         shutil.rmtree(scratch, ignore_errors=True)
 
+    print("store clients (downloaded the first time they are needed):")
+    for name, path, version in clients.report():
+        check(name, bool(path), (f"{version or 'version unknown'} at {path}" if path else
+                                 f"not downloaded yet; pinned {clients.RUNNERS[name].version}"),
+              required=False)
     print("optional:")
     for name in ('flatpak', 'steam', 'lutris', 'bottles-cli', 'minecraft-launcher', 'prismlauncher',
                  'gamemoderun', 'mangohud', 'umu-run', 'kdialog'):
@@ -670,6 +790,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument('--big-screen', action='store_true',
                         help="open fullscreen in the couch layout (Esc or B leaves it)")
     parser.add_argument('--track', metavar='JSON', help=argparse.SUPPRESS)
+    parser.add_argument('--job', metavar='JSON', help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test()
@@ -681,6 +802,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             return 2
         launch.track(spec)
         return 0
+    if args.job:
+        try:
+            spec = json.loads(args.job)
+            return jobs.run_job(spec)
+        except (ValueError, KeyError):
+            return 2
     try:
         app = App(os.environ.get('SPARK_GAMES_HOME') or None, big_screen=args.big_screen)
     except Exception as exc:          # noqa: BLE001 - TclError without a display
