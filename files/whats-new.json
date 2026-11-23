@@ -1,0 +1,77 @@
+{
+  "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
+  "notes": [
+    {
+      "id": "2026-11-23-games-launcher-page",
+      "date": "2026-11-23",
+      "en": "Spark Games: clicking an added launcher such as Battle.net opens its page again instead of showing an error.",
+      "fr": "Spark Games : cliquer sur un lanceur ajouté comme Battle.net ouvre de nouveau sa page au lieu d'afficher une erreur."
+    },
+    {
+      "id": "2026-11-23-update-notes",
+      "date": "2026-11-23",
+      "en": "Spark Update lists what's new in words, and covers every update since the version you had before, not only the last one.",
+      "fr": "Spark Update décrit les nouveautés en mots, et couvre toutes les mises à jour depuis la version que vous aviez avant, pas seulement la dernière."
+    },
+    {
+      "id": "2026-11-23-terminal-ctrl-c-v",
+      "date": "2026-11-23",
+      "en": "Spark Terminal: Ctrl+C copies the selected text (with nothing selected it still stops the running command) and Ctrl+V pastes. You can turn this off in its settings.",
+      "fr": "Spark Terminal : Ctrl+C copie le texte sélectionné (sans sélection, il arrête toujours la commande en cours) et Ctrl+V colle. Désactivable dans ses réglages."
+    },
+    {
+      "id": "2026-11-23-spark-controller",
+      "date": "2026-11-23",
+      "en": "New: Spark Controller, for fan curves, RGB lighting and firmware updates.",
+      "fr": "Nouveau : Spark Controller, pour les courbes de ventilateurs, l'éclairage RGB et les mises à jour de firmware."
+    },
+    {
+      "id": "2026-11-23-sample-rate-amazon-music",
+      "date": "2026-11-23",
+      "en": "Spark Settings can set the sound output's sample rate. Amazon Music installs through Spark Run, and Spark Run shows Chinese, Japanese and Korean text properly.",
+      "fr": "Spark Settings règle la fréquence d'échantillonnage de la sortie audio. Amazon Music s'installe avec Spark Run, qui affiche bien le chinois, le japonais et le coréen."
+    },
+    {
+      "id": "2026-11-23-spark-settings",
+      "date": "2026-11-23",
+      "en": "New: Spark Settings, SparkOS's own settings app, in place of System Settings.",
+      "fr": "Nouveau : Spark Settings, l'application de réglages de SparkOS, à la place de Configuration du système."
+    },
+    {
+      "id": "2026-11-23-spark-games-stores",
+      "date": "2026-11-23",
+      "en": "Spark Games signs in to Epic, GOG and Amazon, installs and starts their games, and adds launchers.",
+      "fr": "Spark Games se connecte à Epic, GOG et Amazon, installe et lance leurs jeux, et ajoute des lanceurs."
+    },
+    {
+      "id": "2026-11-22-fedora-extras",
+      "date": "2026-11-22",
+      "en": "Real unrar, Homebrew updates on a timer, and the open command in the terminal.",
+      "fr": "Le vrai unrar, les mises à jour Homebrew automatiques, et la commande open dans le terminal."
+    },
+    {
+      "id": "2026-11-22-spark-store-optional",
+      "date": "2026-11-22",
+      "en": "Spark Store installs the optional Spark apps (Spark Space, Spark Bench) with one click.",
+      "fr": "Spark Store installe les applications Spark optionnelles (Spark Space, Spark Bench) en un clic."
+    },
+    {
+      "id": "2026-11-22-sign-in-splash",
+      "date": "2026-11-22",
+      "en": "The sign-in screen uses your monitor layout, and the boot screen plays the hammer animation.",
+      "fr": "L'écran de connexion suit la disposition de vos écrans, et l'écran de démarrage joue l'animation du marteau."
+    },
+    {
+      "id": "2026-11-22-icons",
+      "date": "2026-11-22",
+      "en": "SparkOS has its own icon theme, starting with the taskbar and the default apps.",
+      "fr": "SparkOS a son propre thème d'icônes, en commençant par la barre des tâches et les applications par défaut."
+    },
+    {
+      "id": "2026-11-22-spark-files-terminal-launcher",
+      "date": "2026-11-22",
+      "en": "New: Spark Files (file manager), Spark Terminal and Spark Launcher (the app menu), in place of Dolphin, Konsole and Kickoff.",
+      "fr": "Nouveau : Spark Files (gestionnaire de fichiers), Spark Terminal et Spark Launcher (le menu des applications), à la place de Dolphin, Konsole et Kickoff."
+    }
+  ]
+}

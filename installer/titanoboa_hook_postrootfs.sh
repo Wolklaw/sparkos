@@ -97,18 +97,15 @@ EOF
 # Services that make no sense in a live installer
 (
     set +e
-    for s in rpm-ostree-countme.service tailscaled.service bazzite-hardware-setup.service \
-        ublue-hardware-setup.service bootloader-update.service brew-upgrade.timer brew-update.timer \
-        brew-setup.service rpm-ostreed-automatic.timer uupd.timer ublue-guest-user.service \
-        ublue-os-media-automount.service ublue-system-setup.service bazzite-flatpak-manager.service \
-        ublue-flatpak-manager.service flatpak-add-fedora-repos.service system-flatpak-setup.timer \
-        user-flatpak-setup.timer greenboot-set-rollback-trigger.service greenboot-healthcheck.service \
-        input-remapper.service switcheroo-control.service check-sb-key.service; do
+    for s in rpm-ostree-countme.service tailscaled.service bootloader-update.service \
+        brew-upgrade.timer brew-update.timer rpm-ostreed-automatic.timer spark-update.timer \
+        flatpak-add-fedora-repos.service greenboot-set-rollback-trigger.service \
+        greenboot-healthcheck.service input-remapper.service switcheroo-control.service; do
         if systemctl list-unit-files "$s" >/dev/null 2>&1; then
             systemctl disable "$s"
         fi
     done
-    for s in podman-auto-update.timer bazzite-user-setup.service ublue-user-setup.service; do
+    for s in podman-auto-update.timer; do
         if systemctl --global list-unit-files "$s" >/dev/null 2>&1; then
             systemctl --global disable "$s"
         fi
@@ -131,10 +128,6 @@ printf '[Autologin]\nUser=liveuser\nSession=plasma\n' >/etc/plasmalogin.conf.d/z
 cat /etc/plasmalogin.conf
 test -f /usr/share/wayland-sessions/plasma.desktop || { echo "plasma.desktop session not found"; exit 1; }
 
-rm -vf /etc/skel/.config/autostart/steam*.desktop
-dnf -yq remove steam lutris bazaar waydroid || :
-rm -vf /etc/profile.d/verify_motd.sh
-rm -f /usr/share/applications/bbrew.desktop /usr/share/applications/bazzite-steam*.desktop
 rm -f /usr/bin/rpm-ostree # never run on the live ISO
 
 # Partition editor for people who want to shrink a drive first

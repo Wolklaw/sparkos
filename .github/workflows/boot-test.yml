@@ -173,8 +173,7 @@ jobs:
             -daemonize -pidfile "$WORK/qemu.pid"
           echo "QEMU started"
           mkdir -p "$WORK/shots"
-          # If the first boot restarts (it did on Bazzite, whose hardware setup added a kernel
-          # argument), watch the serial log for GRUB's second "Booting `SparkOS" and photograph the
+          # If the first boot restarts, watch the serial log for GRUB's second "Booting `SparkOS" and photograph the
           # next 15 s, once a second.
           # Not a check: the pictures are for looking at the splash. Runs in the background.
           nohup bash -c '
@@ -477,12 +476,8 @@ jobs:
       - name: Check Spark Update
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # updates never stop: exactly one updater on (Spark Update's own timer; Universal Blue's
-          # uupd is gone) and the notification timer on
+          # updates never stop: Spark Update's own timer on, and the notification timer on
           $SSH 'set -e; spark-update --version; systemctl is-enabled spark-update.timer; systemctl is-active spark-update.timer; systemctl --global is-enabled spark-update-user.timer'
-          $SSH 'rpm -q uupd bazzite-updater 2>&1; systemctl list-unit-files --no-legend "uupd*"; cat /usr/libexec/uupd-update 2>&1' | tee "$WORK/spark-update-uupd.txt"
-          grep -q 'package uupd is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::uupd is installed"; exit 1; }
-          grep -q 'package bazzite-updater is not installed' "$WORK/spark-update-uupd.txt" || { echo "::error::bazzite-updater is installed"; exit 1; }
           $SSH 'spark-update --self-test' 2>&1 | tee "$WORK/spark-update-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-update-self-test.txt"
           grep -q '^updater:   Spark Update' "$WORK/spark-update-self-test.txt"
@@ -516,8 +511,7 @@ jobs:
           grep -qx 'countme timer: disabled' "$WORK/cleanup-calls.txt" || { echo "::error::rpm-ostree-countme.timer is not disabled"; exit 1; }
           grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
           grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
-          # Homebrew's update timers off until sparkos-dev-setup --brew (on Fedora, SparkOS's own
-          # units, under the names Bazzite used); no COPR repository on
+          # Homebrew's update timers off until sparkos-dev-setup --brew; no COPR repository on
           $SSH 'for t in brew-update.timer brew-upgrade.timer; do echo "$t: $(systemctl is-enabled $t 2>&1)"; done
                 echo "copr on: $(grep -l "^enabled=1" /etc/yum.repos.d/_copr* 2>/dev/null | wc -l)"' | tee "$WORK/cleanup-brew.txt"
           grep -qx 'brew-update.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-update.timer isn't installed and off"; exit 1; }
@@ -638,17 +632,13 @@ jobs:
       - name: Check no third-party apps are preinstalled
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # SparkOS ships only its own apps: no Flatpak apps, none of Bazzite's removed packages, no Portal
+          # SparkOS ships only its own apps: no Flatpak apps, no third-party apps
           $SSH 'echo "== system Flatpak apps"; flatpak list --system --app --columns=application
-                echo "== removed packages"; rpm -q steam lutris waydroid kate kwrite filelight 2>&1
-                echo "== Portal autostart"; ls /etc/skel/.config/autostart/ 2>&1' | tee "$WORK/apps.txt"
-          APPS=$(sed -n '/^== system Flatpak apps/,/^== removed packages/p' "$WORK/apps.txt" | grep -v '^==' || true)
+                echo "== third-party packages"; rpm -q steam lutris waydroid kate kwrite filelight 2>&1' | tee "$WORK/apps.txt"
+          APPS=$(sed -n '/^== system Flatpak apps/,/^== third-party packages/p' "$WORK/apps.txt" | grep -v '^==' || true)
           [ -z "$APPS" ] || { echo "::error::preinstalled Flatpaks found:"; echo "$APPS"; exit 1; }
           if grep -E '^(steam|lutris|waydroid|kate|kwrite|filelight)-[0-9]' "$WORK/apps.txt"; then
-            echo "::error::a package Bazzite ships and SparkOS removes is still installed"; exit 1
-          fi
-          if grep -q 'bazzite-portal' "$WORK/apps.txt"; then
-            echo "::error::Bazzite's Portal still starts at sign-in"; exit 1
+            echo "::error::a third-party app is installed"; exit 1
           fi
           # Other projects' apps and tools that stay installed are out of the app menu
           # (sparkos-cleanup.sh): every visible desktop entry must be in this list

@@ -10,7 +10,7 @@ APP_NAME = "Spark Games"
 APP_SLUG = "spark-games"         # command, folders, log names
 APP_CLASS = "SparkGames"         # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkGames"
-VERSION = "0.3.0"
+VERSION = "0.3.1"
 
 # Where a game comes from (its badge and filter) and which program starts it.
 SOURCES = ("steam", "epic", "gog", "amazon", "battlenet", "ea", "ubisoft", "rockstar", "lutris",

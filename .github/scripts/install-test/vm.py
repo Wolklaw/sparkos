@@ -23,7 +23,6 @@ import time
 
 from PIL import Image, ImageOps, ImageStat
 
-MOK_PASSWORD = "universalblue"  # Bazzite-era installers' enrollment password (until 2026-11-23)
 
 
 def log(msg):
@@ -349,15 +348,8 @@ def install(a):
 def boot(a):
     vm = VM(a, "boot")
     vm.start()
-    state = "wait"
-    steps = {  # state: (text that shows it, keys, next state)
-        "wait": ("pressanykeytoperformmok", ["ret"], "menu"),
-        "menu": ("enrollmok", ["down", "ret"], "enroll"),
-        "enroll": ("viewkey", ["down", "ret"], "confirm"),
-        "confirm": ("enrollthekey", ["down", "ret"], "password"),
-        "password": ("password", None, "reboot"),
-        "reboot": ("reboot", ["ret"], "done"),
-    }
+    # Fedora's kernel is signed by Fedora, so there is no key to enroll: a MokManager screen in
+    # the first 90 s is a failure (reported below), not something to click through.
     mok_seen = False
     since = time.time()
     deadline = time.time() + 25 * 60
@@ -365,33 +357,12 @@ def boot(a):
     while time.time() < deadline and vm.alive():
         if "=== SPARKOS-CHECK-END" in vm.ser.text():
             break
-        if state != "done":
+        if not mok_seen and time.time() - since < 90:
             t = vm.norm(vm.ocr())
-            # On the first start MokManager opens straight on its menu (no "press any key")
-            if state == "wait" and "enrollmok" in t and "continueboot" in t:
-                log("MokManager: opened on its menu")
-                mok_seen, state, since = True, "menu", time.time()
-            want, keys, nxt = steps[state]
-            hit = ("anykey" in t and "mok" in t) if state == "wait" else want in t
-            # MokManager waits forever (mokutil --timeout -1); later screens get a blind try
-            # after 40 s so a misread doesn't stall the test (the result is checked anyway)
-            if hit or (state != "wait" and time.time() - since > 40):
-                if state == "wait":
-                    mok_seen = True
-                log(f"MokManager: {state} ({'seen' if hit else 'not read, trying anyway'})")
-                vm.ocr(f"mok-{state}", keep=True)
-                if keys:
-                    vm.keys(*keys, delay=0.8)
-                else:
-                    vm.type(MOK_PASSWORD + "\n", delay=0.15)
-                state, since = nxt, time.time()
-                time.sleep(2)
-                continue
-            # No key to enroll (Fedora's signed kernel): MokManager would show in the first
-            # minute if an old installer still asked for it
-            if state == "wait" and time.time() - since > 90:
-                log("no MokManager screen; none expected")
-                state = "done"
+            if "mok" in t and ("anykey" in t or "enrollmok" in t):
+                log("MokManager screen: a key enrollment was asked for")
+                vm.ocr("mok", keep=True)
+                mok_seen = True
         if time.time() - last_shot > 45:
             vm.shot("booting")
             last_shot = time.time()

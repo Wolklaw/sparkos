@@ -5,7 +5,7 @@
 #
 # --deps     install what it needs with dnf, skipping anything already there. The SparkOS
 #            image build uses this; GStreamer plugins are checked by element, because
-#            Bazzite may already provide them from differently named packages.
+#            another system may provide them from differently named packages.
 # --no-test  skip the self-test at the end (it needs Tesseract and GStreamer).
 #
 # Installs /usr/bin/spark-snip, the program under the prefix, the desktop entry (with its

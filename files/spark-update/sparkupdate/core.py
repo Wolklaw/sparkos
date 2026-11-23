@@ -78,15 +78,6 @@ def user_log_path() -> str:
     return os.path.join(state_dir(), f'{APP_SLUG}.log')
 
 
-class JsonLines(logging.Formatter):
-    """One JSON object per line, for `ujust update`: it follows uupd's journal through
-    `jq 'fromjson? | ...description...'`, which drops plain text."""
-
-    def format(self, record: logging.LogRecord) -> str:
-        return json.dumps({'level': record.levelname.lower(),
-                           'description': super().format(record)})
-
-
 def setup_logging(system: bool = False, env: Optional[Env] = None) -> str:
     """The user's log in ~/.local/state/spark-update, or for the background run as root
     /var/log/spark-update (readable by everyone, so the window can show it)."""
@@ -107,8 +98,7 @@ def setup_logging(system: bool = False, env: Optional[Env] = None) -> str:
     if system and not sys.stdout.isatty():
         # the journal gets the same lines (systemd captures stderr)
         err = logging.StreamHandler(sys.stderr)
-        err.setFormatter(JsonLines() if os.environ.get('SPARK_UPDATE_LOG_JSON') == '1'
-                         else logging.Formatter('%(message)s'))
+        err.setFormatter(logging.Formatter('%(message)s'))
         log.addHandler(err)
     log.info("--- %s %s (python %s, uid %s) ---", APP_NAME, VERSION, sys.version.split()[0],
              os.getuid() if hasattr(os, 'getuid') else '?')
@@ -191,6 +181,15 @@ def day(ts: Optional[float]) -> str:
     if not ts:
         return "—"
     lt = time.localtime(ts)
+    return t('day.date', month=_month(lt), day=lt.tm_mday, year=lt.tm_year)
+
+
+def day_from_iso(date: str) -> str:
+    """'Nov 23, 2026' from '2026-11-23' (a release note's date); the text itself if it isn't one"""
+    try:
+        lt = time.strptime(date, '%Y-%m-%d')
+    except ValueError:
+        return date
     return t('day.date', month=_month(lt), day=lt.tm_mday, year=lt.tm_year)
 
 

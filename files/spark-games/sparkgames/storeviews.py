@@ -75,7 +75,8 @@ class StorePanel(tk.Frame):
         info = game.launch or {}
         self.store = info.get('store') or game.source
         self.is_launcher = bool(info.get('launcher'))
-        self.root_dir = stores.games_root(self.store)
+        # Only store games install into a games folder; a launcher lives in its own prefix
+        self.root_dir = '' if self.is_launcher else stores.games_root(self.store)
         self._tick_id: Optional[str] = None
         self._was_active = False
         self._last = None

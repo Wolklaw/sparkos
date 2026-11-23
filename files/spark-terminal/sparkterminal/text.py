@@ -64,6 +64,7 @@ EN = {
     'set.font_size': "Font size",
     'set.scrollback': "Scrollback lines",
     'set.copy_on_select': "Copy text when it's selected",
+    'set.ctrl_c_v': "Ctrl+C copies the selection, Ctrl+V pastes",
     'set.confirm_close': "Ask before closing a running program",
     'set.cursor': "Cursor",
     'set.cursor.block': "Block",
@@ -90,6 +91,7 @@ EN = {
         "Alt+Arrows\tMove between panes\n"
         "Ctrl+PgUp / PgDn\tPrevious / next tab\n"
         "Alt+1 … 9\tGo to tab\n"
+        "Ctrl+C / V\tCopy the selection / paste\n"
         "Ctrl+Shift+C / V\tCopy / paste\n"
         "Shift+Insert\tPaste\n"
         "Ctrl+Shift+A\tSelect all\n"
@@ -158,6 +160,7 @@ FR = {
     'set.font_size': "Taille de police",
     'set.scrollback': "Lignes d'historique",
     'set.copy_on_select': "Copier le texte dès qu'il est sélectionné",
+    'set.ctrl_c_v': "Ctrl+C copie la sélection, Ctrl+V colle",
     'set.confirm_close': "Demander avant de fermer un programme en cours",
     'set.cursor': "Curseur",
     'set.cursor.block': "Bloc",
@@ -184,6 +187,7 @@ FR = {
         "Alt+Flèches\tPasser d'un panneau à l'autre\n"
         "Ctrl+PgPréc / PgSuiv\tOnglet précédent / suivant\n"
         "Alt+1 … 9\tAller à l'onglet\n"
+        "Ctrl+C / V\tCopier la sélection / coller\n"
         "Ctrl+Maj+C / V\tCopier / coller\n"
         "Maj+Inser\tColler\n"
         "Ctrl+Maj+A\tTout sélectionner\n"

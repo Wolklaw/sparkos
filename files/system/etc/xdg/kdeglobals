@@ -1,4 +1,4 @@
-# SparkOS system-wide KDE defaults (replaces Bazzite's, which pointed at SteamOS's Vapor theme).
+# SparkOS system-wide KDE defaults.
 # A user's own settings in ~/.config/kdeglobals still win.
 [KDE]
 LookAndFeelPackage=dev.wolklaw.sparkos.desktop

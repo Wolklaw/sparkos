@@ -10,7 +10,7 @@
 #   fedora-third-party, fedora-workstation-repositories
 #                       Fedora's switch for Google Chrome, NVIDIA and Steam repositories
 #   spectacle, plasma-systemmonitor
-#                       replaced by Spark Snip and Spark Monitor, as on Bazzite
+#                       replaced by Spark Snip and Spark Monitor
 set -oue pipefail
 
 remove=()

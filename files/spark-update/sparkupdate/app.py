@@ -23,7 +23,7 @@ from .settings import (EVERY_HOURS, NOTIFY, REMIND_HOURS, STAGE, SystemSettings,
                        as_args, load_prefs, load_system, save_prefs, write_system)
 from .status import Deployment, Host, read_host
 from .text import EN, t
-from .engine import SPARK, UUPD, engine, start_uupd, uupd_status
+from .engine import SPARK, engine
 from .updater import (direct_state_path, load_state, rollback as do_rollback, system_run,
                       update_flatpak, user_state_path)
 from .widgets import (MONO_FAMILIES, T, Glitch, GlitchPanel, GlitchText, Mark, Segmented,
@@ -46,7 +46,7 @@ class Snapshot:
     other_dep: Optional[Deployment] = None
     compare: str = 'none'           # 'update', 'rollback', 'previous', 'none'
     system_install: bool = False
-    engine: str = 'none'            # who stages images: 'uupd', 'spark' or 'none' (engine.py)
+    engine: str = 'none'            # 'spark' when spark-update.timer is on, else 'none' (engine.py)
     held: str = ''                  # the version you rolled back from, while runs skip it
     read_at: float = field(default_factory=time.time)
 
@@ -60,8 +60,6 @@ def gather(env: Env) -> Snapshot:
     if (direct.get('last_run') or 0) > (state.get('last_run') or 0):
         state = direct
     eng = engine(env)
-    if eng == UUPD:
-        state = uupd_state(env, host)
     snap = Snapshot(host=host, conf=conf, conf_warnings=warnings, state=state,
                     user_state=load_json(user_state_path()),
                     system_install=os.path.isfile(env.path(NOW_UNIT)), engine=eng)
@@ -90,21 +88,6 @@ def held_version(held: Any, host: Host, eng: str) -> str:
     if host.booted is None or host.booted.digest in held['digests'] or host.update_ready:
         return ''
     return str(held.get('version') or '?')
-
-
-def uupd_state(env: Env, host: Host) -> Dict[str, Any]:
-    """uupd's last run in the same shape as Spark Update's own state file."""
-    u = uupd_status(env)
-    state: Dict[str, Any] = {'engine': UUPD, 'running': u['running'],
-                             'last_run': u['last_run'], 'last_check': u['last_run']}
-    if u['ok'] is False:
-        state.update(result='failed', error=t('uupd.failed'))
-    elif host.update_ready:
-        state.update(result='staged', staged_version=host.staged.version)
-    elif u['last_run']:
-        state['result'] = 'up_to_date'
-    state['flatpak_ok'] = u['ok']
-    return state
 
 
 def tail(path: str, lines: int = 200) -> List[str]:
@@ -289,6 +272,13 @@ class App:
         self.view_name = ''
         self.views: Dict[str, tk.Frame] = {}
         self.change_rows: List[Tuple[str, str, str, str]] = []   # for tests: name, old, new, kind
+        self.note_rows: List[str] = []                           # for tests: the notes shown
+        # The notes of the version you last opened this window on, read once: the window then
+        # records this version's, but keeps showing what was new to you when it opened
+        seen = load_json(user_state_path()).get('seen_notes')
+        self.seen_notes: Optional[List[str]] = [str(x) for x in seen] \
+            if isinstance(seen, list) else None
+        self._seen_recorded = False
         self.dialog: Optional[Dialog] = None
         self.first_paint: Optional[float] = None
         self.check_started = 0.0
@@ -425,8 +415,23 @@ class App:
         self.changes_panel, ch = self.panel(f, t('panel.changes_current'))
         self.changes_panel.pack(fill="both", expand=True, pady=(px(10), 0))
         self.changes_head = ch.winfo_children()[0]
-        self.changes_note = self.label(ch, "", 8, T["muted"], bold=False)
+        self.changes_note = self.label(ch, "", 8, T["muted"], bold=False, wraplength=px(780))
         self.changes_note.pack(anchor="w", pady=(px(2), px(6)))
+        # the release notes (scrolls when there are many: several updates' worth)
+        self.notes_box = tk.Frame(ch, bg=T["panel"])
+        notes = tk.Text(self.notes_box, bg=T["panel"], fg=T["text"], font=self.font(9, False),
+                        relief="flat", borderwidth=0, padx=0, pady=0, wrap="word", height=1,
+                        highlightthickness=0, cursor="arrow", spacing1=px(1), spacing3=px(3))
+        bar = FlatScrollbar(self.notes_box, notes.yview, px(5))
+        bar.configure(bg=T["panel"])
+        notes.config(yscrollcommand=bar.set)
+        bar.pack(side="right", fill="y")
+        notes.pack(side="left", fill="both", expand=True)
+        notes.tag_config('day', foreground=T["accent"], font=self.font(8), spacing1=px(6))
+        notes.tag_config('note', lmargin1=px(4), lmargin2=px(18))
+        notes.bind("<Button-1>", lambda _e: "break")       # read only, no text cursor
+        self.notes_text = notes
+        self.versions_head = self.label(ch, t('changes.versions').upper(), 7, T["accent"])
         self.changes_grid = tk.Frame(ch, bg=T["panel"])
         self.changes_grid.pack(fill="x", anchor="w")
 
@@ -464,8 +469,6 @@ class App:
     # — rendering the snapshot —
     def running(self) -> bool:
         state = self.snap.state if self.snap else {}
-        if state.get('engine') == UUPD:
-            return bool(state.get('running'))
         return bool(state.get('running')) and time.time() - (state.get('last_run') or 0) < 3 * 3600
 
     def render_status(self):
@@ -550,6 +553,9 @@ class App:
         for w in self.changes_grid.winfo_children():
             w.destroy()
         self.change_rows = []
+        self.note_rows = []
+        self.notes_box.pack_forget()
+        self.versions_head.pack_forget()
         px = self.px
         g = self.changes_grid
         heading = {'update': 'panel.changes_update', 'rollback': 'panel.changes_rollback',
@@ -565,9 +571,9 @@ class App:
             note = t('changes.no_previous')
         if other is not None and snap.other is None:
             note = t('changes.unreadable', version=other.version or '?')
-        self.changes_note.config(text=note)
 
         if snap.compare == 'none' or snap.other is None:
+            self.changes_note.config(text=note)
             rows = release.diff(None, snap.current) if snap.current else []
             for i, c in enumerate(rows):
                 self._row(g, i, c.name, '', c.new, 'same')
@@ -576,6 +582,24 @@ class App:
             old, new = snap.other, snap.current
         else:
             old, new = snap.current, snap.other
+
+        # the release notes first: what's new in words, then the versions
+        if snap.compare == 'rollback':        # what rolling back undoes: no "seen" for that
+            notes = release.new_notes(new, old)
+        else:
+            notes = release.new_notes(old, new, self.seen_notes)
+        if notes:
+            note = {'previous': t('changes.notes_since', version=other.version or '?')
+                    if other is not None else '',
+                    'update': t('changes.notes_update'),
+                    'rollback': t('changes.notes_rollback')}[snap.compare]
+            self._render_notes(notes)
+            self.notes_box.pack(fill="both", expand=True, before=self.changes_grid)
+            self.versions_head.pack(anchor="w", pady=(px(8), px(4)), before=self.changes_grid)
+        elif release.notes_of(old if snap.compare == 'rollback' else new) is None:
+            note = (note + " " if note else "") + t('changes.no_notes')
+        self.changes_note.config(text=note)
+
         changes = release.diff(old, new)
         moved = [c for c in changes if c.kind != 'same']
         same = [c for c in changes if c.kind == 'same']
@@ -589,6 +613,23 @@ class App:
                        core.short([c.name for c in same], 4), 7, T["dim"], bold=False,
                        wraplength=px(760)).grid(row=len(moved) + 1, column=0, columnspan=3,
                                                 sticky="w", pady=(px(6), 0))
+
+    def _render_notes(self, notes: List[Dict[str, str]]):
+        text = self.notes_text
+        text.config(state="normal")
+        text.delete("1.0", "end")
+        day = None
+        for n in notes:
+            if n['date'] != day:
+                day = n['date']
+                text.insert("end", ("\n" if text.index("end-1c") != "1.0" else "") +
+                            core.day_from_iso(day) + "\n", 'day')
+            words = release.note_text(n)
+            text.insert("end", "•  " + words + "\n", 'note')
+            self.note_rows.append(words)
+        text.delete("end-2c", "end-1c")                  # no empty line at the bottom
+        text.config(state="disabled")
+        text.yview_moveto(0)
 
     def _row(self, g, i, name, old, new, kind):
         px = self.px
@@ -608,9 +649,6 @@ class App:
 
     def _render_lines(self, snap: Snapshot, running: bool):
         state, conf = snap.state, snap.conf
-        if snap.engine == UUPD:
-            self._render_uupd_lines(snap, running)
-            return
         # apps
         if not conf.flatpak:
             apps = t('apps.off')
@@ -660,26 +698,6 @@ class App:
         self.check_line.config(text=' '.join(lines),
                                fg=T["pink"] if state.get('result') == 'failed' else T["muted"])
 
-    def _render_uupd_lines(self, snap: Snapshot, running: bool):
-        state = snap.state
-        when = core.when(state.get('last_run'))
-        if not state.get('last_run'):
-            apps = t('apps.uupd_never')
-        elif state.get('flatpak_ok'):
-            apps = t('apps.uupd_ok', when=when)
-        else:
-            apps = t('apps.uupd_failed', when=when)
-        self.apps_line.config(text=t('panel.apps').upper() + "   " + apps)
-        lines = [t('check.uupd')]
-        if running:
-            lines.append(t('check.uupd_running'))
-        elif state.get('result') == 'failed':
-            lines.append(t('check.uupd_failed', when=when))
-        elif state.get('last_run'):
-            lines.append(t('check.last', when=when))
-        self.check_line.config(text=' '.join(lines),
-                               fg=T["pink"] if state.get('result') == 'failed' else T["muted"])
-
     def say(self, text: str, error: bool = False, good: bool = False):
         self.message.config(text=text, fg=T["pink"] if error else T["accent"] if good
                             else T["muted"])
@@ -723,6 +741,7 @@ class App:
                 return
             first = self.snap is None
             self.snap = result
+            self._record_seen(result)
             if self.view_name == 'main':
                 self.render()
             else:
@@ -733,6 +752,17 @@ class App:
                 then()
 
         self.work(lambda: gather(self.env), done)
+
+    def _record_seen(self, snap: Snapshot):
+        """Remember the notes of the version this PC runs, once per window: the next time,
+        notes after these are the new ones (release.new_notes)."""
+        ids = release.note_ids(snap.current)
+        if self._seen_recorded or not ids or snap.host.booted is None:
+            return
+        self._seen_recorded = True
+        ustate = load_json(user_state_path())
+        ustate['seen_notes'] = ids
+        save_json(user_state_path(), ustate)
 
     def _watch(self):
         """While a background check runs, re-read the state every 2 s (nothing otherwise)."""
@@ -751,8 +781,8 @@ class App:
             if st.get('running'):
                 return
             if self.busy == 'check' and (st.get('last_run') or 0) < self.check_started - 1:
-                # the unit hasn't started its run yet (or uupd-manual hasn't finished one since
-                # the click): the state still holds the last run's result, not this one's
+                # the unit hasn't started its run yet: the state still holds the last run's
+                # result, not this one's
                 if time.time() - self.check_started < 120:
                     self._watch()
                     return
@@ -783,9 +813,7 @@ class App:
         self.buttons['check'].set_enabled(False)
         self.glitch.now(self.title)
         self.check_started = time.time()
-        if snap.engine == UUPD:
-            self.work(start_uupd, self._unit_started)
-        elif snap.system_install:
+        if snap.system_install:
             self.work(lambda: self._start_unit(mode), self._unit_started)
             if snap.conf.flatpak and mode == 'stage':
                 self.work(self._user_flatpak, lambda _r: None)
@@ -927,8 +955,7 @@ class App:
         conf = snap.conf if snap else load_system(self.env)[0]
         self.edit = SystemSettings(conf.automatic, conf.mode, conf.every_hours, conf.flatpak)
         self.edit_prefs = UserPrefs(self.prefs.notify, self.prefs.remind_hours, self.prefs.glitch)
-        under_uupd = (snap.engine if snap else engine(self.env)) == UUPD
-        can_system = (self.env.fake or os.path.isfile(HELPER)) and not under_uupd
+        can_system = (self.env.fake or os.path.isfile(HELPER))
 
         p, sysp = self.panel(f, t('set.system'))
         p.pack(fill="x")
@@ -959,8 +986,7 @@ class App:
         w['flatpak'] = Toggle(sysp, t('set.flatpak'), self.edit.flatpak,
                               setter(self.edit, 'flatpak'), self.font(8))
         w['flatpak'].pack(anchor="w", pady=(px(2), px(6)))
-        self.label(sysp, t('set.admin_note') if can_system else
-                   t('set.uupd') if under_uupd else t('set.no_helper'), 7,
+        self.label(sysp, t('set.admin_note') if can_system else t('set.no_helper'), 7,
                    T["dim"] if can_system else T["gold"], bold=False,
                    wraplength=px(540)).pack(anchor="w")
         if not can_system:
@@ -1042,13 +1068,6 @@ class App:
                 tag = 'cmd' if ' $ ' in ln else 'err' if ('ERROR' in ln or 'exit 1' in ln) else ''
                 text.insert('end', ln + "\n", tag)
             text.insert('end', "\n")
-        if self.snap and self.snap.engine == UUPD and not self.env.fake:
-            text.insert('end', f"{t('log.uupd').upper()}  journalctl -u uupd.service "
-                               "-u uupd-manual.service\n", 'h')
-            code, out, err = run(['journalctl', '--no-pager', '-n', '150', '-o', 'short-iso',
-                                  '-u', 'uupd.service', '-u', 'uupd-manual.service'],
-                                 timeout=10, quiet=True)
-            text.insert('end', (out if code == 0 else err or t('log.empty')).rstrip() + "\n")
         text.config(state="disabled")
         text.see('end')
         self.log_text = text

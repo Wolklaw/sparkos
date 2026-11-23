@@ -71,7 +71,7 @@ class SettingsWindow(Gtk.Window):
         self._add(grid, t('set.bell'), self.bell)
 
         self.switches = {}
-        for key in ('copy_on_select', 'confirm_close', 'cursor_blink', 'glitch'):
+        for key in ('copy_on_select', 'ctrl_c_v', 'confirm_close', 'cursor_blink', 'glitch'):
             switch = Gtk.Switch(active=settings[key], halign=Gtk.Align.START,
                                 valign=Gtk.Align.CENTER)
             self.switches[key] = switch

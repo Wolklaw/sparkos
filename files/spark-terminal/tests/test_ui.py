@@ -318,6 +318,24 @@ class WindowTest(unittest.TestCase):
         self.assertTrue(wait(lambda: 'text' in got))
         self.assertIn('copy-me', got['text'] or '')
 
+    def test_ctrl_c_copies_a_selection_then_interrupts(self):
+        from gi.repository import Gdk
+        window, pane = self.open()
+        self.type(pane, 'echo ctrl-c-me')
+        self.assertTrue(wait(lambda: 'ctrl-c-me' in screen_text(pane)))
+        term = pane.terminal
+        self.assertFalse(pane.ctrl_key(Gdk.KEY_c))         # nothing selected: ^C goes through
+        term.select_all()
+        self.assertTrue(pane.ctrl_key(Gdk.KEY_c))
+        self.assertFalse(term.get_has_selection())         # so the next Ctrl+C interrupts
+        got = {}
+        window.get_clipboard().read_text_async(
+            None, lambda cb, res: got.setdefault('text', cb.read_text_finish(res)))
+        self.assertTrue(wait(lambda: 'text' in got))
+        self.assertIn('ctrl-c-me', got['text'] or '')
+        self.assertTrue(pane.ctrl_key(Gdk.KEY_v))
+        self.assertFalse(pane.ctrl_key(Gdk.KEY_x))
+
     def test_zoom(self):
         window, pane = self.open()
         window.activate_action('win.zoom-in', None)

@@ -36,9 +36,10 @@ PlasmoidItem {
 
         Component.onCompleted: {
             const favorites = favoritesModel as Kicker.KAStatsFavoritesModel;
-            // One set of pins for every Spark Launcher (the top bar's and the dock's), unlike
-            // Kickoff, which keeps them per widget. Adding a pin that's there already does nothing,
-            // so two launchers adding the defaults at the same first login is harmless.
+            // Pins live in Plasma's activity database under one shared agent: the client id only
+            // keeps the order, so Spark Launcher sees whatever Kickoff had pinned. The SparkOS
+            // defaults are added only when that list is empty (a new account). Adding a pin that's
+            // there already does nothing, so two launchers doing it at first login is harmless.
             favorites.initForClient("dev.wolklaw.sparklauncher.favorites");
             if (!Plasmoid.configuration.favoritesPinned) {
                 if (favorites.count < 1) {

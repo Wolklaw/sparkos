@@ -2,7 +2,7 @@
 # Default apps for everyone: Soot for the web, FreeSuite for mail, calendar, PDF and every
 # office format it opens (Word, Excel, PowerPoint, old and new, OpenDocument, RTF, CSV), and
 # Spark Media for photos, videos and music (every type its desktop entry lists).
-# Lines are added to Bazzite's /etc/xdg/mimeapps.list so its own entries stay.
+# Lines are added to /etc/xdg/mimeapps.list so its other entries stay.
 # Plain text, Markdown, code and config files open in Spark Edit; archives in Spark Archive (Ark
 # stays installed for now, but is no longer the default); folders in Spark Files (Dolphin too).
 # A user's own choices still win.

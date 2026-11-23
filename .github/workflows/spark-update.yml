@@ -1,12 +1,13 @@
 name: spark-update
-# Spark Update ships in the SparkOS image (files/scripts/spark-update.sh) and replaces Bazzite's
-# updater (uupd). It also installs per user without root, like the other Spark apps.
+# Spark Update ships in the SparkOS image (files/scripts/spark-update.sh) as its updater. It
+# also installs per user without root, like the other Spark apps.
 #
 # fedora:  runs the image build step in a plain Fedora container, the self-test, the unit and
 #          UI tests under Xvfb, and a background check where no image is booted (it must fail
 #          plainly and record why, not crash).
 # sparkos: inside the published SparkOS image: (1) as root, the image build step itself, so
-#          switching off Bazzite's updater is proven against Bazzite's real files; (2) as a
+#          turning on Spark Update's timer and keeping Fedora's own updaters off is proven
+#          against the image's real files; (2) as a
 #          normal user (setpriv), install.sh --user, the self-test (it must find the image
 #          name ghcr.io/wolklaw/sparkos), the unit tests on the image's Python, uninstall.
 # Real upgrades, rollbacks and restarts need a booted SparkOS PC; CI can't do those.
@@ -15,11 +16,13 @@ on:
     paths:
       - "files/spark-update/**"
       - "files/scripts/spark-update.sh"
+      - "files/whats-new.json"
       - ".github/workflows/spark-update.yml"
   pull_request:
     paths:
       - "files/spark-update/**"
       - "files/scripts/spark-update.sh"
+      - "files/whats-new.json"
       - ".github/workflows/spark-update.yml"
   workflow_dispatch:
 
@@ -69,6 +72,7 @@ jobs:
         run: |
           useradd -m tester
           cp -r files/spark-update /home/tester/spark-update
+          cp files/whats-new.json /home/tester/whats-new.json   # tests read ../../whats-new.json
           chown -R tester: /home/tester/spark-update
           setpriv --reuid=tester --regid=tester --init-groups env -i HOME=/home/tester \
             PATH=/usr/local/bin:/usr/bin:/bin LANG=C.UTF-8 \
@@ -98,50 +102,15 @@ jobs:
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
 
-      - name: The image build step on SparkOS (root), with each updater
+      - name: The image build step on SparkOS (root)
         run: |
-          # uupd: the default (Bazzite's updater stays on, Spark Update notifies and rolls
-          # back). spark: Spark Update downloads itself and uupd is switched off.
-          # The published image has no uupd since 2026-11-20 (SparkOS removes it), so the uupd
-          # engine is only tested on an image that still has it.
-          engines=spark
-          if sudo podman run --rm "$IMAGE" rpm -q uupd; then engines="uupd spark"; fi
-          for engine in $engines; do
-          echo "=============== SPARK_UPDATE_ENGINE=$engine"
-          sudo podman run --rm -e SPARK_UPDATE_ENGINE=$engine -v "$PWD/files:/files:ro" "$IMAGE" bash -euo pipefail -c '
-            echo "--- before: Bazzite updater"
-            ls -l /etc/systemd/system/timers.target.wants/ | grep -E "uupd|spark" || true
+          sudo podman run --rm -v "$PWD/files:/files:ro" "$IMAGE" bash -euo pipefail -c '
             CONFIG_DIRECTORY=/files bash /files/scripts/spark-update.sh
 
             echo "--- after"
-            ls -l /etc/systemd/system/timers.target.wants/ | grep -E "uupd|spark" || true
+            ls -l /etc/systemd/system/timers.target.wants/ | grep spark || true
             test -e /etc/systemd/user/timers.target.wants/spark-update-user.timer
-            if [ "$SPARK_UPDATE_ENGINE" = uupd ]; then
-              # updates must never stop: the Bazzite timer untouched, ours off, no drop-ins
-              test -e /etc/systemd/system/timers.target.wants/uupd.timer
-              test ! -e /etc/systemd/system/timers.target.wants/spark-update.timer
-              test ! -e /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
-              grep -q "^ExecStart=/usr/bin/uupd" /usr/lib/systemd/system/uupd.service
-            else
-              test ! -e /etc/systemd/system/timers.target.wants/uupd.timer
-              test -e /etc/systemd/system/timers.target.wants/spark-update.timer
-              if [ -f /usr/lib/systemd/system/uupd.service ]; then
-                grep -q "^ExecStart=/usr/bin/spark-update --system-run --now stage$" \
-                  /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
-                cat /usr/lib/systemd/system/uupd.service.d/50-sparkos.conf
-              elif [ -x /usr/bin/ujust ]; then
-                # no uupd: `ujust update` runs Spark Update
-                grep -q "spark-update-now@stage.service" /usr/libexec/uupd-update
-              fi
-            fi
-            d=/usr/share/applications/io.github.rfrench3.bazzite-updater.desktop
-            if [ -f "$d" ]; then grep -q "^NoDisplay=true" "$d"; fi
-            out=$(bazzite-rollback-helper list || true)
-            echo "$out"
-            grep -q "Spark Update" <<<"$out"
-            if grep -q "ublue-os" <<<"$out"; then
-              echo "::error::the rollback helper still offers ublue-os images"; exit 1
-            fi
+            test -e /etc/systemd/system/timers.target.wants/spark-update.timer
             grep -q "AutomaticUpdatePolicy=none" /etc/rpm-ostreed.conf
 
             echo "--- what this image holds"
@@ -166,21 +135,18 @@ jobs:
             echo "$report"
             grep -q "^image:     ghcr.io/wolklaw/sparkos (from /usr/share/sparkos/release.json)" <<<"$report"
             grep -q "^self-test passed" <<<"$report"
-            if [ "$SPARK_UPDATE_ENGINE" = uupd ]; then
-              grep -q "^updater:   Universal Blue.s uupd" <<<"$report"
-            else
-              grep -q "^updater:   Spark Update" <<<"$report"
-            fi
+            grep -q "^updater:   Spark Update" <<<"$report"
             spark-update --status || true
           '
-          done
 
       - name: Install, self-test, uninstall as a normal user
         run: |
-          sudo podman run --rm -v "$PWD/files/spark-update:/src:ro" "$IMAGE" bash -euo pipefail -c '
+          sudo podman run --rm -v "$PWD/files/spark-update:/src:ro" \
+            -v "$PWD/files/whats-new.json:/whats-new.json:ro" "$IMAGE" bash -euo pipefail -c '
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)
             cp -r /src "$home/spark-update"
+            cp /whats-new.json "$home/whats-new.json"   # tests read ../../whats-new.json
             chown -R tester: "$home/spark-update"
             # setpriv, not su or runuser: those open a PAM session, which fails in a container
             as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \

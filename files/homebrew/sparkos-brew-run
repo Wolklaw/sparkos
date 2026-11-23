@@ -1,7 +1,8 @@
 #!/usr/bin/bash
 # Run by brew-update.service and brew-upgrade.service (Fedora base): `brew update` or
-# `brew upgrade` as the user who owns Homebrew. Bazzite's units run as UID 1000; this reads the
-# owner of /home/linuxbrew/.linuxbrew instead, so it's right on a PC whose first user isn't 1000.
+# `brew upgrade` as the user who owns Homebrew. It reads the owner of
+# /home/linuxbrew/.linuxbrew rather than assuming UID 1000, so it's right on a PC whose first
+# user isn't 1000.
 set -eu
 prefix=/home/linuxbrew/.linuxbrew
 case "${1:-}" in update|upgrade) ;; *) echo "usage: $0 update|upgrade" >&2; exit 2 ;; esac
