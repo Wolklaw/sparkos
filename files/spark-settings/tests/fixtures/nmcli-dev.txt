@@ -1,0 +1,3 @@
+enp5s0:ethernet:connected:Wired connection 1
+wlp6s0:wifi:disconnected:
+lo:loopback:unmanaged:

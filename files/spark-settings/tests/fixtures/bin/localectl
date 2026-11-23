@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "localectl $*" >> "${FAKE_LOG:-/dev/null}"
+case "$1" in list-locales) printf "en_CA.UTF-8\nen_US.UTF-8\nfr_CA.UTF-8\nfr_FR.UTF-8\n";; esac

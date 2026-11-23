@@ -46,6 +46,12 @@ fedora)
     gamescope mangohud gamemode \
     vulkan-tools libva-utils
 
+  # What Spark Settings runs (files/spark-settings): printers (lpadmin, lpinfo), the sound test
+  # tone and per-app volume, PCI names for About, and the D-Bus watcher for live Bluetooth.
+  # Kinoite has most of these already; naming them keeps that true. (The power profile goes
+  # through busctl to tuned-ppd; power-profiles-daemon would conflict with it.)
+  dnf_install cups-client pipewire-utils pulseaudio-utils pciutils dbus-tools
+
   # Device access rules Bazzite ships that Fedora packages itself (all tiny, no dependencies):
   # - steam-devices: Valve's controller and VR rules, so Steam (also from Flathub) can use them
   # - openrgb-udev-rules: RGB controllers (ASUS AURA, NZXT, ...) for OpenRGB without root

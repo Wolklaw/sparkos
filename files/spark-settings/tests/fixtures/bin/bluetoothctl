@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "bluetoothctl $*" >> "${FAKE_LOG:-/dev/null}"
+case "$1" in show) cat "$D/bt-show.txt";; devices) cat "$D/bt-devices.txt";; info) case "$2" in 11:*) cat "$D/bt-info-11.txt";; *) cat "$D/bt-info-77.txt";; esac;; esac

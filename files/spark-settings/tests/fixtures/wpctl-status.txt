@@ -1,0 +1,23 @@
+PipeWire 'pipewire-0' [1.4.0, user@host, cookie:1]
+ └─ Clients:
+        33. WirePlumber                         [1.4.0, user@host, pid:1]
+
+Audio
+ ├─ Devices:
+ │      50. FiiO K5 Pro                         [alsa]
+ │      51. QuadCast                            [alsa]
+ │
+ ├─ Sinks:
+ │  *   52. FiiO K5 Pro Analog Stereo           [vol: 0.40]
+ │      53. HDMI / DisplayPort 1                [vol: 1.00 MUTED]
+ │
+ ├─ Sources:
+ │  *   54. QuadCast Mono                       [vol: 0.75]
+ │
+ └─ Streams:
+        60. Firefox
+             61. output_FL > FiiO K5 Pro Analog Stereo:playback_FL  [active]
+
+Video
+ ├─ Devices:
+ └─ Sinks:

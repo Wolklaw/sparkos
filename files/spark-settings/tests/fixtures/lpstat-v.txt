@@ -1,0 +1,1 @@
+device for Canon_TR4700: ipp://canon-tr4700.local:631/ipp/print

@@ -55,7 +55,8 @@ var pinned = [
     "dev.wolklaw.SparkFiles.desktop",
     "dev.wolklaw.SparkStore.desktop",
     "dev.wolklaw.SparkGames.desktop",
-    "dev.wolklaw.SparkTerminal.desktop"
+    "dev.wolklaw.SparkTerminal.desktop",
+    "dev.wolklaw.SparkSettings.desktop"
 ];
 var launchers = [];
 for (var j = 0; j < pinned.length; j++) {

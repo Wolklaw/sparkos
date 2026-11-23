@@ -1,0 +1,2 @@
+network dnssd://Canon%20TR4700%20series._ipp._tcp.local/?uuid=1234
+network ipp

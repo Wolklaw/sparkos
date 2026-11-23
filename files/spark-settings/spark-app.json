@@ -1,0 +1,46 @@
+{
+  "id": "dev.wolklaw.SparkSettings",
+  "slug": "spark-settings",
+  "name": "Spark Settings",
+  "name_fr": "Spark Settings",
+  "summary": "SparkOS's own settings: displays, sound, network, Bluetooth, power, default apps, date and language, printers and startup, with KDE's modules for the rest.",
+  "summary_fr": "Les réglages de SparkOS : écrans, son, réseau, Bluetooth, alimentation, applications par défaut, date et langue, imprimantes et démarrage, avec les modules de KDE pour le reste.",
+  "version": "1.0.0",
+  "installed_size_kb": 300,
+  "icon": "icons/spark-settings-256.png",
+  "categories": [
+    "Settings",
+    "System"
+  ],
+  "command": "spark-settings",
+  "needs": {
+    "root": false,
+    "commands": [
+      "python3"
+    ],
+    "python": ">=3.9",
+    "python_modules": [
+      "tkinter"
+    ],
+    "optional": {
+      "kscreen-doctor": "Displays",
+      "wpctl": "Sound",
+      "nmcli": "Network",
+      "bluetoothctl": "Bluetooth",
+      "busctl": "Power profile",
+      "xdg-mime": "Default apps",
+      "timedatectl": "Time zone",
+      "lpstat": "Printers",
+      "kcmshell6": "More settings (KDE modules)"
+    },
+    "system": "Linux with KDE Plasma; X11 or XWayland"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-settings --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-settings"
+}

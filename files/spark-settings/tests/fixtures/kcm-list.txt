@@ -1,0 +1,7 @@
+The following modules are available:
+
+kcm_pulseaudio            - Audio
+kcm_kscreen               - Display & Monitor
+kcm_mouse                 - Mouse
+kcm_keyboard              - Keyboard
+kcm_colors                - Colors

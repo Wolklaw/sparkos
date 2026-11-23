@@ -1,0 +1,36 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Settings
+Name[fr]=Spark Settings
+GenericName=System settings
+GenericName[fr]=Paramètres système
+Comment=Displays, sound, network, Bluetooth, power and the rest of your computer's settings
+Comment[fr]=Écrans, son, réseau, Bluetooth, alimentation et le reste des réglages de votre ordinateur
+Exec=spark-settings
+Icon=dev.wolklaw.SparkSettings
+Terminal=false
+Categories=Settings;System;
+Keywords=settings;preferences;system settings;display;monitor;resolution;sound;audio;network;wifi;bluetooth;printer;power;time;language;default apps;startup;paramètres;réglages;préférences;écran;son;réseau;imprimante;heure;langue;
+Keywords[fr]=paramètres;réglages;préférences;écran;moniteur;résolution;son;audio;réseau;wifi;bluetooth;imprimante;alimentation;heure;langue;applications par défaut;démarrage;
+StartupWMClass=SparkSettings
+Actions=displays;sound;network;kde;
+
+[Desktop Action displays]
+Name=Displays
+Name[fr]=Écrans
+Exec=spark-settings --page displays
+
+[Desktop Action sound]
+Name=Sound
+Name[fr]=Son
+Exec=spark-settings --page sound
+
+[Desktop Action network]
+Name=Network
+Name[fr]=Réseau
+Exec=spark-settings --page network
+
+[Desktop Action kde]
+Name=KDE System Settings
+Name[fr]=Paramètres système de KDE
+Exec=spark-settings --kde

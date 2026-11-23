@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "lspci $*" >> "${FAKE_LOG:-/dev/null}"
+echo "00:02.0 \"VGA compatible controller\" \"Acme\" \"Test GPU\""

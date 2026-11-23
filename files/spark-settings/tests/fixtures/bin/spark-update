@@ -1,0 +1,4 @@
+#!/bin/sh
+D=$(cd "$(dirname "$0")/.." && pwd)
+printf "%s\n" "spark-update $*" >> "${FAKE_LOG:-/dev/null}"
+:
