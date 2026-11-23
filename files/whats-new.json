@@ -2,6 +2,18 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-games-steam-owned",
+      "date": "2026-11-23",
+      "en": "Spark Games lists every Steam game you own, not only the installed ones: choose All owned to see them. Opening one that isn't installed offers Install in Steam.",
+      "fr": "Spark Games liste tous vos jeux Steam, pas seulement ceux qui sont installés : choisissez Tous mes jeux pour les voir. Un jeu non installé propose Installer dans Steam."
+    },
+    {
+      "id": "2026-11-23-games-store-covers",
+      "date": "2026-11-23",
+      "en": "Spark Games shows the covers of every Epic game you own (one cover with spaces in its address stopped all the others from downloading), and no longer lists the Unreal Engine samples and plugins an Epic account owns as games.",
+      "fr": "Spark Games affiche les couvertures de tous vos jeux Epic (une couverture avec des espaces dans son adresse empêchait toutes les autres de se télécharger), et ne liste plus comme jeux les exemples et modules Unreal Engine d'un compte Epic."
+    },
+    {
       "id": "2026-11-23-games-launcher-page",
       "date": "2026-11-23",
       "en": "Spark Games: clicking an added launcher such as Battle.net opens its page again instead of showing an error.",

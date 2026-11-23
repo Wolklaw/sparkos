@@ -94,7 +94,13 @@ def legendary(args):
             {'app_name': 'Fox', 'app_title': 'Free Fox Game',
              'asset_infos': {'Windows': {'build_version': '2.0'}}, 'metadata': {}, 'dlcs': []},
             {'app_name': 'MacOnly', 'app_title': 'Mac Only',
-             'asset_infos': {'Mac': {'build_version': '1'}}, 'metadata': {}, 'dlcs': []}]))
+             'asset_infos': {'Mac': {'build_version': '1'}}, 'metadata': {}, 'dlcs': []},
+            # an Unreal Engine sample an Epic account owns: not a game
+            {'app_name': 'CitySample_5.6', 'app_title': 'City Sample',
+             'asset_infos': {'Windows': {'build_version': '5.6.1+++UE5+Release-5.6-Windows'}},
+             'metadata': {'categories': [{'path': 'projects'},
+                                         {'path': 'asset-format/game-engine/unreal-engine'}]},
+             'dlcs': []}]))
     elif cmd == 'list-installed':
         data = load_state('legendary')
         print(json.dumps([{'app_name': a, 'title': i['title'], 'install_path': i['path'],

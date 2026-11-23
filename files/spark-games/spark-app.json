@@ -4,7 +4,7 @@
   "name": "Spark Games",
   "summary": "One library for every game: sign in to Epic, GOG and Amazon and install, update and start games from here, add Battle.net, EA, Ubisoft and Rockstar, and see Steam, Lutris, itch, Bottles, Minecraft and your own too. Controller and big-screen mode.",
   "summary_fr": "Une seule bibliothèque pour tous les jeux : connectez-vous à Epic, GOG et Amazon pour installer, mettre à jour et lancer vos jeux d’ici, ajoutez Battle.net, EA, Ubisoft et Rockstar, et retrouvez aussi Steam, Lutris, itch, Bottles, Minecraft et les vôtres. Manette et mode grand écran.",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "size_kb": 310,
   "optional": false,
   "in_image": true,

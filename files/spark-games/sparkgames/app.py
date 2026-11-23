@@ -535,6 +535,9 @@ class App:
         except launch.LaunchError as exc:
             self._play_failed(game, exc)
             return
+        if not game.installed:               # Steam's install dialog opened: stay here
+            self.set_status(tr('steam_installing', title=game.title.upper())[:60])
+            return
         self._play_started(game)
 
     def _play_planned(self, game: Game, options: Dict[str, Any], plan):
@@ -569,10 +572,13 @@ class App:
 
     # the stores: owned lists and taking over Heroic's installs
     def refresh_owned(self, force: bool = False):
-        """Fetch the owned lists that are over a day old (all of them when forced), in the
-        background, then show them. Does nothing for a store you haven't signed in to."""
-        due = [s for s in STORES if stores.signed_in(s) and (force or stores.owned_stale(s))]
-        if not due:
+        """Fetch the owned lists that are over a day old (all of them when forced), and any
+        covers still missing, in the background, then show them. Does nothing for a store
+        you haven't signed in to."""
+        signed = [s for s in STORES if stores.signed_in(s)]
+        due = [s for s in signed if force or stores.owned_stale(s)]
+        covers = [s for s in signed if s not in due and stores.missing_covers(s)]
+        if not due and not covers:
             return
 
         def work():
@@ -584,6 +590,8 @@ class App:
                 except clients.ClientError as exc:
                     log.warning("%s: owned list not refreshed: %s", store, exc.kind)
                     problems.append((store, exc.kind))
+            for store in covers:
+                log.info("%s: %d new covers", store, stores.fetch_covers(store))
             return problems
 
         def done(problems):

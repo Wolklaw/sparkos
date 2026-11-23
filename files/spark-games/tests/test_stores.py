@@ -181,7 +181,10 @@ class SignInTests(StoreCase):
         pending = stores.begin_signin('amazon')
         self.assertTrue(pending['url'].startswith('https://www.amazon.com/'))
         self.assertEqual(pending['state']['code_verifier'], 'verifier')
-        url = 'https://www.amazon.com/ap/maplanding?openid.oa2.authorization_code=ANabcdefghij0123'
+        # Amazon lands on its store's home page, the code in the address
+        url = ('https://www.amazon.com/?openid.assoc_handle=amzn_sonic_games_launcher'
+               '&openid.claimed_id=https%3A%2F%2Fwww.amazon.com%2Fap%2Fid%2Famzn1.account.X'
+               '&openid.oa2.authorization_code=ANabcdefghij0123&openid.mode=id_res')
         self.assertEqual(stores.finish_signin('amazon', url, pending['state']), '')
         self.assertTrue(stores.signed_in('amazon'))
         self.assertEqual(stores.account_name('amazon'), 'Fake Amazon')
@@ -197,7 +200,7 @@ class OwnedTests(StoreCase):
         registry.add_game('epic:Sugar', {'store': 'epic', 'app': 'Sugar', 'title': 'Celeste',
                                          'path': '/x', 'version': '1.4.0.0', 'via': 'heroic'})
         data = stores.refresh_owned('epic')
-        self.assertEqual([g['app'] for g in data['games']], ['Sugar', 'Fox'])   # no Mac-only
+        self.assertEqual([g['app'] for g in data['games']], ['Sugar', 'Fox'])   # no Mac-only, no UE sample
         self.assertEqual(data['updates'], ['Sugar'])
         self.assertEqual(data['games'][0]['art'], 'https://cdn.example.invalid/celeste.jpg')
         before = len([c for c in self.calls_made() if c[0] == 'legendary' and 'list' in c])
@@ -262,6 +265,47 @@ class OwnedTests(StoreCase):
             self.assertEqual(stores.fetch_covers('epic'), 0)
         item = stores.load_owned('epic')['games'][0]
         self.assertTrue(os.path.isfile(stores.cover_file(item['art'])))
+
+    def test_cover_url_with_spaces_does_not_stop_the_others(self):
+        # Epic's CDN has file names with spaces; http.client refused them and the
+        # error stopped every cover after that one
+        import http.client
+        self.sign_in_epic()
+        data = stores.refresh_owned('epic')
+        games = data['games']
+        self.assertGreaterEqual(len(games), 2)
+        games[0]['art'] = 'https://cdn1.epicgames.com/x/item/broken.png'
+        games[1]['art'] = 'https://cdn1.epicgames.com/x/item/AC KINGDOM_Key Art_640x854.png'
+        with open(stores.owned_path('epic'), 'w') as f:
+            json.dump(data, f)
+        self.assertTrue(stores.missing_covers('epic'))
+        asked = []
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def urlopen(request, **_k):
+            asked.append(request.full_url)
+            if ' ' in request.full_url:
+                raise http.client.InvalidURL('control characters')
+            if 'broken' in request.full_url:
+                raise http.client.RemoteDisconnected('gone')
+            return Response(b'\xff\xd8jpeg')
+
+        with mock.patch('urllib.request.urlopen', urlopen):
+            stores.fetch_covers('epic')
+        # the failed one comes first; the one after it still downloads, with its spaces encoded
+        self.assertIn('https://cdn1.epicgames.com/x/item/AC%20KINGDOM_Key%20Art_640x854.png', asked)
+        self.assertTrue(os.path.isfile(stores.cover_file(games[1]['art'])))
+        self.assertFalse(os.path.isfile(stores.cover_file(games[0]['art'])))
+
+    def test_safe_url(self):
+        self.assertEqual(stores.safe_url('https://a.example/p q/r%20s.png?w=1&h=2'),
+                         'https://a.example/p%20q/r%20s.png?w=1&h=2')
 
 
 class LibraryTests(StoreCase):

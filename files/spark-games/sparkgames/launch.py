@@ -82,7 +82,9 @@ def plan(game: Game, options: Optional[Dict[str, Any]] = None,
     flatpak_cmd = ['flatpak', 'run']
 
     if game.source == 'steam':
-        url = f'steam://rungameid/{info.get("appid") or game.store_id}'
+        # owned but not installed: Steam's install dialog (it starts the game after)
+        verb = 'rungameid' if game.installed else 'install'
+        url = f'steam://{verb}/{info.get("appid") or game.store_id}'
         if info.get('flatpak'):
             if not which('flatpak'):
                 raise LaunchError('missing_program', 'flatpak')
@@ -183,6 +185,15 @@ def start(game: Game, options: Optional[Dict[str, Any]] = None,
     """Start the game through the helper process, which records the session. plan_ is a plan
     already made (store games make theirs in a thread, since it can ask the network)."""
     p = plan_ or plan(game, options)
+    if not game.installed:
+        # an install dialog, not a game: start it, but don't record a session
+        log.info("installing %s", game.key)
+        try:
+            subprocess.Popen(p.argv, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                             stderr=subprocess.DEVNULL, start_new_session=True)
+        except OSError as exc:
+            raise LaunchError('start_failed', str(exc)) from exc
+        return
     if p.env.get('WINEPREFIX'):
         os.makedirs(p.env['WINEPREFIX'], exist_ok=True)
     spec = {'key': game.key, 'title': game.title, 'argv': p.argv, 'env': p.env, 'cwd': p.cwd,

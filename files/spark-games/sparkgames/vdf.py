@@ -178,6 +178,48 @@ def loads_binary(data: bytes) -> Dict[str, Any]:
     return block(top=True)
 
 
+def read_binary(data: bytes, pos: int, strings: Optional[List[str]] = None
+                ) -> Tuple[Dict[str, Any], int]:
+    """One binary KeyValues block starting at pos, as Steam's appinfo.vdf and packageinfo.vdf
+    hold them: (the block, where it ends). Newer appinfo.vdf keeps its keys in a string table
+    at the end of the file; strings is that table, and each key is then a 4-byte index."""
+    out: Dict[str, Any] = {}
+    try:
+        while True:
+            kind = data[pos]
+            pos += 1
+            if kind in (0x08, 0x0b):
+                return out, pos
+            if strings is not None:
+                key = strings[struct.unpack_from('<I', data, pos)[0]]
+                pos += 4
+            else:
+                end = data.index(b'\x00', pos)
+                key = data[pos:end].decode('utf-8', errors='replace')
+                pos = end + 1
+            if kind == 0x00:
+                out[key], pos = read_binary(data, pos, strings)
+            elif kind == 0x01:
+                end = data.index(b'\x00', pos)
+                out[key] = data[pos:end].decode('utf-8', errors='replace')
+                pos = end + 1
+            elif kind in (0x02, 0x04, 0x06):            # int32, pointer, colour
+                out[key] = struct.unpack_from('<i', data, pos)[0]
+                pos += 4
+            elif kind == 0x03:
+                out[key] = struct.unpack_from('<f', data, pos)[0]
+                pos += 4
+            elif kind in (0x07, 0x0a):                  # uint64, int64
+                out[key] = struct.unpack_from('<Q' if kind == 0x07 else '<q', data, pos)[0]
+                pos += 8
+            else:
+                raise VDFError(f"binary VDF: unknown type {kind:#x} at byte {pos - 1}")
+    except (IndexError, ValueError, struct.error) as exc:
+        if isinstance(exc, VDFError):
+            raise
+        raise VDFError(f"binary VDF: cut short near byte {pos}") from exc
+
+
 def load_binary(path: str) -> Dict[str, Any]:
     with open(path, 'rb') as f:
         return loads_binary(f.read())

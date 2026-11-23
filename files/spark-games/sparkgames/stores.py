@@ -14,6 +14,7 @@ used with them yet (README, Known gaps).
 """
 
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -217,6 +218,13 @@ def owned_stale(store: str) -> bool:
     return now() - int(load_owned(store).get('fetched') or 0) > OWNED_MAX_AGE
 
 
+def _unreal_asset(meta: Dict[str, Any]) -> bool:
+    """Unreal Engine samples, projects and plugins an Epic account owns (free from Unreal or
+    Fab): Epic files them under asset-format/..., games under games."""
+    paths = [str(c.get('path') or '') for c in meta.get('categories') or [] if isinstance(c, dict)]
+    return any(p == 'asset-format' or p.startswith('asset-format/') for p in paths)
+
+
 def _epic_owned() -> List[Dict[str, str]]:
     rc, out, _e = clients.run('epic', ['list', '--json'], timeout=300)
     data = _first_json(out)
@@ -229,8 +237,10 @@ def _epic_owned() -> List[Dict[str, str]]:
         assets = item.get('asset_infos')
         if isinstance(assets, dict) and assets and 'Windows' not in assets:
             continue
-        art = ''
         meta = item.get('metadata') if isinstance(item.get('metadata'), dict) else {}
+        if _unreal_asset(meta):
+            continue
+        art = ''
         images = [i for i in meta.get('keyImages') or [] if isinstance(i, dict)]
         for wanted in ('DieselGameBoxTall', 'DieselGameBox', 'Thumbnail'):
             art = next((i.get('url', '') for i in images if i.get('type') == wanted), '')
@@ -341,6 +351,21 @@ def refresh_owned(store: str, force: bool = False) -> Dict[str, Any]:
     return data
 
 
+def safe_url(url: str) -> str:
+    """The URL with spaces and other unsafe characters percent-encoded (Epic's CDN has file
+    names with spaces, which http.client refuses). Already-encoded parts stay as they are."""
+    parts = urllib.parse.urlsplit(url)
+    return urllib.parse.urlunsplit(parts._replace(
+        path=urllib.parse.quote(parts.path, safe="/%:@!$&'()*+,;=~-._"),
+        query=urllib.parse.quote(parts.query, safe="=&%/:+,;@!$'()*~-._?")))
+
+
+def missing_covers(store: str, limit: int = 400) -> bool:
+    return any(str(g.get('art') or '').startswith('https://')
+               and not os.path.isfile(cover_file(g['art']))
+               for g in load_owned(store)['games'][:limit])
+
+
 def fetch_covers(store: str, limit: int = 400) -> int:
     """Download missing cover images (from the store's own CDN). Returns how many were new."""
     count = 0
@@ -350,15 +375,16 @@ def fetch_covers(store: str, limit: int = 400) -> int:
         if not url.startswith('https://') or not path or os.path.isfile(path):
             continue
         try:
-            request = urllib.request.Request(url, headers={'User-Agent': f'{APP_SLUG}/{VERSION}'})
+            request = urllib.request.Request(safe_url(url),
+                                             headers={'User-Agent': f'{APP_SLUG}/{VERSION}'})
             with urllib.request.urlopen(request, timeout=10) as response:
                 body = response.read(4 * 1024 * 1024)
             with open(path + '.part', 'wb') as f:
                 f.write(body)
             os.replace(path + '.part', path)
             count += 1
-        except (urllib.error.URLError, OSError, ValueError):
-            continue
+        except (urllib.error.URLError, http.client.HTTPException, OSError, ValueError):
+            continue                     # one bad cover never stops the others
     return count
 
 
