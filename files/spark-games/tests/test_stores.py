@@ -181,7 +181,10 @@ class SignInTests(StoreCase):
         pending = stores.begin_signin('amazon')
         self.assertTrue(pending['url'].startswith('https://www.amazon.com/'))
         self.assertEqual(pending['state']['code_verifier'], 'verifier')
-        url = 'https://www.amazon.com/ap/maplanding?openid.oa2.authorization_code=ANabcdefghij0123'
+        # Amazon lands on its store's home page, the code in the address
+        url = ('https://www.amazon.com/?openid.assoc_handle=amzn_sonic_games_launcher'
+               '&openid.claimed_id=https%3A%2F%2Fwww.amazon.com%2Fap%2Fid%2Famzn1.account.X'
+               '&openid.oa2.authorization_code=ANabcdefghij0123&openid.mode=id_res')
         self.assertEqual(stores.finish_signin('amazon', url, pending['state']), '')
         self.assertTrue(stores.signed_in('amazon'))
         self.assertEqual(stores.account_name('amazon'), 'Fake Amazon')
