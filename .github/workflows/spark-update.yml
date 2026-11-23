@@ -16,11 +16,13 @@ on:
     paths:
       - "files/spark-update/**"
       - "files/scripts/spark-update.sh"
+      - "files/whats-new.json"
       - ".github/workflows/spark-update.yml"
   pull_request:
     paths:
       - "files/spark-update/**"
       - "files/scripts/spark-update.sh"
+      - "files/whats-new.json"
       - ".github/workflows/spark-update.yml"
   workflow_dispatch:
 
@@ -139,10 +141,12 @@ jobs:
 
       - name: Install, self-test, uninstall as a normal user
         run: |
-          sudo podman run --rm -v "$PWD/files/spark-update:/src:ro" "$IMAGE" bash -euo pipefail -c '
+          sudo podman run --rm -v "$PWD/files/spark-update:/src:ro" \
+            -v "$PWD/files/whats-new.json:/whats-new.json:ro" "$IMAGE" bash -euo pipefail -c '
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)
             cp -r /src "$home/spark-update"
+            cp /whats-new.json "$home/whats-new.json"   # tests read ../../whats-new.json
             chown -R tester: "$home/spark-update"
             # setpriv, not su or runuser: those open a PAM session, which fails in a container
             as() { (cd "$home" && setpriv --reuid=tester --regid=tester --init-groups \
