@@ -1,0 +1,12 @@
+# Spark Controller: let the signed-in user talk to the lighting controllers on this PC without
+# root. openrgb-udev-rules and liquidctl's own rules cover the same devices on the systems
+# that ship them; these lines keep it working if they are missing.
+# 1e71 = NZXT (liquidctl), 0b05:19af = ASUS Aura motherboard controller,
+# 046d:c08b = Logitech G502 SE, 3434:0351 = Keychron V5.
+SUBSYSTEM=="usb", ATTRS{idVendor}=="1e71", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="1e71", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="19af", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="0b05", ATTRS{idProduct}=="19af", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c08b", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", ATTRS{idVendor}=="046d", ATTRS{idProduct}=="c08b", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="usb", ATTRS{idVendor}=="3434", ATTRS{idProduct}=="0351", MODE="0660", TAG+="uaccess"

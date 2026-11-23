@@ -207,6 +207,13 @@ fedora)
 esac
 
 # Both bases:
+# - python3-liquidctl, openrgb, fwupd: what Spark Controller (files/spark-controller) drives.
+#   liquidctl is imported as a Python library (NZXT and other USB coolers and lighting), OpenRGB
+#   runs as a command (ASUS Aura, mice, keyboards, memory), fwupd gives device firmware from
+#   LVFS. Fedora Kinoite and Bazzite already have fwupd; naming it keeps that true. OpenRGB's
+#   own window is hidden (spark-controller.sh): Spark Controller replaces it. Neither base
+#   gets a second copy of the udev rules (Fedora installs openrgb-udev-rules above, Bazzite
+#   has its own).
 # - bubblewrap, socat: Claude Code's command sandbox
 # - kdialog: folder picker for sparkos-claude and the install dialogs
 # - fuse and fuse-libs (FUSE 2): AppImages mount themselves
@@ -215,6 +222,7 @@ esac
 #   root: a Python that Qt for Python supports (Fedora 45's own is 3.15), and the libraries Qt,
 #   SDL and Google's emulator load. Androidbox itself is not in the image.
 dnf_install \
+  python3-liquidctl openrgb fwupd \
   bubblewrap socat kdialog fuse fuse-libs rsms-inter-fonts \
   python3.13 SDL2 xcb-util-cursor libxkbcommon-x11 libxkbfile \
   mesa-libGL mesa-libEGL mesa-libgbm alsa-lib pulseaudio-libs nss \

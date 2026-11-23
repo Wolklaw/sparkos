@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>SparkOS</vendor>
+  <vendor_url>https://github.com/Wolklaw/sparkos</vendor_url>
+
+  <action id="dev.wolklaw.SparkController.configure">
+    <description>Change fan curves</description>
+    <description xml:lang="fr">Modifier les courbes des ventilateurs</description>
+    <message>Authentication is required to change the fan curves and start or stop the fan service</message>
+    <message xml:lang="fr">Une authentification est requise pour modifier les courbes des ventilateurs et démarrer ou arrêter leur service</message>
+    <icon_name>dev.wolklaw.SparkController</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/spark-controller-helper</annotate>
+  </action>
+</policyconfig>

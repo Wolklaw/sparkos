@@ -116,6 +116,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
 #      Update is the one updater: its timer downloads and stages updates daily (engine "spark";
 #      until 2026-11-20 Universal Blue's uupd did the downloading)
+#    - spark-controller: fans (curves, run by a small root service), RGB and firmware; the
+#      sensor-chip module for the motherboard's fan headers loads at boot (modules-load.d)
 #    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
 #      usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
@@ -140,6 +142,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-welcome.sh \
         spark-games.sh \
         spark-monitor.sh \
+        spark-controller.sh \
         spark-edit.sh \
         spark-calc.sh \
         spark-archive.sh \

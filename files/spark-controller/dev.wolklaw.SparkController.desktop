@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Controller
+Name[fr]=Spark Controller
+GenericName=Fans, lighting and firmware
+GenericName[fr]=Ventilateurs, éclairage et firmware
+Comment=Fan curves, RGB lighting and firmware updates for this PC
+Comment[fr]=Courbes des ventilateurs, éclairage RGB et mises à jour du firmware de ce PC
+Exec=spark-controller
+Icon=dev.wolklaw.SparkController
+Terminal=false
+Categories=System;Settings;HardwareSettings;
+Keywords=fan;fans;ventilateur;cooling;curve;rgb;lighting;led;aura;nzxt;openrgb;liquidctl;firmware;fwupd;bios;driver;temperature;
+Keywords[fr]=ventilateur;refroidissement;courbe;rgb;éclairage;led;firmware;pilote;température;
+StartupWMClass=SparkController
+SingleMainWindow=true
+Actions=Fans;Lighting;
+
+[Desktop Action Fans]
+Name=Fans
+Name[fr]=Ventilateurs
+Exec=spark-controller --tab fans
+
+[Desktop Action Lighting]
+Name=Lighting
+Name[fr]=Éclairage
+Exec=spark-controller --tab rgb

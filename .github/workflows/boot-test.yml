@@ -409,6 +409,19 @@ jobs:
           $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
 
+      - name: Check Spark Controller
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # Fans, RGB and firmware: the files, the fan service unit, the sensor-chip module list;
+          # the self-test reads the VM's /sys (no real fans there, so it checks it finds none
+          # without failing)
+          $SSH 'set -e; spark-controller --version; ls -l /usr/bin/spark-controller /usr/bin/spark-controller-daemon /usr/libexec/spark-controller-helper /usr/share/applications/dev.wolklaw.SparkController.desktop /usr/share/polkit-1/actions/dev.wolklaw.SparkController.policy'
+          $SSH 'set -e; grep -qx nct6775 /usr/lib/modules-load.d/sparkos-nct6775.conf; systemctl is-enabled spark-controller.service; systemctl cat spark-controller.service >/dev/null; python3 -c "import liquidctl"; test -x /usr/bin/openrgb'
+          $SSH 'spark-controller --self-test' 2>&1 | tee "$WORK/spark-controller-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-controller-self-test.txt"
+          # Nothing is saved on a fresh system, so the service stays idle and no fan is touched
+          $SSH 'test ! -e /etc/spark-controller/fans.json; ! systemctl is-active --quiet spark-controller.service'
+
       - name: Check Spark Files
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
@@ -653,7 +666,7 @@ jobs:
           fi
           # What stays: the platform SparkOS needs, and the owner's apps
           STORE_RPM=$([ "$BASE" != bazzite ] || echo bazaar)
-          $SSH "rpm -q dolphin konsole plasma-systemsettings ark $STORE_RPM >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          $SSH "rpm -q dolphin konsole plasma-systemsettings ark $STORE_RPM >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -835,7 +848,7 @@ jobs:
                 journalctl -b --no-pager -o cat -t pam_kwallet5 -t plasmalogin -t kwalletd6 -t ksecretd 2>/dev/null | grep -i -E "kwallet|secret|wallet" | tail -8' 2>&1 | tee "$WORK/kwallet.txt" || true
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
             .github/scripts/desktop-smoke.py spark@127.0.0.1:/tmp/desktop-smoke.py
-          EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkFiles,dev.wolklaw.SparkUpdate,dev.wolklaw.SparkSettings,dev.wolklaw.Soot,freesuite
+          EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkFiles,dev.wolklaw.SparkUpdate,dev.wolklaw.SparkSettings,dev.wolklaw.SparkController,dev.wolklaw.Soot,freesuite
           set +e
           timeout 900 $SSH "rm -rf /tmp/desktop-smoke; python3 /tmp/desktop-smoke.py --out /tmp/desktop-smoke --passes en,fr --expect $EXPECT" 2>&1 | tee "$WORK/desktop-smoke.txt"
           status=${PIPESTATUS[0]}

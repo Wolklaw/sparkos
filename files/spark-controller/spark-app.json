@@ -1,0 +1,31 @@
+{
+  "id": "dev.wolklaw.SparkController",
+  "slug": "spark-controller",
+  "name": "Spark Controller",
+  "name_fr": "Spark Controller",
+  "summary": "Fans, RGB lighting and firmware updates for this PC, in one place.",
+  "summary_fr": "Ventilateurs, éclairage RGB et mises à jour du firmware de ce PC, au même endroit.",
+  "version": "1.0.0",
+  "installed_size_kb": 520,
+  "icon": "icons/spark-controller-256.png",
+  "categories": ["System", "Settings"],
+  "needs": {
+    "root": true,
+    "commands": ["python3", "pkexec"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "liquidctl": "NZXT and other USB coolers and lighting controllers (Python library)",
+      "openrgb": "ASUS Aura, mice, keyboards and memory lighting (command line)",
+      "fwupdmgr": "device firmware from LVFS"
+    },
+    "system": "Linux with /sys/class/hwmon and systemd; polkit for saving fan curves"
+  },
+  "install": {
+    "system": "sudo bash install.sh --deps",
+    "uninstall": "sudo bash install.sh --uninstall",
+    "self_test": "spark-controller --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-controller"
+}
