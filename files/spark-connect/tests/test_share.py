@@ -40,6 +40,7 @@ from sparkconnect.text import EN, FR  # noqa: E402
 from sparkconnect.transport import DONE, FAILED, NEEDS_PASSWORD, probe_script  # noqa: E402
 
 LINUX = sys.platform.startswith('linux')
+IS_ROOT = hasattr(os, 'geteuid') and os.geteuid() == 0
 
 
 if not os.path.exists(SHARE):
@@ -358,7 +359,7 @@ class RequestRuns(unittest.TestCase):
             self.assertEqual(self.first_line(p)['reason'], reason)
             self.finish(p)
 
-    @unittest.skipIf(os.geteuid() == 0, "this one is about not being root")
+    @unittest.skipIf(IS_ROOT, "this one is about not being root")
     def test_no_ask_is_refused_without_root(self):
         p = self.start('--no-ask')
         info = self.first_line(p)
@@ -367,7 +368,7 @@ class RequestRuns(unittest.TestCase):
         self.assertFalse(os.path.exists(self.log))
         self.assertFalse(os.path.exists(self.asked))
 
-    @unittest.skipIf(os.geteuid() == 0, "root may use the test hook")
+    @unittest.skipIf(IS_ROOT, "root may use the test hook")
     def test_test_hook_is_ignored_unless_root_owned(self):
         """The prompt can't be bypassed by a file a normal user can write."""
         self.assertIsNone(share_mod.test_hook())
