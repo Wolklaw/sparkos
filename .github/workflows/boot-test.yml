@@ -650,6 +650,16 @@ jobs:
           if grep -q 'bazzite-portal' "$WORK/apps.txt"; then
             echo "::error::Bazzite's Portal still starts at sign-in"; exit 1
           fi
+          # Other projects' apps and tools that stay installed are out of the app menu
+          # (sparkos-cleanup.sh): every visible desktop entry must be in this list
+          $SSH 'cd /usr/share/applications; for f in *.desktop; do
+                  sed -n "/^\[Desktop Entry\]/,/^\[/p" "$f" | grep -qE "^(NoDisplay|Hidden)=true" || echo "$f"
+                done' | tee "$WORK/menu.txt"
+          SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-|org\.kde\.(plasma\.emojier|kdeconnect\.(daemon|handler))|org\.gnome\.DiskUtility|firewall-config)' "$WORK/menu.txt" || true)
+          [ -z "$SHOWN" ] || echo "::warning::in the app menu but not SparkOS's own: $(echo $SHOWN)"
+          for id in org.kde.kdeconnect.app org.kde.ark org.kde.discover btop nvtop org.kde.kinfocenter org.kde.kjournaldbrowser; do
+            if grep -qx "$id.desktop" "$WORK/menu.txt"; then echo "::error::$id is still in the app menu"; exit 1; fi
+          done
           # What stays: the platform SparkOS needs, and the owner's apps
           $SSH "rpm -q dolphin konsole plasma-systemsettings ark >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
