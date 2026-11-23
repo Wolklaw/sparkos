@@ -2,7 +2,9 @@
 
 A Linux desktop for gaming and everyday work, built on [Bazzite](https://bazzite.gg) from its own [Containerfile](Containerfile) ([how it's built](docs/building.md)).
 
-Status: early. It runs on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026), and every build is booted in a VM by CI ([boot-test](.github/workflows/boot-test.yml)), which checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. See [PLAN.md](PLAN.md) for the roadmap.
+Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026), and every build is booted in a VM by CI ([boot-test](.github/workflows/boot-test.yml)), which checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. See [PLAN.md](PLAN.md) for the roadmap.
+
+On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 11** (92.4 vs 78.6 FPS on average, 1% lows 62.6 vs 48.4), with the same settings and HDR on in both. See [docs/benchmarks.md](docs/benchmarks.md) for the method and the limits.
 
 ## What's in it
 
@@ -17,7 +19,9 @@ SparkOS ships only its own apps. Everything else, Steam included, installs from 
 | Look | Dark indigo with a mint accent, Inter and Chakra Petch, a slim top bar and a floating dock, the bot wallpaper, and a SparkOS boot splash, sign-in screen and sign-in splash |
 | Identity | The SparkOS name, the bot logo and the zap startup sound |
 
-Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build and opens each one from the app menu on a real SparkOS desktop in a VM, with a screenshot, but none has been used by hand on a SparkOS desktop yet. To install it next to Windows, see [docs/install.md](docs/install.md). For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
+Optional Spark apps are not installed by default; Spark Store installs them for your account in a click: Spark Bench for game benchmarks with MangoHud, compared with Windows ([source](files/spark-bench)), Spark Space to see what takes the space on your drives ([source](files/spark-space)), and Spark Connect to check and fix home servers over SSH ([source](files/spark-connect)).
+
+Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build and opens each one from the app menu on a real SparkOS desktop in a VM, with a screenshot. On a real PC they have had only a few days of use. To install it next to Windows, see [docs/install.md](docs/install.md). For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
 
 Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 
@@ -25,7 +29,7 @@ Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and
 
 Download every file of the [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer) (the ISO comes in parts under 2 GB), join them with `join-iso.cmd` (Windows) or `join-iso.sh` (Linux), write the ISO to a USB stick, and follow [docs/install.md](docs/install.md). Windows stays; you pick the system at power-on.
 
-CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). It has been installed on one real PC so far. The image is for AMD and Intel graphics; there is no NVIDIA build.
+CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). It has been installed on one real PC so far. The image is for AMD and Intel graphics; an NVIDIA build is in progress and not released.
 
 ## Switching from Bazzite
 
