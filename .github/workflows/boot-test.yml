@@ -454,6 +454,10 @@ jobs:
             $SSH "set -e; $app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
           done
+          # spark-share (Spark Connect's Take control, on the target): self-test checks krdpserver is
+          # there and allowed to use the Plasma screen-sharing interfaces
+          $SSH 'spark-share --self-test' 2>&1 | tee "$WORK/spark-share-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-share-self-test.txt" || { echo "::error::spark-share self-test failed"; exit 1; }
           # Optional Spark apps: only their sources ship, for the Store to install per user
           grep -q '(not installed, can install from /usr/share/spark-store/sources/spark-space)$' "$WORK/spark-store-self-test.txt" || { echo "::error::Spark Space's source isn't in the image"; exit 1; }
           $SSH 'test ! -e /usr/bin/spark-space && echo "Spark Space: source only, not installed"'

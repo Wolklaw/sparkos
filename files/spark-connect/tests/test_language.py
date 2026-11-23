@@ -50,16 +50,55 @@ class Fits(unittest.TestCase):
             app.start(('site', s.name))
         import time
         end = time.monotonic() + 5
-        while (app.pending or len(app.results) < 2) and time.monotonic() < end:
+        while (app.pending or len(app.results) < 3) and time.monotonic() < end:
             app.root.update()
             time.sleep(0.02)
         self.assertEqual(clipped(app.root), [])
-        for name in ('Main server', 'Standby laptop'):
+        for name in ('Main server', 'Standby laptop', 'Living-room PC'):
             app.open_machine(name)
             for tab in app.machine_view.tabbar.labels:
                 app.machine_view.show(tab)
                 self.assertEqual(clipped(app.root), [], f"{name} {tab}")
             app.show_overview()
+
+    def test_no_clipped_text_on_a_desktop(self):
+        """A locked desktop with its notes, and an open screen share with Stop."""
+        import test_spark_connect as tsc
+        from sparkconnect.app import App
+        app = App(config_path=tsc.EXAMPLE,
+                  transport=tsc.FakeTransport({'Living-room PC': 'desktop-locked.json'}),
+                  site_checker=tsc.fake_site, auto_refresh=False, notifier=lambda a, b: True)
+        self.addCleanup(app.close)
+        app.root.geometry('1060x720')
+        import time
+        for m in app.config.machines:
+            app.start(('machine', m.name))
+        end = time.monotonic() + 5
+        while (app.pending or len(app.results) < 3) and time.monotonic() < end:
+            app.root.update()
+            time.sleep(0.02)
+        app.open_machine('Living-room PC')
+        app.root.update()
+        self.assertEqual(clipped(app.root), [], "locked")
+        self.assertIn(text.t('desktop.locked_note'), app.machine_view.desk.cget('text'))
+
+        class Open:
+            def alive(self):
+                return True
+
+            def elapsed(self):
+                return 12 * 60.0
+
+            def stop(self, why=''):
+                pass
+        app.shares['Living-room PC'] = Open()
+        app.redraw()
+        app.root.update()
+        self.assertEqual(clipped(app.root), [], "sharing")
+        app.show_overview()
+        app.root.update()
+        self.assertEqual(clipped(app.root), [], "overview, sharing")
+        app.shares.clear()
 
 
 if __name__ == '__main__':

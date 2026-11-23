@@ -17,10 +17,12 @@ on:
   push:
     paths:
       - "files/spark-connect/**"
+      - "files/system/usr/bin/spark-share"
       - ".github/workflows/spark-connect.yml"
   pull_request:
     paths:
       - "files/spark-connect/**"
+      - "files/system/usr/bin/spark-share"
       - ".github/workflows/spark-connect.yml"
   workflow_dispatch:
 

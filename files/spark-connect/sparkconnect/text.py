@@ -211,6 +211,88 @@ EN = {
     'result.reboot_failed_title': "Reboot failed",
     'result.reboot_failed': "Rebooting {machine} didn't work:\n{message}",
     'status.rebooting': "REBOOTING {machine}",
+
+    # console (servers with no desktop)
+    'action.console': "See console",
+    'action.console_open': "See console",
+    'confirm.console_title': "See the console of {machine}?",
+    'confirm.console_body': "Opens a terminal that shows what {machine} has on its own screen "
+                            "(the text console, tty1). You can switch to typing into it with "
+                            "Ctrl+], and back with Ctrl+]. Q or Ctrl+C closes it.",
+    'confirm.console_note': "This always uses sudo: reading the console needs root, so you type "
+                            "the sudo password of {machine} in that terminal. There is no prompt "
+                            "for anybody at {machine} to answer. While it runs, a one-line "
+                            "notice on tty1 says which PC is viewing, and another says when it "
+                            "ends.",
+    'confirm.console_touches': "Touches: nothing is installed on {machine}. A short Python "
+                               "script runs there as root until you close the terminal. Typing "
+                               "uses a virtual keyboard (/dev/uinput) and assumes a US layout.",
+    'desktop.console': "NO DESKTOP: CONSOLE ONLY",
+
+    # screen sharing (desktop machines)
+    'action.take_control': "Take control",
+    'action.take_control_sudo': "Take control without asking…",
+    'action.stop': "Stop",
+    'action.share_open': "Take control",
+    'action.share_sudo_open': "Take control",
+    'desktop.in_use': "DESKTOP IN USE",
+    'desktop.in_use_user': "DESKTOP IN USE ({user})",
+    'desktop.locked': "DESKTOP LOCKED",
+    'desktop.none': "NOBODY LOGGED IN",
+    'desktop.no_tool': "spark-share isn't installed here yet",
+    'desktop.locked_note': "The screen is locked, so nobody can answer the prompt. Take "
+                           "control without asking still works.",
+    'desktop.none_note': "Nobody is logged in to a graphical session on this machine.",
+    'card.sharing': "SCREEN SHARED, {m} MIN",
+    'status.sharing': "SHARING {machine}",
+    'status.share_ended': "SCREEN SHARE WITH {machine} ENDED",
+    'confirm.share_title': "Take control of {machine}'s screen?",
+    'confirm.share_body': "You will see and control the screen of {machine} in a FreeRDP "
+                          "window until you press Stop. This version can't show the screen "
+                          "without also giving control.",
+    'confirm.share_prompt': "The person at {machine} sees a prompt on their screen saying who "
+                            "is asking and from which PC. Nothing is shared until they press "
+                            "Allow; no answer in 30 seconds counts as Deny. Once it runs, "
+                            "their screen shows a banner with a Stop button.",
+    'confirm.share_touches': "Touches: nothing is installed. A one-time screen server runs on "
+                             "{machine} for this session, reachable only through an SSH "
+                             "forward on 127.0.0.1.",
+    'confirm.share_sudo_title': "Take control of {machine} without asking?",
+    'confirm.share_sudo_body': "Skips the prompt: nobody at {machine} is asked first. Their "
+                               "screen shows a banner with a Stop button the whole time, but "
+                               "the share starts without their say. Use it on your own "
+                               "machines, or when you have told them.",
+    'confirm.share_sudo_note': "Goes through sudo -n. If sudo asks for a password, nothing "
+                               "runs and Spark Connect offers a terminal where you type it "
+                               "yourself. It never types or stores a password.",
+    'share.password_title': "sudo wants a password",
+    'share.password': "sudo on {machine} asks for a password, so nothing ran. Spark Connect "
+                      "doesn't type passwords. Open a terminal there: type the password in "
+                      "it, and the screen opens here once sudo accepts. Closing that "
+                      "terminal ends the share.",
+    'share.denied_title': "Not shared",
+    'share.failed_title': "Screen share failed",
+    'share.failed': "Couldn't take control of {machine}:\n{message}",
+    'share.err.denied': "The person at the screen didn't allow it, or didn't answer in 30 "
+                        "seconds.",
+    'share.err.locked': "The screen is locked, so nobody can answer the prompt. Use Take "
+                        "control without asking, or unlock it first.",
+    'share.err.no_session': "Nobody is logged in to a graphical session on {machine}.",
+    'share.err.other_user': "The graphical session on {machine} belongs to another user, so "
+                            "only Take control without asking (sudo) can reach it.",
+    'share.err.no_krdp': "{machine} has no krdpserver (KDE's RDP server), so it can't share "
+                         "its screen.",
+    'share.err.no_tool': "{machine} doesn't have spark-share yet. It comes with the SparkOS "
+                         "image; update that machine first.",
+    'share.err.no_viewer': "FreeRDP isn't installed on this PC, so there is nothing to show "
+                           "the screen with.",
+    'share.err.forward': "The SSH forward to {machine} didn't open.",
+    'share.err.timeout': "{machine} didn't answer in time.",
+    'share.err.no_terminal': "No terminal program found (Spark Terminal, Konsole, xterm…).",
+    'share.err.bad_reply': "spark-share on {machine} answered in a way Spark Connect doesn't "
+                           "understand. Update both.",
+    'share.err.ssh': "ssh said: {message}",
+    'share.err.error': "{message}",
     'result.update_unknown_title': "No package manager yet",
     'result.update_unknown': "Spark Connect doesn't know {machine}'s package manager yet (apt "
                              "or dnf). Wait for a refresh, or update it from a terminal.",
@@ -425,6 +507,94 @@ FR = {
     'result.reboot_failed_title': "Le redémarrage a échoué",
     'result.reboot_failed': "Le redémarrage de {machine} n'a pas marché :\n{message}",
     'status.rebooting': "{machine} REDÉMARRE",
+
+    # console (serveurs sans bureau)
+    'action.console': "Voir la console",
+    'action.console_open': "Voir la console",
+    'confirm.console_title': "Voir la console de {machine} ?",
+    'confirm.console_body': "Ouvre un terminal qui montre ce que {machine} affiche sur son "
+                            "propre écran (la console texte, tty1). Ctrl+] passe à la saisie "
+                            "dans la console, et y revient. Q ou Ctrl+C le ferme.",
+    'confirm.console_note': "Cela passe toujours par sudo : lire la console demande root, donc "
+                            "vous tapez le mot de passe sudo de {machine} dans ce terminal. "
+                            "Aucune demande n'est posée à qui que ce soit devant {machine}. "
+                            "Pendant l'affichage, une ligne sur tty1 indique quel PC regarde, "
+                            "et une autre indique la fin.",
+    'confirm.console_touches': "Touche : rien n'est installé sur {machine}. Un court script "
+                               "Python s'y exécute en root jusqu'à la fermeture du terminal. "
+                               "La saisie passe par un clavier virtuel (/dev/uinput) et suppose "
+                               "une disposition US.",
+    'desktop.console': "SANS BUREAU : CONSOLE SEULEMENT",
+
+    # partage d'écran (machines avec un bureau)
+    'action.take_control': "Prendre le contrôle",
+    'action.take_control_sudo': "Prendre le contrôle sans demander…",
+    'action.stop': "Arrêter",
+    'action.share_open': "Prendre le contrôle",
+    'action.share_sudo_open': "Prendre le contrôle",
+    'desktop.in_use': "BUREAU UTILISÉ",
+    'desktop.in_use_user': "BUREAU UTILISÉ ({user})",
+    'desktop.locked': "BUREAU VERROUILLÉ",
+    'desktop.none': "PERSONNE DE CONNECTÉ",
+    'desktop.no_tool': "spark-share n'est pas encore installé ici",
+    'desktop.locked_note': "L'écran est verrouillé : personne ne peut répondre à la demande. "
+                           "Prendre le contrôle sans demander fonctionne quand même.",
+    'desktop.none_note': "Personne n'est connecté à une session graphique sur cette machine.",
+    'card.sharing': "ÉCRAN PARTAGÉ, {m} MIN",
+    'status.sharing': "PARTAGE DE {machine}",
+    'status.share_ended': "PARTAGE D'ÉCRAN AVEC {machine} TERMINÉ",
+    'confirm.share_title': "Prendre le contrôle de l'écran de {machine} ?",
+    'confirm.share_body': "Vous verrez et contrôlerez l'écran de {machine} dans une fenêtre "
+                          "FreeRDP jusqu'à ce que vous appuyiez sur Arrêter. Cette version "
+                          "ne peut pas montrer l'écran sans donner aussi le contrôle.",
+    'confirm.share_prompt': "La personne devant {machine} voit une demande à l'écran qui dit "
+                            "qui demande et depuis quel PC. Rien n'est partagé tant qu'elle "
+                            "n'a pas appuyé sur Autoriser ; sans réponse en 30 secondes, "
+                            "c'est un refus. Une fois le partage lancé, son écran affiche un "
+                            "bandeau avec un bouton Arrêter.",
+    'confirm.share_touches': "Touche : rien n'est installé. Un serveur d'écran à usage unique "
+                             "tourne sur {machine} pendant cette session, joignable "
+                             "seulement par une redirection SSH sur 127.0.0.1.",
+    'confirm.share_sudo_title': "Prendre le contrôle de {machine} sans demander ?",
+    'confirm.share_sudo_body': "Saute la demande : personne devant {machine} n'est consulté. "
+                               "Son écran affiche un bandeau avec un bouton Arrêter pendant "
+                               "tout le partage, mais le partage commence sans son accord. "
+                               "À utiliser sur vos propres machines, ou après l'avoir "
+                               "prévenue.",
+    'confirm.share_sudo_note': "Passe par sudo -n. Si sudo demande un mot de passe, rien ne "
+                               "s'exécute et Spark Connect propose un terminal où vous le "
+                               "tapez vous-même. Il ne tape ni ne garde jamais de mot de "
+                               "passe.",
+    'share.password_title': "sudo demande un mot de passe",
+    'share.password': "sudo sur {machine} demande un mot de passe, donc rien ne s'est "
+                      "exécuté. Spark Connect ne tape pas de mots de passe. Ouvrez un "
+                      "terminal : tapez-y le mot de passe, et l'écran s'ouvre ici dès que "
+                      "sudo accepte. Fermer ce terminal met fin au partage.",
+    'share.denied_title': "Pas partagé",
+    'share.failed_title': "Le partage d'écran a échoué",
+    'share.failed': "Impossible de prendre le contrôle de {machine} :\n{message}",
+    'share.err.denied': "La personne devant l'écran n'a pas autorisé, ou n'a pas répondu en "
+                        "30 secondes.",
+    'share.err.locked': "L'écran est verrouillé : personne ne peut répondre à la demande. "
+                        "Utilisez Prendre le contrôle sans demander, ou déverrouillez "
+                        "d'abord.",
+    'share.err.no_session': "Personne n'est connecté à une session graphique sur {machine}.",
+    'share.err.other_user': "La session graphique de {machine} appartient à un autre "
+                            "utilisateur : seul Prendre le contrôle sans demander (sudo) "
+                            "peut l'atteindre.",
+    'share.err.no_krdp': "{machine} n'a pas krdpserver (le serveur RDP de KDE) : elle ne peut "
+                         "pas partager son écran.",
+    'share.err.no_tool': "{machine} n'a pas encore spark-share. Il arrive avec l'image "
+                         "SparkOS ; mettez d'abord cette machine à jour.",
+    'share.err.no_viewer': "FreeRDP n'est pas installé sur ce PC : rien pour afficher "
+                           "l'écran.",
+    'share.err.forward': "La redirection SSH vers {machine} ne s'est pas ouverte.",
+    'share.err.timeout': "{machine} n'a pas répondu à temps.",
+    'share.err.no_terminal': "Aucun terminal trouvé (Spark Terminal, Konsole, xterm…).",
+    'share.err.bad_reply': "spark-share sur {machine} a répondu d'une façon que Spark "
+                           "Connect ne comprend pas. Mettez les deux à jour.",
+    'share.err.ssh': "ssh a dit : {message}",
+    'share.err.error': "{message}",
     'result.update_unknown_title': "Gestionnaire de paquets inconnu",
     'result.update_unknown': "Spark Connect ne connaît pas encore le gestionnaire de paquets de "
                              "{machine} (apt ou dnf). Attendez une actualisation, ou faites la "

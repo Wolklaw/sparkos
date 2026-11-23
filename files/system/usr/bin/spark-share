@@ -1,0 +1,801 @@
+#!/usr/bin/python3
+"""spark-share: lets someone see and control this desktop, after the person at the screen says yes.
+
+Spark Connect (on another PC) runs this over SSH:
+
+    spark-share request --control --from "<that PC>" --owner "<who>" [--token HEX] [--no-ask]
+
+It finds the graphical session, shows a prompt in it (Allow or Deny, no answer in 30 s is Deny),
+and on Allow starts KDE's RDP server (krdpserver --plasma) for that session, bound to 127.0.0.1
+on a free port with a one-time user name, password and certificate. It prints one JSON line
+(port, user, password, certificate fingerprint) and then stays running: a banner on the screen
+says the screen is shared and has a Stop button. The share ends when Stop is pressed, when the
+SSH connection (our standard input) closes, when `spark-share stop TOKEN` is run, when
+krdpserver exits, or after two hours.
+
+`--no-ask` skips the prompt and only works as root (sudo). The banner still shows.
+
+Nothing here listens on the network by itself and nothing runs until called. krdp 6.8 has no
+view-only option, so there is only "control". krdpserver takes its password only as an argument
+(-p) or from KWallet, so the one-time password is visible in that process's command line to
+other users of this machine for the length of the share (see the README, known gaps).
+"""
+
+import argparse
+import ctypes
+import json
+import os
+import re
+import secrets
+import shutil
+import signal
+import socket
+import subprocess
+import sys
+import tempfile
+import threading
+import time
+
+VERSION = "0.1.0"
+KRDP = "/usr/bin/krdpserver"
+KRDP_DESKTOP = "/usr/share/applications/org.kde.krdpserver.desktop"
+NEEDED_INTERFACES = ("org_kde_kwin_fake_input", "zkde_screencast_unstable_v1")
+TEST_HOOK = "/run/spark-share/test.json"       # root-owned; CI only (see test_hook())
+ASK_TIMEOUT_S = 30
+MAX_SESSION_S = 2 * 3600
+TOKEN = re.compile(r'^[0-9a-f]{16}$')
+
+# ─── words (English and French, like the Spark apps) ──────────
+
+EN = {
+    'prompt.kicker': "SCREEN SHARING REQUEST",
+    'prompt.title': "{owner} wants to see and control this screen",
+    'prompt.body': "From {pc}. They would see everything on this screen and use the keyboard "
+                   "and mouse until you press Stop on the banner or the share ends.",
+    'prompt.wait': "No answer in {n} s counts as Deny.",
+    'prompt.allow': "ALLOW",
+    'prompt.deny': "DENY",
+    'banner.text': "Your screen is being shared with {owner} (seen and controlled)",
+    'banner.stop': "STOP",
+    'banner.time': "{m} min",
+}
+FR = {
+    'prompt.kicker': "DEMANDE DE PARTAGE D'ÉCRAN",
+    'prompt.title': "{owner} veut voir et contrôler cet écran",
+    'prompt.body': "Depuis {pc}. Cette personne verrait tout ce qui est à l'écran et utiliserait "
+                   "le clavier et la souris jusqu'à ce que vous appuyiez sur Arrêter dans le "
+                   "bandeau, ou que le partage se termine.",
+    'prompt.wait': "Sans réponse en {n} s, c'est un refus.",
+    'prompt.allow': "AUTORISER",
+    'prompt.deny': "REFUSER",
+    'banner.text': "Votre écran est partagé avec {owner} (vu et contrôlé)",
+    'banner.stop': "ARRÊTER",
+    'banner.time': "{m} min",
+}
+
+
+def language(environ=None):
+    env = os.environ if environ is None else environ
+    forced = (env.get('SPARK_LANG') or '').strip().lower()
+    if forced in ('en', 'fr'):
+        return forced
+    for var in ('LC_ALL', 'LC_MESSAGES', 'LANG'):
+        value = env.get(var) or ''
+        if value:
+            return 'fr' if value.lower().startswith('fr') else 'en'
+    return 'en'
+
+
+def t(key, **kw):
+    return (FR if language() == 'fr' else EN)[key].format(**kw)
+
+
+def clean_name(value, fallback):
+    """A name from the other PC, safe to show: letters, digits and a few marks, 40 characters."""
+    value = re.sub(r'[^\w .@\-]', '', value or '', flags=re.UNICODE).strip()[:40]
+    return value or fallback
+
+
+# ─── finding the session ──────────────────────────────────────
+
+def parse_show(text):
+    """loginctl show-session output (KEY=value lines) as a dict."""
+    out = {}
+    for line in text.splitlines():
+        key, sep, value = line.partition('=')
+        if sep:
+            out[key] = value
+    return out
+
+
+def pick_session(sessions, want_user, my_uid, is_root):
+    """(session, error) from parsed sessions (dicts with Id, User, Name, Type, Class, State,
+    Active, LockedHint). Graphical user sessions only; the active one first. Without root only
+    your own session can be shared. error is 'no_session' or 'other_user'."""
+    graphical = [s for s in sessions if s.get('Class') == 'user'
+                 and s.get('Type') in ('wayland', 'x11', 'mir')
+                 and s.get('State') in ('active', 'online')]
+    if want_user:
+        graphical = [s for s in graphical if s.get('Name') == want_user]
+    graphical.sort(key=lambda s: (s.get('Active') != 'yes', s.get('State') != 'active'))
+    if not graphical:
+        return None, 'no_session'
+    if is_root:
+        return graphical[0], None
+    mine = [s for s in graphical if int(s.get('User', -1)) == my_uid]
+    return (mine[0], None) if mine else (None, 'other_user')
+
+
+def read_sessions():
+    sessions = []
+    try:
+        listing = subprocess.run(['loginctl', 'list-sessions', '--no-legend', '--no-pager'],
+                                 capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return sessions
+    for line in listing.splitlines():
+        parts = line.split()
+        if not parts:
+            continue
+        try:
+            shown = subprocess.run(
+                ['loginctl', 'show-session', parts[0], '-p', 'Id', '-p', 'User', '-p', 'Name',
+                 '-p', 'Type', '-p', 'Class', '-p', 'State', '-p', 'Active', '-p', 'LockedHint',
+                 '--no-pager'], capture_output=True, text=True, timeout=10).stdout
+        except (OSError, subprocess.SubprocessError):
+            continue
+        sessions.append(parse_show(shown))
+    return sessions
+
+
+def test_hook():
+    """CI only: /run/spark-share/test.json, owned by root and not writable by anyone else,
+    can answer the prompt ({"answer": "allow"|"deny"|"timeout"}) and name the session when the
+    container has no logind ({"session": {"uid", "gid", "name", "locked"}}). Anyone who can
+    write there is root already."""
+    try:
+        st = os.stat(TEST_HOOK)
+        if st.st_uid != 0 or st.st_mode & 0o022:
+            return None
+        with open(TEST_HOOK, encoding='utf-8') as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def session_env(uid):
+    """The graphical session's environment for a process we start in it: the runtime folder,
+    the Wayland socket and the X display Tk and krdp need."""
+    runtime = f"/run/user/{uid}"
+    env = {'XDG_RUNTIME_DIR': runtime,
+           'DBUS_SESSION_BUS_ADDRESS': f"unix:path={runtime}/bus"}
+    shown = ''
+    try:
+        shown = run_as(uid, None, ['systemctl', '--user', 'show-environment'], env,
+                       capture=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    for line in shown.splitlines():
+        key, _, value = line.partition('=')
+        if key in ('WAYLAND_DISPLAY', 'DISPLAY', 'XAUTHORITY', 'XDG_CURRENT_DESKTOP',
+                   'XDG_SESSION_TYPE', 'LANG', 'LC_ALL'):
+            env[key] = value
+    if 'WAYLAND_DISPLAY' not in env:
+        try:
+            socks = sorted(n for n in os.listdir(runtime)
+                           if re.match(r'^wayland-\d+$', n))
+            if socks:
+                env['WAYLAND_DISPLAY'] = socks[0]
+        except OSError:
+            pass
+    if 'XAUTHORITY' not in env:
+        try:
+            auth = sorted(n for n in os.listdir(runtime) if n.startswith('xauth_'))
+            if auth:
+                env['XAUTHORITY'] = os.path.join(runtime, auth[0])
+        except OSError:
+            pass
+    return env
+
+
+def _preexec():
+    try:
+        ctypes.CDLL(None).prctl(1, signal.SIGTERM)      # PR_SET_PDEATHSIG: die with us
+    except OSError:
+        pass
+
+
+def user_argv(uid, gid, argv):
+    """argv run as uid (through setpriv when that isn't us)."""
+    if uid == os.geteuid():
+        return list(argv)
+    prefix = ['setpriv', '--reuid', str(uid), '--regid', str(gid if gid is not None else uid),
+              '--init-groups', '--pdeathsig', 'TERM', '--']
+    return prefix + list(argv)
+
+
+def run_as(uid, gid, argv, env, capture=False, timeout=None):
+    full = dict(os.environ)
+    full.update(env)
+    if capture:
+        return subprocess.run(user_argv(uid, gid, argv), env=full, capture_output=True,
+                              text=True, timeout=timeout).stdout
+    return subprocess.Popen(user_argv(uid, gid, argv), env=full, stdin=subprocess.DEVNULL,
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
+                            preexec_fn=_preexec)
+
+
+# ─── the one-time server ──────────────────────────────────────
+
+def free_port():
+    with socket.socket() as s:
+        s.bind(('127.0.0.1', 0))
+        return s.getsockname()[1]
+
+
+def listening(port):
+    try:
+        with socket.create_connection(('127.0.0.1', port), timeout=0.5):
+            return True
+    except OSError:
+        return False
+
+
+def make_certificate(folder):
+    """A fresh self-signed certificate for this share only. Returns (cert, key, fingerprint)
+    with the SHA-256 fingerprint as lower-case hex pairs, colon-separated."""
+    cert, key = os.path.join(folder, 'server.crt'), os.path.join(folder, 'server.key')
+    subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt',
+                    'ec_paramgen_curve:prime256v1', '-nodes', '-keyout', key, '-out', cert,
+                    '-days', '1', '-subj', '/CN=spark-share', '-sha256'],
+                   check=True, capture_output=True, timeout=30)
+    shown = subprocess.run(['openssl', 'x509', '-in', cert, '-noout', '-fingerprint', '-sha256'],
+                           check=True, capture_output=True, text=True, timeout=30).stdout
+    found = re.search(r'=([0-9A-Fa-f:]{95})', shown)
+    if not found:
+        raise RuntimeError("couldn't read the certificate fingerprint")
+    return cert, key, found.group(1).lower()
+
+
+def krdp_argv(port, user, password, cert, key):
+    return [KRDP, '--plasma', '--address', '127.0.0.1', '--port', str(port),
+            '--mode', 'SharedAccess', '-u', user, '-p', password,
+            '--certificate', cert, '--certificate-key', key]
+
+
+# ─── control files ────────────────────────────────────────────
+
+def control_dir():
+    """Where the stop and hand-off files live: the person who ran us over SSH (SUDO_UID when
+    run through sudo), so they can reach files a root-run copy writes."""
+    uid = int(os.environ.get('SUDO_UID') or os.geteuid())
+    base = f"/run/user/{uid}"
+    if not os.path.isdir(base):
+        base = os.path.join(tempfile.gettempdir(), f"spark-share-{uid}")
+    path = os.path.join(base, 'spark-share')
+    os.makedirs(path, mode=0o700, exist_ok=True)
+    if os.geteuid() == 0:
+        try:
+            os.chown(path, uid, int(os.environ.get('SUDO_GID') or uid))
+        except OSError:
+            pass
+    return path
+
+
+def emit(obj):
+    sys.stdout.write(json.dumps(obj) + '\n')
+    sys.stdout.flush()
+
+
+def fail(reason, message, code=1):
+    emit({'ok': False, 'reason': reason, 'message': message})
+    return code
+
+
+# ─── request ──────────────────────────────────────────────────
+
+def ask(uid, gid, env, owner, pc, timeout=ASK_TIMEOUT_S):
+    """Show the prompt in the session; True only on a clear Allow."""
+    me = os.path.abspath(sys.argv[0])
+    try:
+        proc = run_as(uid, gid, [sys.executable, me, '_prompt', '--owner', owner, '--from', pc,
+                                 '--timeout', str(timeout)], env)
+    except OSError:
+        return False
+    try:
+        out, _ = proc.communicate(timeout=timeout + 5)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        return False
+    return proc.returncode == 0 and out.strip() == 'allow'
+
+
+def cmd_request(a):
+    is_root = os.geteuid() == 0
+    owner = clean_name(a.owner, "Someone")
+    pc = clean_name(a.pc, "another PC")
+    token = a.token or secrets.token_hex(8)
+    if not TOKEN.match(token):
+        return fail('bad_token', "the token should be 16 hex digits", 2)
+    if a.no_ask and not is_root:
+        return fail('needs_root', "--no-ask only works as root (run it with sudo)", 3)
+    if not (os.path.isfile(KRDP) and os.access(KRDP, os.X_OK)):
+        return fail('no_krdp', "krdpserver is not installed on this machine", 4)
+    hook = test_hook() if is_root else None
+
+    if hook and isinstance(hook.get('session'), dict):
+        s = hook['session']
+        session = {'User': str(s['uid']), 'Name': s.get('name', 'tester'),
+                   'LockedHint': 'yes' if s.get('locked') else 'no'}
+        gid = s.get('gid', s['uid'])
+        err = None
+    else:
+        session, err = pick_session(read_sessions(), a.user, os.geteuid(), is_root)
+        gid = None
+    if session is None:
+        if err == 'other_user':
+            return fail('other_user', "that session belongs to another user: sharing it "
+                        "needs sudo (Take control without asking)")
+        return fail('no_session', "nobody is logged in to a graphical session")
+    uid = int(session['User'])
+    locked = session.get('LockedHint') == 'yes'
+    env = session_env(uid)
+
+    if not a.no_ask:
+        if locked:
+            return fail('locked', "the screen is locked, so nobody can answer the prompt")
+        answer = (hook or {}).get('answer') if hook else None
+        if answer is None:
+            allowed = ask(uid, gid, env, owner, pc)
+        else:
+            allowed = answer == 'allow'
+        if not allowed:
+            return fail('denied', "the person at the screen didn't allow it (or didn't answer "
+                        f"in {ASK_TIMEOUT_S} s)", 5)
+
+    work = tempfile.mkdtemp(prefix='spark-share-', dir=env['XDG_RUNTIME_DIR']
+                            if os.path.isdir(env['XDG_RUNTIME_DIR']) else None)
+    os.chmod(work, 0o700)
+    ctl = control_dir()
+    stop_file = os.path.join(ctl, f"stop-{token}")
+    handoff_file = os.path.join(ctl, f"handoff-{token}.json")
+    procs = []
+    why = 'ended'
+    try:
+        if os.geteuid() == 0 and uid != 0:
+            os.chown(work, uid, gid if gid is not None else uid)
+        cert, key, fingerprint = make_certificate(work)
+        for p in (cert, key):
+            os.chmod(p, 0o600)
+            if os.geteuid() == 0 and uid != 0:
+                os.chown(p, uid, gid if gid is not None else uid)
+        port = free_port()
+        user = 'spark-' + secrets.token_hex(4)
+        password = secrets.token_urlsafe(18)
+        server = run_as(uid, gid, krdp_argv(port, user, password, cert, key), env)
+        procs.append(server)
+        deadline = time.monotonic() + 15
+        while time.monotonic() < deadline and not listening(port):
+            if server.poll() is not None:
+                break
+            time.sleep(0.2)
+        if not listening(port):
+            err_text = ''
+            if server.poll() is not None and server.stderr:
+                err_text = server.stderr.read()[-300:].strip()
+            return fail('no_server', "krdpserver didn't start" + (f": {err_text}" if err_text
+                                                                 else ""))
+        banner = None
+        if not (hook and hook.get('no_windows')):
+            try:
+                banner = run_as(uid, gid, [sys.executable, os.path.abspath(sys.argv[0]),
+                                           '_banner', '--owner', owner], env)
+                procs.append(banner)
+            except OSError:
+                banner = None
+        line = {'ok': True, 'port': port, 'user': user, 'password': password,
+                'fingerprint': 'sha256:' + fingerprint, 'mode': 'control', 'token': token,
+                'expires_s': MAX_SESSION_S, 'prompted': not a.no_ask,
+                'banner': banner is not None}
+        if a.handoff:
+            fd = os.open(handoff_file, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            with os.fdopen(fd, 'w') as f:
+                f.write(json.dumps(line) + '\n')
+            if os.geteuid() == 0:
+                try:
+                    os.chown(handoff_file, int(os.environ.get('SUDO_UID') or 0),
+                             int(os.environ.get('SUDO_GID') or 0))
+                except OSError:
+                    pass
+            print("Screen sharing is on. Leave this window open: closing it (or Ctrl+C) stops "
+                  "the share.", flush=True)
+        else:
+            emit(line)
+
+        gone = threading.Event()
+        if not a.handoff:
+            def watch_stdin():
+                try:
+                    while sys.stdin.read(4096):
+                        pass
+                except (OSError, ValueError):
+                    pass
+                gone.set()
+            threading.Thread(target=watch_stdin, daemon=True).start()
+        for sig in (signal.SIGTERM, signal.SIGHUP):
+            signal.signal(sig, lambda *_: gone.set())
+        started = time.monotonic()
+        while True:
+            if gone.is_set():
+                why = 'connection closed'
+            elif server.poll() is not None:
+                why = 'server ended'
+            elif banner is not None and banner.poll() is not None:
+                why = 'stopped from the banner'
+            elif os.path.exists(stop_file):
+                why = 'stopped from Spark Connect'
+            elif time.monotonic() - started > MAX_SESSION_S:
+                why = 'two hours passed'
+            else:
+                time.sleep(0.5)
+                continue
+            break
+        return 0
+    except KeyboardInterrupt:
+        why = 'interrupted'
+        return 0
+    except (OSError, subprocess.SubprocessError, RuntimeError) as exc:
+        return fail('error', str(exc))
+    finally:
+        for p in reversed(procs):
+            if p.poll() is None:
+                p.terminate()
+        for p in procs:
+            try:
+                p.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                p.kill()
+        shutil.rmtree(work, ignore_errors=True)
+        for path in (stop_file, handoff_file):
+            try:
+                os.unlink(path)
+            except OSError:
+                pass
+        print(f"spark-share: {why}", file=sys.stderr, flush=True)
+
+
+def cmd_stop(a):
+    if not TOKEN.match(a.token):
+        return fail('bad_token', "the token should be 16 hex digits", 2)
+    open(os.path.join(control_dir(), f"stop-{a.token}"), 'a').close()
+    return 0
+
+
+def cmd_handoff(a):
+    """Print and delete the JSON line a root-run request left for this user (the terminal
+    path of 'Take control without asking' when sudo wanted a password)."""
+    if not TOKEN.match(a.token):
+        return fail('bad_token', "the token should be 16 hex digits", 2)
+    path = os.path.join(control_dir(), f"handoff-{a.token}.json")
+    try:
+        with open(path, encoding='utf-8') as f:
+            text = f.read()
+        os.unlink(path)
+    except OSError:
+        return 1
+    sys.stdout.write(text)
+    return 0
+
+
+# ─── the windows: prompt and banner ───────────────────────────
+# BotWatch's palette, mono type, sharp corners, and the magenta/cyan channel slip.
+
+C = {"bg": "#04090b", "panel": "#0a1517", "hover": "#12292c", "line": "#143a3d",
+     "line2": "#1f6a66", "text": "#d4f1ec", "muted": "#6f9f98", "accent": "#3de8c8",
+     "on_accent": "#02130f", "pink": "#ff4d8d", "ch_a": "#ff2e88", "ch_b": "#22d8ff"}
+MONO = ("Cascadia Mono", "Cascadia Code", "JetBrains Mono", "Hack", "Noto Sans Mono",
+        "DejaVu Sans Mono", "Liberation Mono")
+
+
+def reduced_motion():
+    base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
+    try:
+        with open(os.path.join(base, 'kdeglobals'), encoding='utf-8', errors='replace') as f:
+            m = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
+        return bool(m) and float(m.group(1)) == 0
+    except (OSError, ValueError):
+        return False
+
+
+def _scale(root):
+    try:
+        return max(1.0, min(4.0, root.winfo_fpixels('1i') / 96))
+    except Exception:
+        return 1.0
+
+
+def _family(root):
+    import tkinter.font as tkfont
+    have = {f.lower(): f for f in tkfont.families(root)}
+    return next((have[f.lower()] for f in MONO if f.lower() in have), "TkFixedFont")
+
+
+class Slip:
+    """A heading with the two channels offset behind it. Tears 450 ms after it opens and every
+    7 to 12 s; with reduced motion only the static split stays."""
+
+    def __init__(self, tk, parent, text, font, wrap, scale, animate=True):
+        self.tk, self.text, self.font, self.px = tk, text, font, scale
+        self.canvas = tk.Canvas(parent, bg=C["panel"], highlightthickness=0, bd=0)
+        self.wrap = wrap
+        self.items = [self.canvas.create_text(0, 0, text=text, font=font, anchor="nw",
+                                              fill=colour, width=wrap)
+                      for colour in (C["ch_a"], C["ch_b"], C["text"])]
+        box = self.canvas.bbox(self.items[2])
+        self.w, self.h = box[2] - box[0], box[3] - box[1]
+        self.pad = int(5 * scale)
+        self.canvas.config(width=self.w + 2 * self.pad, height=self.h + 2 * self.pad)
+        self.place(2, 2)
+        self.animate = animate
+        if animate:
+            self.canvas.after(450, self.tear)
+
+    def place(self, a, b):
+        p = self.pad
+        for item, dx in zip(self.items, (-a, b, 0)):
+            self.canvas.coords(item, p + dx * self.px, p)
+
+    def tear(self):
+        try:
+            self.place(5, 5)
+            self.canvas.after(120, lambda: self.place(2, 2))
+            import random
+            self.canvas.after(random.randint(7000, 12000), self.tear)
+        except self.tk.TclError:
+            pass
+
+
+def button(tk, parent, text, family, scale, command, primary):
+    px = lambda v: int(round(v * scale))   # noqa: E731
+    edge = C["accent"] if primary else C["line2"]
+    border = tk.Frame(parent, bg=edge, padx=1, pady=1)
+    label = tk.Label(border, text=text, bg=C["accent"] if primary else C["bg"],
+                     fg=C["on_accent"] if primary else C["text"], font=(family, 9, "bold"),
+                     padx=px(16), pady=px(6), cursor="hand2", takefocus=1)
+    label.pack()
+    label.bind("<ButtonRelease-1>", lambda _e: command())
+    label.bind("<space>", lambda _e: command())
+    label.bind("<Return>", lambda _e: command())
+    label.bind("<Enter>", lambda _e: border.config(bg=C["ch_b"]))
+    label.bind("<Leave>", lambda _e: border.config(bg=edge))
+    label.bind("<FocusIn>", lambda _e: border.config(bg=C["ch_b"]))
+    label.bind("<FocusOut>", lambda _e: border.config(bg=edge))
+    return border, label
+
+
+def build_prompt(tk, root, owner, pc, timeout, on_answer):
+    """The approval prompt. Returns the window's widgets for tests. Deny is the default."""
+    family, scale = _family(root), _scale(root)
+    px = lambda v: int(round(v * scale))   # noqa: E731
+    root.title("Spark Share")
+    root.configure(bg=C["line"])
+    root.resizable(False, False)
+    inner = tk.Frame(root, bg=C["panel"])
+    inner.pack(fill="both", expand=True, padx=1, pady=1)
+    tk.Frame(inner, bg=C["pink"], height=px(2)).pack(fill="x")
+    body = tk.Frame(inner, bg=C["panel"])
+    body.pack(fill="both", expand=True, padx=px(20), pady=(px(16), px(8)))
+    kicker = tk.Label(body, text="● " + t('prompt.kicker'), bg=C["panel"], fg=C["pink"],
+                      font=(family, 7, "bold"), anchor="w")
+    kicker.pack(fill="x")
+    slip = Slip(tk, body, t('prompt.title', owner=owner), (family, 13, "bold"), px(460), scale,
+                animate=not reduced_motion())
+    slip.canvas.pack(anchor="w", pady=(px(6), 0))
+    tk.Label(body, text=t('prompt.body', pc=pc), bg=C["panel"], fg=C["text"],
+             font=(family, 9), anchor="w", justify="left", wraplength=px(460)).pack(
+                 fill="x", pady=(px(8), 0))
+    wait = tk.Label(body, text="", bg=C["panel"], fg=C["muted"], font=(family, 8),
+                    anchor="w", justify="left", wraplength=px(460))
+    wait.pack(fill="x", pady=(px(8), 0))
+    row = tk.Frame(inner, bg=C["panel"])
+    row.pack(fill="x", padx=px(20), pady=(px(6), px(16)))
+    allow_b, allow = button(tk, row, t('prompt.allow'), family, scale,
+                            lambda: on_answer('allow'), False)
+    deny_b, deny = button(tk, row, t('prompt.deny'), family, scale,
+                          lambda: on_answer('deny'), True)
+    allow_b.pack(side="right", padx=(px(8), 0))
+    deny_b.pack(side="right")
+    left = [timeout]
+    job = [None]
+
+    def tick():
+        wait.config(text=t('prompt.wait', n=left[0]))
+        if left[0] <= 0:
+            on_answer('deny')
+            return
+        left[0] -= 1
+        job[0] = root.after(1000, tick)
+
+    def _cancel(e, job=job):
+        if e.widget is root and job[0]:
+            try:
+                root.after_cancel(job[0])
+            except tk.TclError:
+                pass
+    root.bind("<Destroy>", _cancel, add="+")
+    tick()
+    root.bind("<Escape>", lambda _e: on_answer('deny'))
+    root.protocol("WM_DELETE_WINDOW", lambda: on_answer('deny'))
+    root.update_idletasks()
+    x = (root.winfo_screenwidth() - root.winfo_reqwidth()) // 2
+    y = (root.winfo_screenheight() - root.winfo_reqheight()) // 3
+    root.geometry(f"+{max(0, x)}+{max(0, y)}")
+    try:
+        root.attributes('-topmost', True)
+    except tk.TclError:
+        pass
+    deny.focus_force()
+    return {'kicker': kicker, 'slip': slip, 'wait': wait, 'allow': allow, 'deny': deny}
+
+
+def build_banner(tk, root, owner, on_stop, started=None):
+    """The banner: always on top, no title bar to close, a Stop button. Returns widgets."""
+    family, scale = _family(root), _scale(root)
+    px = lambda v: int(round(v * scale))   # noqa: E731
+    started = started or time.monotonic()
+    root.title("Spark Share")
+    root.configure(bg=C["pink"])
+    try:
+        root.overrideredirect(True)
+    except tk.TclError:
+        pass
+    inner = tk.Frame(root, bg=C["panel"])
+    inner.pack(fill="both", expand=True, padx=1, pady=(0, 1))
+    tk.Frame(inner, bg=C["ch_a"], height=px(2)).pack(fill="x")
+    row = tk.Frame(inner, bg=C["panel"])
+    row.pack(fill="x", padx=px(12), pady=px(6))
+    tk.Label(row, text="●", bg=C["panel"], fg=C["pink"], font=(family, 9, "bold")).pack(
+        side="left")
+    text = tk.Label(row, text=t('banner.text', owner=owner), bg=C["panel"], fg=C["text"],
+                    font=(family, 9, "bold"))
+    text.pack(side="left", padx=(px(8), px(12)))
+    clock = tk.Label(row, text="", bg=C["panel"], fg=C["muted"], font=(family, 8))
+    clock.pack(side="left", padx=(0, px(12)))
+    stop_b, stop = button(tk, row, t('banner.stop'), family, scale, on_stop, True)
+    stop_b.pack(side="left")
+    job = [None]
+
+    def tick():
+        clock.config(text=t('banner.time', m=int((time.monotonic() - started) // 60)))
+        try:
+            root.attributes('-topmost', True)
+            root.lift()
+        except tk.TclError:
+            return
+        job[0] = root.after(1500, tick)
+
+    def _cancel(e, job=job):
+        if e.widget is root and job[0]:
+            try:
+                root.after_cancel(job[0])
+            except tk.TclError:
+                pass
+    root.bind("<Destroy>", _cancel, add="+")
+    tick()
+    root.update_idletasks()
+    x = (root.winfo_screenwidth() - root.winfo_reqwidth()) // 2
+    root.geometry(f"+{max(0, x)}+0")
+    return {'text': text, 'clock': clock, 'stop': stop}
+
+
+def cmd_prompt(a):
+    import tkinter as tk
+    root = tk.Tk(className="SparkShare")
+    result = ['deny']
+
+    def answer(value):
+        result[0] = value
+        root.destroy()
+
+    build_prompt(tk, root, clean_name(a.owner, "Someone"), clean_name(a.pc, "another PC"),
+                 a.timeout, answer)
+    root.mainloop()
+    print(result[0], flush=True)
+    return 0
+
+
+def cmd_banner(a):
+    import tkinter as tk
+    root = tk.Tk(className="SparkShare")
+    build_banner(tk, root, clean_name(a.owner, "Someone"), root.destroy)
+    root.mainloop()
+    return 0
+
+
+# ─── self-test ────────────────────────────────────────────────
+
+def self_test():
+    """Checks what a share needs is here. Starts nothing and shows nothing."""
+    failures = []
+    print(f"spark-share {VERSION} self-test")
+    if os.path.isfile(KRDP) and os.access(KRDP, os.X_OK):
+        print(f"krdpserver:  {KRDP}")
+    else:
+        print(f"krdpserver:  MISSING ({KRDP})")
+        failures.append('krdpserver')
+    try:
+        with open(KRDP_DESKTOP, encoding='utf-8') as f:
+            granted = re.search(r'^X-KDE-Wayland-Interfaces=(.*)$', f.read(), re.M)
+        have = (granted.group(1) if granted else '').split(',')
+        missing = [i for i in NEEDED_INTERFACES if i not in have]
+        if missing:
+            print(f"--plasma:    NOT granted: {', '.join(missing)}")
+            failures.append('interfaces')
+        else:
+            print("--plasma:    krdpserver is granted " + ', '.join(NEEDED_INTERFACES))
+    except OSError:
+        print(f"--plasma:    MISSING ({KRDP_DESKTOP})")
+        failures.append('desktop file')
+    for tool in ('openssl', 'loginctl'):
+        path = shutil.which(tool)
+        print(f"{tool + ':':12s} {path or 'NOT FOUND'}")
+        if not path:
+            failures.append(tool)
+    print(f"setpriv:     {shutil.which('setpriv') or 'not found (only your own session can be shared)'}")
+    try:
+        import tkinter
+        print(f"tkinter:     Tk {tkinter.TkVersion}")
+    except ImportError as exc:
+        print(f"tkinter:     MISSING ({exc})")
+        failures.append('tkinter')
+    if failures:
+        print("FAILED: " + ", ".join(failures))
+        return 1
+    print("self-test passed")
+    return 0
+
+
+def main(argv=None):
+    p = argparse.ArgumentParser(prog='spark-share', description=__doc__.split('\n\n')[0])
+    p.add_argument('--version', action='version', version=f"spark-share {VERSION}")
+    p.add_argument('--self-test', action='store_true',
+                   help="check krdpserver and what it needs; shares nothing")
+    sub = p.add_subparsers(dest='cmd')
+    r = sub.add_parser('request', help="ask the person at the screen, then share it")
+    r.add_argument('--control', action='store_true', help="see and control (the only mode)")
+    r.add_argument('--from', dest='pc', default='', help="the PC asking")
+    r.add_argument('--owner', default='', help="who is asking")
+    r.add_argument('--token', default='')
+    r.add_argument('--user', default=None, help="share this user's session (needs root)")
+    r.add_argument('--no-ask', action='store_true', help="skip the prompt (root only)")
+    r.add_argument('--handoff', action='store_true',
+                   help="leave the JSON line in a file for `spark-share handoff` instead of "
+                        "printing it (when run in a terminal under sudo)")
+    s = sub.add_parser('stop')
+    s.add_argument('token')
+    h = sub.add_parser('handoff')
+    h.add_argument('token')
+    for name in ('_prompt', '_banner'):
+        x = sub.add_parser(name)
+        x.add_argument('--owner', default='')
+        x.add_argument('--from', dest='pc', default='')
+        x.add_argument('--timeout', type=int, default=ASK_TIMEOUT_S)
+    a = p.parse_args(argv)
+    if a.self_test:
+        return self_test()
+    if a.cmd == 'request':
+        return cmd_request(a)
+    if a.cmd == 'stop':
+        return cmd_stop(a)
+    if a.cmd == 'handoff':
+        return cmd_handoff(a)
+    if a.cmd == '_prompt':
+        return cmd_prompt(a)
+    if a.cmd == '_banner':
+        return cmd_banner(a)
+    p.print_help()
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main())
