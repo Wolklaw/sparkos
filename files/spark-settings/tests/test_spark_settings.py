@@ -16,6 +16,10 @@ ROOT = os.path.dirname(HERE)
 FIX = os.path.join(HERE, 'fixtures')
 sys.path.insert(0, ROOT)
 
+# the fake tools must be executable even where a checkout dropped the mode bit
+for _f in glob.glob(os.path.join(FIX, 'bin', '*')):
+    os.chmod(_f, 0o755)
+
 _tmp = tempfile.mkdtemp(prefix='spark-settings-test-')
 LOG = os.path.join(_tmp, 'calls.log')
 os.environ.update({
