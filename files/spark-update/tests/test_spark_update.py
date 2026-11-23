@@ -308,13 +308,6 @@ class ReleaseTests(unittest.TestCase):
         self.assertEqual(kinds[t('platform.kernel')], ('changed', '6.17.7', '6.17.8'))
         self.assertTrue(all(c.kind == 'added' for c in release.diff(None, new)))
 
-    def test_base_shows_its_kind(self):
-        old = manifest(A_VER, '0.2.0', '1.0.0', '6.17.7')
-        new = manifest(B_VER, '0.2.0', '1.0.0', '6.17.7')
-        old['platform'].append({'id': 'base', 'name': 'Bazzite base', 'version': '45.20261123'})
-        new['platform'].append({'id': 'base', 'name': 'Fedora base', 'version': '45'})
-        base = [c for c in release.diff(old, new) if c.name == t('platform.base')][0]
-        self.assertEqual((base.old, base.new), ('Bazzite 45.20261123', 'Fedora 45'))
 
 
 def note(nid, day):

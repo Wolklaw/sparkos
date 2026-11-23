@@ -14,12 +14,6 @@
       "fr": "Spark Terminal : Ctrl+C copie le texte sélectionné (sans sélection, il arrête toujours la commande en cours) et Ctrl+V colle. Désactivable dans ses réglages."
     },
     {
-      "id": "2026-11-23-fedora-base",
-      "date": "2026-11-23",
-      "en": "SparkOS is built on Fedora Kinoite alone: the Bazzite base is gone.",
-      "fr": "SparkOS est construit sur Fedora Kinoite seulement : la base Bazzite n'est plus là."
-    },
-    {
       "id": "2026-11-23-spark-controller",
       "date": "2026-11-23",
       "en": "New: Spark Controller, for fan curves, RGB lighting and firmware updates.",

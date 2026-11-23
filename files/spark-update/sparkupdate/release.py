@@ -156,7 +156,6 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
     """Read what's in the SparkOS files under root. notes: the release notes this version
     ships (read_notes); None leaves them out (a version read from its files has none)."""
     osr = _os_release(root)
-    info = _json(os.path.join(root, 'usr', 'share', 'ublue-os', 'image-info.json')) or {}
     components: List[Dict[str, str]] = []
     soot = _read(os.path.join(root, 'usr', 'lib', 'soot', 'SOOT_RELEASE'))
     if soot and soot.strip():
@@ -169,11 +168,7 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
     components += _spark_apps(root)
 
     platform: List[Dict[str, str]] = []
-    base = str(info.get('version') or '') if isinstance(info, dict) else ''
-    if base:   # Bazzite's image-info.json: an image from before 2026-11-23
-        # (the window shows "Base system: Bazzite 45.2026... -> Fedora 45", base_version)
-        platform.append({'id': 'base', 'name': 'Bazzite base', 'version': base})
-    elif osr.get('ID') == 'fedora' and osr.get('VERSION_ID'):
+    if osr.get('ID') == 'fedora' and osr.get('VERSION_ID'):
         platform.append({'id': 'base', 'name': 'Fedora base', 'version': osr['VERSION_ID']})
     kernel = _kernel(root)
     if kernel:
@@ -242,20 +237,9 @@ def diff(old: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]]) -> List[C
             name = (b or a).get('name', cid)
             if group == 'platform' and f'platform.{cid}' in EN:
                 name = t(f'platform.{cid}')          # release.json has the English name
-            old_v, new_v = (str((x or {}).get('version', '')) for x in (a, b))
-            if group == 'platform' and cid == 'base':
-                old_v, new_v = base_version(a), base_version(b)
-            changes.append(Change(name=name, old=old_v, new=new_v, group=group))
+            changes.append(Change(name=name, old=str((a or {}).get('version', '')),
+                                  new=str((b or {}).get('version', '')), group=group))
     return changes
-
-
-def base_version(part: Optional[Dict[str, Any]]) -> str:
-    """'Fedora 45' from {'name': 'Fedora base', 'version': '45'}: the base's own name goes
-    with its version, so moving from Bazzite to Fedora doesn't read as Bazzite 45 -> 45."""
-    if not part or not part.get('version'):
-        return ''
-    kind = str(part.get('name') or '').replace(' base', '').strip()
-    return f"{kind} {part['version']}".strip()
 
 
 def notes_of(data: Optional[Dict[str, Any]]) -> Optional[List[Dict[str, str]]]:
