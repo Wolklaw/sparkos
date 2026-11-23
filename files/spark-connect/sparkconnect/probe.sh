@@ -4,8 +4,10 @@
 # What it reads: /proc (uptime, load, CPU, memory, network counters), /sys (temperatures),
 # df, ss (the tunnel's connections), systemctl show and journalctl for the units named below,
 # the list of failed units, and, on a failover standby, the names, dates and first lines of
-# the newest incident files and the last lines of the network monitor's log. It reads no
-# other file: no keys, no credentials, no configuration.
+# the newest incident files and the last lines of the network monitor's log, the reboot flag
+# (/var/run/reboot-required and its .pkgs list) and update-notifier's count of waiting updates
+# (/var/lib/update-notifier/updates-available). It reads no other file: no keys, no
+# credentials, no configuration.
 #
 # Spark Connect puts these settings above this comment (each one quoted for sh); with none set
 # the probe still runs and reports the machine itself:
@@ -101,6 +103,29 @@ awk -F'[: ]+' 'NR>2 {o=($1==""?1:0); i=$(1+o);
   /proc/net/dev 2>/dev/null
 printf '],'
 
+# packages: which package manager, whether an update waits on a reboot, and how many updates wait.
+# Ubuntu and Debian create /var/run/reboot-required (and .pkgs, the packages that asked) when an
+# update needs one. The update count is update-notifier's cached summary, the same text the login
+# message shows; apt-check itself takes seconds, too slow for every refresh.
+pm=
+if have apt-get; then pm=apt; elif have dnf; then pm=dnf; fi
+reboot=null
+if [ -f /var/run/reboot-required ]; then
+  since=$(stat -c %Y /var/run/reboot-required 2>/dev/null)
+  reboot="{\"since\":$(num "$since"),\"pkgs\":$(sort -u /var/run/reboot-required.pkgs 2>/dev/null \
+    | sed '/^$/d' | head -n 20 | lines)}"
+fi
+ua=/var/lib/update-notifier/updates-available
+n= ; sec=
+if [ -r $ua ]; then
+  n=$(sed -n -E 's/^ *([0-9]+) updates? can be applied immediately.*/\1/p' $ua | head -n 1)
+  sec=$(sed -n -E 's/^ *([0-9]+) of these updates (is|are) .*security update.*/\1/p' $ua \
+    | head -n 1)
+  [ -n "$n" ] && [ -z "$sec" ] && sec=0
+fi
+printf '"packages":{"manager":%s,"reboot":%s,"updates":%s,"security":%s},' \
+  "$(str "$pm")" "$reboot" "$(num "$n")" "$(num "$sec")"
+
 # ─── units ────────────────────────────────────────────────────
 # unit SCOPE NAME: one JSON object. SCOPE is system or user.
 unit() {
@@ -148,8 +173,22 @@ state_of() {   # active state of user:NAME or system:NAME
 if [ -n "$SC_TUNNEL" ]; then
   t=$(name_of "$SC_TUNNEL")
   conns=
-  # QUIC tunnels hold UDP sockets, older ones TCP; ss shows the owner only for your processes
-  if have ss; then conns=$(ss -Htunp 2>/dev/null | grep -c "\"$t\"" ); fi
+  if [ "$(scope_of "$SC_TUNNEL")" = user ] || [ "$(id -u)" = 0 ]; then
+    # QUIC tunnels hold UDP sockets, older ones TCP; ss shows a socket's owner only for your
+    # own processes, which a user unit is
+    if have ss; then conns=$(ss -Htunp 2>/dev/null | grep -c "\"$t\"" ); fi
+  elif have curl && have journalctl; then
+    # A system unit runs as someone else, so ss can't tell its sockets apart. Ask cloudflared:
+    # its metrics server's /ready gives readyConnections. The address is in the unit's log.
+    # If the log can't be read, the count stays unknown rather than a false 0.
+    addr=$(journalctl -u "$t" -b -o cat --no-pager 2>/dev/null \
+      | sed -n 's/.*[Ss]tarting metrics server on \([0-9.:]*\).*/\1/p' | tail -n 1)
+    case $addr in
+      127.0.0.1:*|localhost:*)
+        conns=$(curl -s -m 3 "http://$addr/ready" 2>/dev/null \
+          | sed -n 's/.*"readyConnections":\([0-9]*\).*/\1/p') ;;
+    esac
+  fi
   printf '"tunnel":{"unit":%s,"active":%s,"connections":%s},' \
     "$(str "$SC_TUNNEL")" "$(str "$(state_of "$SC_TUNNEL")")" "$(num "$conns")"
 else

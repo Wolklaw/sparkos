@@ -143,6 +143,34 @@ class SshTransport:
         return ActionResult(FAILED, err.splitlines()[-1] if err else
                             f"exited with {done.returncode}")
 
+    def reboot(self, machine: Machine) -> ActionResult:
+        """Reboot a machine whose config allows it, through sudo -n: if sudo wants a password,
+        nothing runs and the outcome says so. The connection may drop as the machine goes
+        down; that counts as done."""
+        if 'reboot' not in machine.allow:
+            return ActionResult(REFUSED, "reboot is not allowed in the config")
+        log.info("%s: reboot", machine.name)
+        try:
+            done = self._run(machine, 'sudo -n systemctl reboot', timeout=30)
+        except subprocess.TimeoutExpired:
+            return ActionResult(DONE, "no answer in 30 s; it is probably going down")
+        except OSError as exc:
+            return ActionResult(FAILED, str(exc))
+        err = (done.stderr or '').strip()
+        low = err.lower()
+        if done.returncode == 0:
+            return ActionResult(DONE)
+        if 'password is required' in low or 'terminal is required' in low or 'askpass' in low:
+            return ActionResult(NEEDS_PASSWORD, err)
+        if done.returncode == 255 and ('closed by remote host' in low
+                                       or 'connection reset' in low or 'broken pipe' in low):
+            return ActionResult(DONE)
+        if done.returncode == 255:
+            _problem, message, _ = classify_ssh_failure(255, err)
+            return ActionResult(FAILED, message)
+        return ActionResult(FAILED, err.splitlines()[-1] if err else
+                            f"exited with {done.returncode}")
+
     def tail(self, machine: Machine, scope: str, unit: str, on_line: Callable[[str], None],
              lines: int = 200) -> 'Tail':
         remote = ((USER_ENV + "journalctl --user " if scope == USER else "journalctl ") +

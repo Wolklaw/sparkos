@@ -62,6 +62,15 @@ EN = {
     'verdict.memory_low': "Memory nearly full ({pct} free)",
     'verdict.hot': "Running hot: {c}",
     'verdict.check_failed': "Health check {name}: {why}",
+    'verdict.reboot_kernel': "Reboot needed: kernel update waiting since {day}",
+    'verdict.reboot_pkgs': "Reboot needed for {pkgs}, waiting since {day}",
+    'verdict.reboot_needed': "Reboot needed, waiting since {day}",
+    'verdict.rebooting': "Rebooting (sent at {since})",
+    'health.updates': "Updates",
+    'health.updates_n': "{n} waiting, {security} security",
+    'health.updates_none': "up to date",
+    'health.reboot': "Reboot",
+    'health.reboot_needed': "needed since {day} ({pkgs})",
 
     # machine view
     'tab.services': "Services",
@@ -144,6 +153,10 @@ EN = {
     'action.failback': "Failback…",
     'action.failback_open': "Open terminal",
     'action.cancel': "Cancel",
+    'action.update': "Update…",
+    'action.update_open': "Open terminal",
+    'action.reboot': "Reboot",
+    'action.reboot_menu': "Reboot…",
     'confirm.restart_title': "Restart {unit} on {machine}?",
     'confirm.restart_body': "This restarts {unit} on {machine}. It stops for a moment and "
                             "starts again.",
@@ -175,6 +188,32 @@ EN = {
     'result.failed': "Restarting {unit} on {machine} didn't work:\n{message}",
     'result.no_terminal': "No terminal program found (Spark Terminal, Konsole, xterm…).",
     'result.no_terminal_title': "No terminal",
+    'confirm.update_title': "Update {machine}?",
+    'confirm.update_body': "Opens a terminal on {machine} and installs the waiting updates. The "
+                           "package manager lists them and asks before it changes anything.",
+    'confirm.update_count': "Waiting: {n} updates, {security} of them security.",
+    'confirm.update_touches': "Touches: the system packages. Services whose packages change "
+                              "restart on their own. Leave the window open until it finishes; "
+                              "sudo may ask for your password there.",
+    'confirm.reboot_title': "Reboot {machine}?",
+    'confirm.reboot_body': "This restarts the whole machine. Everything on {machine} stops "
+                           "until it is back, usually a minute or two.",
+    'confirm.reboot_sites': "These sites are down until it is back: {sites}",
+    'confirm.reboot_touches': "Touches: every service on {machine}.",
+    'confirm.reboot_standby': "{standby} watches {machine} and may take over while it is down. "
+                              "Once {machine} is back, use Failback on {standby} to hand the "
+                              "sites back.",
+    'confirm.reboot_sudo': "Goes through sudo -n: if sudo asks for a password, nothing runs and "
+                           "Spark Connect offers a terminal instead.",
+    'result.reboot_password': "sudo on {machine} asks for a password to reboot, so nothing "
+                              "ran. Spark Connect doesn't type passwords. Open a terminal to "
+                              "do it?",
+    'result.reboot_failed_title': "Reboot failed",
+    'result.reboot_failed': "Rebooting {machine} didn't work:\n{message}",
+    'status.rebooting': "REBOOTING {machine}",
+    'result.update_unknown_title': "No package manager yet",
+    'result.update_unknown': "Spark Connect doesn't know {machine}'s package manager yet (apt "
+                             "or dnf). Wait for a refresh, or update it from a terminal.",
 
     # alerts
     'alert.back': "Back to normal: {text}",
@@ -236,6 +275,15 @@ FR = {
     'verdict.memory_low': "Mémoire presque pleine ({pct} libre)",
     'verdict.hot': "Température élevée : {c}",
     'verdict.check_failed': "Vérification {name} : {why}",
+    'verdict.reboot_kernel': "Redémarrage requis : noyau mis à jour, en attente depuis le {day}",
+    'verdict.reboot_pkgs': "Redémarrage requis pour {pkgs}, en attente depuis le {day}",
+    'verdict.reboot_needed': "Redémarrage requis, en attente depuis le {day}",
+    'verdict.rebooting': "Redémarrage (envoyé à {since})",
+    'health.updates': "Mises à jour",
+    'health.updates_n': "{n} en attente, {security} de sécurité",
+    'health.updates_none': "à jour",
+    'health.reboot': "Redémarrage",
+    'health.reboot_needed': "requis depuis le {day} ({pkgs})",
 
     'tab.services': "Services",
     'tab.health': "État",
@@ -317,6 +365,10 @@ FR = {
     'action.failback': "Retour…",
     'action.failback_open': "Ouvrir le terminal",
     'action.cancel': "Annuler",
+    'action.update': "Mettre à jour…",
+    'action.update_open': "Ouvrir le terminal",
+    'action.reboot': "Redémarrer",
+    'action.reboot_menu': "Redémarrer…",
     'confirm.restart_title': "Redémarrer {unit} sur {machine} ?",
     'confirm.restart_body': "Ceci redémarre {unit} sur {machine}. Il s'arrête un instant puis "
                             "repart.",
@@ -349,6 +401,34 @@ FR = {
     'result.failed': "Le redémarrage de {unit} sur {machine} n'a pas marché :\n{message}",
     'result.no_terminal': "Aucun terminal trouvé (Spark Terminal, Konsole, xterm…).",
     'result.no_terminal_title': "Pas de terminal",
+    'confirm.update_title': "Mettre à jour {machine} ?",
+    'confirm.update_body': "Ouvre un terminal sur {machine} et installe les mises à jour en "
+                           "attente. Le gestionnaire de paquets les liste et demande avant de "
+                           "changer quoi que ce soit.",
+    'confirm.update_count': "En attente : {n} mises à jour, dont {security} de sécurité.",
+    'confirm.update_touches': "Touche : les paquets du système. Les services dont les paquets "
+                              "changent redémarrent d'eux-mêmes. Laissez la fenêtre ouverte "
+                              "jusqu'à la fin ; sudo peut y demander votre mot de passe.",
+    'confirm.reboot_title': "Redémarrer {machine} ?",
+    'confirm.reboot_body': "Ceci redémarre toute la machine. Tout s'arrête sur {machine} "
+                           "jusqu'à son retour, d'habitude une minute ou deux.",
+    'confirm.reboot_sites': "Ces sites sont coupés jusqu'à son retour : {sites}",
+    'confirm.reboot_touches': "Touche : tous les services de {machine}.",
+    'confirm.reboot_standby': "{standby} surveille {machine} et peut prendre le relais pendant "
+                              "la coupure. Au retour de {machine}, utilisez Retour sur "
+                              "{standby} pour lui rendre les sites.",
+    'confirm.reboot_sudo': "Passe par sudo -n : si sudo demande un mot de passe, rien n'est "
+                           "lancé et Spark Connect propose un terminal.",
+    'result.reboot_password': "sudo sur {machine} demande un mot de passe pour redémarrer, "
+                              "donc rien n'a été lancé. Spark Connect ne tape pas de mot de "
+                              "passe. Ouvrir un terminal pour le faire ?",
+    'result.reboot_failed_title': "Le redémarrage a échoué",
+    'result.reboot_failed': "Le redémarrage de {machine} n'a pas marché :\n{message}",
+    'status.rebooting': "{machine} REDÉMARRE",
+    'result.update_unknown_title': "Gestionnaire de paquets inconnu",
+    'result.update_unknown': "Spark Connect ne connaît pas encore le gestionnaire de paquets de "
+                             "{machine} (apt ou dnf). Attendez une actualisation, ou faites la "
+                             "mise à jour dans un terminal.",
 
     'alert.back': "Revenu à la normale : {text}",
 }
@@ -371,4 +451,6 @@ def verdict_text(problem) -> str:
         args['pct'] = core.pct(args['pct'])
     if 'c' in args:
         args['c'] = core.temp(args['c'])
+    if 'day' in args:
+        args['day'] = core.date(args['day'])
     return local_units(t('verdict.' + problem.key, **args))

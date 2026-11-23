@@ -32,6 +32,11 @@ RANK = {DOWN: 0, BAD: 1, WARN: 2, OK: 3}
 DISK_WARN, DISK_BAD = 90.0, 95.0
 MEM_WARN = 5.0                      # % available
 TEMP_WARN = 85.0
+# Readings outside this range come from sensor slots with nothing behind them (a Dell OptiPlex's
+# dell_smm reports 126 °C on an unused one) and would raise a false "running hot".
+TEMP_PLAUSIBLE = (-40.0, 120.0)
+# how long a machine Spark Connect told to reboot may stay silent before it counts as down
+REBOOT_GRACE_S = 600.0
 
 
 _START = re.compile(r'\{\s*"probe"')
@@ -106,6 +111,7 @@ def parse_probe(text: str) -> Dict[str, Any]:
                                                   'swap_free')},
         'disks': [], 'temps': [], 'net': [], 'units': [], 'failed': [],
         'tunnel': None, 'failover': None, 'local_checks': [],
+        'packages': {'manager': '', 'reboot': None, 'updates': None, 'security': None},
     }
     for d in raw.get('disks') or []:
         if isinstance(d, dict) and _num(d.get('size')):
@@ -116,8 +122,9 @@ def parse_probe(text: str) -> Dict[str, Any]:
             data['disks'].append({'mount': _text(d.get('mount')), 'size': size, 'used': used,
                                   'free': free, 'pct': 100.0 * used / total if total else None})
     for tmp in raw.get('temps') or []:
-        if isinstance(tmp, dict) and _num(tmp.get('c')) is not None:
-            data['temps'].append({'name': _text(tmp.get('name')).strip(), 'c': _num(tmp['c'])})
+        c = _num(tmp.get('c')) if isinstance(tmp, dict) else None
+        if c is not None and TEMP_PLAUSIBLE[0] <= c <= TEMP_PLAUSIBLE[1]:
+            data['temps'].append({'name': _text(tmp.get('name')).strip(), 'c': c})
     for n in raw.get('net') or []:
         if isinstance(n, dict) and n.get('iface'):
             data['net'].append({'iface': _text(n['iface']), 'rx': _num(n.get('rx')),
@@ -151,6 +158,18 @@ def parse_probe(text: str) -> Dict[str, Any]:
                            'first_line': _text(i.get('first_line'))}
                           for i in (fo.get('incidents') or []) if isinstance(i, dict)],
             'netmon': [x for x in (fo.get('netmon') or []) if isinstance(x, str)],
+        }
+    pk = raw.get('packages')
+    if isinstance(pk, dict):
+        manager = _text(pk.get('manager'))
+        rb = pk.get('reboot')
+        data['packages'] = {
+            'manager': manager if manager in ('apt', 'dnf') else '',
+            'reboot': {'since': _num(rb.get('since')),
+                       'pkgs': [_text(x) for x in (rb.get('pkgs') or []) if isinstance(x, str)]}
+            if isinstance(rb, dict) else None,
+            'updates': _num(pk.get('updates')),
+            'security': _num(pk.get('security')),
         }
     for c in raw.get('local_checks') or []:
         if isinstance(c, dict) and c.get('name'):
@@ -223,10 +242,16 @@ def _pick(lines: List[str], words: Tuple[str, ...]) -> str:
 # ─── The verdict ──────────────────────────────────────────────
 
 def problems(machine: Machine, result: Optional[Result],
-             down_since: Optional[float] = None) -> List[Problem]:
-    """Everything wrong with one machine, worst first. Empty means all good."""
+             down_since: Optional[float] = None,
+             rebooting_since: Optional[float] = None) -> List[Problem]:
+    """Everything wrong with one machine, worst first. Empty means all good. rebooting_since:
+    when Spark Connect sent this machine a reboot; for REBOOT_GRACE_S after it, not answering
+    is the reboot, not an outage."""
     if result is None:
         return [Problem(WARN, 'waiting')]
+    if not result.ok and rebooting_since is not None \
+            and result.at - rebooting_since < REBOOT_GRACE_S:
+        return [Problem(WARN, 'rebooting', {'since': rebooting_since})]
     if not result.ok:
         key = {TIMEOUT: 'unreachable', UNREACHABLE: 'unreachable',
                HOSTKEY_CHANGED: 'hostkey_changed', HOSTKEY_UNKNOWN: 'hostkey_unknown',
@@ -290,6 +315,9 @@ def problems(machine: Machine, result: Optional[Result],
     hottest = max((t['c'] for t in data.get('temps', [])), default=None)
     if hottest is not None and hottest >= TEMP_WARN:
         found.append(Problem(WARN, 'hot', {'c': hottest}))
+    reboot = data.get('packages', {}).get('reboot')
+    if reboot is not None:
+        found.append(reboot_problem(reboot))
     for c in data.get('local_checks', []):
         if c['error'] or c['status'] is None:
             found.append(Problem(BAD, 'check_failed', {'name': c['name'],
@@ -299,6 +327,20 @@ def problems(machine: Machine, result: Optional[Result],
                                                         'why': f"HTTP {int(c['status'])}"}))
     found.sort(key=lambda p: RANK[p.level])
     return found
+
+
+def reboot_problem(reboot: Dict[str, Any]) -> Problem:
+    """An update that waits on a reboot: a kernel, or the packages that asked (libc6 and the
+    like, which every running program still has loaded in its old version). 'day' is the date
+    the wait started, so the sentence stays the same from one refresh to the next."""
+    day = reboot.get('since')
+    pkgs = reboot.get('pkgs') or []
+    if any(p.startswith('linux-image') for p in pkgs):
+        return Problem(WARN, 'reboot_kernel', {'day': day})
+    if pkgs:
+        shown = ', '.join(pkgs[:3]) + (' …' if len(pkgs) > 3 else '')
+        return Problem(WARN, 'reboot_pkgs', {'day': day, 'pkgs': shown})
+    return Problem(WARN, 'reboot_needed', {'day': day})
 
 
 def level(found: List[Problem]) -> str:

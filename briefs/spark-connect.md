@@ -71,8 +71,15 @@ confirmation. Nothing runs on a timer or on its own.
   terminal with it typed but not run. The owner presses Enter. No one-click failback in this version.
 - **Copy a report:** a plain-text snapshot of one machine (services, health, last errors) to paste
   into a Claude session or a note.
+- **Update and reboot a machine** (added after the first version, only where the config says
+  `allow = ["update", "reboot"]`). Update opens a terminal running the package manager's upgrade,
+  which lists the changes and asks before it does anything. Reboot runs `sudo -n systemctl
+  reboot` after a confirmation that names the sites behind the tunnel and the standby that may
+  take over (`watches` in the standby's failover table); a password prompt from sudo falls back
+  to the terminal, as for restarts. The probe reads Ubuntu's reboot flag and update-notifier's
+  update count, so a machine waiting on a reboot says so on its card.
 
-No stop, disable, reboot, file editing or package installs in this version.
+No stop, disable or file editing in this version.
 
 ### Alerts
 

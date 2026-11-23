@@ -1,8 +1,11 @@
 """The actions: what each one says before it runs, and the terminal commands. Each action
 names exactly what it will run and what it touches, and runs only after a confirmation.
 
-There is no stop, disable, reboot, file editing or package install, and no one-click failback:
-failback opens a terminal with the command typed and waits for the owner to press Enter."""
+There is no stop, disable or file editing, and no one-click failback: failback opens a terminal
+with the command typed and waits for the owner to press Enter. Updating and rebooting a whole
+machine are there only for machines whose config allows them (allow = ["update", "reboot"]).
+An update runs in a terminal window, where the package manager lists what changes and asks
+before it does anything."""
 
 import os
 import shlex
@@ -49,6 +52,52 @@ def confirm_restart(machine: Machine, scope: str, unit: str) -> Confirm:
     return Confirm(t('confirm.restart_title', unit=unit, machine=machine.name),
                    t('confirm.restart_body', unit=unit, machine=machine.name),
                    '\n\n'.join(lines), t('action.restart'))
+
+
+UPDATE_COMMANDS = {'apt': "sudo apt update && sudo apt full-upgrade",
+                   'dnf': "sudo dnf upgrade --refresh"}
+
+
+def update_command(manager: str) -> Optional[str]:
+    """The update line for the server's package manager, None when the probe found none."""
+    return UPDATE_COMMANDS.get(manager)
+
+
+def update_remote(command: str) -> str:
+    """The update in a terminal: it runs at once (the package manager still asks before it
+    changes anything), then a normal shell stays open to read the result or reboot."""
+    return 'bash -c ' + shlex.quote(f"{command}\necho\nexec bash -l")
+
+
+def confirm_update(machine: Machine, manager: str, updates: Optional[float],
+                   security: Optional[float]) -> Confirm:
+    command = update_command(manager) or ''
+    lines = [t('confirm.runs', command=f"{ssh_shown(machine)} {command}")]
+    if updates is not None:
+        lines.append(t('confirm.update_count', n=int(updates), security=int(security or 0)))
+    lines.append(t('confirm.update_touches'))
+    return Confirm(t('confirm.update_title', machine=machine.name),
+                   t('confirm.update_body', machine=machine.name),
+                   '\n\n'.join(lines), t('action.update_open'))
+
+
+REBOOT_COMMAND = "sudo -n systemctl reboot"
+
+
+def confirm_reboot(machine: Machine, standbys: List[str]) -> Confirm:
+    """standbys: the machines whose failover watches this one; they may take over while it is
+    down, and the sites only come back to it through their failback."""
+    lines = [t('confirm.runs', command=f"{ssh_shown(machine)} {REBOOT_COMMAND}")]
+    if machine.tunnel_hostnames:
+        lines.append(t('confirm.reboot_sites', sites=', '.join(machine.tunnel_hostnames)))
+    else:
+        lines.append(t('confirm.reboot_touches', machine=machine.name))
+    for standby in standbys:
+        lines.append(t('confirm.reboot_standby', standby=standby, machine=machine.name))
+    lines.append(t('confirm.reboot_sudo'))
+    return Confirm(t('confirm.reboot_title', machine=machine.name),
+                   t('confirm.reboot_body', machine=machine.name),
+                   '\n\n'.join(lines), t('action.reboot'))
 
 
 def confirm_terminal(machine: Machine) -> Confirm:

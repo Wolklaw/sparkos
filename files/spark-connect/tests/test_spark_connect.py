@@ -192,6 +192,51 @@ class ParseProbe(unittest.TestCase):
         self.assertEqual({p.key for p in found}, {'hot', 'memory_low'})
         self.assertEqual(level(found), WARN)
 
+    def test_impossible_temperature_is_ignored(self):
+        raw = json.loads(fixture('all-fine.json'))
+        raw['temps'].append({'name': 'dell_smm', 'c': 126.0})
+        r = result_from_ssh('m', 0, json.dumps(raw), '')
+        self.assertNotIn(126.0, [x['c'] for x in r.data['temps']])
+        self.assertEqual(problems(machine(), r), [])
+
+    def test_tunnel_count_unknown_is_not_reconnecting(self):
+        raw = json.loads(fixture('all-fine.json'))
+        raw['tunnel']['connections'] = None
+        found = problems(machine(), result_from_ssh('m', 0, json.dumps(raw), ''))
+        self.assertNotIn('tunnel_reconnecting', {p.key for p in found})
+
+    def test_reboot_needed(self):
+        raw = json.loads(fixture('all-fine.json'))
+        raw['packages'] = {'manager': 'apt', 'updates': 23, 'security': 0,
+                           'reboot': {'since': 1794552446,
+                                      'pkgs': ['libc6', 'linux-image-7.0.0-43-generic']}}
+        r = result_from_ssh('m', 0, json.dumps(raw), '')
+        self.assertEqual(r.data['packages']['updates'], 23)
+        found = problems(machine(), r)
+        self.assertEqual([p.key for p in found], ['reboot_kernel'])
+        self.assertEqual(level(found), WARN)
+        self.assertIn(time.strftime('%Y-%m-%d', time.localtime(1794552446)),
+                      verdict_text(found[0]))
+        # the same wait reads the same on the next refresh, so it doesn't flash as new
+        r.at += 600
+        self.assertEqual(problems(machine(), r), found)
+        raw['packages']['reboot']['pkgs'] = ['libc6']
+        found = problems(machine(), result_from_ssh('m', 0, json.dumps(raw), ''))
+        self.assertIn('libc6', verdict_text(found[0]))
+
+    def test_no_packages_section_is_calm(self):
+        r = result_from_ssh('m', 0, fixture('all-fine.json'), '')
+        self.assertEqual(r.data['packages'], {'manager': '', 'reboot': None, 'updates': None,
+                                              'security': None})
+        self.assertEqual(problems(machine(), r), [])
+
+    def test_silence_after_our_reboot_is_not_down(self):
+        r = result_for('ssh-timeout.stderr')
+        found = problems(machine(), r, rebooting_since=r.at - 30)
+        self.assertEqual((found[0].key, found[0].level), ('rebooting', WARN))
+        found = problems(machine(), r, rebooting_since=r.at - probe.REBOOT_GRACE_S - 1)
+        self.assertEqual(found[0].level, DOWN)
+
     def test_local_check_failure(self):
         raw = json.loads(fixture('all-fine.json'))
         raw['local_checks'][0].update(status=503)
@@ -227,7 +272,7 @@ class ProbeScript(unittest.TestCase):
         raw = json.loads(done.stdout)
         for key in ('probe', 'time', 'hostname', 'systemd', 'uptime_s', 'load', 'memory',
                     'disks', 'temps', 'net', 'units', 'failed', 'tunnel', 'failover',
-                    'local_checks'):
+                    'local_checks', 'packages'):
             self.assertIn(key, raw)
         d = parse_probe(done.stdout)
         self.assertGreater(d['memory']['total'], 0)
@@ -270,6 +315,8 @@ class Config(unittest.TestCase):
         self.assertTrue(main.is_tunnel('user', 'cloudflared'))
         self.assertTrue(main.is_known_failed('old-backup.service'))
         self.assertEqual(standby.failover.active_unit, ('user', 'cloudflared'))
+        self.assertEqual(standby.failover.watches, 'Main server')
+        self.assertEqual((main.allow, standby.allow), (['update', 'reboot'], []))
         self.assertEqual(len(cfg.sites), 2)
 
     def test_missing_file_is_empty(self):
@@ -291,6 +338,9 @@ class Config(unittest.TestCase):
             '[[site]]\nurl = "ftp://x"\n': 'url',
             'machine = 3\n': 'write machines',
             '[[machine]\n': 'machines.toml',
+            '[[machine]]\nname = "a"\nhost = "a"\nallow = ["shutdown"]\n': 'one of',
+            '[[machine]]\nname = "a"\nhost = "a"\n[machine.failover]\ndir = "x"\n'
+            'watches = "b"\n': "isn't in the list",
         }
         for text, words in bad.items():
             with self.subTest(text=text):
@@ -353,6 +403,47 @@ class Confirmations(unittest.TestCase):
             self.skipTest("no terminal program here")
         self.assertIn('-t', argv)
         self.assertEqual(argv[-2], 'main-server')
+
+
+class MachineActions(unittest.TestCase):
+    def test_reboot_names_sites_and_standby(self):
+        c = actions.confirm_reboot(machine(), ['Standby laptop'])
+        for host in ('example.org', 'www.example.org', 'app.example.org', 'Standby laptop',
+                     'sudo -n systemctl reboot', 'ssh main-server'):
+            self.assertIn(host, c.detail)
+        self.assertEqual(c.button, t('action.reboot'))
+
+    def test_update_runs_in_a_terminal(self):
+        self.assertIsNone(actions.update_command(''))
+        cmd = actions.update_command('apt')
+        self.assertEqual(cmd, "sudo apt update && sudo apt full-upgrade")
+        self.assertNotIn(' -y', cmd)                   # apt still asks before it changes
+        remote = actions.update_remote(cmd)
+        self.assertTrue(remote.startswith('bash -c '))
+        self.assertIn('exec bash -l', remote)
+        c = actions.confirm_update(machine(), 'apt', 23, 1)
+        self.assertIn(cmd, c.detail)
+        self.assertIn('23', c.detail)
+
+    @unittest.skipUnless(LINUX, "the stand-in ssh is a shell script")
+    def test_reboot_outcomes(self):
+        folder = tempfile.mkdtemp()
+        fake = os.path.join(folder, 'ssh')
+
+        def answer(script):
+            with open(fake, 'w') as f:
+                f.write('#!/bin/sh\n' + script)
+            os.chmod(fake, 0o755)
+            return SshTransport(ssh=fake, multiplex=False).reboot(machine())
+
+        self.assertEqual(answer('exit 0\n').outcome, DONE)
+        self.assertEqual(answer('echo "Connection to x closed by remote host." >&2; exit 255\n')
+                         .outcome, DONE)
+        self.assertEqual(answer('echo "sudo: a password is required" >&2; exit 1\n').outcome,
+                         NEEDS_PASSWORD)
+        self.assertEqual(answer('echo "ssh: connect to host x port 22: No route to host" >&2;'
+                                ' exit 255\n').outcome, 'failed')
+        self.assertEqual(SshTransport(ssh=fake).reboot(machine(STANDBY)).outcome, 'refused')
 
 
 class Restart(unittest.TestCase):
@@ -482,6 +573,10 @@ class FakeTransport:
         self.calls.append(('restart', m.name, scope, unit))
         return ActionResult(DONE)
 
+    def reboot(self, m):
+        self.calls.append(('reboot', m.name))
+        return ActionResult(DONE)
+
     def tail(self, m, scope, unit, on_line, lines=200):
         self.calls.append(('tail', m.name, scope, unit))
 
@@ -605,6 +700,31 @@ class UITests(unittest.TestCase):
                     sum(1 for c in self.transport.calls if c[0] == 'fetch') > before)
         self.assertEqual([c for c in self.transport.calls if c[0] == 'restart'],
                          [('restart', 'Main server', 'user', 'cloudflared')])
+
+    def test_reboot_cancel_runs_nothing_then_quiet_while_down(self):
+        app = self.make({'Main server': 'all-fine.json', 'Standby laptop': 'standby-ok.json'})
+        self.load_all(app)
+        m = app.machine('Main server')
+        seen = []
+        app.confirm = lambda c: seen.append(c) or False
+        app.ask_reboot(m)
+        self.assertIn('Standby laptop', seen[0].detail)
+        self.assertFalse(any(c[0] == 'reboot' for c in self.transport.calls))
+        app.confirm = lambda c: True
+        app.ask_reboot(m)
+        self.settle(app, lambda: not app.pending and 'Main server' in app.rebooting)
+        self.assertEqual([c for c in self.transport.calls if c[0] == 'reboot'],
+                         [('reboot', 'Main server')])
+        # it goes quiet: shown as rebooting, no "unreachable" notification
+        notes = len(self.notes)
+        self.transport.answers['Main server'] = 'ssh-timeout.stderr'
+        app.start(('machine', 'Main server'))
+        self.settle(app, lambda: not app.pending)
+        self.assertEqual(app.problems_of(m)[0].key, 'rebooting')
+        self.assertEqual(len(self.notes), notes)
+        # the standby can't reboot: no button, and the call does nothing
+        app.ask_reboot(app.machine('Standby laptop'))
+        self.assertEqual(len([c for c in self.transport.calls if c[0] == 'reboot']), 1)
 
     def test_machine_view_every_tab(self):
         for main, standby in (('failed-unit.json', 'standby-takeover.json'),
