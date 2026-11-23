@@ -32,6 +32,9 @@ RANK = {DOWN: 0, BAD: 1, WARN: 2, OK: 3}
 DISK_WARN, DISK_BAD = 90.0, 95.0
 MEM_WARN = 5.0                      # % available
 TEMP_WARN = 85.0
+# Readings outside this range come from sensor slots with nothing behind them (a Dell OptiPlex's
+# dell_smm reports 126 °C on an unused one) and would raise a false "running hot".
+TEMP_PLAUSIBLE = (-40.0, 120.0)
 
 
 _START = re.compile(r'\{\s*"probe"')
@@ -116,8 +119,9 @@ def parse_probe(text: str) -> Dict[str, Any]:
             data['disks'].append({'mount': _text(d.get('mount')), 'size': size, 'used': used,
                                   'free': free, 'pct': 100.0 * used / total if total else None})
     for tmp in raw.get('temps') or []:
-        if isinstance(tmp, dict) and _num(tmp.get('c')) is not None:
-            data['temps'].append({'name': _text(tmp.get('name')).strip(), 'c': _num(tmp['c'])})
+        c = _num(tmp.get('c')) if isinstance(tmp, dict) else None
+        if c is not None and TEMP_PLAUSIBLE[0] <= c <= TEMP_PLAUSIBLE[1]:
+            data['temps'].append({'name': _text(tmp.get('name')).strip(), 'c': c})
     for n in raw.get('net') or []:
         if isinstance(n, dict) and n.get('iface'):
             data['net'].append({'iface': _text(n['iface']), 'rx': _num(n.get('rx')),

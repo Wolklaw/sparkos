@@ -148,8 +148,22 @@ state_of() {   # active state of user:NAME or system:NAME
 if [ -n "$SC_TUNNEL" ]; then
   t=$(name_of "$SC_TUNNEL")
   conns=
-  # QUIC tunnels hold UDP sockets, older ones TCP; ss shows the owner only for your processes
-  if have ss; then conns=$(ss -Htunp 2>/dev/null | grep -c "\"$t\"" ); fi
+  if [ "$(scope_of "$SC_TUNNEL")" = user ] || [ "$(id -u)" = 0 ]; then
+    # QUIC tunnels hold UDP sockets, older ones TCP; ss shows a socket's owner only for your
+    # own processes, which a user unit is
+    if have ss; then conns=$(ss -Htunp 2>/dev/null | grep -c "\"$t\"" ); fi
+  elif have curl && have journalctl; then
+    # A system unit runs as someone else, so ss can't tell its sockets apart. Ask cloudflared:
+    # its metrics server's /ready gives readyConnections. The address is in the unit's log.
+    # If the log can't be read, the count stays unknown rather than a false 0.
+    addr=$(journalctl -u "$t" -b -o cat --no-pager 2>/dev/null \
+      | sed -n 's/.*[Ss]tarting metrics server on \([0-9.:]*\).*/\1/p' | tail -n 1)
+    case $addr in
+      127.0.0.1:*|localhost:*)
+        conns=$(curl -s -m 3 "http://$addr/ready" 2>/dev/null \
+          | sed -n 's/.*"readyConnections":\([0-9]*\).*/\1/p') ;;
+    esac
+  fi
   printf '"tunnel":{"unit":%s,"active":%s,"connections":%s},' \
     "$(str "$SC_TUNNEL")" "$(str "$(state_of "$SC_TUNNEL")")" "$(num "$conns")"
 else

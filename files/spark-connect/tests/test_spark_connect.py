@@ -192,6 +192,19 @@ class ParseProbe(unittest.TestCase):
         self.assertEqual({p.key for p in found}, {'hot', 'memory_low'})
         self.assertEqual(level(found), WARN)
 
+    def test_impossible_temperature_is_ignored(self):
+        raw = json.loads(fixture('all-fine.json'))
+        raw['temps'].append({'name': 'dell_smm', 'c': 126.0})
+        r = result_from_ssh('m', 0, json.dumps(raw), '')
+        self.assertNotIn(126.0, [x['c'] for x in r.data['temps']])
+        self.assertEqual(problems(machine(), r), [])
+
+    def test_tunnel_count_unknown_is_not_reconnecting(self):
+        raw = json.loads(fixture('all-fine.json'))
+        raw['tunnel']['connections'] = None
+        found = problems(machine(), result_from_ssh('m', 0, json.dumps(raw), ''))
+        self.assertNotIn('tunnel_reconnecting', {p.key for p in found})
+
     def test_local_check_failure(self):
         raw = json.loads(fixture('all-fine.json'))
         raw['local_checks'][0].update(status=503)
