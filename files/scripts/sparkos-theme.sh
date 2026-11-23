@@ -14,7 +14,7 @@ BOT="$SRC/sparkos-bot.svg"
 test -f "$BOT" || { echo "missing $BOT"; exit 1; }
 WORK=$(mktemp -d)
 
-# --- tools to render the SVG (removed again at the end; ImageMagick is already in Bazzite)
+# --- tools to render the SVG (removed again at the end)
 dnf -y install --setopt=install_weak_deps=False librsvg2-tools
 render() { rsvg-convert -w "$2" -h "$2" -o "$3" "$1"; }
 
@@ -104,9 +104,6 @@ done
 mkdir -p /etc/plymouth
 printf '[Daemon]\nTheme=sparkos\nShowDelay=0\nDeviceTimeout=15\nUseSimpledrmNoLuks=1\n' > /etc/plymouth/plymouthd.conf
 
-# --- remove Bazzite's own look where it would still show
-rm -fv /etc/xdg/autostart/bazzite-announcement.desktop
-
 # --- os-release: the SparkOS logo and SparkOS's own links
 sed -i \
   -e 's/^LOGO=.*/LOGO=sparkos/' \
@@ -114,17 +111,6 @@ sed -i \
   -e 's|^SUPPORT_URL=.*|SUPPORT_URL="https://github.com/Wolklaw/sparkos/issues"|' \
   /usr/lib/os-release
 grep -q '^LOGO=sparkos$' /usr/lib/os-release
-
-# --- fastfetch: the SparkOS bot in place of Bazzite's logo, in mint, cyan and gold
-FF=/usr/share/ublue-os/bazzite
-if [ -f "$FF/fastfetch.jsonc" ]; then
-  cp "$SRC/fastfetch-logo.txt" "$FF/logo.txt"
-  sed -i -E \
-    -e 's/"1": "[^"]*"/"1": "38;2;155;232;184"/' \
-    -e 's/"2": "[^"]*"/"2": "38;2;34;216;255"/' \
-    -e 's/"3": "[^"]*"/"3": "38;2;244;201;93"/' \
-    "$FF/fastfetch.jsonc"
-fi
 
 # --- rebuild the initramfs so it carries the SparkOS boot splash (and its fonts)
 KVER=$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -1)

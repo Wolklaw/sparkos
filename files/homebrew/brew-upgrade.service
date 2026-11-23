@@ -1,5 +1,4 @@
-# SparkOS (Fedora base): Homebrew's automatic upgrade, under the name Bazzite gives it, so a PC that
-# had it on under Bazzite keeps it. Off until `sparkos-dev-setup --brew` (00-sparkos-homebrew.preset).
+# SparkOS (Fedora base): Homebrew's automatic upgrade. Off until `sparkos-dev-setup --brew` (00-sparkos-homebrew.preset).
 [Unit]
 Description=Homebrew: brew upgrade
 After=local-fs.target network-online.target

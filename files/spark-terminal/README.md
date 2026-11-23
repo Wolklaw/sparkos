@@ -68,8 +68,6 @@ it the terminal everywhere:
 - Ctrl+Alt+T, which Konsole gives up
 - the dock, the Claude Code menu entry and Dolphin action, the `.rpm` installer window, and Spark
   Connect's "Open terminal"
-- new shells print one SparkOS line instead of Bazzite's "Welcome to Bazzite" banner
-  (`/usr/libexec/ublue-motd`; `ujust toggle-user-motd` hides it)
 
 Konsole stays installed for one release, hidden from the menu, as a fallback (`konsole` still
 runs it). Removing it is a separate change.

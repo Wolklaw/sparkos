@@ -35,11 +35,7 @@ if [ "$want_brew" = 1 ]; then
     eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"
   fi
   if ! command -v brew >/dev/null 2>&1; then
-    if [ -f /usr/share/homebrew.tar.zst ]; then   # Bazzite base: unpacked by brew-setup.service
-      echo "Homebrew isn't ready yet. Log out and back in once, then run: sparkos-dev-setup --brew" >&2
-    else                                          # Fedora base: no Homebrew in the image
-      echo "Homebrew isn't installed. Set it up with: spark brew. Then open a new terminal and run: sparkos-dev-setup --brew" >&2
-    fi
+    echo "Homebrew isn't installed. Set it up with: spark brew. Then open a new terminal and run: sparkos-dev-setup --brew" >&2
     exit 1
   fi
   echo "Installing from $BREWFILE:"

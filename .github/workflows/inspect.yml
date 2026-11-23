@@ -1,6 +1,6 @@
 name: inspect
 # Runs a shell command inside the published SparkOS image (no boot) and prints the output.
-# For looking things up while building SparkOS, e.g. which theme files Bazzite ships.
+# For looking things up while building SparkOS, e.g. which theme files Fedora ships.
 on:
   workflow_dispatch:
     inputs:

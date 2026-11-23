@@ -1,4 +1,4 @@
-# SparkOS (Fedora base): same schedule as Bazzite's
+# SparkOS (Fedora base): Homebrew's automatic update schedule
 [Unit]
 Description=Homebrew: brew update, every 6h
 

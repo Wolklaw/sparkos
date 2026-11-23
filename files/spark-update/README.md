@@ -1,24 +1,12 @@
 # Spark Update
 
 SparkOS's own updater: the "SparkOS updated" notification, a window with what changed, Check
-now, Restart and Roll back, and (when switched on) its own background downloads, replacing
-Universal Blue's `uupd`. There is always exactly one updater, and never none.
+now, Restart and Roll back, and its own background downloads. There is always exactly one
+updater, and never none.
 
 It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 
-## Who downloads updates (the engine)
-
-| Engine | Downloads and stages images | Spark Update does |
-|---|---|---|
-| `uupd` (the first release only; SparkOS has used `spark` and removed uupd since 2026-11-20) | Universal Blue's `uupd.timer`, daily at 04:00, as Bazzite ships it (image, Flatpak apps, brew) | the notification, the window, Check now (starts `uupd-manual.service`, the same as `ujust update`), Restart, Roll back |
-| `spark` (**SparkOS today**) | `spark-update.timer` (below). Where uupd is installed, `uupd.timer` is off and its units run Spark Update; SparkOS removes the uupd package, and `ujust update` runs Spark Update's Check now | everything |
-
-The image build picks it with `SPARK_UPDATE_ENGINE` (`files/scripts/spark-update.sh`); the
-switch to `spark` waits until Spark Update's own staging has worked on a booted SparkOS. The
-app reads which timer is enabled, so the window always shows what the PC really does. The
-self-test fails the image build if no updater, or two, are on.
-
-## With the spark engine
+## How it updates
 
 - **In the background:** a systemd timer, not a daemon. Every few hours (6 by default) it
   downloads the new SparkOS image and gets it ready for the next restart (`bootc upgrade`, or
@@ -26,10 +14,10 @@ self-test fails the image build if no updater, or two, are on.
   It waits for a later hour while a game runs (Steam, Proton/Wine, gamescope), on a metered
   connection or on a battery under 20%. It runs at the lowest CPU and disk priority. It
   **never restarts the PC on its own.**
-- **Settings** (below) apply to this timer; under uupd, uupd keeps its own daily schedule.
-
-## With either engine
-
+- **Settings** (below) apply to this timer. The app reads whether `spark-update.timer` is
+  enabled, so the window always shows what the PC really does. The self-test fails the image
+  build if it is off, or if another automatic updater (`rpm-ostreed-automatic.timer`,
+  `bootc-fetch-apply-updates.timer`) is on.
 - **The notification**, when a new version is ready: "SparkOS updated. The new version is
   ready. It starts the next time you restart. Your apps are already up to date." with
   **Later** and **Restart**. The apps sentence shows only when the last Flatpak updates
@@ -41,7 +29,7 @@ self-test fails the image build if no updater, or two, are on.
 ## What changed
 
 Nothing is invented. Each SparkOS image carries `/usr/share/sparkos/release.json` (written by
-the image build): the versions of Soot, FreeSuite, every Spark app, the Bazzite base, the Linux
+the image build): the versions of Soot, FreeSuite, every Spark app, the Fedora base, the Linux
 kernel, Mesa, KDE Plasma and Flatpak. The window compares the file of the running version with
 the one of the staged version (or, with no update waiting, with the previous version). For a
 version built before that file existed, it reads the same things from that version's files on
@@ -88,14 +76,14 @@ updates off in Settings to stay on the old one.
 ## Install
 
 ```bash
-sudo bash install.sh --deps [--engine uupd|spark]   # system-wide: what the image build does
+sudo bash install.sh --deps                       # system-wide: what the image build does
 bash install.sh --user             # just you, no root: the window, the notification, your Flatpak apps
 bash install.sh --user --uninstall
 ```
 
 Background downloads of SparkOS itself need the system install (root), which ships in the
-image. In the image build, `files/scripts/spark-update.sh` installs it, switches off Bazzite's
-updater, writes `release.json` and fails the build if the self-test finds another updater on.
+image. In the image build, `files/scripts/spark-update.sh` installs it, switches off
+Fedora's own automatic updaters, writes `release.json` and fails the build if the self-test finds another updater on.
 
 ## Commands
 

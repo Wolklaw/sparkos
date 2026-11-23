@@ -73,9 +73,9 @@ Settings, then "Accounts and launchers" opens the Stores view.
 - **Starting a game** goes through Spark Games: Proton through `umu-run` (UMU-Proton, or GE-Proton with a per-game switch), MangoHud and GameMode switches as for your own games, a Wine folder per game in `~/.local/share/spark-games/prefixes/`. Spark Games never logs the launch command, since Epic's holds a session token.
 - **Taking over Heroic.** On first start, if Heroic installed games, Spark Games asks once whether to use them. Nothing is downloaded again and nothing of Heroic's is changed or deleted: Epic games are handed to legendary with `import --disable-check`, GOG games are recorded in place, Amazon games go through `nile import`. Heroic's Wine folders are not reused (Heroic's Proton is not the one Spark Games starts the game with); the game gets its own. Games Heroic still lists are hidden once taken over, so none shows twice. The Stores view has a button to ask again.
 
-### On both images
+### In the image
 
-The same code runs on `ghcr.io/wolklaw/sparkos` (Bazzite base) and `ghcr.io/wolklaw/sparkos-fedora` (plain Fedora Kinoite). `umu-run` is in both (on Fedora from Terra). The three store programs are single downloaded files that need nothing from either base's packages. Neither image installs WebKitGTK (`docs/fedora-base.md` lists it as dropped), so on both the sign-in uses the paste way; the window is only used where WebKitGTK happens to be installed. CI runs the in-image check (`install.sh --user`, `--self-test`, uninstall, and a report of `umu-run` and WebKitGTK) for both images.
+`umu-run` comes from Terra. The three store programs are single downloaded files that need nothing from the image's packages. The image does not install WebKitGTK (`docs/fedora-base.md` lists it as dropped), so the sign-in uses the paste way; the window is only used where WebKitGTK happens to be installed. CI runs the in-image check (`install.sh --user`, `--self-test`, uninstall, and a report of `umu-run` and WebKitGTK).
 
 ### Added launchers
 

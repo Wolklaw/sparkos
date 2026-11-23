@@ -9,13 +9,12 @@ from typing import List, Optional, Tuple
 
 from . import APP_NAME, APP_SLUG, CONF_PATH, HELPER, IMAGE, IMAGES, POLKIT_ACTION, RELEASE_PATH, VERSION
 from .core import Env, log, run, setup_logging, which
-from .engine import NONE, SPARK, UUPD, both_on, engine, timer_enabled
+from .engine import SPARK, engine, timer_enabled
 
 SYSTEM_UNITS = '/usr/lib/systemd/system'
 USER_UNITS = '/usr/lib/systemd/user'
-# Bazzite's and Fedora's automatic updaters. Exactly one updater may be on: uupd (Bazzite's,
-# the default for now) or Spark Update's own timer; the rest must stay off.
-OTHER_TIMERS = ('uupd.timer', 'rpm-ostreed-automatic.timer', 'bootc-fetch-apply-updates.timer')
+# Fedora's own automatic updaters. Spark Update's timer is the only updater; these must stay off.
+OTHER_TIMERS = ('rpm-ostreed-automatic.timer', 'bootc-fetch-apply-updates.timer')
 
 
 def user_timer_enabled(env: Env) -> Optional[str]:
@@ -30,9 +29,8 @@ def user_timer_enabled(env: Env) -> Optional[str]:
 
 
 def other_updaters(env: Env) -> List[str]:
-    """Automatic updaters that are on besides the one in charge (see engine.py)."""
-    mine = 'uupd.timer' if engine(env) == UUPD else ''
-    found = [name for name in OTHER_TIMERS if name != mine and timer_enabled(env, name)]
+    """Automatic updaters that are on besides Spark Update's own timer (see engine.py)."""
+    found = [name for name in OTHER_TIMERS if timer_enabled(env, name)]
     conf = env.read('/etc/rpm-ostreed.conf') or ''
     for line in conf.splitlines():
         line = line.split('#', 1)[0].strip()
@@ -104,16 +102,10 @@ def self_test(env: Env) -> int:
     for w in warnings:
         print(f"settings:  update.conf {w}")
 
-    # Updates must never stop: exactly one updater on, and on SparkOS at least one
+    # Updates must never stop: on SparkOS spark-update.timer has to be on
     eng = engine(env)
-    if both_on(env):
-        print("updater:   TWO UPDATERS ON: spark-update.timer and uupd.timer - tell the owner")
-        failures.append("two updaters")
-    elif eng == SPARK:
-        print("updater:   Spark Update (spark-update.timer enabled; uupd off)")
-    elif eng == UUPD:
-        print("updater:   Universal Blue's uupd (uupd.timer enabled, daily at 04:00); Spark "
-              "Update adds the notification, the window and roll back")
+    if eng == SPARK:
+        print("updater:   Spark Update (spark-update.timer enabled)")
     else:
         print("updater:   NONE: no automatic updater is enabled" +
               (" - tell the owner" if is_sparkos(env) else " (not SparkOS)"))
@@ -141,9 +133,6 @@ def self_test(env: Env) -> int:
             failures.append("other updaters")
     else:
         print("others:    no other automatic updater is on")
-    uupd_dropin = env.path(f'{SYSTEM_UNITS}/uupd.service.d/50-sparkos.conf')
-    if os.path.isfile(uupd_dropin):
-        print("others:    uupd.service and `ujust update` run Spark Update instead")
     if failures:
         print("FAILED: " + ", ".join(failures))
         return 1

@@ -582,12 +582,6 @@ cmd_brew() {
     have brew || say "Open a new terminal to use it (or: eval \"\$($BREW_PREFIX/bin/brew shellenv)\")"
     return 0
   fi
-  if [ -f /usr/share/homebrew.tar.zst ] && systemctl cat brew-setup.service >/dev/null 2>&1; then
-    say "Homebrew ships in this image; unpacking it (brew-setup.service)."
-    run_root systemctl start brew-setup.service
-    [ "$DRY_RUN" = 1 ] || say "Done. Open a new terminal to use brew."
-    return 0
-  fi
   [ "$(id -u)" != 0 ] || die "run this as your own user, not as root: Homebrew belongs to one user."
   need_terminal "spark brew"
   have curl || die "curl isn't installed."

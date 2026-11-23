@@ -158,7 +158,7 @@ class Window(unittest.TestCase):
             app.root.update()
 
     def test_text_fits_on_every_page(self):
-        for status_file, updater_on in (('rpm-ostree-staged.json', 'uupd'),
+        for status_file, updater_on in (('rpm-ostree-staged.json', 'spark'),
                                         ('rpm-ostree-rollback-queued.json', 'spark'),
                                         ('rpm-ostree-none.json', 'spark')):
             app = self.open(status_file, updater_on)

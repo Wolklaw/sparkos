@@ -130,7 +130,7 @@ if [ "$DEPS" = 1 ]; then
     dnf -y install --setopt=install_weak_deps=False "${missing[@]}"
   fi
   # The checks also use vulkaninfo, wpctl, lpstat, scanimage, nmcli, bluetoothctl and
-  # rpm-ostree when they're there (Bazzite has them); without them a check says it couldn't
+  # rpm-ostree when they're there (the SparkOS image has them); without them a check says it couldn't
   # look, so they aren't pulled in here.
 fi
 

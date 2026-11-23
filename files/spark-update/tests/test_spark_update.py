@@ -62,12 +62,12 @@ def manifest(version, soot, monitor, kernel, extra=()):
             'platform': [{'id': 'kernel', 'name': 'Linux kernel', 'version': kernel}]}
 
 
-def make_root(status_file='rpm-ostree-staged.json', updater_on='uupd'):
+def make_root(status_file='rpm-ostree-staged.json', updater_on='spark'):
     """A fake SparkOS: status, the booted version's release.json, the staged one's, and a
     previous version built before release.json existed (only its files). updater_on: which
-    timer is enabled, 'uupd' (as SparkOS ships today), 'spark', or None."""
+    timer is enabled: 'spark' (as SparkOS ships) or None."""
     root = tempfile.mkdtemp(prefix='spark-update-root-')
-    write(root, '/usr/lib/os-release', 'NAME="SparkOS"\nID=bazzite\nOSTREE_VERSION=\'45.20261117.1\'\n')
+    write(root, '/usr/lib/os-release', 'NAME="SparkOS"\nID=fedora\nOSTREE_VERSION=\'45.20261117.1\'\n')
     write(root, '/status/' + ('rpm-ostree.json' if status_file.startswith('rpm') else 'bootc.json'),
           json.dumps(fixture(status_file)))
     write(root, '/usr/share/sparkos/release.json',
@@ -84,8 +84,7 @@ def make_root(status_file='rpm-ostree-staged.json', updater_on='uupd'):
     os.makedirs(os.path.join(root, prev.lstrip('/'), 'usr/lib/modules/6.17.5-ba01.fc45.x86_64'))
     os.makedirs(os.path.join(root, 'proc'))
     if updater_on:
-        timer = 'uupd.timer' if updater_on == 'uupd' else 'spark-update.timer'
-        write(root, f'/etc/systemd/system/timers.target.wants/{timer}', '')
+        write(root, '/etc/systemd/system/timers.target.wants/spark-update.timer', '')
     return root
 
 
@@ -641,7 +640,7 @@ class SystemRunTests(unittest.TestCase):
         held = {'digests': ['sha256:' + '2' * 64], 'version': B_VER}
         self.assertEqual(held_version(held, host, 'spark'), B_VER)
         self.assertEqual(held_version({'digests': held['digests']}, host, 'spark'), '?')
-        self.assertEqual(held_version(held, host, 'uupd'), '')       # uupd ignores the hold
+        self.assertEqual(held_version(held, host, 'none'), '')       # only the spark engine honours it
         self.assertEqual(held_version(None, host, 'spark'), '')
         self.assertEqual(held_version({'digests': [], 'version': B_VER}, host, 'spark'), '')
         booted = {'digests': [host.booted.digest], 'version': A_VER}
@@ -669,7 +668,7 @@ class SystemRunTests(unittest.TestCase):
 
 
 class UserRunTests(unittest.TestCase):
-    """Spark Update's own engine (spark-update.timer on); UupdTests covers uupd."""
+    """Spark Update's own engine (spark-update.timer on)."""
 
     def setUp(self):
         self.root = make_root('rpm-ostree-staged.json', updater_on='spark')
@@ -681,6 +680,11 @@ class UserRunTests(unittest.TestCase):
                 os.remove(path)
         updater.save_state(self.env, {'result': 'staged', 'flatpak': {
             'ok': True, 'at': self.clock.t - 600, 'updated': []}})
+
+    def test_engine(self):
+        from sparkupdate import engine as eng
+        self.assertEqual(eng.engine(self.env), eng.SPARK)
+        self.assertEqual(eng.engine(Env(make_root(updater_on=None))), eng.NONE)
 
     def notifier(self, answer='later'):
         def show(offer, apps_ok):
@@ -755,88 +759,6 @@ class UserRunTests(unittest.TestCase):
                                                  {'flatpak': ok}, now))
         conf.flatpak = False
         self.assertFalse(updater.apps_up_to_date(conf, {'flatpak': ok}, {'flatpak': ok}, now))
-
-
-def uupd_units(ok=True, ended=None, running=False):
-    ended = ended or 1_800_000_000 - 3600
-    return {'uupd.service': {'ActiveState': 'activating' if running else 'inactive',
-                             'Result': 'success' if ok else 'exit-code',
-                             'ExecMainStatus': '0' if ok else '1',
-                             'ExecMainExitTimestamp': f'@{int(ended)}'},
-            'uupd-manual.service': {'ActiveState': 'inactive', 'Result': 'success',
-                                    'ExecMainStatus': '0', 'ExecMainExitTimestamp': ''}}
-
-
-class UupdTests(unittest.TestCase):
-    """SparkOS as it ships today: Bazzite's uupd stages updates, Spark Update notifies."""
-
-    def setUp(self):
-        self.root = make_root('rpm-ostree-staged.json')
-        self.env = Env(self.root)
-        self.clock = Clock()
-        self.shown = []
-        for path in (updater.user_state_path(), settings.prefs_path()):
-            if os.path.exists(path):
-                os.remove(path)
-
-    def show(self, offer, apps_ok):
-        self.shown.append((offer.kind, offer.version, apps_ok))
-        return 'later'
-
-    def test_engine(self):
-        from sparkupdate import engine as eng
-        self.assertEqual(eng.engine(self.env), eng.UUPD)
-        self.assertEqual(eng.engine(Env(make_root(updater_on='spark'))), eng.SPARK)
-        self.assertEqual(eng.engine(Env(make_root(updater_on=None))), eng.NONE)
-
-    def test_status_from_systemctl_show(self):
-        from sparkupdate import engine as eng
-        shown = {'uupd.service': "ActiveState=inactive\nResult=success\nExecMainStatus=0\n"
-                                 "ExecMainExitTimestamp=@1799996400\n",
-                 'uupd-manual.service': "ActiveState=activating\nResult=success\n"
-                                        "ExecMainStatus=0\nExecMainExitTimestamp=\n"}
-        calls = []
-
-        def runner(cmd, timeout=0, quiet=False):
-            calls.append(cmd)
-            return 0, shown[cmd[-1]], ''
-
-        st = eng.uupd_status(Env(None), runner)
-        self.assertEqual(st, {'running': True, 'last_run': 1799996400.0, 'ok': True,
-                              'unit': 'uupd.service'})
-        self.assertIn('--timestamp=unix', calls[0])
-        failed = eng.summarize({'uupd.service': eng.parse_show(
-            "ActiveState=failed\nResult=exit-code\nExecMainStatus=1\n"
-            "ExecMainExitTimestamp=@1799996400\n")})
-        self.assertIs(failed['ok'], False)
-        self.assertFalse(failed['running'])
-        self.assertIsNone(eng.summarize({})['last_run'])
-
-    def test_check_now_starts_uupd_manual(self):
-        from sparkupdate import engine as eng
-        calls = []
-        eng.start_uupd(lambda cmd, timeout=0: calls.append(cmd) or (0, '', ''))
-        self.assertEqual(calls, [['systemctl', 'start', '--no-block', 'uupd-manual.service']])
-
-    def test_notifies_without_updating_apps_twice(self):
-        write(self.root, '/status/uupd.json', json.dumps(uupd_units(ok=True)))
-        run = FakeRunner(self.root)
-        updater.user_run(self.env, runner=run, clock=self.clock, notifier=self.show)
-        self.assertEqual(self.shown, [('ready', B_VER, True)])
-        self.assertEqual(run.ran('flatpak'), [])            # uupd does every user's apps
-
-    def test_apps_sentence_needs_uupd_to_have_worked(self):
-        write(self.root, '/status/uupd.json', json.dumps(uupd_units(ok=False)))
-        updater.user_run(self.env, runner=FakeRunner(self.root), clock=self.clock,
-                         notifier=self.show)
-        self.assertEqual(self.shown, [('ready', B_VER, False)])
-        os.remove(updater.user_state_path())
-        write(self.root, '/status/uupd.json',
-              json.dumps(uupd_units(ok=True, ended=self.clock.t - 3 * 86400)))
-        self.shown.clear()
-        updater.user_run(self.env, runner=FakeRunner(self.root), clock=self.clock,
-                         notifier=self.show)
-        self.assertEqual(self.shown, [('ready', B_VER, False)])
 
 
 class GuardTests(unittest.TestCase):
@@ -917,16 +839,10 @@ class CliTests(unittest.TestCase):
         self.assertIn('not booted from an image here', out)
         self.assertIn(f'image:     {IMAGE} (from /etc/containers/policy.json', out)
 
-    def test_self_test_on_the_fedora_base(self):
+    def test_self_test_refuses_another_image(self):
         root = make_root()
         os.remove(os.path.join(root, 'status', 'rpm-ostree.json'))
         os.remove(os.path.join(root, 'usr/share/sparkos/release.json'))
-        write(root, '/etc/containers/policy.json', json.dumps({'transports': {'docker': {
-            'ghcr.io/wolklaw/sparkos-fedora': [{'type': 'sigstoreSigned'}]}}}))
-        code, out = self.run_cli('--self-test', '--root', root)
-        self.assertEqual(code, 0, out)
-        self.assertIn('image:     ghcr.io/wolklaw/sparkos-fedora (from /etc/containers/policy.json',
-                      out)
         write(root, '/etc/containers/policy.json', json.dumps({'transports': {'docker': {
             'ghcr.io/wolklaw/other': [{'type': 'sigstoreSigned'}]}}}))
         code, out = self.run_cli('--self-test', '--root', root)
@@ -935,8 +851,8 @@ class CliTests(unittest.TestCase):
     def test_release_names_the_fedora_base(self):
         root = make_root()
         write(root, '/usr/lib/os-release', 'NAME="SparkOS"\nID=fedora\nVERSION_ID=45\n')
-        data = release.collect(root, use_rpm=False, image='ghcr.io/wolklaw/sparkos-fedora')
-        self.assertEqual(data['image'], 'ghcr.io/wolklaw/sparkos-fedora')
+        data = release.collect(root, use_rpm=False, image=IMAGE)
+        self.assertEqual(data['image'], IMAGE)
         self.assertIn({'id': 'base', 'name': 'Fedora base', 'version': '45'}, data['platform'])
 
     def system_install(self, root):
@@ -946,33 +862,34 @@ class CliTests(unittest.TestCase):
         write(root, '/usr/share/polkit-1/actions/dev.wolklaw.SparkUpdate.policy', '')
 
     def test_self_test_spark_engine_and_a_second_updater(self):
-        root = make_root(updater_on='spark')
+        root = make_root()
         self.system_install(root)
         code, out = self.run_cli('--self-test', '--root', root)
         self.assertEqual(code, 0, out)
-        self.assertIn('updater:   Spark Update (spark-update.timer enabled; uupd off)', out)
+        self.assertIn('updater:   Spark Update (spark-update.timer enabled)', out)
         self.assertIn('no other automatic updater is on', out)
-        write(root, '/etc/systemd/system/timers.target.wants/uupd.timer', '')
+        write(root, '/etc/systemd/system/timers.target.wants/rpm-ostreed-automatic.timer', '')
         write(root, '/etc/rpm-ostreed.conf', '[Daemon]\nAutomaticUpdatePolicy=stage\n')
         self.assertEqual(other_updaters(Env(root)),
-                         ['uupd.timer', 'rpm-ostreed AutomaticUpdatePolicy=stage'])
+                         ['rpm-ostreed-automatic.timer', 'rpm-ostreed AutomaticUpdatePolicy=stage'])
         code, out = self.run_cli('--self-test', '--root', root)
         self.assertEqual(code, 1, out)
-        self.assertIn('TWO UPDATERS ON', out)
-        self.assertIn('FAILED: two updaters, other updaters', out)
+        self.assertIn('FAILED: other updaters', out)
 
-    def test_self_test_uupd_engine(self):
-        root = make_root()                      # uupd.timer on, as SparkOS ships today
+    def test_self_test_notification_timer_and_no_updater(self):
+        root = make_root()
         self.system_install(root)
-        code, out = self.run_cli('--self-test', '--root', root)
-        self.assertEqual(code, 0, out)
-        self.assertIn("updater:   Universal Blue's uupd (uupd.timer enabled", out)
-        self.assertIn('others:    no other automatic updater is on', out)
         os.remove(os.path.join(root, 'etc/systemd/user/timers.target.wants/'
                                      'spark-update-user.timer'))
         code, out = self.run_cli('--self-test', '--root', root)
         self.assertEqual(code, 1, out)
         self.assertIn('FAILED: notification timer', out)
+        os.remove(os.path.join(root, 'etc/systemd/system/timers.target.wants/'
+                                     'spark-update.timer'))
+        code, out = self.run_cli('--self-test', '--root', root)
+        self.assertEqual(code, 1, out)
+        self.assertIn('updater:   NONE', out)
+        self.assertIn('no updater', out)
 
     def test_self_test_fails_with_no_updater(self):
         """Updates must never stop: SparkOS with no updater on fails the build."""
@@ -1003,13 +920,6 @@ class CliTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 1)
         self.assertIn('pkexec', proc.stderr)
 
-    def test_json_log_lines(self):
-        import logging
-        line = core.JsonLines('%(message)s').format(logging.LogRecord(
-            'x', logging.INFO, __file__, 1, "SparkOS %s is staged", ('45.1',), None))
-        self.assertEqual(json.loads(line), {'level': 'info',
-                                            'description': 'SparkOS 45.1 is staged'})
-
     def test_units_never_restart(self):
         for name in os.listdir(os.path.join(APP_DIR, 'systemd')):
             with open(os.path.join(APP_DIR, 'systemd', name), encoding='utf-8') as f:
@@ -1029,7 +939,7 @@ def have_display():
 
 @unittest.skipUnless(have_display(), "needs a display")
 class UITests(unittest.TestCase):
-    def open(self, status_file='rpm-ostree-staged.json', root=None, updater_on='uupd'):
+    def open(self, status_file='rpm-ostree-staged.json', root=None, updater_on='spark'):
         from sparkupdate.app import App
         self.root_dir = root or make_root(status_file, updater_on)
         started = time.monotonic()
@@ -1180,32 +1090,11 @@ class UITests(unittest.TestCase):
 
     def test_no_hold_shown_when_it_no_longer_applies(self):
         booted = 'sha256:' + '1' * 64     # booted the held version again: the hold ends
-        for root in (self.held_root(digest=booted), self.held_root(updater_on='uupd')):
+        for root in (self.held_root(digest=booted), self.held_root(updater_on=None)):
             app = self.open(root=root)
             self.assertEqual(app.snap.held, '')
             self.assertNotIn(t('check.held', version=B_VER), app.check_line.cget('text'))
 
-
-    def test_under_uupd(self):
-        root = make_root('rpm-ostree-none.json')
-        write(root, '/status/uupd.json', json.dumps(uupd_units(ok=True, ended=time.time() - 600)))
-        app = self.open(root=root)
-        self.assertEqual(app.snap.engine, 'uupd')
-        self.assertIn(t('check.uupd'), app.check_line.cget('text'))
-        self.assertIn(t('check.last', when=t('when.today', clock='@')).split('@')[0],
-                      app.check_line.cget('text'))
-        self.assertIn(t('apps.uupd_ok', when='@').split('(')[0], app.apps_line.cget('text'))
-        app.show('settings')
-        app.root.update()
-        self.assertFalse(app.can_system)              # uupd's schedule isn't Spark Update's
-        app.show('main')
-        write(root, '/status/uupd.json', json.dumps(uupd_units(ok=False, ended=time.time() - 60)))
-        app.reload()
-        deadline = time.monotonic() + 10
-        while app.pending and time.monotonic() < deadline:
-            app.root.update()
-            time.sleep(0.02)
-        self.assertIn(t('check.uupd_failed', when='@').split('(')[0], app.check_line.cget('text'))
 
 
 if __name__ == '__main__':

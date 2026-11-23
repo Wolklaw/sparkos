@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Install Spark Update, for the whole system (the SparkOS image) or for one user (no root).
 #
-#   bash install.sh [--deps] [--engine uupd|spark] [--prefix /usr/lib/spark-update] [--no-test]
+#   bash install.sh [--deps] [--prefix /usr/lib/spark-update] [--no-test]
 #                                               system-wide, root
 #   bash install.sh --uninstall                 remove the system-wide install, root
 #   bash install.sh --user [--no-test]          just you, into ~/.local; no root
@@ -10,9 +10,7 @@
 # System-wide is the real thing: the per-user timer for the notification (and Flatpak apps)
 # (spark-update-user.timer, enabled for every user), the pkexec helper for roll back and
 # settings, its polkit files, and the root timer that can download and stage SparkOS images
-# (spark-update.timer). --engine says who downloads: uupd (default: Universal Blue's uupd, as
-# Bazzite ships it; spark-update.timer stays off) or spark (spark-update.timer on; the image
-# build must then switch uupd off). files/scripts/spark-update.sh runs this in the image build.
+# (spark-update.timer, enabled). files/scripts/spark-update.sh runs this in the image build.
 # --user installs the window, the notification and your own Flatpak updates; downloading
 # SparkOS images in the background needs root, so that part comes only with the image.
 # --deps     system-wide only: install what it needs with dnf first (Fedora; the image build).
@@ -26,7 +24,6 @@ here=$(cd "$(dirname "$0")" && pwd)
 APP_ID=dev.wolklaw.SparkUpdate
 SLUG=spark-update
 PREFIX=/usr/lib/$SLUG
-ENGINE=uupd
 DEPS=0
 TEST=1
 USER_MODE=0
@@ -38,8 +35,7 @@ while [ $# -gt 0 ]; do
     --deps) DEPS=1 ;;
     --no-test) TEST=0 ;;
     --prefix) PREFIX=$2; shift ;;
-    --engine) ENGINE=$2; shift ;;
-    -h|--help) sed -n '2,26p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown option $1" >&2; exit 2 ;;
   esac
   shift
@@ -174,10 +170,6 @@ fi
 
 SYSTEM_UNITS=/usr/lib/systemd/system
 USER_UNITS=/usr/lib/systemd/user
-case "$ENGINE" in
-  uupd|spark) ;;
-  *) echo "install.sh: --engine must be uupd or spark" >&2; exit 2 ;;
-esac
 
 enable_units() {   # works in an image build too (no running systemd needed)
   install -d /etc/systemd/system/timers.target.wants /etc/systemd/user/timers.target.wants
@@ -186,17 +178,11 @@ enable_units() {   # works in an image build too (no running systemd needed)
   else
     ln -sfn "$USER_UNITS/spark-update-user.timer" /etc/systemd/user/timers.target.wants/spark-update-user.timer
   fi
-  # the root timer only when Spark Update itself downloads images (--engine spark); under
-  # uupd it stays off, so the two never both run
-  if [ "$ENGINE" = spark ]; then
-    if command -v systemctl >/dev/null; then
-      systemctl enable spark-update.timer
-    else
-      ln -sfn "$SYSTEM_UNITS/spark-update.timer" /etc/systemd/system/timers.target.wants/spark-update.timer
-    fi
+  # the root timer downloads and stages SparkOS images
+  if command -v systemctl >/dev/null; then
+    systemctl enable spark-update.timer
   else
-    command -v systemctl >/dev/null && systemctl disable spark-update.timer 2>/dev/null || true
-    rm -f /etc/systemd/system/timers.target.wants/spark-update.timer
+    ln -sfn "$SYSTEM_UNITS/spark-update.timer" /etc/systemd/system/timers.target.wants/spark-update.timer
   fi
 }
 

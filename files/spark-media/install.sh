@@ -5,7 +5,7 @@
 #
 # --deps     install what it needs with dnf, skipping anything already there. The SparkOS
 #            image build uses this; GStreamer plugins are checked by element, because
-#            Bazzite may already provide them from differently named packages.
+#            another system may provide them from differently named packages.
 # --no-test  skip the self-test at the end (it needs GStreamer).
 #
 # Installs /usr/bin/spark-media, the program under the prefix, the desktop entry and the icons.
@@ -35,8 +35,8 @@ if [ "$DEPS" = 1 ]; then
   # 1. programs and data, by package name. taglib reads music tags, LibRaw develops camera
   #    RAW photos and libheif opens HEIC and AVIF, all through their C libraries; SparkOS
   #    already has them (KDE uses them). HEIC also needs libheif's HEVC decoder (libde265):
-  #    SparkOS has it from its Bazzite base; plain Fedora doesn't ship one, so there only
-  #    AVIF opens and HEIC says what's missing.
+  #    SparkOS has it from RPM Fusion; plain Fedora doesn't ship one, so there only AVIF
+  #    opens and HEIC says what's missing.
   missing=()
   for pkg in python3 python3-tkinter python3-pillow python3-pillow-tk python3-gobject-base \
              gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good \
@@ -66,8 +66,8 @@ if [ "$DEPS" = 1 ]; then
     echo "--- installing GStreamer plugins: ${plugins[*]}"
     dnf_install "${plugins[@]}"
   fi
-  # H.264, H.265, AAC and most other formats come from FFmpeg through gst-libav. Bazzite ships
-  # the full FFmpeg; plain Fedora has a reduced one. Optional here: the self-test reports it,
+  # H.264, H.265, AAC and most other formats come from FFmpeg through gst-libav. SparkOS ships
+  # the full FFmpeg (RPM Fusion); plain Fedora has a reduced one. Optional here: the self-test reports it,
   # and the SparkOS build requires it (files/scripts/spark-media.sh).
   has avdec_aac || dnf_install gstreamer1-plugin-libav || echo "--- optional: no gst-libav"
   has dav1ddec || dnf_install gstreamer1-plugin-dav1d || echo "--- optional: no AV1 decoder"

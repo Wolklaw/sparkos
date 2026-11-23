@@ -23,7 +23,7 @@ grep -q '^DEFAULT_HOSTNAME=' "$OS_RELEASE" || echo 'DEFAULT_HOSTNAME="sparkos"' 
 sysrel=$(cat /etc/system-release)
 echo "--- /etc/system-release before: $sysrel"
 rm -f /etc/system-release
-sed -E 's/^(Bazzite|Fedora)( Linux)?/SparkOS/' <<<"$sysrel" >/etc/system-release
+sed -E 's/^Fedora( Linux)?/SparkOS/' <<<"$sysrel" >/etc/system-release
 echo "--- /etc/system-release after: $(cat /etc/system-release)"
 
 # Fail the build if the rename did not take, so a broken image never ships.

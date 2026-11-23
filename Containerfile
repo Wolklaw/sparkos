@@ -102,8 +102,7 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
 #      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
-#      Update is the one updater: its timer downloads and stages updates daily (engine "spark";
-#      until 2026-11-20 Universal Blue's uupd did the downloading)
+#      Update is the one updater: its timer downloads and stages updates daily
 #    - spark-controller: fans (curves, run by a small root service), RGB and firmware; the
 #      sensor-chip module for the motherboard's fan headers loads at boot (modules-load.d)
 #    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
@@ -111,7 +110,6 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
 #    - sparkos-icons: the SparkOS icon theme over Breeze Dark (files/sparkos-icons), the default
 #    - sparkos-theme, last: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
-ARG SPARK_UPDATE_ENGINE=spark
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \

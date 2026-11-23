@@ -12,7 +12,6 @@
 # - xdg-terminal-exec's default (/etc/xdg/kde-xdg-terminals.list and xdg-terminals.list)
 # - Ctrl+Alt+T: Spark Terminal's desktop entry takes it; Konsole's gives it up
 # - the dock (the look-and-feel layout) and SparkOS's own scripts start spark-terminal
-# - new shells print one SparkOS line instead of Bazzite's welcome banner (files/system)
 # Konsole stays installed for one release as a fallback, hidden from the menu. Removing it is
 # a separate change.
 set -oue pipefail
@@ -60,12 +59,6 @@ if command -v xdg-terminal-exec >/dev/null; then
   echo "xdg-terminal-exec picks: ${picked:-(no --print-id in this version)}"
   [ -z "$picked" ] || [ "$picked" = dev.wolklaw.SparkTerminal.desktop ] || { echo "xdg-terminal-exec picks $picked"; exit 1; }
 fi
-
-# --- the banner in each new shell is SparkOS's one line, not "Welcome to Bazzite" (files/system
-#     replaces /usr/libexec/ublue-motd, which /etc/profile.d/user-motd.sh runs)
-grep -q 'SPARKOS' /usr/libexec/ublue-motd
-out=$(script -qc 'TERM=xterm-256color /usr/libexec/ublue-motd' /dev/null 2>/dev/null || /usr/libexec/ublue-motd)
-if grep -qi bazzite <<<"$out"; then echo "the terminal banner still says Bazzite: $out"; exit 1; fi
 
 # --- nothing SparkOS ships starts Konsole any more
 callers=$(grep -rlE '(^|[^.[:alnum:]_-])konsole( |$)' /usr/bin/sparkos-* /usr/share/applications/sparkos-*.desktop \

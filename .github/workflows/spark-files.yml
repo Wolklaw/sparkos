@@ -33,7 +33,7 @@ jobs:
       - name: Install (the image build step)
         run: |
           # stand-ins for Dolphin's FileManager1 activation file and menu entry (the real ones
-          # are in Bazzite; installing Dolphin here would pull in half of KDE), so the takeover
+          # are in the SparkOS image; installing Dolphin here would pull in half of KDE), so the takeover
           # is tested too
           mkdir -p /usr/share/dbus-1/services /usr/share/applications
           printf '[D-BUS Service]\nName=org.freedesktop.FileManager1\nExec=/usr/bin/dolphin --daemon\n' \

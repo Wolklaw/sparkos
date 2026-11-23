@@ -76,20 +76,6 @@ EN = {
     'apps.yours': "Yours",
     'apps.system': "System",
 
-    # while Universal Blue's uupd does the downloading (engine.py)
-    'uupd.failed': "uupd's last run failed; the Log shows why.",
-    'apps.uupd_ok': "Updated by uupd together with SparkOS ({when}).",
-    'apps.uupd_failed': "uupd's last run ({when}) didn't finish; your apps may not be up to "
-                        "date.",
-    'apps.uupd_never': "Updated by uupd together with SparkOS; it hasn't run yet.",
-    'check.uupd': "Universal Blue's uupd downloads updates for now: daily around 04:00, and "
-                  "when you click Check now.",
-    'check.uupd_running': "It's running now.",
-    'check.uupd_failed': "Its last run ({when}) failed; see the Log.",
-    'set.uupd': "Universal Blue's uupd downloads updates for now, daily around 04:00; these "
-                "settings apply once Spark Update does it itself.",
-    'log.uupd': "uupd (downloads updates for now)",
-
     'check.last': "Last check {when}.",
     'check.never': "Not checked yet.",
     'check.next': "Next check after {when}.",
@@ -272,21 +258,6 @@ FR = {
     'apps.not_yet': "Pas encore mises à jour par Spark Update.",
     'apps.yours': "Les vôtres",
     'apps.system': "Système",
-
-    # while Universal Blue's uupd does the downloading (engine.py)
-    'uupd.failed': "La dernière exécution de uupd a échoué; le journal dit pourquoi.",
-    'apps.uupd_ok': "Mises à jour par uupd en même temps que SparkOS ({when}).",
-    'apps.uupd_failed': "La dernière exécution de uupd ({when}) ne s'est pas terminée; vos "
-                        "applications ne sont peut-être pas à jour.",
-    'apps.uupd_never': "Mises à jour par uupd en même temps que SparkOS; il n'a pas encore "
-                       "été lancé.",
-    'check.uupd': "Pour l'instant, uupd d'Universal Blue télécharge les mises à jour : chaque "
-                  "jour vers 04:00, et quand vous cliquez sur Vérifier.",
-    'check.uupd_running': "Il est en cours d'exécution.",
-    'check.uupd_failed': "Sa dernière exécution ({when}) a échoué; voyez le journal.",
-    'set.uupd': "Pour l'instant, uupd d'Universal Blue télécharge les mises à jour, chaque jour "
-                "vers 04:00; ces réglages s'appliqueront quand Spark Update le fera lui-même.",
-    'log.uupd': "uupd (télécharge les mises à jour pour l'instant)",
 
     'check.last': "Dernière vérification : {when}.",
     'check.never': "Pas encore vérifié.",
