@@ -36,7 +36,7 @@ jobs:
           # stand-ins for KDE's two tools and the menu entry (the real ones are in the images;
           # installing Plasma here would pull in half of KDE)
           printf '#!/bin/sh\necho "real systemsettings $*"\n' > /usr/bin/systemsettings
-          printf '#!/bin/sh\necho "real kcmshell6 $*"\n' > /usr/bin/kcmshell6
+          printf '#!/bin/sh\necho "real kcmshell6 $*"\ncase "$1" in --list) echo "kcm_fake - Fake";; esac\n' > /usr/bin/kcmshell6
           chmod 0755 /usr/bin/systemsettings /usr/bin/kcmshell6
           mkdir -p /usr/share/applications
           printf '[Desktop Entry]\nType=Application\nName=System Settings\nExec=systemsettings\n' \
