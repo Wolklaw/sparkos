@@ -107,6 +107,24 @@ def confirm_terminal(machine: Machine) -> Confirm:
                    t('confirm.terminal_touches'), t('action.terminal'))
 
 
+def confirm_share(machine: Machine, sudo: bool) -> Confirm:
+    """Take control of a desktop's screen. Without sudo the person there is asked first; with
+    it nobody is asked and the screen shows a banner instead."""
+    from .screen import request_shown
+    lines = [t('confirm.runs', command=request_shown(ssh_shown(machine), sudo))]
+    if sudo:
+        lines.append(t('confirm.share_sudo_note'))
+        return Confirm(t('confirm.share_sudo_title', machine=machine.name),
+                       t('confirm.share_sudo_body', machine=machine.name),
+                       '\n\n'.join(lines + [t('confirm.share_touches', machine=machine.name)]),
+                       t('action.share_sudo_open'))
+    lines.append(t('confirm.share_prompt', machine=machine.name))
+    return Confirm(t('confirm.share_title', machine=machine.name),
+                   t('confirm.share_body', machine=machine.name),
+                   '\n\n'.join(lines + [t('confirm.share_touches', machine=machine.name)]),
+                   t('action.share_open'))
+
+
 def confirm_failback(machine: Machine) -> Confirm:
     command = machine.failover.failback if machine.failover else ''
     return Confirm(t('confirm.failback_title', machine=machine.name),
@@ -160,3 +178,12 @@ def open_terminal(machine: Machine, remote: Optional[str] = None) -> bool:
     except OSError as exc:
         log.warning("terminal failed: %s", exc)
         return False
+
+
+def share_error_text(machine: Machine, reason: str, message: str) -> str:
+    """The sentence for a failed screen share: the reason spark-share (or we) gave, in words."""
+    from .text import EN
+    key = f'share.err.{reason}'
+    if key not in EN:
+        key, message = 'share.err.error', message or reason
+    return t(key, machine=machine.name, message=message)

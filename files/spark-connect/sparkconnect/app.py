@@ -18,11 +18,12 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from . import (APP_CLASS, APP_NAME, APP_SLUG, BACKGROUND_REFRESH_S, OPEN_REFRESH_S, VERSION,
-               actions, alerts, config as configmod, core, dialogs, report, sites)
+               actions, alerts, config as configmod, core, dialogs, report, screen, sites)
 from .core import log, reduced_motion
 from .probe import OK, REBOOT_GRACE_S, Problem, Result, problems
 from .text import t, verdict_text
 from .transport import DONE, NEEDS_PASSWORD, SshTransport
+from .screen import DENIED
 from .widgets import MONO_FAMILIES, T, Glitch, GlitchText, Mark, Strip
 
 APP_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -102,6 +103,8 @@ class App:
         self.previous: Dict[str, Result] = {}
         self.down_since: Dict[str, float] = {}
         self.rebooting: Dict[str, float] = {}       # machine -> when we sent it a reboot
+        self.shares: Dict[str, screen.Share] = {}   # machine -> its open screen share
+        self._share_timer: Optional[str] = None
         self.site_results: Dict[str, sites.SiteResult] = {}
         self.due: Dict[Tuple, float] = {}
         self.pending: set = set()
@@ -529,6 +532,76 @@ class App:
             dialogs.showerror(t('result.no_terminal_title'), t('result.no_terminal'),
                               parent=self.root)
 
+    # — screen sharing —
+    def sharing_busy(self, name: str) -> bool:
+        return name in self.shares or ('share', name) in self.pending
+
+    def ask_share(self, machine: configmod.Machine, sudo: bool = False):
+        if not machine.desktop or self.sharing_busy(machine.name):
+            return
+        if not self.confirm(actions.confirm_share(machine, sudo)):
+            log.info("screen share with %s cancelled", machine.name)
+            return
+        share = screen.Share(machine, self.transport, sudo,
+                             terminal=lambda m, remote: actions.open_terminal(m, remote))
+        self._start_share(machine, share, share.connect)
+
+    def _start_share(self, machine: configmod.Machine, share, job):
+        self.set_status(t('status.sharing', machine=machine.name.upper()), T["gold"],
+                        hold_ms=120000)
+
+        def finished(outcome):
+            if not isinstance(outcome, screen.ShareResult):
+                outcome = screen.ShareResult('failed', 'error', str(outcome))
+            if outcome.outcome == DONE:
+                self.shares[machine.name] = share
+                self.set_status(t('status.sharing', machine=machine.name.upper()), T["pink"],
+                                hold_ms=10 * 60 * 1000)
+                self.glitch.now(self.title, strong=True)
+                self._share_tick()
+                return
+            self._status_idle()
+            if outcome.outcome == NEEDS_PASSWORD and job == share.connect:
+                if dialogs.askyesno(t('share.password_title'),
+                                    t('share.password', machine=machine.name),
+                                    parent=self.root, detail=outcome.message):
+                    self._start_share(machine, share, share.connect_handoff)
+                self.redraw()
+                return
+            text = actions.share_error_text(machine, outcome.reason, outcome.message)
+            if outcome.outcome == DENIED:
+                dialogs.showinfo(t('share.denied_title'), text, parent=self.root)
+            else:
+                self.glitch.now(self.title, strong=True)
+                dialogs.showerror(t('share.failed_title'),
+                                  t('share.failed', machine=machine.name, message=text),
+                                  parent=self.root)
+            self.redraw()
+
+        self.submit(('share', machine.name), job, finished)
+        self.redraw()
+
+    def stop_share(self, name: str, why: str = 'stopped'):
+        share = self.shares.pop(name, None)
+        if share is None:
+            return
+        self.submit(('stopshare', name), lambda: share.stop(why), lambda _v: None)
+        self._status_idle()
+        self.set_status(t('status.share_ended', machine=name.upper()))
+        self.redraw()
+
+    def _share_tick(self):
+        """Every few seconds while a share is open: notice one that ended (the viewer was
+        closed, the banner's Stop was pressed, the connection dropped) and keep the minutes
+        on the card and in the machine's view current."""
+        self._share_timer = None
+        for name, share in list(self.shares.items()):
+            if not share.alive():
+                self.stop_share(name, 'ended')
+        if self.shares:
+            self.redraw()
+            self._share_timer = self.root.after(4000, self._share_tick)
+
     def copy_report(self, machine: configmod.Machine):
         text = report.build(machine, self.results.get(machine.name),
                             self.down_since.get(machine.name))
@@ -590,6 +663,9 @@ class App:
         self.root.mainloop()
 
     def close(self):
+        for share in list(self.shares.values()):
+            share.stop('closed')
+        self.shares.clear()
         if self.machine_view is not None:
             self.machine_view.close()
         self.pool.shutdown(wait=False, cancel_futures=True)

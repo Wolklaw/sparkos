@@ -11,7 +11,7 @@ no keyboard) don't get it: their machine view stays as it is.
 
 So:
 
-1. From a machine's view in Spark Connect, **See screen** and **Take control**.
+1. From a machine's view in Spark Connect, **Take control** (see-only turned out not to exist, below).
 2. **Approval:** the person at that machine gets a prompt and decides. Nothing is shown until they
    accept.
 3. **Sudo override:** when nobody is there to accept (or nobody is logged in to answer), the owner
@@ -70,9 +70,18 @@ strangers out is the SSH key, as in part one.
 
 ### Seeing without control
 
-The prompt and the banner say which one was asked for. Find out whether krdp can refuse input
-(an option, or a config key in `krdpserverrc`); if it can, **See screen** uses it. If it can't,
-ship only **Take control** for now and say so in the README, rather than a "view only" that isn't.
+Checked while building (krdp 6.8.3): `krdpserver` has no view-only option and no config key for it,
+so **See screen** is not shipped, only **Take control**. The prompt and the banner say "seen and
+controlled". Revisit when krdp gets one.
+
+### Corrections found while building
+
+- krdpserver takes its password only as an argument (`-p`) or from KWallet, so for the life of one
+  share the one-time password is on the target's process list. It is random, single use, on
+  `127.0.0.1` only, and gone when the share ends; the README lists it as a known gap.
+- krdpserver does not expose its own certificate, so `spark-share` makes one per share and pins its
+  fingerprint in the viewer (FreeRDP `/cert:fingerprint:...,deny`). Windows' `mstsc` can't pin one.
+- `--mode` is not needed: `--plasma` already uses KWin's screencast and fake-input interfaces.
 
 ## Where `spark-share` lives
 
@@ -87,7 +96,7 @@ boot test only as `spark-share --self-test` (krdpserver and its desktop file are
 
 ## Spark Connect changes
 
-- Config: `desktop = true` on a machine shows **See screen**, **Take control** and **Take control
+- Config: `desktop = true` on a machine shows **Take control** and **Take control
   without asking…** in its view. Machines without it (the servers) show nothing new.
   `machines.example.toml` gets one desktop machine with made-up names.
 - The probe reports, for desktop machines only, whether someone is logged in to a graphical session

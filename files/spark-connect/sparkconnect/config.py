@@ -58,6 +58,8 @@ class Machine:
     local_checks: List[Tuple[str, str]] = field(default_factory=list)
     failover: Optional[Failover] = None
     allow: List[str] = field(default_factory=list)  # 'update', 'reboot'
+    desktop: bool = False                           # a SparkOS desktop: see and control its screen
+    console: bool = False                           # a server with no desktop: see its console
 
     def watched(self) -> List[Tuple[str, str]]:
         return [(SYSTEM, u) for u in self.units] + [(USER, u) for u in self.user_units]
@@ -128,7 +130,7 @@ def _machine(raw: Any, index: int) -> Machine:
     where = f"machine '{name}'"
     known = {'name', 'host', 'port', 'kind', 'transport', 'units', 'user_units', 'restartable',
              'known_failed', 'tunnel', 'tunnel_hostnames', 'local_checks', 'failover',
-             'allow'}
+             'allow', 'desktop', 'console'}
     extra = sorted(set(raw) - known)
     if extra:
         raise ConfigError(f"{where}: unknown setting {', '.join(extra)}")
@@ -195,10 +197,19 @@ def _machine(raw: Any, index: int) -> Machine:
     for a in allow:
         if a not in POWER:
             raise ConfigError(f"{where}: allow '{a}' should be one of {', '.join(POWER)}")
+    flags = {}
+    for flag in ('desktop', 'console'):
+        value = raw.get(flag, False)
+        if not isinstance(value, bool):
+            raise ConfigError(f"{where}: {flag} should be true or false")
+        flags[flag] = value
+    if flags['desktop'] and flags['console']:
+        raise ConfigError(f"{where}: desktop and console are for different machines: "
+                          "a machine with a desktop shares its screen, a server shows its console")
     return Machine(name=name.strip(), host=host, port=port, kind=kind, transport=transport,
                    units=units, user_units=user_units, restartable=restartable,
                    known_failed=known_failed, tunnel=tunnel, tunnel_hostnames=hostnames,
-                   local_checks=checks, failover=failover, allow=list(dict.fromkeys(allow)))
+                   local_checks=checks, failover=failover, allow=list(dict.fromkeys(allow)), **flags)
 
 
 def parse(data: Dict[str, Any], path: str = '') -> Config:

@@ -19,6 +19,8 @@
 #   SC_NETMON_LOG     the network monitor's log, relative to SC_FAILOVER_DIR
 #   SC_LOCAL_URLS     name=url pairs checked from the server itself (127.0.0.1 health URLs)
 #   SC_LOG_LINES      journal lines per unit
+#   SC_DESKTOP        1 on a machine with a desktop: also report whether someone is logged in
+#                     to it, whether the screen is locked, and whether it is being shared
 #
 # Needs only what a stock Ubuntu or Fedora server has: sh, sed, awk, tr, df, and systemctl,
 # journalctl, ss, curl when they are there. Without systemd it still prints valid JSON.
@@ -27,6 +29,7 @@ LC_ALL=C
 export LC_ALL
 : "${SC_UNITS:=}" "${SC_USER_UNITS:=}" "${SC_TUNNEL:=}" "${SC_FAILOVER_DIR:=}"
 : "${SC_ACTIVE_UNIT:=}" "${SC_NETMON_LOG:=}" "${SC_LOCAL_URLS:=}" "${SC_LOG_LINES:=5}"
+: "${SC_DESKTOP:=}"
 case $SC_LOG_LINES in ''|*[!0-9]*) SC_LOG_LINES=5 ;; esac
 # systemctl --user needs the user's runtime folder; a non-interactive SSH login may not set it
 if [ -z "${XDG_RUNTIME_DIR:-}" ] && [ -d "/run/user/$(id -u)" ]; then
@@ -125,6 +128,42 @@ if [ -r $ua ]; then
 fi
 printf '"packages":{"manager":%s,"reboot":%s,"updates":%s,"security":%s},' \
   "$(str "$pm")" "$reboot" "$(num "$n")" "$(num "$sec")"
+
+# ─── the desktop (only when the config says the machine has one) ─
+# Reads loginctl's session list and each session's type, state and lock hint, and whether a
+# krdpserver process exists. It reads no screen content.
+printf '"desktop":'
+if [ "$SC_DESKTOP" = 1 ] && have loginctl; then
+  d_state=none; d_user=; d_best=9
+  for sid in $(loginctl list-sessions --no-legend --no-pager 2>/dev/null | awk '{print $1}'); do
+    info=$(loginctl show-session "$sid" --no-pager -p Class -p Type -p State -p Active \
+             -p LockedHint -p Name 2>/dev/null)
+    cls=; typ=; st=; act=; lk=; nm=
+    while IFS== read -r k v; do
+      case $k in Class) cls=$v ;; Type) typ=$v ;; State) st=$v ;; Active) act=$v ;;
+                 LockedHint) lk=$v ;; Name) nm=$v ;; esac
+    done <<EOF_SESSION
+$info
+EOF_SESSION
+    [ "$cls" = user ] || continue
+    case $typ in wayland|x11|mir) ;; *) continue ;; esac
+    case $st in active|online) ;; *) continue ;; esac
+    rank=1; [ "$act" = yes ] && rank=0
+    if [ "$rank" -lt "$d_best" ]; then
+      d_best=$rank; d_user=$nm
+      if [ "$lk" = yes ]; then d_state=locked; else d_state=in_use; fi
+    fi
+  done
+  d_sharing=false
+  if have pgrep && pgrep -x krdpserver >/dev/null 2>&1; then d_sharing=true; fi
+  d_tool=false
+  if have spark-share; then d_tool=true; fi
+  printf '{"state":%s,"user":%s,"sharing":%s,"spark_share":%s}' "$(str "$d_state")" \
+    "$(str "$d_user")" "$d_sharing" "$d_tool"
+else
+  printf 'null'
+fi
+printf ','
 
 # ─── units ────────────────────────────────────────────────────
 # unit SCOPE NAME: one JSON object. SCOPE is system or user.

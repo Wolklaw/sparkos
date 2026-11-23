@@ -1,0 +1,64 @@
+{
+ "probe": 1,
+ "time": 1795000000,
+ "hostname": "living-room",
+ "os": "Ubuntu 24.04.3 LTS",
+ "kernel": "6.8.0-88-generic",
+ "systemd": true,
+ "uptime_s": 1209600,
+ "cpus": 8,
+ "load": [
+  0.42,
+  0.38,
+  0.35
+ ],
+ "cpu_pct": 6.3,
+ "memory": {
+  "total": 16000000000,
+  "available": 11000000000,
+  "swap_total": 4000000000,
+  "swap_free": 3900000000
+ },
+ "disks": [
+  {
+   "mount": "/",
+   "size": 250000000000,
+   "used": 80000000000,
+   "free": 157000000000
+  },
+  {
+   "mount": "/boot",
+   "size": 2000000000,
+   "used": 200000000,
+   "free": 1700000000
+  }
+ ],
+ "temps": [
+  {
+   "name": "x86_pkg_temp",
+   "c": 48.0
+  },
+  {
+   "name": "coretemp Package id 0",
+   "c": 49.0
+  }
+ ],
+ "net": [
+  {
+   "iface": "eno1",
+   "rx": 900000000000,
+   "tx": 1200000000000
+  }
+ ],
+ "units": [],
+ "failed": [],
+ "tunnel": null,
+ "failover": null,
+ "local_checks": [],
+ "desktop": {
+  "state": "locked",
+  "user": "owner",
+  "sharing": false,
+  "spark_share": true
+ }
+}

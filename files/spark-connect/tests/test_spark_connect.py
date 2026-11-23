@@ -308,7 +308,9 @@ class Config(unittest.TestCase):
     def test_example(self):
         cfg = example()
         self.assertTrue(cfg.found)
-        main, standby = cfg.machines
+        main, standby, desk = cfg.machines
+        self.assertTrue(desk.desktop)
+        self.assertFalse(main.desktop or standby.desktop)
         self.assertEqual(main.restartable, [('system', 'example-portal'), ('user', 'cloudflared')])
         self.assertTrue(main.can_restart('user', 'cloudflared'))
         self.assertFalse(main.can_restart('system', 'caddy'))
@@ -538,7 +540,7 @@ class SelfTest(unittest.TestCase):
         with redirect_stdout(out):
             code = self_test(EXAMPLE)
         text = out.getvalue()
-        self.assertIn('2 machines, 2 websites', text)
+        self.assertIn('3 machines, 2 websites', text)
         self.assertIn('probe:', text)
         if shutil.which('ssh'):
             self.assertEqual(code, 0, text)
@@ -567,7 +569,7 @@ class FakeTransport:
 
     def fetch(self, m):
         self.calls.append(('fetch', m.name))
-        return result_for(self.answers[m.name], m)
+        return result_for(self.answers.get(m.name, 'desktop-in-use.json'), m)
 
     def restart(self, m, scope, unit):
         self.calls.append(('restart', m.name, scope, unit))
@@ -619,14 +621,15 @@ class UITests(unittest.TestCase):
             app.start(('machine', m.name))
         for s in app.config.sites:
             app.start(('site', s.name))
-        self.settle(app, lambda: not app.pending and len(app.results) == 2
+        count = len(app.config.machines)
+        self.settle(app, lambda: not app.pending and len(app.results) == count
                     and len(app.site_results) == 2)
 
     def test_overview_renders_calm(self):
         app = self.make({'Main server': 'all-fine.json', 'Standby laptop': 'standby-ok.json'})
         self.load_all(app)
         ov = app.overview
-        self.assertEqual(ov.order, ['Main server', 'Standby laptop'])
+        self.assertEqual(ov.order, ['Main server', 'Standby laptop', 'Living-room PC'])
         card = ov.cards['Main server']
         self.assertEqual(card.verdict.cget('text'), t('verdict.ok'))
         self.assertFalse(card.slipped)
@@ -642,7 +645,7 @@ class UITests(unittest.TestCase):
         app = self.make({'Main server': 'all-fine.json',
                          'Standby laptop': 'ssh-timeout.stderr'})
         self.load_all(app)
-        self.assertEqual(app.overview.order, ['Standby laptop', 'Main server'])
+        self.assertEqual(app.overview.order, ['Standby laptop', 'Main server', 'Living-room PC'])
         card = app.overview.cards['Standby laptop']
         self.assertTrue(card.slipped)
         self.assertIn(t('card.down'), card.state.cget('text'))
@@ -653,7 +656,7 @@ class UITests(unittest.TestCase):
         self.transport.answers['Standby laptop'] = 'standby-ok.json'
         app.start(('machine', 'Standby laptop'))
         self.settle(app, lambda: not app.pending)
-        self.assertEqual(app.overview.order, ['Main server', 'Standby laptop'])
+        self.assertEqual(app.overview.order, ['Main server', 'Standby laptop', 'Living-room PC'])
         self.assertTrue(self.notes[-1][1].startswith(t('alert.back', text='')[:4]))
 
     def test_restart_confirmation_cancel_runs_nothing(self):

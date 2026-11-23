@@ -44,6 +44,16 @@ netmon_log = "monitor.log"               # last lines shown, relative to dir
 failback = "~/failover/hand-back.sh"     # typed in a terminal for you, never run by itself
 watches = "Main server"                   # rebooting that one says this one may take over
 
+# A SparkOS desktop. desktop = true adds "Take control" and "Take control without asking..."
+# to its view, and the card says whether someone is logged in. Both need spark-share on that
+# machine (it comes with the SparkOS image) and FreeRDP here (mstsc on Windows). "Take control"
+# shows a prompt on that screen and waits for Allow; the second skips the prompt, goes through
+# `sudo -n`, and the screen shows a banner instead.
+[[machine]]
+name = "Living-room PC"
+host = "living-room"
+desktop = true
+
 [[site]]
 name = "example.org"
 url = "https://example.org/"

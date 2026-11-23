@@ -86,6 +86,25 @@ def bind_tree(widget: tk.Misc, seq: str, fn: Callable):
 
 # ─── Overview ─────────────────────────────────────────────────
 
+def desktop_line(app, machine: Machine, result: Optional[Result]):
+    """(text, colour) for a desktop machine's card: whether someone is logged in, the screen is
+    locked, or a screen share is open. None for machines without a desktop."""
+    if not machine.desktop:
+        return None
+    share = app.shares.get(machine.name)
+    if share is not None:
+        return t('card.sharing', m=int(share.elapsed() // 60)), T["pink"]
+    d = result.data.get('desktop') if result is not None and result.ok else None
+    if not d:
+        return None
+    if d['state'] == 'in_use':
+        return (t('desktop.in_use_user', user=d['user']) if d['user'] else
+                t('desktop.in_use')), T["muted"]
+    if d['state'] == 'locked':
+        return t('desktop.locked'), T["gold"]
+    return t('desktop.none'), T["muted"]
+
+
 class MachineCard(GlitchPanel):
     def __init__(self, parent: tk.Misc, app, machine: Machine):
         super().__init__(parent, T["panel"])
@@ -108,8 +127,16 @@ class MachineCard(GlitchPanel):
         self.more = tk.Label(pad, text="", bg=T["panel"], fg=T["muted"],
                              font=app.font(8, False), anchor="w")
         self.more.pack(fill="x")
+        self.deskrow = tk.Frame(pad, bg=T["panel"])
+        self.desk = tk.Label(self.deskrow, text="", bg=T["panel"], fg=T["muted"],
+                             font=app.font(8), anchor="w")
+        self.desk.pack(side="left")
+        self.stop = WolkButton(self.deskrow, t('action.stop'),
+                               lambda: app.stop_share(machine.name), app.font(8), "danger",
+                               padx=10, pady=2)
         grid = tk.Frame(pad, bg=T["panel"])
         grid.pack(fill="x", pady=(px(8), 0))
+        self.grid_frame = grid
         self.values: Dict[str, tk.Label] = {}
         for i, key in enumerate(('uptime', 'load', 'memory', 'disk', 'temp')):
             micro(grid, app, t(f'card.{key}')).grid(row=0, column=i, sticky="w",
@@ -135,6 +162,16 @@ class MachineCard(GlitchPanel):
                             fg=colour if result is not None else T["muted"])
         extra = len(found) - 1
         self.more.config(text=t('card.more', n=extra) if extra > 0 else "")
+        line = desktop_line(self.app, self.machine, result)
+        if line is None:
+            self.deskrow.pack_forget()
+        else:
+            self.desk.config(text="● " + line[0], fg=line[1])
+            self.deskrow.pack(fill="x", pady=(self.app.px(4), 0), before=self.grid_frame)
+            if self.machine.name in self.app.shares:
+                self.stop.pack(side="right")
+            else:
+                self.stop.pack_forget()
         d = result.data if result is not None and result.ok else None
         if d:
             disk = worst_disk(d)
@@ -357,6 +394,18 @@ class MachineView(tk.Frame):
         self.sub = tk.Label(col, text=machine.host, bg=T["bg"], fg=T["dim"],
                             font=app.font(8, False), anchor="w")
         self.sub.pack(fill="x", padx=(px(6), 0))
+        self.desk = tk.Label(col, text="", bg=T["bg"], fg=T["muted"], font=app.font(8),
+                             anchor="w", justify="left", wraplength=px(460))
+        if machine.desktop:       # their own row: the names are long, the top row is full
+            self.sharebar = tk.Frame(col, bg=T["bg"])
+            self.stop = WolkButton(self.sharebar, t('action.stop'),
+                                   lambda: app.stop_share(machine.name), app.font(8), "danger")
+            self.control = WolkButton(self.sharebar, t('action.take_control'),
+                                      lambda: app.ask_share(machine, False), app.font(8),
+                                      "primary")
+            self.control_sudo = WolkButton(self.sharebar, t('action.take_control_sudo'),
+                                           lambda: app.ask_share(machine, True), app.font(8),
+                                           "danger")
         buttons = tk.Frame(top, bg=T["bg"])
         buttons.pack(side="right", anchor="n", before=col)   # buttons keep their room
         self.failback = WolkButton(buttons, t('action.failback'),
@@ -426,6 +475,7 @@ class MachineView(tk.Frame):
         if result is not None:
             sub += "  ·  " + t('machine.refreshed', time=core.clock(result.at))
         self.sub.config(text=sub)
+        self._desktop(result)
         if result is not None and result.ok and is_taken_over(result.data) \
                 and m.failover and m.failover.failback:
             self.failback.pack(side="right", padx=(app.px(4), 0))
@@ -445,6 +495,36 @@ class MachineView(tk.Frame):
             self._no_data(box, result)
             return
         getattr(self, f'_{self.tab}')(box, result)
+
+    def _desktop(self, result: Optional[Result]):
+        """The desktop line under the host, the notes that say a prompt won't be answered, and
+        Stop in place of Take control while a share is open."""
+        m, app = self.machine, self.app
+        line = desktop_line(app, m, result)
+        if line is None:
+            self.desk.pack_forget()
+        else:
+            d = result.data.get('desktop') if result is not None and result.ok else None
+            notes = [line[0]]
+            if m.name not in app.shares and d:
+                if d['state'] == 'locked':
+                    notes.append(t('desktop.locked_note'))
+                elif d['state'] == 'none':
+                    notes.append(t('desktop.none_note'))
+                if not d['spark_share']:
+                    notes.append(t('desktop.no_tool'))
+            self.desk.config(text='\n'.join(notes), fg=line[1])
+            self.desk.pack(fill="x", padx=(app.px(6), 0))
+        if not m.desktop:
+            return
+        self.sharebar.pack(fill="x", padx=(app.px(6), 0), pady=(app.px(6), 0))
+        for b in (self.stop, self.control, self.control_sudo):
+            b.pack_forget()
+        if m.name in app.shares:
+            self.stop.pack(side="left")
+        else:
+            self.control.pack(side="left")
+            self.control_sudo.pack(side="left", padx=(app.px(6), 0))
 
     # — pages —
     def _no_data(self, box, result: Optional[Result]):

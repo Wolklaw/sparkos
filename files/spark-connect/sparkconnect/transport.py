@@ -59,6 +59,7 @@ def probe_script(machine: Machine, log_lines: int = LOG_LINES) -> str:
         'SC_NETMON_LOG': fo.netmon_log if fo else '',
         'SC_LOCAL_URLS': ' '.join(f"{n}={u}" for n, u in machine.local_checks),
         'SC_LOG_LINES': str(int(log_lines)),
+        'SC_DESKTOP': '1' if machine.desktop else '',
     }
     head = ''.join(f"{k}={shlex.quote(v)}\n" for k, v in values.items())
     return head + probe_text()
@@ -74,15 +75,22 @@ class SshTransport:
         # Windows' OpenSSH has no ControlMaster; elsewhere one connection per host is reused
         self.multiplex = (not WINDOWS) if multiplex is None else multiplex
 
-    def base_argv(self, machine: Machine, tty: bool = False) -> List[str]:
+    def base_argv(self, machine: Machine, tty: bool = False, mux: Optional[bool] = None,
+                  opts: Optional[List[str]] = None) -> List[str]:
+        """ssh with the safe options. mux=False gives a connection of its own (a screen share's
+        request and forward must end when we end them, which a shared one wouldn't); opts go in
+        before the host (for example -N and -L)."""
         argv = [self.ssh or 'ssh', '-o', 'BatchMode=yes', '-o', 'StrictHostKeyChecking=yes',
                 '-o', 'ConnectTimeout=8', '-o', 'ServerAliveInterval=10',
                 '-o', 'ServerAliveCountMax=2']
-        if self.multiplex:
+        if (self.multiplex if mux is None else mux):
             argv += ['-o', 'ControlMaster=auto',
                      '-o', f"ControlPath={os.path.join(cache_dir(), 'cm-%C')}",
                      '-o', 'ControlPersist=120']
+        if self.multiplex and mux is False:
+            argv += ['-o', 'ControlMaster=no', '-o', 'ControlPath=none']
         argv += self.extra
+        argv += list(opts or [])
         if machine.port:
             argv += ['-p', str(machine.port)]
         argv.append('-t' if tty else '-T')

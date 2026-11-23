@@ -110,7 +110,7 @@ def parse_probe(text: str) -> Dict[str, Any]:
         'memory': {k: _num(mem.get(k)) for k in ('total', 'available', 'swap_total',
                                                   'swap_free')},
         'disks': [], 'temps': [], 'net': [], 'units': [], 'failed': [],
-        'tunnel': None, 'failover': None, 'local_checks': [],
+        'tunnel': None, 'failover': None, 'local_checks': [], 'desktop': None,
         'packages': {'manager': '', 'reboot': None, 'updates': None, 'security': None},
     }
     for d in raw.get('disks') or []:
@@ -171,6 +171,12 @@ def parse_probe(text: str) -> Dict[str, Any]:
             'updates': _num(pk.get('updates')),
             'security': _num(pk.get('security')),
         }
+    dk = raw.get('desktop')
+    if isinstance(dk, dict):
+        state = _text(dk.get('state'))
+        data['desktop'] = {'state': state if state in ('in_use', 'locked', 'none') else 'none',
+                           'user': _text(dk.get('user')), 'sharing': dk.get('sharing') is True,
+                           'spark_share': dk.get('spark_share') is True}
     for c in raw.get('local_checks') or []:
         if isinstance(c, dict) and c.get('name'):
             data['local_checks'].append({'name': _text(c['name']), 'url': _text(c.get('url')),

@@ -27,9 +27,22 @@ Every action says what it will run and what it touches, and runs only after you 
 - **Reboot…** (machines with `allow = [..., "reboot"]`): `sudo -n systemctl reboot`, after a confirmation that names the sites behind the machine's tunnel and, if a standby `watches` it, says the standby may take over and needs a failback afterwards. If sudo wants a password nothing runs, and it offers a terminal with the command typed instead. For ten minutes after, the machine shows as rebooting, not unreachable, and sends no notification.
 - **Copy report:** a plain-text snapshot of one machine (services, health, last errors) for a note or a Claude session. Copying runs nothing, so it doesn't ask first.
 
+- **Take control** and **Take control without asking…** (machines with `desktop = true`, SparkOS desktops only, never the servers): see and control that desktop in a FreeRDP window (`mstsc` on Windows). See below.
+
 No stop, disable or file editing, and no update or reboot on machines whose config doesn't allow it. Nothing runs on a timer or by itself.
 
 While it is open, a machine going unreachable, a watched unit failing or a site returning an error shows a desktop notification once, and once more when it recovers (Linux, through `notify-send`; on Windows the window's status line shows it instead). It doesn't send Discord alerts; the servers' own watchdog does that.
+
+## Take control of a desktop
+
+A machine with `desktop = true` shows whether someone is logged in, whether the screen is locked, and two buttons. It needs `spark-share` on that machine, which ships in the SparkOS image (`/usr/bin/spark-share`); on this PC it needs FreeRDP (`sdl-freerdp`, `xfreerdp3` or `xfreerdp`) or, on Windows, `mstsc`.
+
+- **Take control:** runs `ssh <host> spark-share request --control`. The person at that screen gets a window naming who is asking and from which PC, with Deny as the default. No answer in 30 seconds counts as Deny. Nothing starts until they press Allow.
+- **Take control without asking…:** runs `sudo -n spark-share request --control --no-ask`. No prompt. It works only with passwordless sudo on that machine, or after you type the sudo password in a terminal Spark Connect opens for it. A banner still shows on that screen the whole time, with a Stop button.
+- Either way: `spark-share` starts KDE's RDP server (`krdpserver --plasma`) for one share, on `127.0.0.1` only, with a one-time user, password and certificate. Spark Connect forwards a local port to it over the same SSH login and opens the viewer on that port. Nothing listens on the network. The share ends when you press Stop, close the viewer, the SSH connection drops, krdpserver exits or after two hours, and the credentials and certificate go with it.
+- The machine's card shows "Screen shared, N min" with a Stop button while one is open. A locked screen can't answer the prompt, so Take control says so up front; only the override works then.
+- The prompt is consent for the person at the screen, not a security wall: anyone with SSH as that desktop's own user could start krdp themselves. The SSH key is what keeps strangers out, as everywhere else in this app.
+- The viewer gets its password through its standard input (FreeRDP `/args-from:stdin`; on Windows `cmdkey`, removed when the share ends), never in a command line on this PC.
 
 ## The machine list
 
@@ -64,11 +77,19 @@ F5 reads the machine list again and refreshes everything, Escape goes back to th
 
 ## Tests
 
+- **Screen sharing** ([tests/test_share.py](tests/test_share.py)): `spark-share` run against a fake krdpserver, session lookup, the prompt and banner in English and French with no clipped text, the viewer command lines (no password in argv, certificate pinned), `mstsc` credentials removed, the share lifecycle through a fake ssh.
+
 - **Unit** (fixtures in `tests/fixtures/`, made-up machines): the probe's JSON for all fine, a failed unit, a full disk, the tunnel reconnecting, the standby standing by and after a takeover; ssh's own output for a timeout, a changed host key, an unknown host key and a refused key; the verdict for each; the config loader and its errors; the confirmation text for each action (the tunnel one lists hostnames); the restart command and sudo's password refusal through a stand-in `ssh`; that the typed failback line doesn't run without Enter; alerts, the report, website checks against a local server.
 - **UI under Xvfb:** the overview renders calm with no slip; a failed machine sorts to the top and slips, and sorts back when it answers; the restart confirmation shows the hostnames and cancelling it runs nothing; every tab of the machine view; the log tail and its filter; no clipped text in English or French.
 - **CI** ([workflow](../../.github/workflows/spark-connect.yml)): the tests in Fedora (English and French) after a system-wide install; the probe in plain `fedora:latest` and `ubuntu:24.04` containers; SSH end to end against a throwaway container with sshd, systemd, a throwaway key and a dummy user unit (refresh, restart the unit and see it restarted, sudo's password refusal, an unknown host key refused, a journal tail); the unit tests on `windows-latest`; and inside the published SparkOS image, `install.sh --user`, `--self-test`, the tests and `--uninstall` as a normal user.
 
 ## Known gaps
+
+- **Take control has not been tried on a real desktop.** Tested: `spark-share` against a fake krdpserver (the JSON line, 127.0.0.1 only, Deny and timeout start nothing, a locked screen is refused, Stop and a closed connection end it), the share lifecycle through a fake ssh, the viewer command lines, and the prompt and banner in English and French. Tried by hand on a Plasma PC, in a throwaway virtual KWin (not the desktop in use): `krdpserver --plasma` starts on `127.0.0.1`, and FreeRDP `/auth-only` with the pinned certificate (`/cert:fingerprint:sha256:<hex>,deny`) signs in, while a wrong fingerprint is refused. **Not in CI:** a headless KWin (`kwin_wayland --virtual`) would not start in a container without a GPU, neither in plain Fedora nor in the SparkOS image, so there is no end-to-end CI job. Not tried at all: the prompt and banner on a real session, a real mouse and keyboard through the viewer, Windows' `mstsc`, and the sudo-password terminal. The owner does the first real share while watching.
+- **No view-only.** krdp 6.8 has no such option, so there is no "See screen": every share is controlled. Revisit when krdp adds one.
+- **The one-time password is visible to local users on the target** (`/proc/<pid>/cmdline` of `krdpserver`) while a share runs, because krdpserver only takes its password as an argument or from KWallet. It is random, single use, bound to `127.0.0.1`, and gone when the share ends. On a desktop with one person, that is the person you are connecting to.
+- **Windows' `mstsc` can't pin the certificate**; it relies on the SSH forward to `127.0.0.1` and the one-time password.
+- Taking control of a session that belongs to another user than the SSH login works only through the override (root).
 
 - **Not yet tried against the owner's real machines.** The first real connection is for the owner to do while watching; read only, no restart to test the button.
 - **Windows:** runs from source; no installer, no desktop notifications, and no connection reuse (each refresh is a new SSH connection). Open terminal and Failback open a plain console window running `ssh`.
