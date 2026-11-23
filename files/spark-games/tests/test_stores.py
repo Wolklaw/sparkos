@@ -263,6 +263,47 @@ class OwnedTests(StoreCase):
         item = stores.load_owned('epic')['games'][0]
         self.assertTrue(os.path.isfile(stores.cover_file(item['art'])))
 
+    def test_cover_url_with_spaces_does_not_stop_the_others(self):
+        # Epic's CDN has file names with spaces; http.client refused them and the
+        # error stopped every cover after that one
+        import http.client
+        self.sign_in_epic()
+        data = stores.refresh_owned('epic')
+        games = data['games']
+        self.assertGreaterEqual(len(games), 2)
+        games[0]['art'] = 'https://cdn1.epicgames.com/x/item/broken.png'
+        games[1]['art'] = 'https://cdn1.epicgames.com/x/item/AC KINGDOM_Key Art_640x854.png'
+        with open(stores.owned_path('epic'), 'w') as f:
+            json.dump(data, f)
+        self.assertTrue(stores.missing_covers('epic'))
+        asked = []
+
+        class Response(io.BytesIO):
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *a):
+                return False
+
+        def urlopen(request, **_k):
+            asked.append(request.full_url)
+            if ' ' in request.full_url:
+                raise http.client.InvalidURL('control characters')
+            if 'broken' in request.full_url:
+                raise http.client.RemoteDisconnected('gone')
+            return Response(b'\xff\xd8jpeg')
+
+        with mock.patch('urllib.request.urlopen', urlopen):
+            stores.fetch_covers('epic')
+        # the failed one comes first; the one after it still downloads, with its spaces encoded
+        self.assertIn('https://cdn1.epicgames.com/x/item/AC%20KINGDOM_Key%20Art_640x854.png', asked)
+        self.assertTrue(os.path.isfile(stores.cover_file(games[1]['art'])))
+        self.assertFalse(os.path.isfile(stores.cover_file(games[0]['art'])))
+
+    def test_safe_url(self):
+        self.assertEqual(stores.safe_url('https://a.example/p q/r%20s.png?w=1&h=2'),
+                         'https://a.example/p%20q/r%20s.png?w=1&h=2')
+
 
 class LibraryTests(StoreCase):
     def test_owned_games_are_greyed_and_never_twice(self):
