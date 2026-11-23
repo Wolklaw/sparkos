@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-update-layered",
+      "date": "2026-11-23",
+      "en": "Spark Update installs updates on a PC where you added packages with rpm-ostree (Tailscale, for example). Before, every check failed with \"cannot upgrade via bootc\".",
+      "fr": "Spark Update installe les mises à jour sur un PC où vous avez ajouté des paquets avec rpm-ostree (Tailscale, par exemple). Avant, chaque vérification échouait avec « cannot upgrade via bootc »."
+    },
+    {
       "id": "2026-11-23-games-steam-owned",
       "date": "2026-11-23",
       "en": "Spark Games lists every Steam game you own, not only the installed ones: choose All owned to see them. Opening one that isn't installed offers Install in Steam.",
