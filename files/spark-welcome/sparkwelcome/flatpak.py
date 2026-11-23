@@ -17,6 +17,9 @@ from .strings import t
 REMOTE = 'flathub'
 REMOTE_URL = 'https://dl.flathub.org/repo/flathub.flatpakrepo'
 
+# Spark Run's known apps that Spark Welcome can offer (the keys of sparkrun/catalog.py)
+RUN_KEYS = ('amazon-music',)
+
 QUEUED, WORKING, DONE, FAILED, CANCELLED = 'queued', 'working', 'done', 'failed', 'cancelled'
 
 _PERCENT = re.compile(r'(\d{1,3})\s*%')
@@ -37,6 +40,11 @@ def remote_add_cmd(flatpak: Sequence[str] = ('flatpak',)) -> List[str]:
     return [*flatpak, 'remote-add', '--user', '--if-not-exists', REMOTE, REMOTE_URL]
 
 
+def run_cmd(key: str, spark_run: Sequence[str] = ('spark-run',)) -> List[str]:
+    """Spark Run installs one of its known Windows apps (and does nothing if it is there)."""
+    return [*spark_run, '--get', key, '--no-window']
+
+
 def list_cmd(flatpak: Sequence[str] = ('flatpak',)) -> List[str]:
     return [*flatpak, 'list', '--app', '--columns=application']
 
@@ -52,7 +60,7 @@ def parse_list(output: str) -> Set[str]:
 
 
 def installed_ids(flatpak: Sequence[str] = ('flatpak',)) -> Set[str]:
-    found = web_installed()
+    found = web_installed() | run_installed(RUN_KEYS)
     code, out, err = run(list_cmd(flatpak), timeout=20)
     if code != 0:
         log.warning("flatpak list failed: %s", err.strip())
@@ -81,6 +89,15 @@ def web_installed() -> Set[str]:
     prefix, suffix = 'dev.wolklaw.SparkWelcome.web.', '.desktop'
     return {n[len('dev.wolklaw.SparkWelcome.'):-len(suffix)] for n in names
             if n.startswith(prefix) and n.endswith(suffix)}
+
+
+def run_entry_path(key: str) -> str:
+    """Spark Run's menu entry for the app it installed under this key."""
+    return os.path.join(applications_dir(), f'dev.wolklaw.SparkRun.app-{key}.desktop')
+
+
+def run_installed(keys: Sequence[str]) -> Set[str]:
+    return {f'run.{k}' for k in keys if os.path.isfile(run_entry_path(k))}
 
 
 def web_entry(name: str, url: str) -> str:
@@ -141,6 +158,7 @@ class Job:
     step: str = ''
     error: str = ''
     url: str = ''        # a web app: its address (no Flathub install)
+    run: str = ''        # a Windows app: its key in Spark Run's catalogue
 
 
 class Installer:
@@ -148,8 +166,10 @@ class Installer:
     add/retry/cancel and poll() from the Tk thread; the worker reports through a queue."""
 
     def __init__(self, flatpak: Sequence[str] = ('flatpak',),
-                 on_change: Optional[Callable[[Job], None]] = None):
+                 on_change: Optional[Callable[[Job], None]] = None,
+                 spark_run: Sequence[str] = ('spark-run',)):
         self.flatpak = list(flatpak)
+        self.spark_run = list(spark_run)
         self.on_change = on_change
         self.jobs: Dict[str, Job] = {}
         self._todo: 'queue.Queue[str]' = queue.Queue()
@@ -161,12 +181,12 @@ class Installer:
         self._stop = False
 
     # called from the window
-    def add(self, app_id: str, name: str, url: str = '') -> Job:
+    def add(self, app_id: str, name: str, url: str = '', run: str = '') -> Job:
         with self._lock:
             job = self.jobs.get(app_id)
             if job and job.state in (QUEUED, WORKING, DONE):
                 return job
-            job = Job(app_id, name, url=url)
+            job = Job(app_id, name, url=url, run=run)
             self.jobs[app_id] = job
         self._todo.put(app_id)
         self._events.put(Job(**job.__dict__))
@@ -176,7 +196,7 @@ class Installer:
     def retry(self, app_id: str) -> Optional[Job]:
         job = self.jobs.get(app_id)
         if job and job.state in (FAILED, CANCELLED):
-            return self.add(app_id, job.name, job.url)
+            return self.add(app_id, job.name, job.url, job.run)
         return job
 
     def busy(self) -> bool:
@@ -263,7 +283,7 @@ class Installer:
                 self._set(job, state=FAILED if problem else DONE, error=problem,
                           percent=None if problem else 100)
                 continue
-            problem = self._ensure_remote()
+            problem = '' if job.run else self._ensure_remote()
             if problem:
                 self._set(job, state=FAILED, error=problem)
                 continue
@@ -286,7 +306,7 @@ class Installer:
         return ''
 
     def _install(self, job: Job) -> None:
-        cmd = install_cmd(job.app_id, self.flatpak)
+        cmd = run_cmd(job.run, self.spark_run) if job.run else install_cmd(job.app_id, self.flatpak)
         log.info("running %s", ' '.join(cmd))
         lines: List[str] = []
         try:

@@ -10,7 +10,7 @@ Done in Spark Settings (each reads the real state when opened and talks to the t
 | Page | Tool | Notes |
 | --- | --- | --- |
 | Displays | `kscreen-doctor` | monitors as boxes you drag, resolution, refresh rate, scale, rotation, VRR, HDR, primary, on/off. Every change asks "Keep these settings?" and goes back after 15 s, on Revert, or if the window closes |
-| Sound | `wpctl` | output and input device, default, volume, mute, per-app volume, a test tone |
+| Sound | `wpctl`, `pw-metadata` | output and input device, default, volume, mute, per-app volume, a test tone, output sample rate (follow the track, or a fixed rate your DAC lists in `/proc/asound/card*/stream0`, saved in `~/.config/pipewire/pipewire.conf.d/50-sample-rates.conf` and applied at once with `pw-metadata`) |
 | Network | `nmcli` | Wi-Fi list and connect (asks for the password), wired status, VPN connections (import, up, down), proxy |
 | Bluetooth | `bluetoothctl` | on/off, scan, pair, connect, disconnect, forget |
 | Power | `powerprofilesctl`, or `busctl` to the same service | power profile. Screen-off and sleep timers and the power button open KDE's module |

@@ -17,6 +17,11 @@ FLATPAK_ID = re.compile(r'^[A-Za-z][A-Za-z0-9_-]*(\.[A-Za-z0-9_-]+){2,}$')
 WEB_ID = re.compile(r'^web\.[a-z0-9][a-z0-9-]*$')
 
 
+# A Windows app that Spark Run installs ("run.<name>"): `spark-run --get <name>` downloads the
+# vendor's installer and adds the app to the menu. <name> is Spark Run's own app key.
+RUN_ID = re.compile(r'^run\.[a-z0-9][a-z0-9-]*$')
+
+
 class CatalogError(ValueError):
     pass
 
@@ -31,6 +36,7 @@ class Entry:
     blurb_fr: str = ''
     by_fr: str = ''
     web: str = ''    # a web app: the address its menu entry opens (empty for a Flathub app)
+    run: str = ''    # a Windows app: its key in Spark Run's catalogue (spark-run --get KEY)
 
     def label(self, lang: str = 'en') -> str:
         return (self.name_fr if lang == 'fr' and self.name_fr else self.name)
@@ -71,14 +77,19 @@ def _entry(raw: Any, where: str) -> Entry:
         if not isinstance(raw.get(key), str) or not raw[key].strip():
             raise CatalogError(f"{where}: missing '{key}'")
     web = str(raw.get('web') or '')
-    if web:
+    run = str(raw.get('run') or '')
+    if run:
+        if raw['id'] != f'run.{run}' or not RUN_ID.match(raw['id']) or web:
+            raise CatalogError(f"{where}: a Spark Run app needs an id like run.name and a "
+                               f"matching 'run' key")
+    elif web:
         if not WEB_ID.match(raw['id']) or not re.match(r'^https://[^\s"\'\\]+$', web):
             raise CatalogError(f"{where}: a web app needs an id like web.name and an https address")
     elif not FLATPAK_ID.match(raw['id']):
         raise CatalogError(f"{where}: '{raw['id']}' isn't a Flathub app id")
     return Entry(raw['id'], raw['name'], raw['by'], raw['blurb'],
                  str(raw.get('name_fr', '')), str(raw.get('blurb_fr', '')),
-                 str(raw.get('by_fr', '')), web)
+                 str(raw.get('by_fr', '')), web, run)
 
 
 def parse(data: Dict[str, Any]) -> Catalog:

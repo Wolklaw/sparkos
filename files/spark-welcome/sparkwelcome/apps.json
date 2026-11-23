@@ -34,9 +34,10 @@
       {"id": "com.spotify.Client", "name": "Spotify", "by": "Spotify",
        "blurb": "Music and podcasts streaming. Needs a Spotify account.",
        "blurb_fr": "Musique et balados en continu. Demande un compte Spotify."},
-      {"id": "web.amazon-music", "name": "Amazon Music", "by": "Amazon", "web": "https://music.amazon.ca",
-       "blurb": "Amazon has no Linux app: this adds Amazon Music to your menu, and it opens Amazon's web player in your browser. Needs an Amazon account.",
-       "blurb_fr": "Amazon n'a pas d'application Linux : ceci ajoute Amazon Music à votre menu, qui ouvre le lecteur web d'Amazon dans votre navigateur. Demande un compte Amazon."}
+      {"id": "run.amazon-music", "name": "Amazon Music (Windows app, Ultra HD)", "by": "Amazon", "run": "amazon-music",
+       "name_fr": "Amazon Music (application Windows, Ultra HD)",
+       "blurb": "Amazon has no Linux app, so this runs Amazon's Windows app with Spark Run. It downloads Amazon's installer (about 90 MB, checked before it runs) and adds Amazon Music to your menu. Ultra HD only plays above 48 kHz when your sound output runs at that rate: set it in Spark Settings, Sound. Needs an Amazon account.",
+       "blurb_fr": "Amazon n'a pas d'application Linux : ceci lance l'application Windows d'Amazon avec Spark Run. Il télécharge l'installateur d'Amazon (environ 90 Mo, vérifié avant d'être lancé) et ajoute Amazon Music à votre menu. L'Ultra HD ne joue au-delà de 48 kHz que si votre sortie audio tourne à ce taux : réglez-le dans Spark Settings, Son. Demande un compte Amazon."}
     ]},
     {"name": "Streaming and recording", "name_fr": "Diffusion et enregistrement", "apps": [
       {"id": "com.obsproject.Studio", "name": "OBS Studio", "by": "the OBS Project",

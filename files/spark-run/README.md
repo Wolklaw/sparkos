@@ -63,6 +63,7 @@ spark-run setup.exe                             # Run once / Install as an app (
 spark-run --run-once prog.exe [args] [--wait]   # no window unless it fails
 spark-run --install setup.exe [--name N] [--silent] [--portable|--installer]
 spark-run --open APP [files]                    # what a menu entry runs
+spark-run --get amazon-music                      # install a known app (pinned installer, checked by SHA-256) unless it is there
 spark-run --list [--json]
 spark-run --set APP [--windows win7] [--dxvk on|off] [--name N]
 spark-run --in APP vc_redist.x64.exe            # run another installer inside an app's prefix

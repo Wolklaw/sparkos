@@ -102,6 +102,92 @@ class Parsers(unittest.TestCase):
         sound.set_mute(52, True)
         self.assertEqual(calls(), ['wpctl set-default 53', 'wpctl set-volume 52 0.50', 'wpctl set-mute 52 1'])
 
+    STREAM0 = '''FiiO USB DAC-E10 at usb-0000:0e:00.0-1, full : USB Audio
+
+Playback:
+  Status: Running
+  Interface 1
+    Altset 1
+    Format: S32_LE
+    Endpoint: 0x01 (1 OUT) (ASYNC)
+    Rates: 44100, 48000, 88200, 96000
+  Interface 1
+    Altset 2
+    Format: S16_LE
+    Endpoint: 0x01 (1 OUT) (ASYNC)
+    Rates: 44100, 48000, 88200, 96000
+
+Capture:
+  Status: Stop
+  Interface 2
+    Altset 1
+    Endpoint: 0x82 (2 IN) (ASYNC)
+    Rates: 16000
+'''
+
+    def test_sample_rates_parse(self):
+        name, rates = sound.parse_stream(self.STREAM0)
+        self.assertIn('FiiO', name)
+        self.assertEqual(rates, [44100, 48000, 88200, 96000])      # no capture rate
+        self.assertEqual(sound.parse_stream('Cam\n\nCapture:\n    Rates: 16000\n')[1], [])
+        self.assertEqual(sound.parse_stream('Dac\n\nPlayback:\n    Rates: 44100 - 192000 (continuous)\n')[1],
+                         [44100, 48000, 88200, 96000, 176400, 192000])
+        self.assertEqual(sound.parse_stream('')[1], [])
+        self.assertEqual([sound.rate_label(r) for r in (44100, 48000, 96000, 192000)],
+                         ['44.1 kHz', '48 kHz', '96 kHz', '192 kHz'])
+
+    def test_sample_rates_per_device(self):
+        root = tempfile.mkdtemp()
+        for n, text in ((0, self.STREAM0),
+                        (3, 'Kingston HyperX Quadcast at usb-1, full speed : USB Audio\n\n'
+                            'Playback:\n    Rates: 44100, 48000\n')):
+            os.makedirs(os.path.join(root, f'card{n}'))
+            open(os.path.join(root, f'card{n}', 'stream0'), 'w').write(text)
+        self.assertEqual(sound.device_rates('FiiO USB DAC-E10 Analog Stereo', root),
+                         [44100, 48000, 88200, 96000])
+        self.assertEqual(sound.device_rates('HyperX Quadcast Analog Stereo', root), [44100, 48000])
+        self.assertEqual(sound.device_rates('Built-in Audio HDMI', root), sound.FALLBACK_RATES)
+        self.assertEqual(sound.device_rates('FiiO', os.path.join(root, 'nothing')),
+                         [44100, 48000, 96000, 192000])
+
+    def test_sample_rate_file(self):
+        home = tempfile.mkdtemp()
+        old = os.environ['XDG_CONFIG_HOME']
+        os.environ['XDG_CONFIG_HOME'] = os.path.join(home, '.config')
+        try:
+            path = sound.rate_file()
+            self.assertEqual(path, os.path.join(home, '.config', 'pipewire', 'pipewire.conf.d',
+                                                '50-sample-rates.conf'))
+            self.assertEqual(sound.read_rate(), 0)                 # no file: follow the track
+            self.assertTrue(sound.write_rate(0))                   # removing nothing is fine
+            self.assertTrue(sound.write_rate(96000))
+            text = open(path).read()
+            self.assertTrue(text.startswith('# Written by Spark Settings'))
+            self.assertIn('context.properties = {\n    default.clock.rate = 96000\n'
+                          '    default.clock.allowed-rates = [ 96000 ]\n}\n', text)
+            self.assertEqual(sound.read_rate(), 96000)
+            self.assertTrue(sound.write_rate(192000))
+            self.assertEqual(sound.read_rate(), 192000)
+            self.assertEqual(open(path).read().count('default.clock.rate = '), 1)
+            self.assertFalse(os.path.exists(path + '.tmp'))
+            self.assertTrue(sound.write_rate(0))
+            self.assertFalse(os.path.exists(path))
+            self.assertEqual(sound.read_rate(), 0)
+            # the user's existing file, written by hand, is read as it is
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            open(path, 'w').write('context.properties = {\n    default.clock.rate          = 96000\n'
+                                  '    default.clock.allowed-rates = [ 96000 ]\n}\n')
+            self.assertEqual(sound.read_rate(), 96000)
+        finally:
+            os.environ['XDG_CONFIG_HOME'] = old
+
+    def test_sample_rate_apply(self):
+        reset_calls()
+        self.assertTrue(sound.apply_rate(96000))
+        self.assertTrue(sound.apply_rate(0))
+        self.assertEqual(calls(), ['pw-metadata -n settings 0 clock.force-rate 96000',
+                                   'pw-metadata -n settings 0 clock.force-rate 0'])
+
     def test_network(self):
         self.assertEqual(network.split_terse(r'no:Neighbour\:5G:45:WPA2'), ['no', 'Neighbour:5G', '45', 'WPA2'])
         nets = network.wifi_list()
@@ -261,6 +347,38 @@ class Window(unittest.TestCase):
             self.app.open_page(key)
             self.app.idle(3)
             self.assertIs(self.app.current, self.app.pages[key])
+
+    def test_sound_page_shows_the_saved_rate(self):
+        """The rate in the user's own file is the one selected; with none, follow the track."""
+        from sparksettings.ui import Choice
+        old = os.environ['XDG_CONFIG_HOME']
+        os.environ['XDG_CONFIG_HOME'] = tempfile.mkdtemp()
+        try:
+            page = self.app.pages['sound']
+            st = sound.parse_status(open(os.path.join(FIX, 'wpctl-status.txt')).read())
+
+            def rate_choice():
+                page.sig = None
+                page.render(st)
+                found = []
+
+                def walk(w):
+                    if isinstance(w, Choice) and ('Follow the track (default)', '0') in w.options:
+                        found.append(w)
+                    for c in w.winfo_children():
+                        walk(c)
+                walk(page.holder)
+                self.assertEqual(len(found), 1)
+                return found[0]
+
+            self.assertEqual(rate_choice().value, '0')
+            sound.write_rate(96000)
+            choice = rate_choice()
+            self.assertEqual(choice.value, '96000')
+            self.assertIn(('96 kHz', '96000'), choice.options)
+            self.assertIn('96 kHz', choice.label.cget('text'))
+        finally:
+            os.environ['XDG_CONFIG_HOME'] = old
 
     def test_search_finds_refresh_rate_on_displays(self):
         hits = self.app.find('refresh')

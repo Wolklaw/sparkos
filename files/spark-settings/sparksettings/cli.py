@@ -20,7 +20,7 @@ TOOLS = [
     ('kcmshell6', "More settings (KDE modules)", True),
     ('lpstat', "Printers", True), ('lpadmin', "Printers (add)", True), ('lpinfo', "Printers (find)", True),
     ('lp', "Printers (test page)", True), ('rpm-ostree', "About (image)", True),
-    ('pactl', "Live sound updates", False), ('lspci', "About (graphics)", False),
+    ('pw-metadata', "Sound sample rate", False), ('pactl', "Live sound updates", False), ('lspci', "About (graphics)", False),
     ('dbus-monitor', "Live Bluetooth updates", False),
 ]
 
