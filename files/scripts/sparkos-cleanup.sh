@@ -57,6 +57,29 @@ if grep -l '^enabled=1' /etc/yum.repos.d/_copr* 2>/dev/null; then
   echo "a COPR repository is still switched on (above)"; exit 1
 fi
 
+# --- Out of the app menu (still installed; the commands and the platform keep working)
+# Replaced by a Spark app, hidden for one release and then removed, as Dolphin and Konsole were:
+#   KDE Connect (Spark Link), Ark (Spark Archive), Discover (Spark Store)
+# Command-line tools that need no menu entry (they run in Spark Terminal): btop, nvtop,
+#   Microsoft Edit (msedit), yad's Icon Browser
+# Admin and developer tools: Info Center, Journald Browser, Btrfs Assistant (snapshots are off),
+#   the Foreground Booster's settings, the Menu Editor (Spark Launcher is the menu)
+HIDE=(org.kde.kdeconnect.app org.kde.kdeconnect.sms org.kde.kdeconnect.nonplasma
+      org.kde.ark org.kde.discover
+      btop nvtop com.microsoft.edit yad-icon-browser
+      org.kde.kinfocenter org.kde.kjournaldbrowser btrfs-assistant org.kde.foreground-booster
+      org.kde.kmenuedit)
+for id in "${HIDE[@]}"; do
+  entry=/usr/share/applications/$id.desktop
+  [ -f "$entry" ] || { echo "--- $id.desktop is not installed, nothing to hide"; continue; }
+  # replace any NoDisplay in the [Desktop Entry] group (actions have their own groups)
+  sed -i --follow-symlinks -e '/^\[Desktop Entry\]/,/^\[/{/^NoDisplay=/d}' \
+    -e '/^\[Desktop Entry\]/a NoDisplay=true' "$entry"
+  sed -n '/^\[Desktop Entry\]/,/^\[/p' "$entry" | grep -qx 'NoDisplay=true' \
+    || { echo "$id.desktop is still in the menu"; exit 1; }
+done
+echo "--- hid ${#HIDE[@]} menu entries"
+
 # NetworkManager's connectivity check (fedoraproject.org, every 5 minutes) stays for now: it is
 # what detects hotel and café Wi-Fi sign-in pages. The owner decides (see the release2-cleanup PR).
 
