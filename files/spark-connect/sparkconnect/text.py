@@ -212,6 +212,23 @@ EN = {
     'result.reboot_failed': "Rebooting {machine} didn't work:\n{message}",
     'status.rebooting': "REBOOTING {machine}",
 
+    # console (servers with no desktop)
+    'action.console': "See console",
+    'action.console_open': "See console",
+    'confirm.console_title': "See the console of {machine}?",
+    'confirm.console_body': "Opens a terminal that shows what {machine} has on its own screen "
+                            "(the text console, tty1). You can switch to typing into it with "
+                            "Ctrl+], and back with Ctrl+]. Q or Ctrl+C closes it.",
+    'confirm.console_note': "This always uses sudo: reading the console needs root, so you type "
+                            "the sudo password of {machine} in that terminal. There is no prompt "
+                            "for anybody at {machine} to answer. While it runs, a one-line "
+                            "notice on tty1 says which PC is viewing, and another says when it "
+                            "ends.",
+    'confirm.console_touches': "Touches: nothing is installed on {machine}. A short Python "
+                               "script runs there as root until you close the terminal. Typing "
+                               "uses a virtual keyboard (/dev/uinput) and assumes a US layout.",
+    'desktop.console': "NO DESKTOP: CONSOLE ONLY",
+
     # screen sharing (desktop machines)
     'action.take_control': "Take control",
     'action.take_control_sudo': "Take control without asking…",
@@ -490,6 +507,24 @@ FR = {
     'result.reboot_failed_title': "Le redémarrage a échoué",
     'result.reboot_failed': "Le redémarrage de {machine} n'a pas marché :\n{message}",
     'status.rebooting': "{machine} REDÉMARRE",
+
+    # console (serveurs sans bureau)
+    'action.console': "Voir la console",
+    'action.console_open': "Voir la console",
+    'confirm.console_title': "Voir la console de {machine} ?",
+    'confirm.console_body': "Ouvre un terminal qui montre ce que {machine} affiche sur son "
+                            "propre écran (la console texte, tty1). Ctrl+] passe à la saisie "
+                            "dans la console, et y revient. Q ou Ctrl+C le ferme.",
+    'confirm.console_note': "Cela passe toujours par sudo : lire la console demande root, donc "
+                            "vous tapez le mot de passe sudo de {machine} dans ce terminal. "
+                            "Aucune demande n'est posée à qui que ce soit devant {machine}. "
+                            "Pendant l'affichage, une ligne sur tty1 indique quel PC regarde, "
+                            "et une autre indique la fin.",
+    'confirm.console_touches': "Touche : rien n'est installé sur {machine}. Un court script "
+                               "Python s'y exécute en root jusqu'à la fermeture du terminal. "
+                               "La saisie passe par un clavier virtuel (/dev/uinput) et suppose "
+                               "une disposition US.",
+    'desktop.console': "SANS BUREAU : CONSOLE SEULEMENT",
 
     # partage d'écran (machines avec un bureau)
     'action.take_control': "Prendre le contrôle",

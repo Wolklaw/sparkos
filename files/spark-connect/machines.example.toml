@@ -54,6 +54,15 @@ name = "Living-room PC"
 host = "living-room"
 desktop = true
 
+# A server with no desktop, such as a GestionDirecte host. console = true adds "See console":
+# a terminal that mirrors what the machine shows on its own screen (tty1). It always asks for
+# the sudo password in that terminal, because reading the console needs root, and nobody at the
+# machine is asked. Nothing is installed on it. Use either desktop or console, not both.
+[[machine]]
+name = "GD host"
+host = "gd-host"
+console = true
+
 [[site]]
 name = "example.org"
 url = "https://example.org/"

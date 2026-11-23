@@ -125,6 +125,25 @@ def confirm_share(machine: Machine, sudo: bool) -> Confirm:
                    t('action.share_open'))
 
 
+def console_remote(pc: str) -> str:
+    """The remote command for See console: sudo python3 running console.py as a -c script, so
+    nothing is installed on the server. pc is this PC's name; it goes on the server's tty1."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'console.py')
+    with open(path, encoding='utf-8') as f:
+        script = f.read()
+    return 'sudo python3 -c ' + shlex.quote(script) + ' ' + shlex.quote(pc)
+
+
+def confirm_console(machine: Machine) -> Confirm:
+    """See console on a server with no desktop. Always the sudo path: nobody is asked."""
+    command = f"{ssh_shown(machine).replace('ssh', 'ssh -t', 1)} sudo python3 -c …"
+    return Confirm(t('confirm.console_title', machine=machine.name),
+                   t('confirm.console_body', machine=machine.name),
+                   t('confirm.runs', command=command) + '\n\n' +
+                   t('confirm.console_note', machine=machine.name) + '\n\n' +
+                   t('confirm.console_touches', machine=machine.name), t('action.console_open'))
+
+
 def confirm_failback(machine: Machine) -> Confirm:
     command = machine.failover.failback if machine.failover else ''
     return Confirm(t('confirm.failback_title', machine=machine.name),

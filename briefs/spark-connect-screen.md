@@ -83,6 +83,19 @@ controlled". Revisit when krdp gets one.
   fingerprint in the viewer (FreeRDP `/cert:fingerprint:...,deny`). Windows' `mstsc` can't pin one.
 - `--mode` is not needed: `--plasma` already uses KWin's screencast and fake-input interfaces.
 
+## GD host console (added 2026-11-23)
+
+The owner's targets are their own tailnet devices plus the GestionDirecte host. The GD host has no desktop, so its console is the target.
+
+- **Config:** `console = true` on a machine adds **See console**. It is not combined with `desktop = true`.
+- **Command:** Spark Connect opens a terminal running `ssh -t <host> sudo python3 -c <script> <this PC's name>`. The owner types the sudo password there. Nothing is installed on the server.
+- **The script** is `sparkconnect/console.py`, kept readable in the app folder. It mirrors `/dev/vcsa1` (text and cursor, a few refreshes a second) into the terminal.
+- **Typing:** Ctrl+] toggles "type into console". Keys go through a `/dev/uinput` virtual keyboard in pure Python. `TIOCSTI` is off on new kernels (this PC: `dev.tty.legacy_tiocsti = 0`), so it is not used.
+- **Notice:** while it runs it writes a one-line notice on tty1 saying which PC is viewing, and another when it ends.
+- **No approval prompt**, because root is needed to read vcsa anyway. It is always the sudo path, and the README says so.
+- **Tests:** a fixture vcsa dump; uinput in CI only if a container allows it (it does not here, so not run in CI).
+- **Not run** against the real GD host.
+
 ## Where `spark-share` lives
 
 On the target, in the SparkOS image (`/usr/bin/spark-share`, a Python + Tk script in
@@ -113,6 +126,7 @@ boot test only as `spark-share --self-test` (krdpserver and its desktop file are
   needs its own agent. Later, if the owner wants it.
 - **The GestionDirecte tablets** stay on their own plan in [PLAN.md](../PLAN.md), "Remote care".
 - **Machines outside the tailnet/LAN** (the hub and agent from part one's "Ready for later").
+- **The Android GestionDirecte tablets** (in a Spark launcher or kiosk app) will reuse the request / prompt / banner / JSON-line shape. On a device-owner tablet, device-owner rights play the role of the sudo override.
 - A Spark-made viewer. The first version uses FreeRDP's window on SparkOS and `mstsc` on Windows.
 
 ## Tests

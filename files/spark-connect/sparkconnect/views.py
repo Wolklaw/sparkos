@@ -406,6 +406,10 @@ class MachineView(tk.Frame):
             self.control_sudo = WolkButton(self.sharebar, t('action.take_control_sudo'),
                                            lambda: app.ask_share(machine, True), app.font(8),
                                            "danger")
+        elif machine.console:     # a server with no desktop: its console is the screen
+            self.sharebar = tk.Frame(col, bg=T["bg"])
+            WolkButton(self.sharebar, t('action.console'), lambda: app.ask_console(machine),
+                       app.font(8), "danger").pack(side="left")
         buttons = tk.Frame(top, bg=T["bg"])
         buttons.pack(side="right", anchor="n", before=col)   # buttons keep their room
         self.failback = WolkButton(buttons, t('action.failback'),
@@ -515,6 +519,8 @@ class MachineView(tk.Frame):
                     notes.append(t('desktop.no_tool'))
             self.desk.config(text='\n'.join(notes), fg=line[1])
             self.desk.pack(fill="x", padx=(app.px(6), 0))
+        if m.console:
+            self.sharebar.pack(fill="x", padx=(app.px(6), 0), pady=(app.px(6), 0))
         if not m.desktop:
             return
         self.sharebar.pack(fill="x", padx=(app.px(6), 0), pady=(app.px(6), 0))

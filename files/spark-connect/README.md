@@ -44,6 +44,16 @@ A machine with `desktop = true` shows whether someone is logged in, whether the 
 - The prompt is consent for the person at the screen, not a security wall: anyone with SSH as that desktop's own user could start krdp themselves. The SSH key is what keeps strangers out, as everywhere else in this app.
 - The viewer gets its password through its standard input (FreeRDP `/args-from:stdin`; on Windows `cmdkey`, removed when the share ends), never in a command line on this PC.
 
+## See the console of a server with no desktop
+
+A machine with `console = true` (for a machine with no desktop, such as a GestionDirecte host; not with `desktop = true`) gets **See console**. It opens a terminal (Spark Terminal on SparkOS, a console window on Windows) running `ssh -t <host> sudo python3 -c <script> <this PC's name>`, and nothing is installed on the server.
+
+- **It is always the sudo path.** Reading the server's screen (`/dev/vcsa1`) needs root, so you type the server's sudo password in that terminal. There is no approval prompt and nobody at the server is asked. After the confirmation dialog, that is the whole gate; it is meant for your own servers.
+- The script (`sparkconnect/console.py`, readable in this folder) copies the text and the cursor of the server's first console a few times a second into your terminal. **Q** or **Ctrl+C** closes it.
+- **Ctrl+]** switches "type into the console" on and off. Typing goes through a virtual keyboard (`/dev/uinput`), made in pure Python, because pushing keystrokes into a console with `TIOCSTI` is switched off on current kernels (sysctl `dev.tty.legacy_tiocsti`). It assumes a US keyboard layout and drops keys it has no mapping for. It types only while tty1 is the console in front.
+- While it runs, it writes one line on tty1 saying which PC is viewing, another when typing starts and stops, and one when it ends.
+- Never run against a real GestionDirecte host so far. Tested: the screen it draws from a fixture dump, the key decoding, the notices and the loop with a fake keyboard, and the command line. Not tested: `/dev/vcsa1` and `/dev/uinput` on a real server, uinput in CI, the sudo-password terminal, and the Windows quoting of the long `-c` argument.
+
 ## The machine list
 
 `~/.config/spark-connect/machines.toml` (Windows: `%APPDATA%\spark-connect\machines.toml`). Spark Connect only reads it and never creates it; it starts with no machines. Copy [machines.example.toml](machines.example.toml), which shows every field with made-up names, and press F5 in the window after changing it.

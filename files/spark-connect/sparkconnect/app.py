@@ -521,6 +521,14 @@ class App:
         if self.confirm(actions.confirm_terminal(machine)):
             self._terminal(machine)
 
+    def ask_console(self, machine: configmod.Machine):
+        """See console: always the sudo path, the password is typed in the terminal."""
+        if not machine.console:
+            return
+        if self.confirm(actions.confirm_console(machine)):
+            import socket
+            self._terminal(machine, actions.console_remote(socket.gethostname()))
+
     def ask_failback(self, machine: configmod.Machine):
         if not machine.failover or not machine.failover.failback:
             return

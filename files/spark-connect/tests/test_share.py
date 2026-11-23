@@ -749,11 +749,12 @@ class MachineWindow(unittest.TestCase):
         self.transport = tsc.FakeTransport({'Living-room PC': answer})
         app = App(config_path=tsc.EXAMPLE, transport=self.transport, site_checker=tsc.fake_site,
                   auto_refresh=False, notifier=lambda a, b: True)
-        self.addCleanup(app.close)
+        self.addCleanup(__import__('gc').collect)   # run after close: a Tk variable freed in a
+        self.addCleanup(app.close)                 # worker thread would wait on the main thread
         for m in app.config.machines:
             app.start(('machine', m.name))
         end = time.monotonic() + 10
-        while (app.pending or len(app.results) < 3) and time.monotonic() < end:
+        while (app.pending or len(app.results) < len(app.config.machines)) and time.monotonic() < end:
             app.root.update()
             time.sleep(0.02)
         return app
@@ -776,6 +777,24 @@ class MachineWindow(unittest.TestCase):
             [EN['desktop.in_use_user'].format(user='owner')]) if False else None
         self.assertTrue(v.desk.cget('text').startswith(
             screen_text('desktop.in_use_user', user='owner')))
+
+    def test_console_machine_shows_see_console_and_asks_first(self):
+        app = self.make()
+        app.open_machine('GD host')
+        app.root.update()
+        v = app.machine_view
+        self.assertTrue(v.sharebar.winfo_ismapped())
+        self.assertFalse(hasattr(v, 'control'))
+        seen, opened = [], []
+        app.confirm = lambda c: seen.append(c) or False
+        with mock.patch.object(app, '_terminal', lambda *a: opened.append(a)):
+            app.ask_console(app.machine('GD host'))
+            self.assertEqual((len(seen), opened), (1, []))
+            app.confirm = lambda c: True
+            app.ask_console(app.machine('GD host'))
+            app.ask_console(app.machine('Main server'))     # no console flag: nothing
+        self.assertEqual(len(opened), 1)
+        self.assertTrue(opened[0][1].startswith('sudo python3 -c '))
 
     def test_cancelled_confirmation_runs_nothing(self):
         app = self.make()
@@ -806,7 +825,7 @@ class MachineWindow(unittest.TestCase):
         self.assertTrue(card.stop.winfo_ismapped())
         app.stop_share('Living-room PC')
         end = time.monotonic() + 5
-        while app.pending and time.monotonic() < end:
+        while (app.pending or not fake.stop.called) and time.monotonic() < end:
             app.root.update()
             time.sleep(0.02)
         fake.stop.assert_called_once()
