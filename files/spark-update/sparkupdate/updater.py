@@ -90,9 +90,26 @@ def parse_check(method: str, code: int, text: str) -> Tuple[Optional[bool], str]
     return None, ''
 
 
+# bootc refuses a system with packages layered on it. bootc status doesn't list those (only
+# rpm-ostree status does), so the root service can pick bootc on such a system: this is the
+# answer that says so, and the step is then done again with rpm-ostree.
+LOCAL_CHANGES = re.compile(r'local rpm-ostree modifications', re.I)
+
+
+def _run_upgrade(method: str, cmd_for, runner: Runner, timeout: int):
+    """(method used, exit code, stdout, stderr); bootc falls back to rpm-ostree when it refuses
+    the layered packages."""
+    code, out, err = runner(cmd_for(method), timeout=timeout)
+    if method == 'bootc' and code not in (0, 77) and LOCAL_CHANGES.search(out + '\n' + err):
+        log.info("bootc refuses the layered packages: using rpm-ostree")
+        method = 'rpm-ostree'
+        code, out, err = runner(cmd_for(method), timeout=timeout)
+    return method, code, out, err
+
+
 def check_image(host: Host, runner: Runner) -> Dict[str, Any]:
-    method = method_for(host)
-    code, out, err = runner([method, 'upgrade', '--check'], timeout=600)
+    method, code, out, err = _run_upgrade(
+        method_for(host), lambda m: [m, 'upgrade', '--check'], runner, 600)
     available, version = parse_check(method, code, out + '\n' + err)
     if available is None:
         return {'ok': False, 'method': method, 'error': _first_error(out, err, code)}
@@ -102,10 +119,9 @@ def check_image(host: Host, runner: Runner) -> Dict[str, Any]:
 
 
 def stage_image(host: Host, runner: Runner) -> Dict[str, Any]:
-    method = method_for(host)
-    cmd = ['bootc', 'upgrade'] if method == 'bootc' else \
-        ['rpm-ostree', 'upgrade', '--unchanged-exit-77']
-    code, out, err = runner(cmd, timeout=3 * 3600)
+    method, code, out, err = _run_upgrade(
+        method_for(host), lambda m: ['bootc', 'upgrade'] if m == 'bootc' else
+        ['rpm-ostree', 'upgrade', '--unchanged-exit-77'], runner, 3 * 3600)
     if code in (0, 77):
         return {'ok': True, 'method': method}
     return {'ok': False, 'method': method, 'error': _first_error(out, err, code)}

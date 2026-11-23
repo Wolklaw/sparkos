@@ -19,6 +19,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 from contextlib import redirect_stdout
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -179,6 +180,43 @@ class StatusTests(unittest.TestCase):
         host = status.parse_rpm_ostree(fixture('rpm-ostree-layered.json'))
         self.assertEqual(host.booted.layered, ['htop'])
         self.assertEqual(updater.method_for(host), 'rpm-ostree')
+
+    def test_bootc_refuses_layered_packages(self):
+        """bootc status doesn't list layered packages, so the root service can pick bootc on a
+        system with some (Tailscale). bootc refuses; the same step then runs with rpm-ostree."""
+        host = status.parse_bootc(fixture('bootc-none.json'))
+        refusal = ("error: Upgrading: Deployment contains local rpm-ostree modifications; "
+                   "cannot upgrade via bootc. You can run `rpm-ostree reset` to undo the "
+                   "modifications.")
+        calls = []
+
+        def run(cmd, timeout=0, quiet=False, env=None):
+            calls.append(cmd[:2])
+            if cmd[0] == 'bootc':
+                return 1, '', refusal
+            if '--check' in cmd:
+                return 0, 'AvailableUpdate:\n        Version: 45.20261124.0\n', ''
+            return 0, '', ''
+
+        with mock.patch.object(updater, 'which', lambda name: '/usr/bin/' + name), \
+                mock.patch.object(updater.os, 'geteuid', lambda: 0, create=True):
+            self.assertEqual(updater.method_for(host), 'bootc')
+            result = updater.check_image(host, run)
+            self.assertTrue(result['ok'])
+            self.assertEqual((result['method'], result['available'], result['version']),
+                             ('rpm-ostree', True, '45.20261124.0'))
+            self.assertEqual(calls, [['bootc', 'upgrade'], ['rpm-ostree', 'upgrade']])
+            calls.clear()
+            self.assertEqual(updater.stage_image(host, run), {'ok': True, 'method': 'rpm-ostree'})
+            self.assertEqual(calls, [['bootc', 'upgrade'], ['rpm-ostree', 'upgrade']])
+
+            # any other bootc error is reported, not retried
+            def broken(cmd, timeout=0, quiet=False, env=None):
+                calls.append(cmd[:2])
+                return 1, '', 'error: registry unreachable'
+            calls.clear()
+            self.assertFalse(updater.check_image(host, broken)['ok'])
+            self.assertEqual(calls, [['bootc', 'upgrade']])
 
     def test_rpm_ostree_empty(self):
         self.assertIsNone(status.parse_rpm_ostree({}).booted)
