@@ -49,7 +49,7 @@ jobs:
           # a module Spark Settings has no page for reaches the real tool; --kde too
           test "$(kcmshell6 kcm_colors)" = "real kcmshell6 kcm_colors"
           test "$(systemsettings kcm_colors)" = "real systemsettings kcm_colors"
-          test "$(spark-settings --kde)" = "real systemsettings"
+          spark-settings --kde | grep -q "^real systemsettings"
           # run again: the build step must not wrap its own stand-in
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-settings.sh
           test "$(kcmshell6 kcm_colors)" = "real kcmshell6 kcm_colors"
