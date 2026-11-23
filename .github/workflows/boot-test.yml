@@ -503,14 +503,12 @@ jobs:
           grep -qx 'countme timer: disabled' "$WORK/cleanup-calls.txt" || { echo "::error::rpm-ostree-countme.timer is not disabled"; exit 1; }
           grep -qx 'dnf countme on: 0' "$WORK/cleanup-calls.txt" || { echo "::error::DNF countme is on"; exit 1; }
           grep -qx 'ghns: false' "$WORK/cleanup-calls.txt" || { echo "::error::Get New Stuff is not hidden"; exit 1; }
-          # Homebrew's update timers off until sparkos-dev-setup --brew (Bazzite only: plain
-          # Fedora has no Homebrew); no COPR repository on
+          # Homebrew's update timers off until sparkos-dev-setup --brew (on Fedora, SparkOS's own
+          # units with Bazzite's names); no COPR repository on
           $SSH 'for t in brew-update.timer brew-upgrade.timer; do echo "$t: $(systemctl is-enabled $t 2>&1)"; done
                 echo "copr on: $(grep -l "^enabled=1" /etc/yum.repos.d/_copr* 2>/dev/null | wc -l)"' | tee "$WORK/cleanup-brew.txt"
-          if [ "$BASE" = bazzite ]; then
-            grep -qx 'brew-update.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-update.timer is on"; exit 1; }
-            grep -qx 'brew-upgrade.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-upgrade.timer is on"; exit 1; }
-          fi
+          grep -qx 'brew-update.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-update.timer isn't installed and off"; exit 1; }
+          grep -qx 'brew-upgrade.timer: disabled' "$WORK/cleanup-brew.txt" || { echo "::error::brew-upgrade.timer isn't installed and off"; exit 1; }
           grep -qx 'copr on: 0' "$WORK/cleanup-brew.txt" || { echo "::error::a COPR repository is on"; exit 1; }
           # Fedora base: SparkOS's own Homebrew shell setup (a no-op here, no Homebrew installed),
           # the tools Bazzite brought, umu-run from Terra, and no Terra repository left behind

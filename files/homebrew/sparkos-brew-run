@@ -1,0 +1,15 @@
+#!/usr/bin/bash
+# Run by brew-update.service and brew-upgrade.service (Fedora base): `brew update` or
+# `brew upgrade` as the user who owns Homebrew. Bazzite's units run as UID 1000; this reads the
+# owner of /home/linuxbrew/.linuxbrew instead, so it's right on a PC whose first user isn't 1000.
+set -eu
+prefix=/home/linuxbrew/.linuxbrew
+case "${1:-}" in update|upgrade) ;; *) echo "usage: $0 update|upgrade" >&2; exit 2 ;; esac
+owner=$(stat -c %U "$prefix")
+if [ "$owner" = root ]; then
+  echo "$prefix belongs to root; Homebrew doesn't run as root" >&2
+  exit 1
+fi
+exec runuser -u "$owner" -- env \
+  HOMEBREW_PREFIX="$prefix" HOMEBREW_CELLAR="$prefix/Cellar" HOMEBREW_REPOSITORY="$prefix/Homebrew" \
+  "$prefix/bin/brew" "$1"

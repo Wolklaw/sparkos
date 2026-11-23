@@ -25,7 +25,9 @@ runs of 2026-11-20 and haven't been redone.
   completion), `/etc/profile.d/brew-bash-completion.sh` and fish's `sparkos-brew.fish`
   (sources in [files/homebrew](../files/homebrew)). They keep Bazzite's names so they replace its
   copies, and do nothing without Homebrew. Homebrew itself isn't in the image: on a new install
-  `sparkos-dev-setup --brew` points to Homebrew's installer. No update timers.
+  `sparkos-dev-setup --brew` points to Homebrew's installer. Since 2026-11-23 Homebrew's update
+  timers are there too, under Bazzite's names (`brew-update.timer`, `brew-upgrade.timer`), off
+  until `sparkos-dev-setup --brew`; a PC that had them on under Bazzite keeps them on.
 - **Tools Bazzite had:** `distrobox`, `btop`, `lm_sensors`, `tmux`, `fzf`, `cabextract` from
   Fedora (67 packages with their dependencies, +37 MiB), and **`umu-run`** for Spark Games'
   Windows games: `umu-launcher` isn't in Fedora, so it comes from Terra for that one package
@@ -109,7 +111,7 @@ They compare the two images under the same conditions.
 From the `boot` job (run 4), the same checks as `boot-test.yml` on 53f54a8, adapted where they
 name Bazzite things. 19 pass and 3 fail, the same three as in the morning runs. Since 2026-11-22
 the image runs `boot-test.yml` itself; it skips only the checks about Bazzite's own parts (`ujust`,
-Homebrew's timers, Bazaar) and expects `.flatpakref` files to open in Spark Store.
+Bazaar) and expects `.flatpakref` files to open in Spark Store.
 
 | Check | Result |
 |---|---|
@@ -176,7 +178,7 @@ fixes, template files), `uupd` (updates, daily at 04:00), `brew-setup` (Homebrew
 | **Signing** | BlueBuild's signing module + `sparkos-signing-fix.sh`; Bazzite's `/usr/lib/bootc/install/20-bazzite.toml` makes installs deploy as `ostree-image-signed` | The same signing module and fix, and SparkOS's own `20-sparkos.toml` with the same setting | Nothing: one file. Without it (first prototype run) the test install deployed as `ostree-unverified-registry`, which never checks signatures. | BlueBuild's module |
 | **Updates** | `uupd` (Universal Blue) downloads, daily at 04:00; Spark Update adds the notification, the window and roll back | Spark Update does it all: with no `uupd` in the image, `spark-update.sh` turns on its own timer (every 6 hours, stages the new image, updates Flatpak apps). Measured: enabled and active, no other updater on. Staging a newer image, restarting into it and rolling back work (tried in a VM on 2026-11-22, see [Spark Update staging a newer image](#spark-update-staging-a-newer-image)). | Nothing new: Spark Update already ships. Its built-in image name would need changing only for a separately named image like this one. | None |
 | **The Store** | Bazaar (Universal Blue COPR), with Spark Store installed next to it | Bazaar isn't available in Fedora. Spark Store is installed and `.flatpakref` files already open in it (measured); Kinoite's Discover is there too. | Done (2026-11-22): the dock, `.flatpakref` files and `sparkos-open-package` all use Spark Store. | None |
-| **Homebrew** (`sparkos-dev-setup --brew`) | Bazzite ships a Homebrew tarball and a first-boot service | Not present: `sparkos-dev-setup --brew` says Homebrew isn't ready | Shell setup owned since 2026-11-22 (three small files; an existing `/var/home/linuxbrew` keeps working). `spark brew` installs Homebrew on request (Homebrew's installer pinned to one commit, SHA-256 checked). Not owned: Homebrew's update timers. Claude Code itself installs fine (`sparkos-dev-setup --claude` passed). | Homebrew's installer |
+| **Homebrew** (`sparkos-dev-setup --brew`) | Bazzite ships a Homebrew tarball and a first-boot service | Not present: `sparkos-dev-setup --brew` says Homebrew isn't ready | Shell setup owned since 2026-11-22 (three small files; an existing `/var/home/linuxbrew` keeps working). `spark brew` installs Homebrew on request (Homebrew's installer pinned to one commit, SHA-256 checked). Update timers owned since 2026-11-23: SparkOS's own `brew-update`/`brew-upgrade` units with Bazzite's names and schedule, run as the user who owns Homebrew (Bazzite's run as UID 1000), off until `sparkos-dev-setup --brew`. Claude Code itself installs fine (`sparkos-dev-setup --claude` passed). | Homebrew's installer |
 | **ujust, rollback helper, motd** | Universal Blue | Gone. **Since 2026-11-22 SparkOS has its own `spark` command** ([spark-cli.md](spark-cli.md)), on both bases: update, rollback, pin, kernel arguments, initramfs, boot menu, services, SSH, cleaning, logs and a bug-report bundle, Homebrew and containers. | Nothing SparkOS's own files use them. Rollback is in the boot menu either way; Spark Update covers the rest. The handheld, Nvidia/Intel and app-installer recipes aren't carried over (list in spark-cli.md). | None |
 | **Fedora's first-boot wizard** | Not in Bazzite | `plasma-setup` opened "Welcome to Plasma Desktop, Begin Setup" before the SparkOS sign-in on the first test boot, though a user existed. `fedora-apps.sh` now removes it. | Nothing. | None |
 
@@ -397,6 +399,7 @@ before this).
 | nerd-fonts (COPR) | Symbols Nerd Font 3.5.1 from upstream, SHA-256 checked, with Nerd Fonts' fontconfig file | Prompt icons (Starship, oh-my-posh, `eza --icons`) in any monospace font. The same files as Bazzite's (same SHA-256). |
 | tesseract-langpack-* (ces, chi_sim, chi_tra and their _vert, deu, ell, ita, jpn, jpn_vert, nld, pol, por, rus, spa, tur) | Fedora's packages, 45 MiB | Text recognition in those languages. English and French come with Spark Scan. |
 | `ls-iommu` (Terra) | `files/fedora-parity/ls-iommu`, a small script | Lists IOMMU groups for GPU passthrough. |
+| `/etc/profile.d/open.sh`, `askpass.sh`; `podman.socket` on for every user (Bazzite's loose files and preset) | The same, from `fedora-parity.sh` (added 2026-11-23) | `open FILE` in a terminal opens it in its app; `sudo -A` asks for the password in KDE's window; Podman's Docker-compatible socket for docker-compose and editors' container tools. |
 | `boot-windows`, `protontricks`, `protontricks-launch`, `pulseaudio` (link to `true`), `edit` (link to msedit) (loose files) | SparkOS's own: `boot-windows` runs `spark windows`; the protontricks commands run Flathub's Protontricks or say how to get it; the two links as on Bazzite | Names people type. `pulseaudio --check` succeeds for games and launchers that look for it (PipeWire plays its part). |
 | ntfs-3g, ntfsprogs, exfatprogs, dosfstools; kernel `ntfs3` | Already in Kinoite | The owner's NTFS drives mount with the kernel's `ntfs3` on Bazzite today; Fedora's kernel has `ntfs3.ko` too. |
 | Nova's libraries (llama-server with Vulkan, PySide6 with Qt WebEngine) | Nothing missing | `ldd` over every program and library in Nova's install, run in the Fedora image, finds the same short list of unresolved optional Qt plugins (SQL drivers, Wayland compositor, PDF) as in the Bazzite image. |

@@ -1,0 +1,11 @@
+# SparkOS (Fedora base): same schedule as Bazzite's
+[Unit]
+Description=Homebrew: brew upgrade, every 8h
+
+[Timer]
+OnBootSec=30min
+OnUnitInactiveSec=8h
+Persistent=true
+
+[Install]
+WantedBy=timers.target
