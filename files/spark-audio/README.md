@@ -6,7 +6,7 @@ It follows the PC's language: French (Quebec) when the system language is French
 
 Version 0.1.0. It ships in the SparkOS image ([build step](../scripts/spark-audio.sh)) and installs for one user without root (`install.sh --user`).
 
-**Honest status.** Everything except the Scarlett page was tried on the owner's PC (FiiO USB DAC-E10, HyperX QuadCast, onboard ALC897, AMD HDMI, Logitech C920). The **Scarlett page has never touched a real interface**: nobody had one plugged in. It is written against the control names of the kernel's `scarlett2` driver (as the driver source names them) and tested only against a made-up `amixer contents` dump of a 2i2 in `tests/fixtures`. Expect wrong or missing controls on a real one until it has been tried; the page says so at the top.
+**Honest status.** Everything except the Scarlett page was tried on the owner's PC (FiiO USB DAC-E10, HyperX QuadCast, onboard ALC897, AMD HDMI, Logitech C920). The **Scarlett page has never touched a real interface**, and it won't: the owner no longer has a Scarlett, so it stays hidden unless a Scarlett is plugged in. It is written against the control names of the kernel's `scarlett2` driver (as the driver source names them) and tested only against a made-up `amixer contents` dump of a 2i2 in `tests/fixtures`. Expect wrong or missing controls on a real one; the page says so at the top. On 2026-11-24 volume, mute and moving an app between outputs were also tried live on the FiiO DAC-E10 and restored.
 
 ## What is in it
 
@@ -56,7 +56,7 @@ The tests run on saved data: `tests/fixtures/pw-dump.json` is a real `pw-dump` o
 
 ## Known gaps
 
-- **Scarlett: not tried on hardware.** See above. Routing is shown as far as the driver's enum controls allow; the Scarlett 4th gen and Clarett+ use other control names and may only show under "Other controls". The kernel's `Level Meter` control is not shown.
+- **Scarlett: not tried on hardware, and no longer planned** (the owner has no Scarlett). Routing is shown as far as the driver's enum controls allow; the Scarlett 4th gen and Clarett+ use other control names and may only show under "Other controls". The kernel's `Level Meter` control is not shown.
 - **The EQ was started and removed once on the owner's PC.** It has not been listened to for long, and games that pick an output by name will not use the "(EQ)" output until they are pointed at it.
 - **One EQ service for all outputs.** Changing which outputs have an EQ restarts it, which cuts the sound for a moment.
 - **No per-app EQ, no surround, no sample-rate or buffer settings.** Those stay in PipeWire's own config.

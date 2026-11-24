@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- JavaScript, TypeScript, JSON. SparkOS icon theme, 48 grid. -->
+  <path d="M9 4 H29 L39 14 V44 H9 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M29 4 V14 H39 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 2 left, cyan 2 right, the colour on top -->
+  <g transform="translate(-2 0)" fill="#ff2e88">
+    <rect x="16" y="20" width="4" height="3" fill="#ff2e88"/>
+    <rect x="15" y="23" width="3" height="5" fill="#ff2e88"/>
+    <rect x="13" y="28" width="3" height="3" fill="#ff2e88"/>
+    <rect x="15" y="31" width="3" height="5" fill="#ff2e88"/>
+    <rect x="16" y="36" width="4" height="3" fill="#ff2e88"/>
+    <rect x="28" y="20" width="4" height="3" fill="#ff2e88"/>
+    <rect x="30" y="23" width="3" height="5" fill="#ff2e88"/>
+    <rect x="32" y="28" width="3" height="3" fill="#ff2e88"/>
+    <rect x="30" y="31" width="3" height="5" fill="#ff2e88"/>
+    <rect x="28" y="36" width="4" height="3" fill="#ff2e88"/>
+  </g>
+  <g transform="translate(2 0)" fill="#22d8ff">
+    <rect x="16" y="20" width="4" height="3" fill="#22d8ff"/>
+    <rect x="15" y="23" width="3" height="5" fill="#22d8ff"/>
+    <rect x="13" y="28" width="3" height="3" fill="#22d8ff"/>
+    <rect x="15" y="31" width="3" height="5" fill="#22d8ff"/>
+    <rect x="16" y="36" width="4" height="3" fill="#22d8ff"/>
+    <rect x="28" y="20" width="4" height="3" fill="#22d8ff"/>
+    <rect x="30" y="23" width="3" height="5" fill="#22d8ff"/>
+    <rect x="32" y="28" width="3" height="3" fill="#22d8ff"/>
+    <rect x="30" y="31" width="3" height="5" fill="#22d8ff"/>
+    <rect x="28" y="36" width="4" height="3" fill="#22d8ff"/>
+  </g>
+  <g fill="#f4c95d">
+    <rect x="16" y="20" width="4" height="3" fill="#f4c95d"/>
+    <rect x="15" y="23" width="3" height="5" fill="#f4c95d"/>
+    <rect x="13" y="28" width="3" height="3" fill="#f4c95d"/>
+    <rect x="15" y="31" width="3" height="5" fill="#f4c95d"/>
+    <rect x="16" y="36" width="4" height="3" fill="#f4c95d"/>
+    <rect x="28" y="20" width="4" height="3" fill="#f4c95d"/>
+    <rect x="30" y="23" width="3" height="5" fill="#f4c95d"/>
+    <rect x="32" y="28" width="3" height="3" fill="#f4c95d"/>
+    <rect x="30" y="31" width="3" height="5" fill="#f4c95d"/>
+    <rect x="28" y="36" width="4" height="3" fill="#f4c95d"/>
+  </g>
+</svg>

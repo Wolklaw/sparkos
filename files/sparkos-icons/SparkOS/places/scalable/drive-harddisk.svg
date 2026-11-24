@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Drive: a flat box with a mint top strip, vents and a light. SparkOS icon theme, 48 grid. -->
+  <rect x="6" y="14" width="36" height="22" fill="#2c2870"/>
+  <path d="M6.5 17 V35.5 H41.5 V17" fill="none" stroke="#ece9ff" stroke-opacity="0.3"/>
+  <rect x="4" y="14" width="36" height="3" fill="#ff2e88"/>
+  <rect x="8" y="14" width="36" height="3" fill="#22d8ff"/>
+  <rect x="6" y="14" width="36" height="3" fill="#9be8b8"/>
+  <rect x="10" y="25" width="14" height="2" fill="#b3b0d2"/>
+  <rect x="10" y="30" width="14" height="2" fill="#b3b0d2"/>
+  <rect x="33" y="25" width="5" height="7" fill="#9be8b8"/>
+</svg>

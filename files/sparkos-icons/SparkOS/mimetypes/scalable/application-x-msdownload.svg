@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Windows program (.exe, .msi), opened by Spark Run. SparkOS icon theme, 48 grid. -->
+  <path d="M9 4 H29 L39 14 V44 H9 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M29 4 V14 H39 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 2 left, cyan 2 right, the colour on top -->
+  <g transform="translate(-2 0)" fill="#ff2e88">
+    <path d="M13 20 H35 V40 H13 Z M15 26 V38 H33 V26 Z" fill="#ff2e88" fill-rule="evenodd"/>
+  </g>
+  <g transform="translate(2 0)" fill="#22d8ff">
+    <path d="M13 20 H35 V40 H13 Z M15 26 V38 H33 V26 Z" fill="#22d8ff" fill-rule="evenodd"/>
+  </g>
+  <g fill="#9be8b8">
+    <path d="M13 20 H35 V40 H13 Z M15 26 V38 H33 V26 Z" fill="#9be8b8" fill-rule="evenodd"/>
+  </g>
+  <path d="M21 29 V35 L27 32 Z" fill="#9be8b8"/>
+</svg>

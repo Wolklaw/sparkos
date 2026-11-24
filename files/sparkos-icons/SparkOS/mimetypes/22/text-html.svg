@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!-- HTML and XML. SparkOS icon theme, 22 grid. -->
+  <path d="M3.5 1.5 H13.5 L18.5 6.5 V20.5 H3.5 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M13.5 1.5 V6.5 H18.5 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 1 left, cyan 1 right, the colour on top -->
+  <g transform="translate(-1 0)" fill="#ff2e88">
+    <rect x="9" y="10" width="1" height="1" fill="#ff2e88"/>
+    <rect x="8" y="11" width="1" height="1" fill="#ff2e88"/>
+    <rect x="7" y="12" width="1" height="1" fill="#ff2e88"/>
+    <rect x="6" y="13" width="1" height="1" fill="#ff2e88"/>
+    <rect x="7" y="14" width="1" height="1" fill="#ff2e88"/>
+    <rect x="8" y="15" width="1" height="1" fill="#ff2e88"/>
+    <rect x="9" y="16" width="1" height="1" fill="#ff2e88"/>
+  </g>
+  <g transform="translate(1 0)" fill="#22d8ff">
+    <rect x="9" y="10" width="1" height="1" fill="#22d8ff"/>
+    <rect x="8" y="11" width="1" height="1" fill="#22d8ff"/>
+    <rect x="7" y="12" width="1" height="1" fill="#22d8ff"/>
+    <rect x="6" y="13" width="1" height="1" fill="#22d8ff"/>
+    <rect x="7" y="14" width="1" height="1" fill="#22d8ff"/>
+    <rect x="8" y="15" width="1" height="1" fill="#22d8ff"/>
+    <rect x="9" y="16" width="1" height="1" fill="#22d8ff"/>
+  </g>
+  <g fill="#f0a671">
+    <rect x="9" y="10" width="1" height="1" fill="#f0a671"/>
+    <rect x="8" y="11" width="1" height="1" fill="#f0a671"/>
+    <rect x="7" y="12" width="1" height="1" fill="#f0a671"/>
+    <rect x="6" y="13" width="1" height="1" fill="#f0a671"/>
+    <rect x="7" y="14" width="1" height="1" fill="#f0a671"/>
+    <rect x="8" y="15" width="1" height="1" fill="#f0a671"/>
+    <rect x="9" y="16" width="1" height="1" fill="#f0a671"/>
+  </g>
+  <rect x="12" y="10" width="1" height="1" fill="#f0a671"/>
+  <rect x="13" y="11" width="1" height="1" fill="#f0a671"/>
+  <rect x="14" y="12" width="1" height="1" fill="#f0a671"/>
+  <rect x="15" y="13" width="1" height="1" fill="#f0a671"/>
+  <rect x="14" y="14" width="1" height="1" fill="#f0a671"/>
+  <rect x="13" y="15" width="1" height="1" fill="#f0a671"/>
+  <rect x="12" y="16" width="1" height="1" fill="#f0a671"/>
+</svg>

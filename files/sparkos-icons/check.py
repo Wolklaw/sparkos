@@ -4,7 +4,7 @@
     python3 files/sparkos-icons/check.py                    # checks only
     python3 files/sparkos-icons/check.py --sheet out.png    # checks, then the contact sheet
 
-Checks: index.theme parses, every directory it lists exists (and has a section), every SVG
+Checks: index.theme parses, the file-type names Spark Files and Plasma ask for exist, every directory it lists exists (and has a section), every SVG
 parses as XML with an <svg> root and a viewBox, every link stays inside the theme, each 24 px
 file is the 22 px drawing with a 1 px margin, and every icon renders at 16, 22, 32, 48 and
 256 px with rsvg-convert (ImageMagick's librsvg reader if rsvg-convert is missing) to a
@@ -27,6 +27,33 @@ CHECK_SIZES = (16, 22, 32, 48, 256)
 SHEET_SIZES = (16, 22, 24, 32, 48, 128)
 DARK, LIGHT = (10, 9, 25), (246, 244, 255)
 SVG_NS = "{http://www.w3.org/2000/svg}"
+
+# Batch 3, the file types: the icon files, in the order of the contact sheet.
+FILE_TYPES = [
+    "text-plain", "text-x-python", "text-x-script", "application-javascript", "text-html", "text-css",
+    "text-x-csharp", "package-x-generic", "image-x-generic", "audio-x-generic", "video-x-generic",
+    "application-pdf", "x-office-document", "x-office-spreadsheet", "x-office-presentation",
+    "application-x-msdownload", "application-vnd.android.package-archive", "application-x-cd-image",
+    "font-x-generic", "unknown",
+]
+# Names the file managers ask for (mime icon names and the generic fallbacks from shared-mime-info).
+# Each must exist in mimetypes/ at every size, because Breeze draws all of them and a name missing
+# here would show Breeze's icon next to ours.
+MIME_NAMES = """text-plain text-x-generic text-markdown text-x-python text-x-script text-x-shellscript
+    application-x-shellscript application-javascript text-javascript application-json text-x-typescript
+    text-html application-xml text-css text-x-csharp package-x-generic application-zip
+    application-x-7z-compressed application-x-tar application-gzip application-x-compressed-tar
+    application-x-xz-compressed-tar application-x-bzip2-compressed-tar application-x-zstd-compressed-tar
+    application-vnd.rar application-x-rpm image-x-generic image-png image-jpeg image-gif image-webp
+    image-svg+xml audio-x-generic audio-mpeg audio-flac audio-ogg audio-x-wav video-x-generic video-mp4
+    video-webm video-x-matroska application-pdf x-office-document x-office-spreadsheet
+    x-office-presentation application-msword application-vnd.oasis.opendocument.text
+    application-vnd.openxmlformats-officedocument.wordprocessingml.document
+    application-vnd.openxmlformats-officedocument.spreadsheetml.sheet
+    application-vnd.openxmlformats-officedocument.presentationml.presentation text-csv
+    application-x-msdownload application-x-ms-dos-executable application-vnd.microsoft.portable-executable
+    application-x-msi application-vnd.android.package-archive application-x-cd-image application-x-iso
+    font-x-generic font-ttf font-otf font-woff2 unknown application-octet-stream""".split()
 
 errors = []
 
@@ -102,6 +129,24 @@ def check_svgs():
                 fail(f"{ctx}/24/{name} differs from {ctx}/22/{name} (copy the 22 px drawing again)")
 
 
+# Batch 2 (folders and places): the names Plasma's Places panel, file dialogs and the freedesktop
+# spec ask for. Each needs a drawing at every size the theme has, and a symbolic one where listed.
+PLACES = ["user-home", "user-desktop", "folder-documents", "folder-download", "folder-music",
+          "folder-pictures", "folder-videos", "folder-games", "drive-harddisk",
+          "drive-removable-media", "drive-optical", "network-workgroup", "network-server"]
+PLACES_NO_SYMBOLIC = ["folder-games"]
+
+
+def check_places():
+    for name in PLACES:
+        for d in ("scalable", "24", "22", "16"):
+            if not os.path.exists(os.path.join(THEME, "places", d, name + ".svg")):
+                fail(f"places/{d}/{name}.svg missing")
+        if name not in PLACES_NO_SYMBOLIC and not os.path.exists(
+                os.path.join(THEME, "places", "symbolic", name + "-symbolic.svg")):
+            fail(f"places/symbolic/{name}-symbolic.svg missing")
+
+
 # Names Plasma's tray applets ask for (batch 4); each must resolve at 16, 22 and 24 px, with and
 # without -symbolic (the tray asks for the plain name).
 TRAY_NAMES = [
@@ -131,7 +176,7 @@ def icon_names():
             p = os.path.join(root, f)
             if f.endswith(".svg") and not os.path.islink(p):
                 names.add(f[:-4])
-    order = ["preferences-system", "steam", "application-x-executable", "folder", "user-trash", "user-trash-full"]
+    order = ["preferences-system", "steam", "application-x-executable", "folder", "user-trash", "user-trash-full"] + FILE_TYPES
     rest = sorted(n for n in names if n not in order and not n.endswith("-symbolic"))
     sym = sorted(n for n in names if n.endswith("-symbolic"))
     return [n for n in order if n in names] + rest + sym
@@ -166,6 +211,14 @@ def render(svg, size, out):
         cmd = ["magick", "-background", "none", "-density", str(96 * size / width), f"rsvg:{svg}",
                "-resize", f"{size}x{size}!", out]
     subprocess.run(cmd, check=True, capture_output=True)
+
+
+def check_mime_names():
+    for name in FILE_TYPES + MIME_NAMES:
+        for d in ("scalable", "22", "24", "16"):
+            path = os.path.join(THEME, "mimetypes", d, name + ".svg")
+            if not os.path.exists(path):
+                fail(f"mimetypes/{d}/{name}.svg is missing")
 
 
 def check_renders(dirs, tmp):
@@ -242,6 +295,8 @@ def main():
     args = ap.parse_args()
     dirs = read_index()
     check_svgs()
+    check_places()
+    check_mime_names()
     check_tray(dirs)
     with tempfile.TemporaryDirectory() as tmp:
         check_renders(dirs, tmp)

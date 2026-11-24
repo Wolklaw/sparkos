@@ -265,6 +265,18 @@ class TestFormats(Base):
                              f'file {(i * 7) % 300}'.encode())
 
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
+    def test_zip_listing_shows_where_a_link_points(self):
+        """The listing of a zip names a link's target (it is stored as the entry's content)."""
+        arc = self.arc('l.zip')
+        with zipfile.ZipFile(arc, 'w') as z:
+            z.writestr('a.txt', 'x')
+            info = zipfile.ZipInfo('l')
+            info.create_system = 3
+            info.external_attr = (stat.S_IFLNK | 0o777) << 16
+            z.writestr(info, 'a.txt')
+        entries = {e.name: e for e in readers.ZipReader(arc, 'zip').list()}
+        self.assertEqual(entries['l'].target, 'a.txt')
+
     def test_tar_zst_through_libarchive(self):
         """tar.zst also reads without Python's zstd, through libarchive."""
         payload = self.make_tree()

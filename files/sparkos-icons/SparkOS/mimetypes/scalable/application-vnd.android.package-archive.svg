@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Android package (APK). SparkOS icon theme, 48 grid. -->
+  <path d="M9 4 H29 L39 14 V44 H9 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M29 4 V14 H39 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 2 left, cyan 2 right, the colour on top -->
+  <g transform="translate(-2 0)" fill="#ff2e88">
+    <path d="M15 19 H33 V42 H15 Z M18 22 V36 H30 V22 Z" fill="#ff2e88" fill-rule="evenodd"/>
+  </g>
+  <g transform="translate(2 0)" fill="#22d8ff">
+    <path d="M15 19 H33 V42 H15 Z M18 22 V36 H30 V22 Z" fill="#22d8ff" fill-rule="evenodd"/>
+  </g>
+  <g fill="#8ec9ff">
+    <path d="M15 19 H33 V42 H15 Z M18 22 V36 H30 V22 Z" fill="#8ec9ff" fill-rule="evenodd"/>
+  </g>
+  <rect x="22" y="38" width="4" height="2" fill="#2c2870"/>
+  <rect x="23" y="24" width="2" height="5" fill="#8ec9ff"/>
+  <path d="M20 29 H28 L24 34 Z" fill="#8ec9ff"/>
+</svg>

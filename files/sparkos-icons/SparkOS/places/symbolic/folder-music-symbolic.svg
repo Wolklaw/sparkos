@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Folder music, symbolic. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 2 H6 L8 4 H15 V14 H1 Z M2 7 V13 H14 V7 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" d="M5 10 H8 V12 H5 Z M7 8 H8 V10 H7 Z M8 8 H11 V9 H8 Z"/>
+</svg>

@@ -42,7 +42,8 @@ command line tools and no extra libraries:
 ## Honest limits
 
 - The owner has no Scarlett plugged in. That page is built from the driver's control names and tested against
-  a made-up dump, never on hardware. The README and the page say so. It needs trying on a real interface.
+  a made-up dump, never on hardware. The README and the page say so. The owner no longer has a Scarlett, so
+  this will not be tried; the page stays hidden when no Scarlett is found (checked 2026-11-24).
 - Not tried by ear for long: the EQ. It was started and removed once on the owner's PC.
 
 ## Tests
@@ -56,5 +57,5 @@ command line tools and no extra libraries:
 
 ## Done when
 
-CI passes on Fedora and in the SparkOS image and the PR is open for the owner. Marked 0.1.0 until the
-Scarlett page has been tried on a real interface.
+CI passes on Fedora and in the SparkOS image and the PR is open for the owner. The Scarlett page is no longer a blocker (no Scarlett any more). Volume, mute and stream moves were tried live
+on the FiiO DAC-E10 on 2026-11-24.

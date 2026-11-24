@@ -54,6 +54,8 @@ jobs:
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/sparkos-icons.sh
           test -x /usr/libexec/sparkos-icons-default
           test -L /usr/share/icons/SparkOS/places/scalable/inode-directory.svg
+          test -L /usr/share/icons/SparkOS/mimetypes/scalable/application-zip.svg
+          test -s /usr/share/icons/SparkOS/mimetypes/16/package-x-generic.svg
 
       - name: Per-user switch from Breeze Dark
         run: |

@@ -14,4 +14,4 @@ APP_NAME = "Spark Archive"
 APP_SLUG = "spark-archive"       # command, folders, log names
 APP_CLASS = "SparkArchive"       # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkArchive"
-VERSION = "1.2.0"
+VERSION = "1.2.1"

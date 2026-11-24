@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Drive: a flat box with a mint top strip, vents and a light. Drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <rect x="2" y="5" width="18" height="12" fill="#2c2870"/>
+  <rect x="1" y="5" width="18" height="2" fill="#ff2e88"/>
+  <rect x="3" y="5" width="18" height="2" fill="#22d8ff"/>
+  <rect x="2" y="5" width="18" height="2" fill="#9be8b8"/>
+  <rect x="4" y="10" width="7" height="1" fill="#b3b0d2"/>
+  <rect x="4" y="13" width="7" height="1" fill="#b3b0d2"/>
+  <rect x="15" y="10" width="3" height="4" fill="#9be8b8"/>
+</svg>
