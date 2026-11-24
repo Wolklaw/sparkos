@@ -5,7 +5,7 @@ name: build
 #
 # Tags (the same ones BlueBuild used, so nothing that reads them changes):
 #   main (push, the daily schedule, or Run workflow): <commit>-45, YYYYMMDD-45, YYYYMMDD, 45, latest
-#   another branch: br-<branch>-45 (never latest), for testing with boot-test's image_tag
+#   another branch (Run workflow on it; a push alone doesn't build): br-<branch>-45 (never latest), for testing with boot-test's image_tag
 #   pull request: built and checked, not pushed (a PR from Dependabot or a fork has no signing key)
 # The commit tag is pushed first, signed and verified; only then do the other tags, latest
 # included, move to it. A PC never sees a latest whose signature isn't there yet.
@@ -13,6 +13,10 @@ on:
   schedule:
     - cron: "00 06 * * *" # 06:00 UTC every day, so Fedora's updates land within a day
   push:
+    # Only main builds on a push. A branch with a pull request is already built by the
+    # pull_request trigger below; a second build of the same commit for the br-<branch> tag was
+    # pure waste. To test a branch image, use Run workflow on that branch (workflow_dispatch).
+    branches: [main]
     paths-ignore: # don't rebuild if only docs or the test/inventory workflows changed
       - "**.md"
       - ".github/workflows/boot-test.yml"
@@ -22,6 +26,22 @@ on:
       - ".github/workflows/spark-*.yml"
       - "installer/**"
   pull_request:
+    # A pull request builds the image only when it touches something the image build reads.
+    # An app-only change (the app's code, tests, README) has its own spark-*.yml workflow and
+    # ships when it lands on main, which always builds. No branch protection or ruleset makes
+    # this build a required check, so a skipped run can't block a merge. Later lines override
+    # earlier ones: everything in files/ builds, except a Spark app's own folder, except the two
+    # files the image build runs or reads from it (install.sh runs at build time, with the app's
+    # self-test, and spark-app.json is read by the build's checks and the Store).
+    paths:
+      - "Containerfile"
+      - "cosign.pub"
+      - "build_files/**"
+      - "files/**"
+      - "!files/spark-*/**"
+      - "files/spark-*/install.sh"
+      - "files/spark-*/spark-app.json"
+      - ".github/workflows/build.yml"
   workflow_dispatch:
   workflow_call:
     outputs:
@@ -35,7 +55,11 @@ on:
 concurrency:
   # Pull requests queue by their branch, so a PR check never cancels or delays main's build.
   group: image-${{ github.event_name == 'pull_request' && format('pr-{0}', github.head_ref) || github.ref }}
-  cancel-in-progress: true
+  # A newer push to a pull request replaces its old check. Main is never cancelled: merges come
+  # every few minutes and a build takes ~20, so cancelling would mean no image ever gets
+  # published. GitHub keeps one running and one waiting build per group, and a newer waiting
+  # one replaces an older one: the running build finishes, then the newest commit builds.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   IMAGE_NAME: sparkos
