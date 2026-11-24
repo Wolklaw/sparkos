@@ -6,6 +6,31 @@
 set -eu
 prefix=/home/linuxbrew/.linuxbrew
 case "${1:-}" in update|upgrade) ;; *) echo "usage: $0 update|upgrade" >&2; exit 2 ;; esac
+# A game is running: skip this run. The timer comes back in a few hours. Same rule as
+# Spark Update's guard (Steam starts every game under 'reaper SteamLaunch'; gamescope is the
+# game compositor, but gamescope-session is not a game). SPARKOS_BREW_FORCE=1 runs anyway.
+game_running() {
+  local f cmd argv0
+  for f in /proc/[0-9]*/cmdline; do
+    cmd=$(tr '\0' ' ' < "$f" 2>/dev/null | head -c 4096) || continue
+    [ -n "$cmd" ] || continue
+    argv0=${cmd%% *}; argv0=${argv0##*/}
+    case "$argv0" in
+      gamescope-session*) continue ;;
+      gamescope|gamescope-wl) return 0 ;;
+    esac
+    case "$cmd" in
+      *gamescope-session*) ;;
+      *SteamLaunch*|*/gamescope*) return 0 ;;
+    esac
+  done
+  return 1
+}
+if [ -z "${SPARKOS_BREW_FORCE:-}" ] && game_running; then
+  echo "A game is running; skipping brew $1 until the next timer run"
+  exit 0
+fi
+
 owner=$(stat -c %U "$prefix")
 if [ "$owner" = root ]; then
   echo "$prefix belongs to root; Homebrew doesn't run as root" >&2

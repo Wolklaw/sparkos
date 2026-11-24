@@ -18,6 +18,7 @@ import json
 import os
 import signal
 import sys
+import threading
 import time
 from typing import Any, Callable, Dict, List, Optional
 
@@ -49,6 +50,7 @@ class Daemon:
         self.last: Optional[float] = None
         self.last_scan = -RESCAN_S
         self.stop = False
+        self._wake = threading.Event()    # set by request_stop(); run() sleeps on it
 
     # — files —
     @property
@@ -223,6 +225,11 @@ class Daemon:
         })
 
     # — running —
+    def request_stop(self) -> None:
+        """Ask run() to finish; safe from a signal handler. Wakes the sleep at once."""
+        self.stop = True
+        self._wake.set()
+
     def run(self) -> None:
         self.release_leftovers()
         self.reload(force=True)
@@ -233,9 +240,8 @@ class Daemon:
                     self.step()
                 except Exception:
                     log.exception("step failed")
-                end = time.monotonic() + INTERVAL_S
-                while not self.stop and time.monotonic() < end:
-                    time.sleep(0.25)
+                # One sleep per step (it used to wake four times a second to check `stop`).
+                self._wake.wait(INTERVAL_S)
         finally:
             self.release_all()
             if self.hub is not None:
@@ -289,8 +295,8 @@ def main(argv: Optional[List[str]] = None) -> int:
         finally:
             daemon.release_all()
         return 0
-    signal.signal(signal.SIGTERM, lambda *_: setattr(daemon, "stop", True))
-    signal.signal(signal.SIGINT, lambda *_: setattr(daemon, "stop", True))
+    signal.signal(signal.SIGTERM, lambda *_: daemon.request_stop())
+    signal.signal(signal.SIGINT, lambda *_: daemon.request_stop())
     signal.signal(signal.SIGHUP, lambda *_: setattr(daemon, "config_stamp", None))
     daemon.run()
     return 0

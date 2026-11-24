@@ -212,6 +212,26 @@ class Steps(unittest.TestCase):
         config.save({"fans": {"gone/fan9": {"enabled": True}}}, self.cfg)
         self.assertEqual(self.daemon().step(), {})
 
+    def test_request_stop_ends_run_at_once_and_hands_the_fan_back(self):
+        import threading
+        import time
+        from sparkcontroller import daemon as daemon_mod
+        self.write_config()
+        d = self.daemon()
+        with mock.patch.object(daemon_mod, 'INTERVAL_S', 30):
+            t = threading.Thread(target=d.run)
+            t.start()
+            deadline = time.monotonic() + 5
+            while not os.path.exists(os.path.join(self.run_dir, 'state.json')) \
+                    and time.monotonic() < deadline:
+                time.sleep(0.02)
+            began = time.monotonic()
+            d.request_stop()
+            t.join(5)
+        self.assertFalse(t.is_alive())
+        self.assertLess(time.monotonic() - began, 2)
+        self.assertEqual(self.number(self.enable), 5)
+
 
 if __name__ == '__main__':
     unittest.main()

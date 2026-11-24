@@ -5,6 +5,6 @@ and opens as a popup on Meta+V."""
 APP_NAME = "Spark Notes"
 APP_SLUG = "spark-notes"         # command, folders, log names
 APP_ID = "dev.wolklaw.SparkNotes"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 GTK_VERSION = "4.0"
