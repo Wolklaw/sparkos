@@ -184,7 +184,8 @@ build() {
     else
       cp "$ko" "$rpmdir/check.ko"
     fi
-    if readelf -S -W "$rpmdir/check.ko" | grep -q '\.BTF'; then
+    sections=$(readelf -S -W "$rpmdir/check.ko")   # not piped: grep -q stopping early fails pipefail
+    if grep -q '\.BTF' <<<"$sections"; then
       echo "kmods.sh: $ko has a .BTF section; the kernel may refuse to load it" >&2
       exit 1
     fi

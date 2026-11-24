@@ -70,8 +70,9 @@ for id in "${HIDE[@]}"; do
   # replace any NoDisplay in the [Desktop Entry] group (actions have their own groups)
   sed -i --follow-symlinks -e '/^\[Desktop Entry\]/,/^\[/{/^NoDisplay=/d}' \
     -e '/^\[Desktop Entry\]/a NoDisplay=true' "$entry"
-  sed -n '/^\[Desktop Entry\]/,/^\[/p' "$entry" | grep -qx 'NoDisplay=true' \
-    || { echo "$id.desktop is still in the menu"; exit 1; }
+  # read the group first: `sed | grep -q` fails under pipefail when grep stops early
+  group=$(sed -n '/^\[Desktop Entry\]/,/^\[/p' "$entry")
+  grep -qx 'NoDisplay=true' <<<"$group" || { echo "$id.desktop is still in the menu"; exit 1; }
 done
 echo "--- hid ${#HIDE[@]} menu entries"
 
