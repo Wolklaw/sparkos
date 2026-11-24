@@ -11,9 +11,7 @@
 #                       Fedora's switch for Google Chrome, NVIDIA and Steam repositories
 #   spectacle, plasma-systemmonitor
 #                       replaced by Spark Snip and Spark Monitor
-#   plasma-keyboard, kcm-plasma-keyboard
-#                       the on-screen keyboard; KWin starts it whenever it is installed (about
-#                       190 MB of RAM on a desktop with a real keyboard)
+#   kcm-plasma-keyboard the on-screen keyboard's settings page (the keyboard itself: see below)
 #   plasma-discover-notifier
 #                       Discover's update checker in the tray; Spark Update sends the update
 #                       notification (Discover itself stays, hidden, for now)
@@ -25,7 +23,7 @@ for pkg in firefox firefox-langpacks kwrite kate filelight kfind krdc krfb kwall
            gwenview okular kcalc skanpage haruna plasma-welcome kcharselect kde-partitionmanager \
            plasma-setup plasma-drkonqi fedora-third-party fedora-workstation-repositories \
            spectacle plasma-systemmonitor \
-           plasma-keyboard kcm-plasma-keyboard plasma-discover-notifier; do
+           kcm-plasma-keyboard plasma-discover-notifier; do
   rpm -q "$pkg" >/dev/null 2>&1 && remove+=("$pkg")
 done
 if [ ${#remove[@]} -gt 0 ]; then
@@ -34,6 +32,12 @@ if [ ${#remove[@]} -gt 0 ]; then
 else
   echo "--- none of Kinoite's third-party apps are installed as RPMs"
 fi
+
+# The on-screen keyboard: plasma-workspace requires the package, so it stays, but KWin starts
+# /usr/share/applications/org.kde.plasma.keyboard.desktop as its default input method whenever
+# that file exists (about 190 MB of RAM on a desktop with a real keyboard). Without the file
+# KWin starts nothing.
+rm -f /usr/share/applications/org.kde.plasma.keyboard.desktop
 
 # Flatpak: Kinoite 45 configures no remote in the image; build_files/flathub.sh adds Flathub (step 6)
 # (the boot test lists the remotes the user gets).
@@ -45,4 +49,7 @@ rpm -q plasma-workspace plasma-login-manager dolphin konsole ark plasma-systemse
   plasma-discover flatpak kde-connect kwin
 # nor what packages.sh installed for SparkOS that Firefox also used (H.264 in Soot)
 rpm -q mozilla-openh264
+if [ -e /usr/share/applications/org.kde.plasma.keyboard.desktop ]; then
+  echo "the on-screen keyboard would still start"; exit 1
+fi
 echo "No third-party apps preinstalled as RPMs."
