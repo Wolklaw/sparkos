@@ -6,7 +6,7 @@ APP_NAME = "Spark Backup"
 APP_SLUG = "spark-backup"        # command, folders, log names
 APP_CLASS = "SparkBackup"        # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkBackup"
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 
 SOURCE = "/home"                                    # the subvolume that is backed up
 CONFIG_PATH = "/etc/spark-backup/config.json"       # written by the helper, read by the service
