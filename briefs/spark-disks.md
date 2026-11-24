@@ -2,7 +2,7 @@
 
 SparkOS's own disk tool: drives and partitions, mount and unmount, format, create, delete and resize partitions, SMART health, and writing an image to a USB stick. It replaces GNOME Disks (gnome-disk-utility, including its image writer and image mounter) for the owner. KDE Partition Manager is not installed as an app (only its library, kpmcore, comes with Plasma), so there is no menu entry to replace. Source: [files/spark-disks](../files/spark-disks). In the SparkOS image.
 
-Status: built 2026-11-23. See "Not tried on hardware".
+Status: built 2026-11-23, version 0.1.0, PR [#56](https://github.com/Wolklaw/sparkos/pull/56). See "Not tried on hardware".
 
 ## Why
 
