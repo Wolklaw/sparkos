@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-controller-pads",
+      "date": "2026-11-24",
+      "en": "Spark Controller has a Pads tab for game controllers: what is connected (USB or Bluetooth, battery), a live tester for every button, stick, trigger and the d-pad, a rumble test, and controller firmware through fwupd for the models it supports. Plugging a controller in or out tears the title. Not tried with a real controller yet.",
+      "fr": "Spark Controller a un onglet Manettes pour les manettes de jeu : ce qui est branché (USB ou Bluetooth, pile), un testeur en direct pour chaque bouton, joystick, gâchette et la croix directionnelle, un test de vibration, et le firmware des manettes via fwupd pour les modèles pris en charge. Brancher ou débrancher une manette fait trembler le titre. Pas encore essayé avec une vraie manette."
+    },
+    {
       "id": "2026-11-23-spark-firewall",
       "date": "2026-11-23",
       "en": "Spark Firewall replaces firewall-config. It shows whether the firewall is on, lets you turn it on or off, picks a zone for each network, and has switches for Steam Remote Play, Spark Link, file sharing and more. Nothing changes until you press Apply. It tells you when the default zone already leaves ports 1025 and up open. firewall-config stays installed but is out of the menu. Not tried on a real firewall change yet.",

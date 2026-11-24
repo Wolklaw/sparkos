@@ -10,7 +10,7 @@ from . import APP_NAME, APP_SLUG, VERSION
 
 
 def self_test() -> int:
-    from . import config, liquid, sysinfo
+    from . import config, liquid, pads, sysinfo
     from .fwupd import Fwupd
     from .hwmon import Hwmon
     from .text import EN, FR
@@ -38,6 +38,10 @@ def self_test() -> int:
     print(f"openrgb:   {shutil.which('openrgb') or 'not installed'}")
     print(f"fwupd:     {Fwupd().path or 'not installed'}")
     print(f"bios:      {sysinfo.bios()}")
+    found = pads.scan()
+    print(f"pads:      {len(found)} game controller(s)"
+          + "".join(f"; {p.name} ({p.bus}, {'readable' if p.can_read else 'no access'})"
+                    for p in found))
     try:
         config.load(config.config_path())
         print(f"config:    {config.config_path()} ok")
@@ -82,7 +86,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--self-test", action="store_true", help="check what this PC offers")
     parser.add_argument("--apply-rgb", action="store_true",
                         help="apply the saved lighting and exit (runs at login)")
-    parser.add_argument("--tab", choices=("overview", "fans", "rgb", "drivers"))
+    parser.add_argument("--tab", choices=("overview", "fans", "rgb", "pads", "drivers"))
     parser.add_argument("--no-usb", action="store_true", help="don't scan USB controllers")
     args = parser.parse_args(argv)
     if args.version:
