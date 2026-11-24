@@ -1,0 +1,29 @@
+{
+  "id": "dev.wolklaw.SparkDisks",
+  "slug": "spark-disks",
+  "name": "Spark Disks",
+  "name_fr": "Spark Disks",
+  "summary": "Drives and partitions: mount, format, resize, check health and write an image to a USB stick.",
+  "summary_fr": "Disques et partitions : monter, formater, redimensionner, vérifier la santé et écrire une image sur une clé USB.",
+  "version": "0.1.0",
+  "installed_size_kb": 400,
+  "icon": "icons/spark-disks-256.png",
+  "categories": ["System", "Settings"],
+  "needs": {
+    "root": true,
+    "commands": ["python3", "lsblk"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter", "gi"],
+    "optional": {
+      "smartctl": "drive health (SMART) on drives that report it"
+    },
+    "system": "Linux with udisks2 and polkit; the password is asked by polkit when a change needs it"
+  },
+  "install": {
+    "system": "sudo bash install.sh --deps",
+    "uninstall": "sudo bash install.sh --uninstall",
+    "self_test": "spark-disks --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-disks"
+}

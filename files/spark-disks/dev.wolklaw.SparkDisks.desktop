@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Disks
+Name[fr]=Spark Disks
+GenericName=Drives and partitions
+GenericName[fr]=Disques et partitions
+Comment=List drives, mount, format, partition, check health and write an image to a USB stick
+Comment[fr]=Lister les disques, monter, formater, partitionner, vérifier la santé et écrire une image sur une clé USB
+Exec=spark-disks
+Icon=dev.wolklaw.SparkDisks
+Terminal=false
+Categories=System;Settings;HardwareSettings;Filesystem;
+Keywords=disk;disks;drive;partition;format;mount;usb;stick;iso;image;smart;health;ssd;nvme;gparted;
+Keywords[fr]=disque;disques;lecteur;partition;formater;monter;clé;usb;iso;image;santé;ssd;nvme;
+StartupWMClass=SparkDisks
+SingleMainWindow=true
+Actions=Health;Image;
+
+[Desktop Action Health]
+Name=Drive health
+Name[fr]=Santé des disques
+Exec=spark-disks --tab health
+
+[Desktop Action Image]
+Name=Write an image to a USB stick
+Name[fr]=Écrire une image sur une clé USB
+Exec=spark-disks --tab image
