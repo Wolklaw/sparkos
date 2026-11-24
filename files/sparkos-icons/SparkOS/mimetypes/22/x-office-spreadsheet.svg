@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!-- Spreadsheet. SparkOS icon theme, 22 grid. -->
+  <path d="M3.5 1.5 H13.5 L18.5 6.5 V20.5 H3.5 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M13.5 1.5 V6.5 H18.5 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 1 left, cyan 1 right, the colour on top -->
+  <g transform="translate(-1 0)" fill="#ff2e88">
+    <rect x="6" y="9" width="10" height="2" fill="#ff2e88"/>
+  </g>
+  <g transform="translate(1 0)" fill="#22d8ff">
+    <rect x="6" y="9" width="10" height="2" fill="#22d8ff"/>
+  </g>
+  <g fill="#9be8b8">
+    <rect x="6" y="9" width="10" height="2" fill="#9be8b8"/>
+  </g>
+  <rect x="6" y="13" width="10" height="1" fill="#b3b0d2"/>
+  <rect x="6" y="16" width="10" height="1" fill="#b3b0d2"/>
+  <rect x="9" y="11" width="1" height="7" fill="#b3b0d2"/>
+  <rect x="12" y="11" width="1" height="7" fill="#b3b0d2"/>
+</svg>

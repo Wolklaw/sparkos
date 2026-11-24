@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Disc and disk image (ISO). SparkOS icon theme, 48 grid. -->
+  <path d="M9 4 H29 L39 14 V44 H9 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M29 4 V14 H39 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 2 left, cyan 2 right, the colour on top -->
+  <g transform="translate(-2 0)" fill="#ff2e88">
+    <path d="M14 30 A10 10 0 1 0 34 30 A10 10 0 1 0 14 30 Z M21 30 A3 3 0 1 0 27 30 A3 3 0 1 0 21 30 Z" fill="#ff2e88" fill-rule="evenodd"/>
+  </g>
+  <g transform="translate(2 0)" fill="#22d8ff">
+    <path d="M14 30 A10 10 0 1 0 34 30 A10 10 0 1 0 14 30 Z M21 30 A3 3 0 1 0 27 30 A3 3 0 1 0 21 30 Z" fill="#22d8ff" fill-rule="evenodd"/>
+  </g>
+  <g fill="#b9a6ff">
+    <path d="M14 30 A10 10 0 1 0 34 30 A10 10 0 1 0 14 30 Z M21 30 A3 3 0 1 0 27 30 A3 3 0 1 0 21 30 Z" fill="#b9a6ff" fill-rule="evenodd"/>
+  </g>
+  <rect x="29" y="24" width="3" height="2" fill="#2c2870"/>
+</svg>

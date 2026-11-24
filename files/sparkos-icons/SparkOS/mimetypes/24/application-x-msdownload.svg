@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Windows program (.exe, .msi), opened by Spark Run, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <path d="M3.5 1.5 H13.5 L18.5 6.5 V20.5 H3.5 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M13.5 1.5 V6.5 H18.5 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 1 left, cyan 1 right, the colour on top -->
+  <g transform="translate(-1 0)" fill="#ff2e88">
+    <path d="M6 9 H16 V18 H6 Z M7 12 V17 H15 V12 Z" fill="#ff2e88" fill-rule="evenodd"/>
+  </g>
+  <g transform="translate(1 0)" fill="#22d8ff">
+    <path d="M6 9 H16 V18 H6 Z M7 12 V17 H15 V12 Z" fill="#22d8ff" fill-rule="evenodd"/>
+  </g>
+  <g fill="#9be8b8">
+    <path d="M6 9 H16 V18 H6 Z M7 12 V17 H15 V12 Z" fill="#9be8b8" fill-rule="evenodd"/>
+  </g>
+  <rect x="9" y="13" width="1" height="3" fill="#9be8b8"/>
+  <rect x="10" y="14" width="1" height="1" fill="#9be8b8"/>
+</svg>

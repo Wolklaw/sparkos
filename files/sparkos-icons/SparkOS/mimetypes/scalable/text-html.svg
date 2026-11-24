@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- HTML and XML. SparkOS icon theme, 48 grid. -->
+  <path d="M9 4 H29 L39 14 V44 H9 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M29 4 V14 H39 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 2 left, cyan 2 right, the colour on top -->
+  <g transform="translate(-2 0)" fill="#ff2e88">
+    <path d="M18 20 H22 L17 29.5 L22 39 H18 L13 29.5 Z" fill="#ff2e88"/>
+  </g>
+  <g transform="translate(2 0)" fill="#22d8ff">
+    <path d="M18 20 H22 L17 29.5 L22 39 H18 L13 29.5 Z" fill="#22d8ff"/>
+  </g>
+  <g fill="#f0a671">
+    <path d="M18 20 H22 L17 29.5 L22 39 H18 L13 29.5 Z" fill="#f0a671"/>
+  </g>
+  <path d="M30 20 H26 L31 29.5 L26 39 H30 L35 29.5 Z" fill="#f0a671"/>
+</svg>

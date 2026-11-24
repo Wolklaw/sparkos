@@ -13,7 +13,7 @@ style sheet every batch follows.
 |---|---|---|
 | 1. Theme and the taskbar | System Settings (`preferences-system`, `systemsettings`), Steam (`steam`, `com.valvesoftware.Steam`), generic app (`application-x-executable`, `application-default-icon`), folder (`folder`, `inode-directory`), Trash (`user-trash`, `user-trash-full`); symbolic versions of all but Steam | Done |
 | 2. Folders and places | Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Games, Windows drives, network, removable drives, the sidebar | Done (see "Batch 2" below) |
-| 3. File types | text, code, archives, images, audio, video, PDF, office, .exe/.msi, APK, ISO, fonts, generic file (`unknown`) | Not started |
+| 3. File types | text, code, archives, images, audio, video, PDF, office, .exe/.msi, APK, ISO, fonts, generic file (`unknown`) | Done: 20 icons and about 420 names, see Batch 3 below |
 | 4. Tray and status | network, Bluetooth, volume, battery, updates, notifications, Caps Lock | Not started |
 
 The Spark apps, Soot, FreeSuite and Nova keep the icons they ship; the theme never draws over them.
@@ -132,3 +132,72 @@ icon names. Spark Files' own drawings keep the same colours and shapes, so the t
 - Not drawn: Trash (batch 1), `computer` and `folder-root`, `folder-favorites`, `folder-publicshare`,
   `folder-templates`, `network-wired` and `network-wireless` (batch 4, tray), and the sidebar's own
   action icons (Spark Files draws those itself).
+
+## Batch 3: file types
+
+![Batch 3 contact sheet: each file type at 16, 22, 24, 32, 48 and 128 px, on the dark background and on a light one](icons-batch-3.png)
+
+The file types live in `mimetypes/` (`Context=MimeTypes`: `16`, `22`, `24`, `scalable`; no symbolic
+versions, file managers don't ask for them). The drawing is
+[make_filetypes.py](../files/sparkos-icons/make_filetypes.py); it wrote the SVGs once, and they are
+plain files to edit by hand now.
+
+- **One shape.** Every type is the same page: 30 x 40 at 48, with the top-right corner cut at 45 degrees
+  and a fold in `#4a45a6`. Page `#2c2870`, 1 px edge `#4a45a6`, no tile, no shadow. What changes is the
+  mark on the page and its colour.
+- **The mark** sits in a box of about 22 x 21 px at 48 (x 13 to 35, y 19 to 40), 10 x 9 at 22 and 7 x 8 at 16.
+  Strokes are 3 px at 48 and 1 px at 22 and 16. The slip (2 px at 48, 1 px at 22 and 16) is on the mark, or on
+  one part of it (the first line of text, the header row of a sheet, the left bracket of HTML).
+- **Colour says the family, shape says the type.** Mint: text, Python, spreadsheet, Windows program. Pink:
+  scripts, audio, fonts. Gold: JavaScript, archives, presentations. Clay: HTML, PDF. Sky: CSS, images,
+  word processing, APK. Lilac: C#, video, disc images. Muted: unknown.
+- **Nothing is a logo.** The Python icon is indented lines, not a snake. C# is a hash, not a hexagon. The
+  Windows program is a window with a run triangle. APK is a phone, not a robot. PDF is a clay band with
+  three blocky letters at 48 and three notches at the small sizes.
+
+### Which name shows which icon
+
+Spark Files and Plasma ask for the MIME type's icon name first (`text-x-python`), then its generic icon from
+shared-mime-info (`text-x-generic`, `package-x-generic`, `x-office-document`...), then `unknown`. Qt takes
+the first theme that has *any* of the names it tries, and Breeze (our parent) draws most of the specific
+names. So every Breeze name in these families is a link here, or Breeze's icon would show where ours should.
+
+| Icon file | Types it shows (the names are links to the file; the first is the file itself) |
+|---|---|
+| `text-plain` | plain text (`text-x-generic`, `text-x-plain`), Markdown, README, logs, patches, Makefile, TeX, subtitles, TOML, `.desktop` |
+| `text-x-python` | Python 2 and 3, `.pyc` |
+| `text-x-script` | shell (`application-x-shellscript`, `text-x-shellscript`), Perl, PHP, Ruby, Lua, Awk, R, SQL, GDScript, QML |
+| `application-javascript` | JavaScript (`text-javascript`, `text-x-javascript`), TypeScript, JSON, C, C++, Objective-C, Java, Kotlin, Scala, Go, Rust, Haskell... the "other code" icon |
+| `text-html` | HTML, XHTML, XML, XSD, XSLT, RSS, Atom, SGML, RDF, KML |
+| `text-css` | CSS, SCSS, Sass |
+| `text-x-csharp` | C# |
+| `package-x-generic` | zip, 7z, tar and every `tar.gz/bz2/xz/zst`, gz, bz2, xz, zstd, rar, rpm, deb, jar, cpio, lha, squashfs, snap, wim, xpinstall |
+| `image-x-generic` | png, jpeg, gif, bmp, webp, tiff, avif, heif, jxl, svg, ico, xcf, psd, tga, eps, dng, wmf, djvu |
+| `audio-x-generic` | mp3, mp2, mp4 audio, flac, ogg, opus, aac, wav, aiff, midi, ac3, wma, Audacity projects, podcasts |
+| `video-x-generic` | mp4, webm, mkv, avi, flv, wmv, ogv, mpeg, mp2t, quicktime, 3gpp, Flash, RealMedia |
+| `application-pdf` | PDF (`viewpdf`), PostScript, DVI |
+| `x-office-document` | Word (`application-msword`, docx), OpenDocument text, RTF, Writer, WPS, AbiWord, WordPerfect, EPUB, FictionBook |
+| `x-office-spreadsheet` | Excel (xls, xlsx), OpenDocument spreadsheet, Calc, Gnumeric, CSV, TSV |
+| `x-office-presentation` | PowerPoint (ppt, pptx), OpenDocument presentation, Impress |
+| `application-x-msdownload` | `.exe` (`application-x-msdownload`, `application-vnd.microsoft.portable-executable`, `application-x-ms-dos-executable`, `application-x-ms-ne-executable`), `.msi` (`application-x-msi`) |
+| `application-vnd.android.package-archive` | APK, Android app bundle (`android-package-archive`) |
+| `application-x-cd-image` | ISO (`application-x-iso`, `application-x-iso9660-image`), raw and qcow2 disk images, VDI, VHD, VMDK, dmg, cue |
+| `font-x-generic` | ttf, otf, woff, woff2, Type 1, bdf, pcf |
+| `unknown` | anything unrecognised (`application-octet-stream`, `application-x-generic`) |
+
+`application-x-executable` is not here: batch 1 drew it as the generic app (a window on a tile), which is what a
+native Linux program should show. Windows programs get the page with the window.
+
+Not covered, and why:
+
+- Folders and drives: batch 2.
+- C, C++, Java and the other languages share the braces icon with JavaScript. They have no icon of their own yet.
+- TypeScript's `.ts` is often detected as `video/mp2t` (MPEG transport stream), so it shows the video icon. That is
+  shared-mime-info's guess, not the theme's.
+- `application-x-executable` (native programs), AppImages (`application-vnd.appimage`), shortcuts
+  (`application-x-ms-shortcut`), certificates, databases, game ROMs and the app-specific project types (Krita,
+  Blender, Kdenlive...) keep Breeze's icon.
+- No symbolic versions: nothing asks for them for file types.
+
+`check.py` fails if any of the names in its `MIME_NAMES` list is missing at any size, so a type can't quietly fall
+back to Breeze.
