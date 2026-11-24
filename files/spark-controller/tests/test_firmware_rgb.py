@@ -122,10 +122,27 @@ class OpenRgb(unittest.TestCase):
                                 ['Direct', 'Static'])
         self.assertEqual(args[-2:], ['--color', '000000'])
 
-    def test_a_missing_effect_is_an_error_not_a_guess(self):
+    def test_a_missing_effect_is_the_colour_steady(self):
+        args = rgb.openrgb_args(0, {"effect": "breathing", "color": "#ffffff", "speed": "slow"},
+                                ['Direct'])
+        self.assertEqual(args, ['--device', '0', '--mode', 'Direct', '--color', 'ffffff'])
+
+    def test_no_colour_mode_at_all_is_an_error(self):
         with self.assertRaises(ValueError):
             rgb.openrgb_args(0, {"effect": "breathing", "color": "#ffffff", "speed": "slow"},
-                             ['Direct'])
+                             ['Rainbow'])
+
+    def test_identical_devices_get_their_own_keys(self):
+        listing = ("0: Corsair Dominator Platinum\n  Type: DRAM\n  Modes: [Direct]\n"
+                   "1: Corsair Dominator Platinum\n  Type: DRAM\n  Modes: [Direct]\n"
+                   "2: G502 HERO Gaming Mouse\n  Type: Mouse\nWireless Index: 255\n"
+                   "  Modes: [Off] Direct Static\n")
+        manager = rgb.RgbManager(runner=lambda _a, _t: (0, listing), openrgb='openrgb')
+        got = [(d.key, d.name, d.index) for d in manager.discover()]
+        self.assertEqual(got, [
+            ('openrgb:Corsair Dominator Platinum', 'Corsair Dominator Platinum', 0),
+            ('openrgb:Corsair Dominator Platinum#2', 'Corsair Dominator Platinum #2', 1),
+            ('openrgb:G502 HERO Gaming Mouse', 'G502 HERO Gaming Mouse', 2)])
 
 
 class Settings(unittest.TestCase):

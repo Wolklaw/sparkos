@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-controller-rgb-identical-devices",
+      "date": "2026-11-23",
+      "en": "Spark Controller's Spark RGB tab lists every light. Two identical parts (a pair of RAM sticks, for example) stopped the list at the second one, so the motherboard, mouse and anything after them never showed. Effects a device doesn't have now show its colour steady instead of failing.",
+      "fr": "L'onglet Spark RGB de Spark Controller affiche toutes les lumières. Deux pièces identiques (une paire de barrettes de mémoire, par exemple) arrêtaient la liste à la deuxième, donc la carte mère, la souris et ce qui suivait n'apparaissaient jamais. Un effet qu'un appareil n'a pas affiche maintenant sa couleur fixe au lieu d'échouer."
+    },
+    {
       "id": "2026-11-23-update-checking-not-downloading",
       "date": "2026-11-23",
       "en": "Spark Update says Checking while it looks for a new version, and Downloading only when it found one.",
