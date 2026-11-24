@@ -1,0 +1,31 @@
+{
+  "id": "dev.wolklaw.SparkClock",
+  "slug": "spark-clock",
+  "name": "Spark Clock",
+  "name_fr": "Spark Clock",
+  "summary": "Alarms, timers, a stopwatch and world clocks. A background service rings them with the window closed and after a reboot.",
+  "summary_fr": "Alarmes, minuteurs, chronomètre et horloges du monde. Un service en arrière-plan les fait sonner fenêtre fermée et après un redémarrage.",
+  "version": "0.1.0",
+  "installed_size_kb": 800,
+  "icon": "icons/spark-clock-256.png",
+  "categories": ["Utility", "Clock"],
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter", "gi"],
+    "optional": {
+      "pw-play": "Alarm sound through PipeWire (paplay, gst-play-1.0 or ffplay also work)",
+      "systemctl": "Start the service at every login"
+    },
+    "system": "Linux"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-clock --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-clock"
+}

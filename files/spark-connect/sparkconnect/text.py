@@ -37,6 +37,11 @@ EN = {
     'card.temp': "TEMP",
     'card.more': "+{n} more",
     'site.checking': "checking",
+    'widget.all_good': "All good",
+    'widget.trouble': "{n} need a look",
+    'widget.checked': "Checked at {time}",
+    'widget.open': "Open Spark Connect",
+    'widget.no_answer': "no answer",
 
     # verdicts
     'verdict.ok': "All good",
@@ -333,6 +338,11 @@ FR = {
     'card.temp': "TEMP.",
     'card.more': "+{n} autres",
     'site.checking': "vérification",
+    'widget.all_good': "Tout va bien",
+    'widget.trouble': "{n} à vérifier",
+    'widget.checked': "Vérifié à {time}",
+    'widget.open': "Ouvrir Spark Connect",
+    'widget.no_answer': "pas de réponse",
 
     'verdict.ok': "Tout va bien",
     'verdict.waiting': "En attente de la première lecture",

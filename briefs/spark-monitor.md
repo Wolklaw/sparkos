@@ -75,3 +75,21 @@ This app watches the PC, so it must not be what slows it down.
 CI passes in Fedora and inside the SparkOS image, the app installs and uninstalls for one user with no
 root, the speed targets are measured, and the PR is open for the owner. The owner confirms
 Ctrl+Shift+Esc on hardware. It is optional (future Spark Portal), so it is not added to the recipe.
+
+## Logs and System tabs (1.1.0)
+
+Two tabs added after the first release. Behaviour and limits are in
+[files/spark-monitor/README.md](../files/spark-monitor/README.md).
+
+- **Logs:** `journalctl -o json -f` for this or the previous boot at three levels, filtered by
+  app or unit and by text; a plain-language sentence per entry with the full entry and Copy entry
+  one click away; a crashes view from `coredumpctl --json=short` with Copy report (clipboard only,
+  nothing uploaded, machine ID, host name and user name removed); failed units and an unclean
+  previous shutdown on top. Loaded only when the tab opens, stopped when it closes, 2000 entries
+  at most. A new error or crash while the tab is open is an event: the heading tears.
+- **System:** SparkOS version and digest, kernel, processor, GPUs with kernel driver and Mesa
+  version, memory size and speed (from udev, no root), motherboard and BIOS from
+  `/sys/class/dmi/id`, disks, displays, uptime, and Copy all without serial numbers by default.
+- **Decisions for the owner:** none blocking. The unclean-shutdown notice is a guess from the log
+  and says so. Whether the System tab should also read BIOS fields that need root (it can't,
+  without a helper) is open.

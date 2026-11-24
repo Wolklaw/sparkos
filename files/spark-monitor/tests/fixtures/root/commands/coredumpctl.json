@@ -1,0 +1,1 @@
+[{"time": 1772460050000000, "pid": 4301, "uid": 1000, "gid": 1000, "sig": 11, "corefile": "present", "exe": "/usr/bin/fixture-viewer", "size": 4194304}, {"time": 1772460020000000, "pid": 4200, "uid": 1000, "gid": 1000, "sig": 6, "corefile": "missing", "exe": "/home/fixtureuser/.local/bin/fixture-tool", "size": null}]

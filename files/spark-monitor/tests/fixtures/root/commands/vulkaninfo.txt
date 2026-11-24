@@ -1,0 +1,22 @@
+Devices:
+========
+GPU0:
+	apiVersion         = 1.4.300
+	driverVersion      = 26.0.1
+	vendorID           = 0x1002
+	deviceID           = 0x73bf
+	deviceType         = PHYSICAL_DEVICE_TYPE_DISCRETE_GPU
+	deviceName         = AMD Fixture GPU (RADV FIXTURE)
+	driverID           = DRIVER_ID_MESA_RADV
+	driverName         = radv
+	driverInfo         = Mesa 26.0.1
+GPU1:
+	apiVersion         = 1.4.300
+	driverVersion      = 26.0.1
+	vendorID           = 0x1002
+	deviceID           = 0x164e
+	deviceType         = PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU
+	deviceName         = AMD Fixture iGPU (RADV FIXTURE)
+	driverID           = DRIVER_ID_MESA_RADV
+	driverName         = radv
+	driverInfo         = Mesa 26.0.1

@@ -33,6 +33,16 @@ No stop, disable or file editing, and no update or reboot on machines whose conf
 
 While it is open, a machine going unreachable, a watched unit failing or a site returning an error shows a desktop notification once, and once more when it recovers (Linux, through `notify-send`; on Windows the window's status line shows it instead). It doesn't send Discord alerts; the servers' own watchdog does that.
 
+## On the panel or the desktop (Plasma widget)
+
+`install.sh --user` also installs a Plasma widget (`widget/package`, id `dev.wolklaw.sparkconnect`). Add it with right-click on a panel or the desktop, **Add Widgets**, **Spark Connect**.
+
+- **On a panel:** the app's icon with a dot: cyan when everything is fine, gold for a warning, magenta when a machine or website is down. Hover for the one-line summary; click for the board.
+- **On the desktop, or opened from the panel:** the overview, smaller. One card per machine with its state, verdict, uptime, load, memory, disk and temperature, then one row per website. Anything that isn't fine sorts first, gets the magenta/cyan slip and tears when a check comes back bad. Clicking a card, a row or **Open Spark Connect** opens the window.
+- Every 60 seconds (`refreshSeconds` in the widget's settings, at least 15) it runs `spark-connect --status`: one probe per machine over the same SSH as the window (BatchMode, never a password prompt, the same reused connection) and one GET per website, all at once, printed as JSON. It doesn't log, restart, reboot or fix anything. "Unreachable since" keeps the time of the first failure in `~/.cache/spark-connect/widget-down-since.json`.
+- It runs while the window is closed, so the servers get the probe every minute from the widget as well as from an open window.
+- Without Plasma 6 (`kpackagetool6`) the install skips the widget; the app works the same.
+
 ## Take control of a desktop
 
 A machine with `desktop = true` shows whether someone is logged in, whether the screen is locked, and two buttons. It needs `spark-share` on that machine, which ships in the SparkOS image (`/usr/bin/spark-share`); on this PC it needs FreeRDP (`sdl-freerdp`, `xfreerdp3` or `xfreerdp`) or, on Windows, `mstsc`.
@@ -66,7 +76,7 @@ Unit names, the host, paths and health URLs are checked against a short list of 
 - Always `-o BatchMode=yes -o StrictHostKeyChecking=yes`. An unknown or changed host key stops the refresh; the machine shows the message and the fingerprint ssh printed, and you check and accept the key yourself in a terminal.
 - Every 15 seconds for the machine that is open, every 60 seconds for the rest and the websites; nothing while the window is minimized. All SSH calls and site checks run on worker threads, so the window never waits.
 - On Linux one connection per host is reused (`ControlMaster`, socket in `~/.cache/spark-connect/`, closed 2 minutes after the last call). Windows' OpenSSH can't do that, so each refresh there is a new connection.
-- Website checks: one GET from this PC, 5 second timeout, user agent `SparkConnect/0.1.0`, nothing else.
+- Website checks: one GET from this PC, 5 second timeout, user agent `SparkConnect/<version>`, nothing else.
 - Ready for later: a machine has a `kind` (`linux`) and a `transport` (`ssh`); the screens only see the probe's JSON, so a hub transport can return the same format, and a tablet view can be added beside the machine view (`sparkconnect/views.py`). Neither exists yet.
 
 ## Install, run, test
@@ -78,6 +88,7 @@ sudo bash install.sh --deps               # system-wide, with Fedora packages
 spark-connect
 spark-connect --config FILE               # another machine list
 spark-connect --self-test                 # ssh on the path, the list parses, the probe is there; connects to nothing
+spark-connect --status                    # every machine and website once, as JSON (what the widget shows)
 py spark_connect.py                       # Windows, from this folder (no installer yet)
 python3 -m unittest discover -s tests -v
 python3 make_icons.py                     # redraw icons/ after changing the mark
@@ -90,10 +101,13 @@ F5 reads the machine list again and refreshes everything, Escape goes back to th
 - **Screen sharing** ([tests/test_share.py](tests/test_share.py)): `spark-share` run against a fake krdpserver, session lookup, the prompt and banner in English and French with no clipped text, the viewer command lines (no password in argv, certificate pinned), `mstsc` credentials removed, the share lifecycle through a fake ssh.
 
 - **Unit** (fixtures in `tests/fixtures/`, made-up machines): the probe's JSON for all fine, a failed unit, a full disk, the tunnel reconnecting, the standby standing by and after a takeover; ssh's own output for a timeout, a changed host key, an unknown host key and a refused key; the verdict for each; the config loader and its errors; the confirmation text for each action (the tunnel one lists hostnames); the restart command and sudo's password refusal through a stand-in `ssh`; that the typed failback line doesn't run without Enter; alerts, the report, website checks against a local server.
+- **`--status`:** every machine and site in the JSON with the window's words, the worst level on top, "Unreachable since" kept between runs and cleared when the machine answers, no machine list and a broken one, the command line.
 - **UI under Xvfb:** the overview renders calm with no slip; a failed machine sorts to the top and slips, and sorts back when it answers; the restart confirmation shows the hostnames and cancelling it runs nothing; every tab of the machine view; the log tail and its filter; no clipped text in English or French.
-- **CI** ([workflow](../../.github/workflows/spark-connect.yml)): the tests in Fedora (English and French) after a system-wide install; the probe in plain `fedora:latest` and `ubuntu:24.04` containers; SSH end to end against a throwaway container with sshd, systemd, a throwaway key and a dummy user unit (refresh, restart the unit and see it restarted, sudo's password refusal, an unknown host key refused, a journal tail); the unit tests on `windows-latest`; and inside the published SparkOS image, `install.sh --user`, `--self-test`, the tests and `--uninstall` as a normal user.
+- **CI** ([workflow](../../.github/workflows/spark-connect.yml)): the tests in Fedora (English and French) after a system-wide install; the probe in plain `fedora:latest` and `ubuntu:24.04` containers; SSH end to end against a throwaway container with sshd, systemd, a throwaway key and a dummy user unit (refresh, restart the unit and see it restarted, sudo's password refusal, an unknown host key refused, a journal tail); the unit tests on `windows-latest`; the widget's QML lint and Plasma's widget runner loading it (`plasmawindowed --smoke-test`); and inside the published SparkOS image, `install.sh --user` (the widget included), `--self-test`, `--status`, the tests and `--uninstall` as a normal user.
 
 ## Known gaps
+
+- **The widget** was tried on the owner's PC in Plasma's widget window (`plasmawindowed`) against the real machines and sites, not yet on a panel or the desktop. It sends no notifications; those still come only from the open window.
 
 - **Take control has not been tried on a real desktop.** Tested: `spark-share` against a fake krdpserver (the JSON line, 127.0.0.1 only, Deny and timeout start nothing, a locked screen is refused, Stop and a closed connection end it), the share lifecycle through a fake ssh, the viewer command lines, and the prompt and banner in English and French. Tried by hand on a Plasma PC, in a throwaway virtual KWin (not the desktop in use): `krdpserver --plasma` starts on `127.0.0.1`, and FreeRDP `/auth-only` with the pinned certificate (`/cert:fingerprint:sha256:<hex>,deny`) signs in, while a wrong fingerprint is refused. **Not in CI:** a headless KWin (`kwin_wayland --virtual`) would not start in a container without a GPU, neither in plain Fedora nor in the SparkOS image, so there is no end-to-end CI job. Not tried at all: the prompt and banner on a real session, a real mouse and keyboard through the viewer, Windows' `mstsc`, and the sudo-password terminal. The owner does the first real share while watching.
 - **No view-only.** krdp 6.8 has no such option, so there is no "See screen": every share is controlled. Revisit when krdp adds one.

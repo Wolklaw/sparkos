@@ -597,6 +597,77 @@ def fake_site(site):
     return sites.SiteResult(site.name, site.url, status=200, ms=120.0)
 
 
+# ─── --status, what the Plasma widget shows ───────────────────
+
+class WidgetStatus(unittest.TestCase):
+    def setUp(self):
+        from sparkconnect import status
+        self.status = status
+        self.cfg = example()
+        self.names = [m.name for m in self.cfg.machines]
+
+    def collect(self, answers):
+        return self.status.collect(self.cfg, FakeTransport(answers), check_site=fake_site)
+
+    def test_every_machine_and_site(self):
+        out = self.collect({self.names[MAIN]: 'all-fine.json'})
+        self.assertEqual([m['name'] for m in out['machines']], self.names)
+        main = out['machines'][MAIN]
+        self.assertEqual((main['level'], main['state'], main['verdict'], main['up']),
+                         (OK, t('card.up'), t('verdict.ok'), True))
+        for key in ('uptime', 'load', 'memory', 'disk', 'temp'):
+            self.assertNotEqual(main[key], '—', key)
+        bad = [s for s in out['sites'] if not s['ok']]
+        self.assertEqual([(s['name'], s['status'], s['level']) for s in bad],
+                         [('app.example.org', 'HTTP 502', DOWN)])
+        self.assertEqual(out['level'], DOWN)         # the worst of everything
+        self.assertEqual(out['summary'], t('widget.trouble', n=1))
+        json.dumps(out)                              # all of it is plain JSON
+
+    def test_down_machine_and_its_words(self):
+        out = self.collect({self.names[MAIN]: 'ssh-timeout.stderr'})
+        main = out['machines'][MAIN]
+        self.assertEqual((main['level'], main['state'], main['up'], main['uptime']),
+                         (DOWN, t('card.down'), False, '—'))
+        self.assertTrue(main['verdict'].startswith(t('verdict.unreachable', since='')), main['verdict'])
+
+    def test_down_since_is_kept_between_runs(self):
+        path = os.path.join(tempfile.mkdtemp(), 'down.json')
+        first = result_for('ssh-timeout.stderr', at=1000.0)
+        self.assertEqual(self.status.remember_down({'a': first}, path), {'a': 1000.0})
+        later = result_for('ssh-timeout.stderr', at=1060.0)
+        self.assertEqual(self.status.remember_down({'a': later}, path), {'a': 1000.0})
+        back = result_for('all-fine.json', at=1120.0)
+        self.assertEqual(self.status.remember_down({'a': back}, path), {})
+        again = result_for('ssh-timeout.stderr', at=1180.0)
+        self.assertEqual(self.status.remember_down({'a': again}, path), {'a': 1180.0})
+        with open(path, 'w') as f:
+            f.write('not json')
+        self.assertEqual(self.status.remember_down({'a': later}, path), {'a': 1060.0})
+
+    def test_no_machine_list_and_a_broken_one(self):
+        missing = os.path.join(tempfile.mkdtemp(), 'machines.toml')
+        out = self.status.report(missing)
+        self.assertTrue(out['empty'])
+        self.assertEqual((out['level'], out['machines'], out['summary']),
+                         (OK, [], t('status.no_config')))
+        with open(missing, 'w') as f:
+            f.write('[[machine]]\nname = "x"\n')
+        out = self.status.report(missing)
+        self.assertEqual(out['level'], DOWN)
+        self.assertTrue(out['error'])
+        self.assertIn('widget.open', out['labels'])
+
+    def test_command_line(self):
+        missing = os.path.join(tempfile.mkdtemp(), 'machines.toml')
+        done = subprocess.run([sys.executable, os.path.join(APP_DIR, 'spark_connect.py'),
+                               '--status', '--config', missing],
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(done.returncode, 0, done.stderr)
+        out = json.loads(done.stdout)
+        self.assertEqual((out['format'], out['version']), (1, VERSION))
+
+
 @unittest.skipUnless(have_display(), "needs a display")
 class UITests(unittest.TestCase):
     def make(self, answers, path=EXAMPLE):
