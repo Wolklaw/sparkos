@@ -470,9 +470,14 @@ class UITests(unittest.TestCase):
                 root.after(100, drive)
                 return
             seen['overlay'] = True
-            s = ov.screens[0]
-            # the fixture is centred on the screen; select a box around it
-            cx, cy = s.monitor.w // 2, s.monitor.h // 2
+            # --from centres the fixture on the whole desktop, which with several monitors
+            # isn't the middle of the first one: drag on the monitor that shows it
+            left, top, right, bottom = core.bounding_box([sc.monitor for sc in ov.screens])
+            mx, my = (left + right) // 2, (top + bottom) // 2
+            s = next((sc for sc in ov.screens
+                      if sc.monitor.x <= mx < sc.monitor.x + sc.monitor.w
+                      and sc.monitor.y <= my < sc.monitor.y + sc.monitor.h), ov.screens[0])
+            cx, cy = mx - s.monitor.x, my - s.monitor.y
             ov.press(s, cx - 330, cy - 70)
             ov.drag(s, cx + 330, cy + 70)
             ov.release(s, cx + 330, cy + 70)
@@ -509,6 +514,26 @@ class UITests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class KeepLatestTest(unittest.TestCase):
+    """Spark Link's Send screenshot reads the last screenshot from Spark Snip's cache."""
+
+    def test_writes_a_png_in_one_step(self):
+        from sparksnip.core import keep_latest
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'latest.png')
+            self.assertIsNone(keep_latest(Image.new('RGB', (40, 20), 'red'), path))
+            self.assertIsNone(keep_latest(Image.new('RGB', (30, 10), 'blue'), path))
+            with Image.open(path) as img:
+                self.assertEqual((img.format, img.size), ('PNG', (30, 10)))
+            self.assertEqual(os.listdir(d), ['latest.png'])
+
+    def test_reports_failure(self):
+        from sparksnip.core import keep_latest
+        with tempfile.TemporaryDirectory() as d:
+            error = keep_latest(Image.new('RGB', (4, 4)), os.path.join(d, 'gone', 'latest.png'))
+            self.assertTrue(error)
 
 
 class OneResultWindowTest(unittest.TestCase):

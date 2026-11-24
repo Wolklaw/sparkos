@@ -10,6 +10,7 @@ Version 1 does:
 - **Files:** files from the phone land in Downloads; you accept each one unless you switched on "Accept files without asking" for that phone. "Send files", or right-click > **Send to phone** in Dolphin, sends files the other way. Every file is checked against its SHA-256 before it's kept, and nothing is overwritten.
 - **Phone notifications** show as Plasma notifications (read-only; no replies in v1).
 - **Battery:** the phone's level in the window, and a warning at 15 % while it isn't charging.
+- **Send screenshot:** sends Spark Snip's last screenshot to the phone as the same PNG, named after the time it was taken (`SparkSnip_2026-11-24_14-05-09.png`). Spark Snip keeps that screenshot in `~/.cache/spark-snip/latest.png`; Spark Link copies it to `~/.cache/spark-link/outbox/` before offering it, so a newer screenshot can't replace it while the phone decides. Copies older than two days are removed. It goes through Files, so it follows the same switch and the phone's accept prompt.
 - **Find my phone:** "Ring" makes the phone ring at full volume until you tap it.
 - **Away from home, over Tailscale:** with this PC and the phone on the same tailnet, the phone learns the PC's Tailscale address while they're linked at home, and uses it when the home network doesn't answer. The Pair tab shows that address. Nothing else changes: the same pinned certificates are checked.
 - **Shared clipboard:** text copied on one side can be pasted on the other. **Off until you switch it on**, because everything you copy would go to the phone.

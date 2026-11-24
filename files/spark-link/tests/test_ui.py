@@ -67,6 +67,40 @@ class FakeControl:
         return {'ok': True}
 
 
+class StageSnip(unittest.TestCase):
+    """Spark Snip's last screenshot is copied before it's offered, so the next one can't
+    replace it while the phone is still deciding."""
+
+    def test_copy_and_cleanup(self):
+        import tempfile
+        from sparklink.app import OUTBOX_DAYS, stage_snip
+        with tempfile.TemporaryDirectory() as d:
+            src, outbox = os.path.join(d, 'latest.png'), os.path.join(d, 'outbox')
+            with open(src, 'wb') as f:
+                f.write(b'first')
+            first = stage_snip(src, outbox)
+            with open(src, 'wb') as f:
+                f.write(b'second')
+            os.utime(src, (time.time() + 5, time.time() + 5))
+            second = stage_snip(src, outbox)
+            self.assertNotEqual(first, second)
+            with open(first, 'rb') as f:
+                self.assertEqual(f.read(), b'first')
+            old = time.time() - OUTBOX_DAYS * 86400 - 60
+            os.utime(first, (old, old))
+            stage_snip(src, outbox)
+            self.assertFalse(os.path.exists(first))
+            self.assertTrue(os.path.exists(second))
+            self.assertEqual(sorted(os.listdir(outbox)), [os.path.basename(second)])
+
+    def test_no_screenshot(self):
+        import tempfile
+        from sparklink.app import stage_snip
+        with tempfile.TemporaryDirectory() as d:
+            with self.assertRaises(OSError):
+                stage_snip(os.path.join(d, 'latest.png'), os.path.join(d, 'outbox'))
+
+
 @unittest.skipUnless(DISPLAY, 'needs a display')
 class Window(unittest.TestCase):
     def setUp(self):
@@ -124,6 +158,44 @@ class Window(unittest.TestCase):
         self.press(ring[1])            # the tablet isn't connected
         self.pump()
         self.assertEqual(len([r for r in self.ctl.sent[before:] if r['cmd'] == 'ring']), 0)
+
+    def test_send_screenshot(self):
+        import tempfile
+        from unittest import mock
+        from sparklink import app as appmod
+        label = t('dev.send_snip').upper()
+        with tempfile.TemporaryDirectory() as d:
+            latest = os.path.join(d, 'latest.png')
+            outbox = os.path.join(d, 'outbox')
+            with mock.patch.object(appmod, 'snip_latest', return_value=latest), \
+                    mock.patch.object(appmod, 'cache_dir', return_value=d):
+                self.app.render()
+                self.pump()
+                buttons = [w for w in self._all() if isinstance(w, tk.Label) and w.cget('text') == label]
+                self.assertEqual(len(buttons), 2)
+                self.press(buttons[0])          # no screenshot yet: disabled, nothing sent
+                self.pump()
+                self.assertFalse(any(r['cmd'] == 'send.files' for r in self.ctl.sent))
+                with open(latest, 'wb') as f:
+                    f.write(b'\x89PNG\r\n\x1a\n shot')
+                self.app.render()
+                self.pump()
+                buttons = [w for w in self._all() if isinstance(w, tk.Label) and w.cget('text') == label]
+                self.press(buttons[0])
+                self.pump()
+                sent = [r for r in self.ctl.sent if r['cmd'] == 'send.files']
+                self.assertEqual(len(sent), 1)
+                self.assertEqual(sent[0]['device'], 'b' * 32)
+                path = sent[0]['paths'][0]
+                self.assertEqual(os.path.dirname(path), outbox)
+                self.assertRegex(os.path.basename(path), r'^SparkSnip_\d{4}-\d\d-\d\d_[\d-]+\.png$')
+                with open(path, 'rb') as f:
+                    self.assertEqual(f.read(), b'\x89PNG\r\n\x1a\n shot')
+                self.assertIn(t('dev.snip_sending', name='Pixel 8'), self.texts())
+                before = len(self.ctl.sent)
+                self.press(buttons[1])          # the tablet isn't connected
+                self.pump()
+                self.assertFalse(any(r['cmd'] == 'send.files' for r in self.ctl.sent[before:]))
 
     def test_pairing_tab_and_prompt(self):
         self.app.show('pair')
