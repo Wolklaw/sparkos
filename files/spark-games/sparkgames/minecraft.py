@@ -4,6 +4,8 @@ Official launcher: one entry, "Minecraft: Java Edition", when its launcher_profi
   ~/.minecraft/launcher_profiles.json                              minecraft-launcher
   ~/.var/app/com.mojang.Minecraft/.minecraft/launcher_profiles.json  the Flatpak
 Last played is the newest lastUsed of its profiles; the launcher keeps no playtime.
+The launcher Spark Games added itself (launchers.py) is started from its own folder, and its tile
+shows from the moment it's added, before its first run writes launcher_profiles.json.
 
 Prism Launcher: one entry per instance.
   ~/.local/share/PrismLauncher/instances/<id>/instance.cfg
@@ -43,8 +45,17 @@ def _iso(value) -> int:
         return 0
 
 
+def added_launcher(watch: List[str]) -> str:
+    """The program of the Minecraft Launcher Spark Games added, or ''."""
+    from . import launchers, registry
+    watch.append(registry.path())
+    rec = launchers.known('minecraft')
+    return rec['exe'] if rec else ''
+
+
 def official(home: str, watch: List[str]) -> List[Game]:
     games = []
+    binary = added_launcher(watch)
     for root, flatpak in official_roots(home):
         path = os.path.join(root, 'launcher_profiles.json')
         watch.append(path)
@@ -56,8 +67,15 @@ def official(home: str, watch: List[str]) -> List[Game]:
         last = max([_iso(p.get('lastUsed')) for p in profiles.values() if isinstance(p, dict)]
                    or [0])
         key = 'minecraft:java-flatpak' if flatpak else 'minecraft:java'
+        launch = {'flatpak': flatpak}
+        if binary and not flatpak:
+            launch['binary'] = binary
         games.append(Game(key=key, title=JAVA_TITLE, source='minecraft', install_dir=root,
-                          last_played=last, flatpak=flatpak, launch={'flatpak': flatpak}))
+                          last_played=last, flatpak=flatpak, launch=launch))
+    if binary and not any(g.key == 'minecraft:java' for g in games):
+        games.append(Game(key='minecraft:java', title=JAVA_TITLE, source='minecraft',
+                          install_dir=os.path.join(home, '.minecraft'),
+                          launch={'flatpak': False, 'binary': binary}))
     return games
 
 

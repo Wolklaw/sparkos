@@ -11,7 +11,8 @@ Every game starts through the program that owns it:
            xdg-open itch://install?game_id=<game id>&launch         (the app asks first)
   Bottles  bottles-cli run -b <bottle> -p <program>
            flatpak run --command=bottles-cli com.usebottles.bottles run -b <bottle> -p <program>
-  Minecraft  minecraft-launcher, or flatpak run com.mojang.Minecraft
+  Minecraft  the launcher Spark Games added, else minecraft-launcher,
+             or flatpak run com.mojang.Minecraft
   Prism    prismlauncher --launch <instance>
            flatpak run org.prismlauncher.PrismLauncher --launch <instance>
   Own      the program itself; a Windows .exe through umu-run (Proton), with MangoHud and
@@ -146,10 +147,13 @@ def plan(game: Game, options: Optional[Dict[str, Any]] = None,
     if game.source in ('minecraft', 'prism'):
         flatpak_id, command = (MINECRAFT_FLATPAK, 'minecraft-launcher')             if game.source == 'minecraft' else (PRISM_FLATPAK, 'prismlauncher')
         args = [] if game.source == 'minecraft' else ['--launch', str(info.get('instance', ''))]
+        binary = str(info.get('binary') or '')
         if info.get('flatpak'):
             if not which('flatpak'):
                 raise LaunchError('missing_program', 'flatpak')
             argv = flatpak_cmd + [flatpak_id] + args
+        elif binary and os.path.isfile(binary):
+            argv = [binary]
         elif which(command):
             argv = [command] + args
         else:

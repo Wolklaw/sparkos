@@ -53,7 +53,8 @@ done
 
 # the stand-ins reach the real tools (offscreen: the build has no display)
 if [ -x "$REAL/kcmshell6" ]; then
-  QT_QPA_PLATFORM=offscreen /usr/bin/kcmshell6 --list | grep -q 'kcm_' \
-    || { echo "kcmshell6 does not run through the stand-in"; exit 1; }
+  # read the list first: `kcmshell6 --list | grep -q` fails under pipefail when grep stops early
+  kcms=$(QT_QPA_PLATFORM=offscreen /usr/bin/kcmshell6 --list) || kcms=''
+  grep -q 'kcm_' <<<"$kcms" || { echo "kcmshell6 does not run through the stand-in"; exit 1; }
 fi
 echo "$(/usr/bin/spark-settings --version) installed."
