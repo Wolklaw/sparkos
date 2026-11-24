@@ -14,7 +14,7 @@ style sheet every batch follows.
 | 1. Theme and the taskbar | System Settings (`preferences-system`, `systemsettings`), Steam (`steam`, `com.valvesoftware.Steam`), generic app (`application-x-executable`, `application-default-icon`), folder (`folder`, `inode-directory`), Trash (`user-trash`, `user-trash-full`); symbolic versions of all but Steam | Done |
 | 2. Folders and places | Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Games, Windows drives, network, removable drives, the sidebar | Done (see "Batch 2" below) |
 | 3. File types | text, code, archives, images, audio, video, PDF, office, .exe/.msi, APK, ISO, fonts, generic file (`unknown`) | Done: 20 icons and about 420 names, see Batch 3 below |
-| 4. Tray and status | network, Bluetooth, volume, battery, updates, notifications, Caps Lock | Not started |
+| 4. Tray and status | network, Bluetooth, volume, microphone, battery, updates, notifications, Caps Lock (symbolic, `status/`) | Done: see [Batch 4](#batch-4-tray-and-status) |
 
 The Spark apps, Soot, FreeSuite and Nova keep the icons they ship; the theme never draws over them.
 
@@ -201,3 +201,55 @@ Not covered, and why:
 
 `check.py` fails if any of the names in its `MIME_NAMES` list is missing at any size, so a type can't quietly fall
 back to Breeze.
+
+## Batch 4: tray and status
+
+![Batch 4 contact sheet: every icon at 16, 22, 24, 32 and 48 px, on dark and on light](icons-batch-4.png)
+
+Fifty symbolic icons in `status/` (names in the table), plus links for the other names Plasma and GTK
+ask for. Drawn as filled shapes with the `ColorScheme-Text` class, one colour, no slip; "off" parts are
+the same colour at 35% opacity, a slash means disabled.
+
+| Group | Drawn | Links to those |
+|---|---|---|
+| Network | `network-wired-activated`, `network-wired-disconnected`, `network-wireless-signal-{none,weak,ok,good,excellent}`, `network-wireless-off` | `network-wired`, `network-wireless-connected-{00..100}`, `network-wireless-{20..100}`, `network-wireless-disconnected`, `network-offline` |
+| Bluetooth | `bluetooth-active` (on), `bluetooth-connected`, `bluetooth-disabled` | `bluetooth`, `bluetooth-offline`, `network-bluetooth-activated` |
+| Volume | `audio-volume-{muted,low,medium,high}`, `audio-input-microphone`, `audio-input-microphone-muted` | `microphone-sensitivity-*`, `audio-volume-high-warning`, `-danger` |
+| Battery | `battery-{000..100}` and `battery-{000..100}-charging` (steps of 10), `battery-missing` | `battery-full-charged`, `battery-low`, `battery-caution`... |
+| Updates | `update-{none,low,medium,high,busy}` | `software-update-available`, `software-update-urgent` |
+| Notifications | `notification-{inactive,active,disabled}` | `notifications`, `notifications-disabled` |
+| Caps Lock | `input-caps-on`, `input-caps-off` | `keyboard-caps-enabled`, `-disabled`, `-locked` |
+
+Every name also exists without `-symbolic` in `status/16`, `status/22` and `status/24`, because the tray
+asks for the plain name (Breeze draws its monochrome tray icons under the plain names). Larger sizes
+(32 and up) are not touched: a plain `battery-100` at 48 px still comes from Breeze.
+
+Grid: `status/symbolic` is the 16 px drawing (scalable); `status/22` is the same drawing snapped to the
+22 px grid with a 2 px line weight, and `status/24` is that with a 1 px margin. Wi-Fi is angular
+chevrons plus a dot (no arcs). The charging bolt is cut out of the battery fill, and shows as solid
+where the battery is empty.
+
+### What comes from the icon theme and what from the Plasma theme
+
+The SparkOS look uses the Plasma theme `default` (`plasmarc` `[Theme] name=default`), which has an
+`icons/` folder: `network.svgz`, `audio.svgz`, `battery.svgz`, `notification.svgz` and others, with names
+like `network-wireless-connected-60`, `Fill70` and `notification-disabled`. On this machine (Plasma 6.8.3):
+
+- Plasma 6 no longer has `PlasmaCore.IconItem`; the tray applets (network, volume, battery, Bluetooth,
+  notifications, keyboard indicator) are compiled QML that draw `Kirigami.Icon` by name, and
+  `libKF6IconThemes` and the Kirigami plugin hold no reference to the Plasma theme. So the tray icons
+  come from the icon theme, and these `.svgz` files are not what the tray shows. The only reader of
+  `desktoptheme/*/icons` is KSvg itself, for an applet that asks for `icons/<file>` as a KSvg image.
+- Not checked on screen: plasmashell was not restarted and the owner's settings were not changed, so
+  the claim rests on the libraries and the applet list, not on swapping a theme and looking. Do that
+  once on the booted image (pick SparkOS icons and look at the tray, or
+  put a deliberately wrong test icon under one name).
+- The repo has no Plasma theme of its own (only a look-and-feel package that sets `name=default`),
+  so there is nothing to carry overrides. A `desktoptheme/SparkOS/icons/*.svgz` would be possible, but
+  as far as the above shows nothing would read it, so none was added. It becomes worth doing only if the
+  on-screen test shows a tray icon that still looks like Breeze.
+- Spark Update has no tray icon. It posts a notification with its own app icon
+  (`dev.wolklaw.SparkUpdate`, in `files/spark-update/icons`). The `update-*` icons here are the ones
+  Plasma's Software Updates notifier asks for, if one is on the panel.
+- Caps Lock: `sparkos-capslock` only flips the keyboard LED; it has no icon. The indicator on screen
+  is Plasma's keyboard indicator applet and OSD, which ask for `input-caps-on` / `input-caps-off`.

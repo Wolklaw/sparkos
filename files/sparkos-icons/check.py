@@ -147,6 +147,28 @@ def check_places():
             fail(f"places/symbolic/{name}-symbolic.svg missing")
 
 
+# Names Plasma's tray applets ask for (batch 4); each must resolve at 16, 22 and 24 px, with and
+# without -symbolic (the tray asks for the plain name).
+TRAY_NAMES = [
+    "network-wired-activated", "network-wired-disconnected", "network-wireless-connected-100",
+    "network-wireless-connected-00", "network-wireless-disconnected", "network-wireless-off",
+    "bluetooth-active", "bluetooth-disabled", "audio-volume-muted", "audio-volume-low",
+    "audio-volume-medium", "audio-volume-high", "audio-input-microphone", "audio-input-microphone-muted",
+    "battery-000", "battery-050-charging", "battery-100", "battery-missing", "update-none", "update-high",
+    "update-busy", "notification-inactive", "notification-active", "notification-disabled",
+    "input-caps-on", "input-caps-off",
+]
+
+
+def check_tray(dirs):
+    for base in TRAY_NAMES:
+        for name in (base, base + "-symbolic"):
+            for size in (16, 22, 24):
+                path = lookup(dirs, name, size)
+                if path is None or "/status/" not in path:
+                    fail(f"{name} at {size}: not drawn in status/ (got {path})")
+
+
 def icon_names():
     names = set()
     for root, _, files in os.walk(THEME):
@@ -275,6 +297,7 @@ def main():
     check_svgs()
     check_places()
     check_mime_names()
+    check_tray(dirs)
     with tempfile.TemporaryDirectory() as tmp:
         check_renders(dirs, tmp)
         if args.sheet and not errors:

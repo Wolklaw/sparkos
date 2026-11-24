@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Wired network, no cable or no link. Symbolic, drawn for 16 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" d="M5 1H11V5H5ZM7 5H9V8H7Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" opacity="0.35" d="M3 8H13V10H3ZM3 10H5V11H3ZM11 10H13V11H11ZM1 11H7V15H1ZM9 11H15V15H9Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" d="M2.5 14.5L14.5 2.5L13.5 1.5L1.5 13.5Z"/>
+</svg>

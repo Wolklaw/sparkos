@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Wi-Fi, 3 of 4 levels lit. Symbolic, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" d="M10 16H12V19H10Z M11 11L15 15L15 18L11 14L7 18L7 15Z M11 5.5L18 12.5L18 15L11 8L4 15L4 12.5Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" opacity="0.35" d="M11 0L20.5 9.5L20.5 12.5L11 3L1.5 12.5L1.5 9.5Z"/>
+</svg>
