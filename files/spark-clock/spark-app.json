@@ -6,6 +6,8 @@
   "summary": "Alarms, timers, a stopwatch and world clocks. A background service rings them with the window closed and after a reboot.",
   "summary_fr": "Alarmes, minuteurs, chronomètre et horloges du monde. Un service en arrière-plan les fait sonner fenêtre fermée et après un redémarrage.",
   "version": "0.1.0",
+  "live_update": true,
+  "system_api": 1,
   "installed_size_kb": 800,
   "icon": "icons/spark-clock-256.png",
   "categories": ["Utility", "Clock"],

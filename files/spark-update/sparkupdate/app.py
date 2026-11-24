@@ -16,7 +16,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from . import APP_CLASS, APP_NAME, APP_SLUG, HELPER, SYSTEM_LOG, VERSION
-from . import core, release
+from . import core, liveapps, release
 from .core import Env, load_json, log, reduced_motion, run, save_json
 from .notify import restart_pc
 from .settings import (EVERY_HOURS, NOTIFY, REMIND_HOURS, STAGE, SystemSettings, UserPrefs,
@@ -285,7 +285,7 @@ class App:
         self._poll_id: Optional[str] = None
         self._watch_id: Optional[str] = None
         self._build()
-        self.show(view if view in ('main', 'settings', 'log') else 'main', glitch=False)
+        self.show(view if view in ('main', 'settings', 'log', 'apps') else 'main', glitch=False)
         self.root.deiconify()
         self.glitch.add(self.title, self.mark, self.strip)
         self.reload()
@@ -333,6 +333,10 @@ class App:
         tk.Label(head, text=f"V{VERSION}", bg=T["panel"], fg=T["muted"], font=self.font(7),
                  padx=px(6), pady=px(2), highlightthickness=1,
                  highlightbackground=T["line"]).pack(side="right", anchor="n", pady=(px(4), 0))
+        # App updates sit in the header: the button row below is as wide as French allows
+        self.apps_button = WolkButton(head, t('btn.apps'), lambda: self.show('apps'),
+                                      self.font(8), 'ghost')
+        self.apps_button.pack(side="right", anchor="n", padx=(0, px(8)))
         self.strip = Strip(root, height=px(2))
         self.strip.pack(fill="x")
         # the footer is packed before the body so a short window shrinks the body, not it
@@ -390,13 +394,13 @@ class App:
         for v in self.views.values():
             v.pack_forget()
         self.view_name = name
-        if name not in self.views or name == 'log':
+        if name not in self.views or name in ('log', 'apps'):
             if name in self.views:
                 self.views[name].destroy()
             frame = tk.Frame(self.body, bg=T["bg"])
             self.views[name] = frame
             {'main': self._build_main, 'settings': self._build_settings,
-             'log': self._build_log}[name](frame)
+             'log': self._build_log, 'apps': self._build_apps}[name](frame)
         self.views[name].pack(fill="both", expand=True)
         if name == 'main' and self.snap:
             self.render()
@@ -1057,6 +1061,130 @@ class App:
             self.reload()
 
         self.work(go, done)
+
+    # — app updates (Spark Apps) —
+    def _build_apps(self, f: tk.Frame):
+        px = self.px
+        self.apps_summary = liveapps.read(self.env)
+        p, inner = self.panel(f, t('apps.heading'))
+        p.pack(fill="both", expand=True)
+        intro = self.label(inner, t('apps.intro'), 8, T["muted"], bold=False, wraplength=px(780))
+        intro.pack(anchor="w", pady=(px(4), px(2)))
+        self.fit_width(intro)
+        self.apps_checked = self.label(inner, "", 7, T["dim"], bold=False, wraplength=px(780))
+        self.apps_checked.pack(anchor="w", pady=(0, px(6)))
+        self.fit_width(self.apps_checked)
+        self.apps_grid = tk.Frame(inner, bg=T["panel"])
+        self.apps_grid.pack(fill="x", anchor="w")
+        self.render_apps()
+        row = tk.Frame(f, bg=T["bg"])
+        row.pack(fill="x", pady=(px(12), 0))
+        self.apps_now_button = WolkButton(row, t('btn.apps_now'), self.on_apps_now,
+                                              self.font(8), 'primary')
+        self.apps_now_button.pack(side="left")
+        self.apps_now_button.set_enabled(self.apps_summary.installed)
+        WolkButton(row, t('btn.back'), lambda: self.show('main'), self.font(8),
+                   'ghost').pack(side="left", padx=(px(8), 0))
+
+    def render_apps(self):
+        px, summary = self.px, self.apps_summary
+        for child in self.apps_grid.winfo_children():
+            child.destroy()
+        self.app_rows: List[Tuple[str, str, str]] = []      # for tests: slug, version, state
+        if summary.last_check:
+            result = t(f'apps.result.{summary.result}') \
+                if summary.result in ('ok', 'offline', 'refused', 'failed') else '?'
+            self.apps_checked.config(text=t('apps.checked', when=core.when(summary.last_check),
+                                            result=result))
+        else:
+            self.apps_checked.config(text=t('apps.never'))
+        if not summary.rows:
+            self.label(self.apps_grid, t('apps.none') if os.path.isdir(
+                self.env.path(liveapps.IMAGE_DIR)) else t('apps.not_installed'), 8, T["muted"],
+                bold=False, wraplength=px(700)).pack(anchor="w", pady=(px(6), 0))
+            return
+        for i, app in enumerate(summary.rows):
+            if app.use == 'builtin':
+                state, colour = t('apps.state.held'), T["gold"]
+            elif app.error:
+                state, colour = t('apps.state.error', why=app.error), T["pink"]
+            elif app.waiting:
+                state, colour = t('apps.state.needs_os', version=app.latest), T["gold"]
+            elif app.newer:
+                state, colour = t('apps.state.newer', version=app.latest), T["accent"]
+            else:
+                state, colour = t('apps.state.current'), T["muted"]
+            version = t('apps.versions' if app.on_live else 'apps.versions_builtin',
+                        version=app.running)
+            self.app_rows.append((app.slug, app.running, state))
+            cell = tk.Frame(self.apps_grid, bg=T["panel"])
+            cell.grid(row=i, column=0, sticky="ew", pady=(0, px(8)))
+            self.apps_grid.columnconfigure(0, weight=1)
+            self.label(cell, app.name, 9, T["text"]).pack(anchor="w")
+            self.label(cell, version, 8, T["muted"], bold=False).pack(anchor="w")
+            line = self.label(cell, state, 8, colour, bold=False, wraplength=px(560))
+            line.pack(anchor="w")
+            self.fit_width(line)
+            if app.live or app.use == 'builtin':
+                verb, key = ('use-live', 'btn.use_live') if app.use == 'builtin' \
+                    else ('use-builtin', 'btn.use_builtin')
+                WolkButton(self.apps_grid, t(key),
+                           lambda a=app, v=verb: self.on_app_switch(a, v), self.font(8),
+                           'ghost').grid(row=i, column=1, sticky="ne", padx=(px(10), 0))
+
+    def _reload_apps(self):
+        if self.view_name == 'apps':
+            self.apps_summary = liveapps.read(self.env)
+            self.render_apps()
+
+    def on_apps_now(self):
+        if self.busy or self.test_data():
+            return
+        before = liveapps.installed_versions(self.apps_summary)
+        self.busy = 'apps'
+        self.say(t('msg.apps_working'))
+        self.apps_now_button.set_enabled(False)
+
+        def done(result):
+            self.busy = None
+            self.apps_now_button.set_enabled(True)
+            if isinstance(result, Exception) or result[0] != 0:
+                why = result if isinstance(result, Exception) else result[1] or f"exit {result[0]}"
+                self._reload_apps()
+                self.say(t('msg.apps_failed', why=why), error=True)
+                return
+            self._reload_apps()
+            names = {r.slug: r.name for r in self.apps_summary.rows}
+            gone = liveapps.changed(before, liveapps.installed_versions(self.apps_summary))
+            if gone:
+                self.say(t('msg.apps_done', apps=', '.join(names.get(s, s) for s in gone)),
+                         good=True)
+                self.glitch.now(self.title)
+            elif self.apps_summary.result in ('offline', 'refused', 'failed'):
+                self.say(t('msg.apps_failed', why=t(f'apps.result.{self.apps_summary.result}')),
+                         error=self.apps_summary.result != 'offline')
+            else:
+                self.say(t('msg.apps_none'), good=True)
+
+        self.work(lambda: liveapps.start('update'), done)
+
+    def on_app_switch(self, app, verb: str):
+        if self.busy or self.test_data():
+            return
+        self.busy = 'apps'
+
+        def done(result):
+            self.busy = None
+            if isinstance(result, Exception) or result[0] != 0:
+                why = result if isinstance(result, Exception) else result[1] or f"exit {result[0]}"
+                self.say(t('msg.apps_failed', why=why), error=True)
+                return
+            self._reload_apps()
+            self.say(t('msg.apps_switched', app=app.name,
+                       which=t('which.builtin' if verb == 'use-builtin' else 'which.live')),
+                     good=True)
+
+        self.work(lambda: liveapps.start(verb, app.slug), done)
 
     # — the log —
     def _build_log(self, f: tk.Frame):

@@ -6,6 +6,8 @@
   "summary": "See what takes the space on your drives: a map of every folder, the largest files, and safe moves to the trash.",
   "summary_fr": "Voir ce qui prend la place sur vos disques : une carte de chaque dossier, les plus gros fichiers, et la corbeille en toute sécurité.",
   "version": "1.0.0",
+  "live_update": true,
+  "system_api": 1,
   "installed_size_kb": 300,
   "icon": "icons/spark-space-256.png",
   "categories": ["System", "Filesystem"],

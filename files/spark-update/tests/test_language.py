@@ -162,7 +162,7 @@ class Window(unittest.TestCase):
                                         ('rpm-ostree-rollback-queued.json', 'spark'),
                                         ('rpm-ostree-none.json', 'spark')):
             app = self.open(status_file, updater_on)
-            for page in ('main', 'settings', 'log'):
+            for page in ('main', 'settings', 'log', 'apps'):
                 app.show(page, glitch=False)
                 with self.subTest(status=status_file, page=page):
                     self.assertEqual(clipped(app.root), [])
