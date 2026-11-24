@@ -341,6 +341,18 @@ class CliTest(Home):
         return subprocess.run([sys.executable, os.path.join(ROOT, 'spark_notes.py'), *args],
                               capture_output=True, text=True, env=os.environ, timeout=60)
 
+    def test_capture_loads_only_capture_and_core(self):
+        """wl-paste starts --capture on every copy: it must not import the window code."""
+        code = ("import runpy, sys; sys.argv = ['spark_notes.py', '--capture'];"
+                "sys.path.insert(0, %r);"
+                "\ntry: runpy.run_path(%r, run_name='__main__')"
+                "\nexcept SystemExit: pass"
+                "\nprint(sorted(m for m in ('sparknotes.app', 'sparknotes.cli', 'argparse', 'gi', "
+                "'tkinter') if m in sys.modules))" % (ROOT, os.path.join(ROOT, 'spark_notes.py')))
+        r = subprocess.run([sys.executable, '-c', code], capture_output=True, text=True,
+                           env=os.environ, timeout=60)
+        self.assertEqual(r.stdout.strip().splitlines()[-1], '[]', r.stderr)
+
     def test_version(self):
         r = self.run_cli('--version')
         self.assertEqual(r.returncode, 0)

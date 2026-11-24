@@ -744,6 +744,29 @@ class UITests(unittest.TestCase):
         self.pump(app, 0.6)
         self.assertTrue(app.visible)
 
+    def test_unfocused_samples_slower_and_graphs_keep_one_point_a_second(self):
+        from collections import deque
+        from sparkmonitor.app import _Fill
+        dq = deque([10.0], maxlen=60)
+        _Fill(dq, 3).append(40.0)
+        self.assertEqual(list(dq), [10.0, 20.0, 30.0, 40.0])
+        gap = deque([5.0], maxlen=60)
+        _Fill(gap, 3).append(None)
+        self.assertEqual(list(gap), [5.0, None, None, None])
+        app = self.open(Source(self.root))
+        app.focused = False
+        app.sample()
+        before = len(app.hist['cpu'])
+        app._last_sample -= 3.0
+        app.sample()
+        self.assertEqual(len(app.hist['cpu']), before + 3)
+        self.pump(app, 1.3)               # the tick already waiting (1 s) runs and re-arms at 3 s
+        app.focused = False               # (a real window manager may have focused it meanwhile)
+        self.pump(app, 1.3)
+        samples = app.cost['samples']
+        self.pump(app, 2.0)               # unfocused: at most one sample in 2 s
+        self.assertLessEqual(app.cost['samples'] - samples, 1)
+
     # — real processes, real /proc —
     def start_child(self):
         child = subprocess.Popen([sys.executable, '-c', 'import time; time.sleep(120)'])

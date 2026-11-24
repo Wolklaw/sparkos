@@ -6,7 +6,7 @@ APP_NAME = "Spark Controller"
 APP_SLUG = "spark-controller"    # command, folders, log names
 APP_CLASS = "SparkController"    # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkController"
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 
 INTERVAL_MS = 2000               # one sample every two seconds while the window is visible
 SYSTEM_CONFIG = "/etc/spark-controller/fans.json"   # read by the daemon, written by the helper
