@@ -1,0 +1,12 @@
+# Hourly, and ten minutes after boot. Each run costs one small download (the index, under a
+# few KB) when nothing is new. Nothing runs in between.
+[Unit]
+Description=Spark Apps: hourly look for signed app updates
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

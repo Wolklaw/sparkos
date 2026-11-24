@@ -1,0 +1,217 @@
+name: app-updates
+# Live app updates (docs/app-updates.md): when a Spark app's version in files/<app>/spark-app.json
+# is newer than the one in the current signed index, build its bundle, publish it as a GitHub
+# Release asset (tag app-<app>-<version>), then publish a new signed index (release tag
+# apps-index, asset index.json, serial = the last one + 1).
+#
+#   push to main  releases what changed. Needs the SIGNING_SECRET secret (the same cosign key
+#                 that signs the image; its public half is cosign.pub). Without it the run
+#                 stops before it publishes anything.
+#   weekly        signs the index again (new dates) so it never reaches its 30 day expiry.
+#   pull request  a dry run: builds the bundles and the index, signs with a throwaway key made
+#                 here, and checks it with the same code a PC runs. Publishes nothing and
+#                 never sees the secret.
+# Bundles go up before the index, so no PC is ever told about a bundle that isn't there yet.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "files/spark-*/**"
+      - "files/scripts/spark-apps.sh"
+      - ".github/workflows/app-updates.yml"
+  pull_request:
+    paths:
+      - "files/spark-apps/**"
+      - "files/spark-*/spark-app.json"
+      - ".github/workflows/app-updates.yml"
+  schedule:
+    - cron: "17 5 * * 1" # Mondays
+  workflow_dispatch:
+
+# One run at a time: two runs would both pick serial N+1
+concurrency:
+  group: app-updates
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    permissions:
+      contents: write # releases and the index (not used by a pull request's dry run)
+      actions: read # to see whether each app's own check passed
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      PUBLISH: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # to compare app files with the commits their checks ran on
+
+      - name: Tools
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq xvfb python3-tk openssl >/dev/null
+          openssl version
+
+      - name: Test the update mechanism
+        run: |
+          cd files/spark-apps
+          python3 -m unittest discover -s tests -v
+
+      - name: The index now published
+        run: |
+          mkdir -p work
+          if gh release download apps-index --repo "$REPO" --pattern index.json --dir work 2>/dev/null; then
+            python3 files/spark-apps/ci/appindex.py verify --index work/index.json --key cosign.pub \
+              || echo "::warning::the published index doesn't verify (expired?); its entries are still used to plan"
+          else
+            echo "no index published yet"
+          fi
+
+      - name: What changed
+        id: plan
+        run: |
+          changed=$(python3 files/spark-apps/ci/appindex.py changed --apps-dir files --index work/index.json)
+          echo "apps with a new version: $changed"
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
+          # nothing new on a push: stop. A schedule, a manual run or a dry run goes on.
+          if [ "$changed" = "[]" ] && [ "${{ github.event_name }}" = "push" ]; then
+            echo "go=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Each changed app passed its own check
+        # Every app has its own workflow (files/<app> tests on Fedora and inside the image, in
+        # English and French). Nothing is released until that check passed on these exact app
+        # files: same git tree for files/<app>. On a push it is usually still running, so wait.
+        # A pull request's dry run skips this; the app's check shows on the pull request.
+        if: steps.plan.outputs.go == 'yes' && github.event_name != 'pull_request'
+        env:
+          CHANGED: ${{ steps.plan.outputs.changed }}
+        run: |
+          for slug in $(python3 -c 'import json,os; print(*json.loads(os.environ["CHANGED"]))'); do
+            tree=$(git rev-parse "HEAD:files/$slug")
+            ok=""
+            for _ in $(seq 1 100); do # up to 50 minutes
+              pending=0
+              while read -r sha status conclusion; do
+                [ "$(git rev-parse "$sha:files/$slug" 2>/dev/null)" = "$tree" ] || continue
+                if [ "$status" != completed ]; then pending=1; continue; fi
+                if [ "$conclusion" = success ]; then ok=$sha; break; fi
+              done < <(gh run list --repo "$REPO" --workflow "$slug.yml" --branch main -L 50 \
+                         --json headSha,status,conclusion --jq '.[] | "\(.headSha) \(.status) \(.conclusion)"')
+              [ -n "$ok" ] && break
+              [ "$pending" = 1 ] || break
+              sleep 30
+            done
+            [ -n "$ok" ] || { echo "::error::$slug: its own check has not passed on these files on main, so it was not released"; exit 1; }
+            echo "$slug: these files passed the $slug check at $ok"
+          done
+
+      - name: Build the bundles
+        if: steps.plan.outputs.go == 'yes'
+        env:
+          CHANGED: ${{ steps.plan.outputs.changed }}
+        run: |
+          slugs=$(python3 -c 'import json,os; print(*json.loads(os.environ["CHANGED"]))')
+          # slugs are checked names (spark-<word>), so splitting on spaces is what we want
+          # shellcheck disable=SC2086
+          python3 files/spark-apps/ci/appindex.py build --apps-dir files --out work/out $slugs
+          # A version number is released once. If it already has a release, the bytes must match.
+          for slug in $slugs; do
+            version=$(python3 -c "import json; print(json.load(open('files/$slug/spark-app.json'))['version'])")
+            file="work/out/$slug-$version.tar.gz"
+            if gh release view "app-$slug-$version" --repo "$REPO" >/dev/null 2>&1; then
+              mkdir -p work/old
+              gh release download "app-$slug-$version" --repo "$REPO" --pattern "*.tar.gz" --dir work/old --clobber
+              cmp "$file" "work/old/$slug-$version.tar.gz" \
+                || { echo "::error::$slug $version is already released with different contents; bump the version"; exit 1; }
+              echo "$slug $version: already released, same bytes"
+            fi
+          done
+
+      - name: The new index
+        if: steps.plan.outputs.go == 'yes'
+        run: |
+          # entries of apps not built this run come from the current index
+          [ -f work/out/entries.json ] || echo '{}' > work/out/entries.json
+          python3 files/spark-apps/ci/appindex.py payload --index work/index.json \
+            --entries work/out/entries.json --out work/payload.json --days 30
+          cat work/payload.json
+
+      - name: Install cosign
+        if: steps.plan.outputs.go == 'yes' && github.event_name != 'pull_request'
+        uses: sigstore/cosign-installer@756fe2d284c7292c4e9b62c8a28f1e5629c59532 # v4.1.3
+        with:
+          install-dir: /usr/local/bin
+          use-sudo: true
+
+      - name: Sign it with SparkOS's key
+        if: steps.plan.outputs.go == 'yes' && github.event_name != 'pull_request'
+        env:
+          COSIGN_PRIVATE_KEY: ${{ secrets.SIGNING_SECRET }}
+        run: |
+          test -n "$COSIGN_PRIVATE_KEY" || { echo "::error::SIGNING_SECRET isn't available to this run, so nothing was published"; exit 1; }
+          # The same key and the same classic key format as the image's signature. The result is
+          # base64 of an ECDSA signature over SHA-256 of the file; no transparency log, because
+          # the PC checks the key and nothing else.
+          COSIGN_PASSWORD="" COSIGN_YES=true cosign sign-blob \
+            --key=env://COSIGN_PRIVATE_KEY \
+            --new-bundle-format=false \
+            --use-signing-config=false \
+            --tlog-upload=false \
+            --output-signature work/payload.sig \
+            work/payload.json
+          test -s work/payload.sig
+
+      - name: Sign (dry run, throwaway key)
+        if: steps.plan.outputs.go == 'yes' && github.event_name == 'pull_request'
+        run: |
+          openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out work/dry.key
+          openssl pkey -in work/dry.key -pubout -out work/dry.pub
+          openssl dgst -sha256 -sign work/dry.key work/payload.json | base64 -w0 > work/payload.sig
+
+      - name: Check it the way a PC does
+        if: steps.plan.outputs.go == 'yes'
+        run: |
+          key=cosign.pub
+          [ "${{ github.event_name }}" = "pull_request" ] && key=work/dry.pub
+          python3 files/spark-apps/ci/appindex.py envelope --payload work/payload.json \
+            --signature work/payload.sig --out work/new-index.json
+          python3 files/spark-apps/ci/appindex.py verify --index work/new-index.json --key "$key"
+
+      - name: Publish the bundles
+        if: steps.plan.outputs.go == 'yes' && env.PUBLISH == 'true'
+        env:
+          CHANGED: ${{ steps.plan.outputs.changed }}
+        run: |
+          for slug in $(python3 -c 'import json,os; print(*json.loads(os.environ["CHANGED"]))'); do
+            version=$(python3 -c "import json; print(json.load(open('files/$slug/spark-app.json'))['version'])")
+            tag="app-$slug-$version"
+            if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+              echo "$tag exists"
+              continue
+            fi
+            # --latest=false: an app bundle is not "the latest release" of SparkOS
+            gh release create "$tag" "work/out/$slug-$version.tar.gz" --repo "$REPO" \
+              --target "$GITHUB_SHA" --latest=false \
+              --title "$slug $version" \
+              --notes "Signed live update for $slug $version. Spark Update installs it from the signed index (release apps-index). Built from $GITHUB_SHA."
+          done
+
+      - name: Publish the index (last)
+        if: steps.plan.outputs.go == 'yes' && env.PUBLISH == 'true'
+        run: |
+          if ! gh release view apps-index --repo "$REPO" >/dev/null 2>&1; then
+            gh release create apps-index --repo "$REPO" --target "$GITHUB_SHA" --latest=false \
+              --title "App update index" \
+              --notes "The signed index Spark Update reads. One file, index.json, replaced on every release; the version in each app's own release never changes."
+          fi
+          mkdir -p work/upload
+          cp work/new-index.json work/upload/index.json
+          gh release upload apps-index work/upload/index.json --repo "$REPO" --clobber
+          echo "### Published" >> "$GITHUB_STEP_SUMMARY"
+          python3 files/spark-apps/ci/appindex.py verify --index work/upload/index.json --key cosign.pub | tee -a "$GITHUB_STEP_SUMMARY"

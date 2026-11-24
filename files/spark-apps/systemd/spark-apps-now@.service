@@ -1,0 +1,30 @@
+# One action from Spark Update's App updates page: %i is "update", or "use-builtin:<app>",
+# "use-live:<app>" or "use-previous:<app>". polkit lets the person at the PC start exactly these
+# units without a password (50-spark-apps.rules); the program checks the app name again.
+[Unit]
+Description=Spark Apps: %i
+Documentation=file:///usr/lib/spark-apps/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/spark-apps-update %i
+Nice=10
+StateDirectory=spark-apps
+StateDirectoryMode=0755
+TimeoutStartSec=15min
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+UMask=0022

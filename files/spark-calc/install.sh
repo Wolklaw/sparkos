@@ -25,12 +25,14 @@ DEPS=0
 TEST=1
 USER_MODE=0
 UNINSTALL=0
+STAGE=
 while [ $# -gt 0 ]; do
   case "$1" in
     --user) USER_MODE=1 ;;
     --uninstall) UNINSTALL=1 ;;
     --deps) DEPS=1 ;;
     --no-test) TEST=0 ;;
+    --stage) STAGE=$2; shift ;;
     --prefix) PREFIX=$2; shift ;;
     -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown option $1" >&2; exit 2 ;;
@@ -65,6 +67,15 @@ copy_program() {   # $1: where the program goes
   install -m 0644 "$here/icons/$SLUG-64.png" "$here/icons/$SLUG-256.png" "$1/icons/"
   python3 -m compileall -q "$1"
 }
+
+# Live updates (files/spark-apps): --stage DIR writes the app's folder exactly as the system
+# install builds it (what goes in /usr/lib/$SLUG), and stops. CI packs that into the signed
+# bundle, so the bundle and the image's built-in copy can't differ.
+if [ -n "$STAGE" ]; then
+  copy_program "$STAGE"
+  find "$STAGE" -name __pycache__ -prune -exec rm -rf {} +
+  exit 0
+fi
 
 # ─── Per user, no root ───────────────────────────────────────
 
@@ -160,7 +171,7 @@ fi
 
 if [ "$UNINSTALL" = 1 ]; then
   rm -rf -- "$PREFIX"
-  rm -f /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
+  rm -f "/usr/share/spark-apps/$SLUG.json" /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
         "/usr/share/kglobalaccel/$APP_ID.desktop" \
         "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
   for size in $SIZES; do
@@ -183,11 +194,15 @@ if [ "$DEPS" = 1 ]; then
 fi
 
 copy_program "$PREFIX"
+# Live updates: launch.py starts the newest verified live copy of this app, else the
+# built-in one in $PREFIX (also what starts where Spark Apps isn't installed)
 cat > /usr/bin/$SLUG <<EOF
 #!/bin/sh
+[ -f /usr/lib/spark-apps/launch.py ] && exec /usr/bin/python3 -I /usr/lib/spark-apps/launch.py $SLUG "\$@"
 exec /usr/bin/python3 $PREFIX/spark_calc.py "\$@"
 EOF
 chmod 0755 /usr/bin/$SLUG
+install -Dm 0644 "$here/spark-app.json" "/usr/share/spark-apps/$SLUG.json"
 
 install -Dm 0644 "$here/$APP_ID.desktop" "/usr/share/applications/$APP_ID.desktop"
 install -d /usr/share/kglobalaccel

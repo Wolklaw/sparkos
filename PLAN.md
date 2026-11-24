@@ -204,6 +204,27 @@ Two new parts. Working names until the owner picks real ones: **Spark Connect** 
 
 **Order:** Spark Connect for the home Linux machines first (SSH, no new software on the servers), then the agent for the venue laptop, then the GD Tablet kiosk app with status and remote reload on one test tablet, then the full screen mirror with control.
 
+## Live app updates (2026-11-24)
+Spark app changes ship as signed releases of the app alone, and Spark Update installs them with no reboot and no image rebuild. Full write-up: [docs/app-updates.md](docs/app-updates.md); code in [files/spark-apps](files/spark-apps).
+
+**Decisions and why**
+- **Pilot: Spark Calc, Clock, Edit, Emoji, Notes, Space.** User-space only, no root helper, easy to roll back. Spark Update, Files, Terminal and anything with a daemon or pkexec helper stay image-only until the mechanism has run for a while.
+- **Root code always comes from the image.** Live bundles hold the app's own files only. Each app has an integer `system_api`; a live bundle runs only if it equals the image's number, so a change to system parts (bump the number) falls back to the built-in copy until the image catches up.
+- **One signed index, not one signature per bundle.** Serial that only goes up, issue date, 30 day expiry, a weekly re-sign. This stops rollback and freeze attacks; a bad bundle can't be swapped in because the index pins each sha256 and size.
+- **Reuse the image's cosign key.** One key to guard, already baked into the image; a leaked key already controls the whole OS, so app updates add no new power. A separate key stays possible (the client reads one file).
+- **GitHub Releases as the host** (tags `app-<slug>-<version>` and `apps-index`), HTTPS only, no new server.
+- **Built-in copy stays in the image** as the fallback and the first-boot version.
+
+**What still needs an image update:** new packages, root helpers, units, polkit and udev rules, menu entries and icons, launcher changes, and the first install of this mechanism. Bump `system_api` with any of them.
+
+**Rollback:** Spark Update's App updates page (built-in, live, previous) or the `spark-apps-now@` units. The previous live version is kept.
+
+**Trust chain:** `SIGNING_SECRET` signs the index (`cosign sign-blob`) -> `cosign.pub` baked into the image checks it with openssl on the PC -> the signed index pins each bundle's sha256 and size.
+
+**Failure modes:** offline or a bad or expired index changes nothing; a damaged live copy fails the launcher checks and the built-in runs. Table in the doc.
+
+**Not proven yet:** `cosign sign-blob` flags, systemd and polkit on a booted SparkOS, the image build with the new step, a first real release. Nothing is released until the owner sets `SIGNING_SECRET` and runs the `app-updates` workflow once.
+
 ## Risks, plainly
 - **Kernel anti-cheat games** won't run, including League of Legends and Teamfight Tactics (Riot Vanguard) and GTA Online. Windows stays for those, on a small partition or as a VM.
 - **Windows-only device tools:** 8BitDo firmware updates for models fwupd does not support (Spark Controller's Pads tab updates the ones it does, and says which) and Focusrite's own app. The devices themselves work, and replacements are listed in the switching guide.

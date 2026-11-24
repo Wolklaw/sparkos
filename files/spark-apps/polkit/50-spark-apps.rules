@@ -1,0 +1,15 @@
+// Spark Apps: whoever is sitting at the PC may update the Spark apps, or go back to an app's
+// built-in version, from Spark Update without a password. These units can only install code
+// signed with SparkOS's key (checked against the public key in the image, never a rollback,
+// never an expired index) or switch an app to the copy that came with the image. They can't
+// install anything else, and they never touch the OS itself.
+polkit.addRule(function(action, subject) {
+    if (action.id == "org.freedesktop.systemd1.manage-units" &&
+        subject.local && subject.active &&
+        action.lookup("verb") == "start") {
+        var unit = action.lookup("unit");
+        if (/^spark-apps-now@(update|use-builtin:spark(-[a-z0-9]+)+|use-live:spark(-[a-z0-9]+)+|use-previous:spark(-[a-z0-9]+)+)\.service$/.test(unit)) {
+            return polkit.Result.YES;
+        }
+    }
+});

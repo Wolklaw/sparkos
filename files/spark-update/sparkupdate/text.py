@@ -102,6 +102,38 @@ EN = {
     'btn.save': "Save",
     'btn.cancel': "Cancel",
 
+    # App updates (Spark Apps: signed app updates, no restart)
+    'btn.apps': "App updates",
+    'btn.apps_now': "Update now",
+    'btn.use_builtin': "Use built-in version",
+    'btn.use_live': "Use updated version",
+    'apps.heading': "Spark apps",
+    'apps.intro': "Spark apps get their own updates, signed by SparkOS, without a restart. "
+                  "Restart an app to use its new version.",
+    'apps.none': "No app takes live updates on this PC.",
+    'apps.not_installed': "This copy of Spark Update isn't on a SparkOS image that has app "
+                          "updates.",
+    'apps.versions': "{version}, from the updates",
+    'apps.versions_builtin': "{version}, built in",
+    'apps.state.current': "Up to date",
+    'apps.state.newer': "{version} is available",
+    'apps.state.needs_os': "{version} needs a SparkOS update and a restart first",
+    'apps.state.held': "Updates are off for this app: it uses the built-in version",
+    'apps.state.error': "Last update failed: {why}",
+    'apps.checked': "Last check {when}: {result}",
+    'apps.result.ok': "done",
+    'apps.result.offline': "no network",
+    'apps.result.refused': "refused, not from SparkOS",
+    'apps.result.failed': "some apps failed",
+    'apps.never': "never checked",
+    'msg.apps_working': "Looking for app updates...",
+    'msg.apps_none': "Your apps are up to date.",
+    'msg.apps_done': "Updated: {apps}. Restart those apps to use the new versions.",
+    'msg.apps_failed': "App updates didn't finish: {why}",
+    'msg.apps_switched': "{app} will use the {which} version the next time it starts.",
+    'which.builtin': "built-in",
+    'which.live': "updated",
+
     # messages
     'msg.checking': "Checking for a new SparkOS version...",
     'msg.check_started': "Checking. You can close this window; it carries on.",
@@ -285,6 +317,42 @@ FR = {
     'btn.back': "Retour",
     'btn.save': "Enregistrer",
     'btn.cancel': "Annuler",
+
+    # Mises à jour des apps (Spark Apps : mises à jour signées, sans redémarrage)
+    'btn.apps': "Mises à jour d'apps",
+    'btn.apps_now': "Mettre à jour",
+    'btn.use_builtin': "Version d'origine",
+    'btn.use_live': "Version à jour",
+    'apps.heading': "Applications Spark",
+    'apps.intro': "Les applications Spark reçoivent leurs propres mises à jour, signées par "
+                  "SparkOS, sans redémarrage. Relancez une application pour utiliser sa "
+                  "nouvelle version.",
+    'apps.none': "Aucune application de ce PC ne reçoit de mises à jour en direct.",
+    'apps.not_installed': "Cette copie de Spark Update n'est pas sur une image SparkOS qui "
+                          "a les mises à jour d'apps.",
+    'apps.versions': "{version}, reçue en mise à jour",
+    'apps.versions_builtin': "{version}, d'origine",
+    'apps.state.current': "À jour",
+    'apps.state.newer': "{version} est disponible",
+    'apps.state.needs_os': "{version} demande d'abord une mise à jour de SparkOS et un "
+                           "redémarrage",
+    'apps.state.held': "Mises à jour désactivées pour cette application : elle utilise la "
+                       "version d'origine",
+    'apps.state.error': "La dernière mise à jour a échoué : {why}",
+    'apps.checked': "Dernière vérification {when} : {result}",
+    'apps.result.ok': "terminée",
+    'apps.result.offline': "pas de réseau",
+    'apps.result.refused': "refusée, ne vient pas de SparkOS",
+    'apps.result.failed': "certaines apps ont échoué",
+    'apps.never': "jamais vérifié",
+    'msg.apps_working': "Recherche de mises à jour d'apps...",
+    'msg.apps_none': "Vos applications sont à jour.",
+    'msg.apps_done': "Mises à jour : {apps}. Relancez ces applications pour utiliser les "
+                     "nouvelles versions.",
+    'msg.apps_failed': "Les mises à jour d'apps ne se sont pas terminées : {why}",
+    'msg.apps_switched': "{app} utilisera la version {which} au prochain démarrage.",
+    'which.builtin': "d'origine",
+    'which.live': "à jour",
 
     # messages
     'msg.checking': "Recherche d'une nouvelle version de SparkOS...",

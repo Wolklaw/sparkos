@@ -1,0 +1,79 @@
+#!/usr/bin/python3 -I
+"""Spark Apps' root service: look for signed app updates and install them, live.
+
+    spark-apps-update timer              what the hourly timer runs (honours automatic = no)
+    spark-apps-update update             check now and install what is newer
+    spark-apps-update use-builtin SLUG   run the app's built-in version (the image's)
+    spark-apps-update use-live SLUG      go back to the live version
+    spark-apps-update use-previous SLUG  go back to the live version before the active one
+    spark-apps-update status             print what is installed and available (any user)
+    spark-apps-update self-test          check signatures work on this system (any user)
+
+systemd starts it as root: the timer (spark-apps-update.service) and the clicks in Spark Update
+(spark-apps-now@<verb>[:<slug>].service, allowed without a password by polkit because they can
+only install signed code or go back to the image's own). It reads its code only from the
+root-owned folder below (-I: nothing from the caller's environment or folders) and takes no
+paths, urls or keys on its command line."""
+
+import json
+import os
+import sys
+
+LIB = '/usr/lib/spark-apps'
+
+
+def main(argv):
+    sys.path.insert(0, LIB)
+    from sparkapps import store
+    from sparkapps.paths import Paths, valid_slug
+
+    paths = Paths('/')
+    # the unit passes one word: "update" or "use-builtin:spark-calc"
+    if len(argv) == 1 and ':' in argv[0]:
+        verb, _, slug = argv[0].partition(':')
+        argv = [verb, slug]
+    verb = argv[0] if argv else ''
+    if verb == 'self-test' and len(argv) == 1:
+        from sparkapps import selftest
+        return selftest.main()
+    if verb == 'status' and len(argv) == 1:
+        state = store.load_state(paths)
+        print(json.dumps(state, indent=1, sort_keys=True))
+        return 0
+    if verb not in ('timer', 'update', 'use-builtin', 'use-live', 'use-previous'):
+        print(__doc__, file=sys.stderr)
+        return 2
+    if os.geteuid() != 0:
+        print("spark-apps-update runs as root, started by systemd", file=sys.stderr)
+        return 1
+    os.umask(0o022)
+
+    def log(message):
+        print(message, flush=True)
+
+    if verb in ('timer', 'update') and len(argv) == 1:
+        if verb == 'timer' and not store.automatic_enabled(paths):
+            log("automatic updates are off in /etc/sparkos/update.conf; nothing to do")
+            return 0
+        results = store.run_update(paths, log=log)
+        state = store.load_state(paths)
+        log(f"result: {state['last_result']}"
+            + (f" ({state['last_error']})" if state['last_error'] else '')
+            + ''.join(f"\n  {slug}: {what}" for slug, what in sorted(results.items())))
+        # a missing network is not a failure of this unit; a refused index or a bad bundle is
+        return 0 if state['last_result'] in ('ok', 'offline') else 1
+    if len(argv) == 2 and valid_slug(argv[1]):
+        try:
+            {'use-builtin': store.use_builtin, 'use-live': store.use_live,
+             'use-previous': store.use_previous}[verb](paths, argv[1])
+        except store.StoreError as exc:
+            print(str(exc), file=sys.stderr)
+            return 1
+        log(f"{argv[1]}: {verb}")
+        return 0
+    print(__doc__, file=sys.stderr)
+    return 2
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

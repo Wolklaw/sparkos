@@ -6,6 +6,8 @@
   "summary": "Quick notes and clipboard history. Notes are plain files on this PC; the clipboard popup is on Meta+V, with search, pin and a pause. No account, no cloud.",
   "summary_fr": "Notes rapides et historique du presse-papiers. Les notes sont de simples fichiers sur ce PC; la fenêtre du presse-papiers est sur Meta+V, avec recherche, épinglage et pause. Aucun compte, aucun nuage.",
   "version": "0.1.1",
+  "live_update": true,
+  "system_api": 1,
   "installed_size_kb": 0,
   "icon": "icons/spark-notes-256.png",
   "categories": ["Utility"],

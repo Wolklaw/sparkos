@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-live-app-updates",
+      "date": "2026-11-24",
+      "en": "Spark Calc, Clock, Edit, Emoji, Notes and Space can now update without a restart or a new system image. Each update is signed, and Spark Update checks the signature and a hash before it installs anything. The system always keeps its own built-in copy of each app, and Spark Update has a new App updates page where you can switch an app back to it. Nothing is published yet: the signing secret has to be set before the first real release, and this has not run on a booted SparkOS.",
+      "fr": "Spark Calc, Clock, Edit, Emoji, Notes et Space peuvent maintenant se mettre à jour sans redémarrage ni nouvelle image du système. Chaque mise à jour est signée, et Spark Update vérifie la signature et une empreinte avant d'installer quoi que ce soit. Le système garde toujours sa propre copie de chaque app, et Spark Update a une nouvelle page Mises à jour d'apps où l'on peut revenir à cette copie. Rien n'est encore publié : le secret de signature doit être configuré avant la première vraie version, et cela n'a pas encore tourné sur un SparkOS démarré."
+    },
+    {
       "id": "2026-11-24-spark-controller-mouse",
       "date": "2026-11-24",
       "en": "Spark Controller has a Mouse tab for gaming mice, in place of Logitech G HUB's DPI settings. It shows each onboard profile and its DPI slots (the value, on or off, which one is active and which is the default) and the report rate. If the mouse is sitting on a slot that is switched off or under 400 DPI, it warns you and offers 2400 DPI. Nothing is sent to the mouse until you press Apply, and Apply saves it in the mouse's own memory, so it holds on Windows too. Tried on a Logitech G502 HERO only; other mice that libratbag supports should work. Button remapping is not here yet.",

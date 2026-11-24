@@ -100,7 +100,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      own (winetricks, the Nerd Font symbols, ls-iommu, boot-windows, protontricks), and
 #      greenboot's settings (back to the previous system after three failed boots)
 #    - soot, freesuite: the browser and the office apps, latest releases
-#    - the Spark apps; spark-update comes after the others (it lists their versions). Spark
+#    - spark-apps, then the Spark apps: signed live updates for them (no reboot; root code
+#      stays in the image). spark-update comes after the others (it lists their versions). Spark
 #      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
 #      Update is the one updater: its timer downloads and stages updates daily
 #    - spark-controller: fans (curves, run by a small root service), RGB and firmware; the
@@ -127,6 +128,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         fedora-parity.sh \
         soot.sh \
         freesuite.sh \
+        spark-apps.sh \
         spark-snip.sh \
         spark-media.sh \
         spark-welcome.sh \

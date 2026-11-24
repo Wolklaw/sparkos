@@ -6,6 +6,8 @@
   "summary": "Emoji and symbol picker on Meta+. Search in English and French, recently used, skin tones, arrows, maths, currency and accented letters.",
   "summary_fr": "Sélecteur d'émojis et de symboles sur Meta+. Recherche en anglais et en français, récents, teintes de peau, flèches, maths, monnaies et lettres accentuées.",
   "version": "0.1.0",
+  "live_update": true,
+  "system_api": 1,
   "installed_size_kb": 0,
   "icon": "icons/spark-emoji-256.png",
   "categories": ["Utility"],

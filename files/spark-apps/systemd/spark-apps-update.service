@@ -1,0 +1,33 @@
+# Spark Apps: look for signed app updates and install them live (no restart). The timer starts
+# it hourly; Spark Update's "Update now" starts spark-apps-now@update.service, which runs the
+# same program. It reads its code only from /usr (the image) and writes only /var/lib/spark-apps.
+[Unit]
+Description=Spark Apps: look for signed Spark app updates
+Documentation=file:///usr/lib/spark-apps/README.md
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/spark-apps-update timer
+Nice=19
+CPUSchedulingPolicy=idle
+IOSchedulingClass=idle
+StateDirectory=spark-apps
+StateDirectoryMode=0755
+TimeoutStartSec=15min
+# The program only needs the network and its own state folder
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+LockPersonality=yes
+SystemCallArchitectures=native
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_CHOWN CAP_FOWNER
+UMask=0022

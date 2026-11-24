@@ -1,0 +1,65 @@
+name: spark-apps
+# Spark Apps (files/spark-apps): the signed live-update mechanism. The release side is
+# app-updates.yml; this one tests the code that goes into the image.
+#
+# fedora: runs the image build step (files/scripts/spark-apps.sh) in a plain Fedora container
+#         with this repo's public key, then the self-test, the unit and end-to-end tests, then
+#         installs a pilot app and checks its launcher starts the built-in copy, and the
+#         uninstall leaves nothing.
+on:
+  push:
+    paths:
+      - "files/spark-apps/**"
+      - "files/scripts/spark-apps.sh"
+      - "cosign.pub"
+      - ".github/workflows/spark-apps.yml"
+  pull_request:
+    paths:
+      - "files/spark-apps/**"
+      - "files/scripts/spark-apps.sh"
+      - "cosign.pub"
+      - ".github/workflows/spark-apps.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install (the image build step, with the repo's public key)
+        run: |
+          install -Dm 0644 cosign.pub /etc/pki/containers/sparkos.pub
+          CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-apps.sh
+
+      - name: Self-test
+        run: /usr/libexec/spark-apps-update self-test
+
+      - name: Unit and end-to-end tests
+        run: |
+          cd files/spark-apps
+          python3 -m unittest discover -s tests -v
+
+      - name: A pilot app installs with the launcher and starts its built-in copy
+        run: |
+          CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-calc.sh
+          grep -q 'spark-apps/launch.py spark-calc' /usr/bin/spark-calc
+          test -f /usr/share/spark-apps/spark-calc.json
+          SPARK_APPS_LOG=1 spark-calc --version 2>&1 | tee out.txt
+          grep -q 'builtin' out.txt
+
+      - name: Uninstall leaves the apps starting from their built-in copy
+        run: |
+          bash files/spark-apps/install.sh --uninstall
+          test ! -e /usr/lib/spark-apps
+          spark-calc --version
+
+      - name: The bundle equals the built-in copy
+        run: |
+          dnf -y -q install diffutils # not in the plain Fedora container
+          python3 files/spark-apps/ci/appindex.py build --apps-dir files --out out spark-calc
+          mkdir unpacked && tar -xzf out/spark-calc-*.tar.gz -C unpacked
+          find unpacked -name __pycache__ -prune -exec rm -rf {} +
+          diff -r unpacked /usr/lib/spark-calc -x __pycache__

@@ -227,7 +227,7 @@ def notify_test() -> int:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog=APP_SLUG, description=f"{APP_NAME}: SparkOS's "
                                      "updater.")
-    parser.add_argument('--view', choices=('main', 'settings', 'log'), help="open on this view")
+    parser.add_argument('--view', choices=('main', 'settings', 'log', 'apps'), help="open on this view")
     parser.add_argument('--status', action='store_true', help="print the versions and exit")
     parser.add_argument('--rollback', action='store_true',
                         help="make the previous version start at the next restart (asks for "
