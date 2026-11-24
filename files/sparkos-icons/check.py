@@ -102,6 +102,24 @@ def check_svgs():
                 fail(f"{ctx}/24/{name} differs from {ctx}/22/{name} (copy the 22 px drawing again)")
 
 
+# Batch 2 (folders and places): the names Plasma's Places panel, file dialogs and the freedesktop
+# spec ask for. Each needs a drawing at every size the theme has, and a symbolic one where listed.
+PLACES = ["user-home", "user-desktop", "folder-documents", "folder-download", "folder-music",
+          "folder-pictures", "folder-videos", "folder-games", "drive-harddisk",
+          "drive-removable-media", "drive-optical", "network-workgroup", "network-server"]
+PLACES_NO_SYMBOLIC = ["folder-games"]
+
+
+def check_places():
+    for name in PLACES:
+        for d in ("scalable", "24", "22", "16"):
+            if not os.path.exists(os.path.join(THEME, "places", d, name + ".svg")):
+                fail(f"places/{d}/{name}.svg missing")
+        if name not in PLACES_NO_SYMBOLIC and not os.path.exists(
+                os.path.join(THEME, "places", "symbolic", name + "-symbolic.svg")):
+            fail(f"places/symbolic/{name}-symbolic.svg missing")
+
+
 def icon_names():
     names = set()
     for root, _, files in os.walk(THEME):
@@ -220,6 +238,7 @@ def main():
     args = ap.parse_args()
     dirs = read_index()
     check_svgs()
+    check_places()
     with tempfile.TemporaryDirectory() as tmp:
         check_renders(dirs, tmp)
         if args.sheet and not errors:

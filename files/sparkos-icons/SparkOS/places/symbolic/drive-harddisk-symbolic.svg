@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Drive harddisk, symbolic. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 4 H15 V12 H1 Z M2 5 V11 H14 V5 Z M3 8 H8 V9 H3 Z M11 7 H13 V10 H11 Z"/>
+</svg>

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Optical drive: a disc with a hub; the slip is on the rim. SparkOS icon theme, 48 grid. -->
+  <circle cx="24" cy="24" r="17" fill="#2c2870" stroke="#ece9ff" stroke-opacity="0.3"/>
+  <circle cx="24" cy="24" r="5" fill="#141233" stroke="#9be8b8" stroke-width="2"/>
+  <path d="M8.5 24 A15.5 15.5 0 0 1 24 8.5" fill="none" stroke="#ff2e88" stroke-width="3"/>
+  <path d="M12.5 24 A11.5 11.5 0 0 1 24 12.5" fill="none" stroke="#22d8ff" stroke-width="3"/>
+  <path d="M10.5 24 A13.5 13.5 0 0 1 24 10.5" fill="none" stroke="#9be8b8" stroke-width="3"/>
+</svg>
