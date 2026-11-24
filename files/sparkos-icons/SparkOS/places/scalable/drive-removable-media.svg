@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- USB stick: muted plug, indigo body, mint top strip. SparkOS icon theme, 48 grid. -->
+  <rect x="4" y="19" width="10" height="10" fill="#b3b0d2"/>
+  <rect x="7" y="22" width="2" height="4" fill="#141233"/>
+  <rect x="10" y="22" width="2" height="4" fill="#141233"/>
+  <rect x="14" y="15" width="28" height="18" fill="#2c2870"/>
+  <path d="M14.5 18 V32.5 H41.5 V18" fill="none" stroke="#ece9ff" stroke-opacity="0.3"/>
+  <rect x="12" y="15" width="28" height="3" fill="#ff2e88"/>
+  <rect x="16" y="15" width="28" height="3" fill="#22d8ff"/>
+  <rect x="14" y="15" width="28" height="3" fill="#9be8b8"/>
+  <rect x="20" y="25" width="10" height="2" fill="#b3b0d2"/>
+  <rect x="34" y="24" width="4" height="5" fill="#9be8b8"/>
+</svg>

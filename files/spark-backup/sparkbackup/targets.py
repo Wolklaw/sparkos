@@ -117,7 +117,25 @@ def list_drives(runner: Optional[Runner] = None, source: str = "/home") -> List[
     res = runner.run(LSBLK)
     if not res.ok:                      # an older lsblk without the free-space column
         res = runner.run(LSBLK[:-1] + [LSBLK[-1].replace("FSAVAIL,", "")])
-    return parse_drives(res.out, system_uuid(runner, source)) if res.ok else []
+    if not res.ok:
+        return []
+    drives = parse_drives(res.out, system_uuid(runner, source))
+    read_only = read_only_mounts(runner)
+    for drive in drives:                # a drive mounted read-only (like D:) can't take a copy
+        if drive.usable and drive.mountpoint in read_only:
+            drive.method, drive.reason = "", "refuse.readonly"
+    return sorted(drives, key=lambda d: (not d.usable, d.name.lower()))
+
+
+def read_only_mounts(runner: Runner) -> set:
+    """Where something is mounted read-only right now (findmnt escapes spaces as \\x20)."""
+    res = runner.run(["findmnt", "-rn", "-o", "TARGET,OPTIONS"])
+    out = set()
+    for line in (res.out.splitlines() if res.ok else []):
+        parts = line.split()
+        if len(parts) == 2 and "ro" in parts[1].split(","):
+            out.add(re.sub(r"\\x([0-9a-fA-F]{2})", lambda m: chr(int(m.group(1), 16)), parts[0]))
+    return out
 
 
 def find(drives: List[Drive], uuid: str) -> Optional[Drive]:

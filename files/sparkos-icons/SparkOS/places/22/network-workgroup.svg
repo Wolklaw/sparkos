@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!-- Network: three linked nodes; the slip is on the top node. Drawn for 22 px. -->
+  <rect x="11" y="8" width="1" height="4" fill="#b3b0d2"/>
+  <rect x="5" y="12" width="12" height="1" fill="#b3b0d2"/>
+  <rect x="5" y="13" width="1" height="2" fill="#b3b0d2"/>
+  <rect x="16" y="13" width="1" height="2" fill="#b3b0d2"/>
+  <rect x="2" y="15" width="6" height="5" fill="#9be8b8"/>
+  <rect x="14" y="15" width="6" height="5" fill="#9be8b8"/>
+  <rect x="7" y="3" width="6" height="5" fill="#ff2e88"/>
+  <rect x="9" y="3" width="6" height="5" fill="#22d8ff"/>
+  <rect x="8" y="3" width="6" height="5" fill="#9be8b8"/>
+</svg>

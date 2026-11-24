@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Network: three linked nodes; the slip is on the top node. SparkOS icon theme, 48 grid. -->
+  <rect x="23" y="17" width="2" height="8" fill="#b3b0d2"/>
+  <rect x="12" y="24" width="24" height="2" fill="#b3b0d2"/>
+  <rect x="11" y="25" width="2" height="6" fill="#b3b0d2"/>
+  <rect x="35" y="25" width="2" height="6" fill="#b3b0d2"/>
+  <rect x="7" y="31" width="10" height="8" fill="#2c2870" stroke="#9be8b8" stroke-width="2"/>
+  <rect x="31" y="31" width="10" height="8" fill="#2c2870" stroke="#9be8b8" stroke-width="2"/>
+  <rect x="18" y="9" width="12" height="8" fill="#ff2e88"/>
+  <rect x="22" y="9" width="12" height="8" fill="#22d8ff"/>
+  <rect x="20" y="9" width="12" height="8" fill="#9be8b8"/>
+  <rect x="23" y="12" width="6" height="2" fill="#141233"/>
+</svg>

@@ -12,7 +12,7 @@ style sheet every batch follows.
 | Batch | Icons | Status |
 |---|---|---|
 | 1. Theme and the taskbar | System Settings (`preferences-system`, `systemsettings`), Steam (`steam`, `com.valvesoftware.Steam`), generic app (`application-x-executable`, `application-default-icon`), folder (`folder`, `inode-directory`), Trash (`user-trash`, `user-trash-full`); symbolic versions of all but Steam | Done |
-| 2. Folders and places | Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Games, Windows drives, network, removable drives, the sidebar | Not started: these still come from Breeze (blue), next to the SparkOS folder |
+| 2. Folders and places | Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Games, Windows drives, network, removable drives, the sidebar | Done (see "Batch 2" below) |
 | 3. File types | text, code, archives, images, audio, video, PDF, office, .exe/.msi, APK, ISO, fonts, generic file (`unknown`) | Done: 20 icons and about 420 names, see Batch 3 below |
 | 4. Tray and status | network, Bluetooth, volume, battery, updates, notifications, Caps Lock | Not started |
 
@@ -92,6 +92,46 @@ The magenta/cyan channel slip is the only decoration, on one part of each icon, 
 - Check every icon on dark and on light. `python3 files/sparkos-icons/check.py --sheet sheet.png`
   checks the theme and draws the contact sheet; CI ([sparkos-icons.yml](../.github/workflows/sparkos-icons.yml))
   runs it on every change and uploads the sheet as an artifact.
+
+## Batch 2: folders and places
+
+![Batch 2 contact sheet: the places icons at 16, 22, 24, 32, 48 and 128 px, on the dark background and on a light one](icons-batch-2.png)
+
+Spark Files draws its own sidebar and file icons in Tk (`sparkfiles/icons.py`) and asks the theme for
+no names. These icons are for everything else that asks the theme: Plasma's Places panel and file
+dialogs, other apps' sidebars, the desktop's removable-device notifications and Spark apps that use
+icon names. Spark Files' own drawings keep the same colours and shapes, so the two look alike.
+
+| Icon names | Drawing |
+|---|---|
+| `user-home` (`folder-home`) | folder with a house |
+| `user-desktop` (`folder-desktop`) | folder with a screen |
+| `folder-documents` | folder with a page |
+| `folder-download` (`folder-downloads`) | folder with a down arrow |
+| `folder-music` | folder with a note |
+| `folder-pictures` | folder with a framed hill |
+| `folder-videos` (`folder-video`) | folder with a framed play mark |
+| `folder-games` | folder with a game pad |
+| `drive-harddisk` (`-usb`, `-solidstate`, `-root`) | flat box, vents, light. Every Windows drive at `/var/mnt/<letter>` gets this: SparkOS names no custom icon for them, KDE asks for `drive-harddisk` |
+| `drive-removable-media` (`-usb`, `-usb-pendrive`) | USB stick |
+| `drive-optical` (`media-optical`) | disc |
+| `network-workgroup` (`folder-network`, `folder-remote`) | three linked nodes |
+| `network-server` | two rack units |
+
+- Folders keep the batch 1 folder (square tab, indigo body, slip on the top edge) and add a mint mark
+  on the body, centred, never touching the edges. The mark is the only part that changes between them.
+- Drives and the network icons are not folders: no tab. The slip is on the top strip (drives, server),
+  the rim (disc) or the top node (network).
+- Marks are mint; secondary parts (arrow base, vents, plug, links) are muted `#b3b0d2`; holes and
+  cut-outs are `#141233`. A mark on a folder is never gold or any other accent.
+- At 22 and 16 px the marks are redrawn on whole pixels: no strokes thinner than 1 px, the 16 px marks
+  are 6 to 7 rows tall, and the slip is 1 px.
+- Symbolic versions exist for everything except `folder-games` (Breeze has none either): the folders
+  are the folder outline with the mark inside, the others are the mark alone.
+- Aliases in brackets are symbolic links, as in batch 1.
+- Not drawn: Trash (batch 1), `computer` and `folder-root`, `folder-favorites`, `folder-publicshare`,
+  `folder-templates`, `network-wired` and `network-wireless` (batch 4, tray), and the sidebar's own
+  action icons (Spark Files draws those itself).
 
 ## Batch 3: file types
 

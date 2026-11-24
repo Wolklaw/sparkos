@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-hardware-checks-archive-backup",
+      "date": "2026-11-24",
+      "en": "Two small fixes found by trying apps on this PC. Spark Archive 1.2.1 shows where a link inside a zip points (it showed nothing after the arrow). Spark Backup 0.1.2 no longer offers a drive that is mounted read-only, such as D:, as a place for the copy.",
+      "fr": "Deux petites corrections trouvées en essayant les apps sur ce PC. Spark Archive 1.2.1 montre où pointe un lien dans un zip (rien ne s'affichait après la flèche). Spark Backup 0.1.2 ne propose plus comme destination de copie un disque monté en lecture seule, comme D:."
+    },
+    {
       "id": "2026-11-24-live-app-updates",
       "date": "2026-11-24",
       "en": "Spark Calc, Clock, Edit, Emoji, Notes and Space can now update without a restart or a new system image. Each update is signed, and Spark Update checks the signature and a hash before it installs anything. The system always keeps its own built-in copy of each app, and Spark Update has a new App updates page where you can switch an app back to it. Nothing is published yet: the signing secret has to be set before the first real release, and this has not run on a booted SparkOS.",
