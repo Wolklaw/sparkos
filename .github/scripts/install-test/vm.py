@@ -235,41 +235,76 @@ def result(W, status, what, detail=""):
         f.write(line + "\n")
 
 
+GRUB_MENU = ("highlighted entry will be executed", "keys to select which entry")
+
+
+def hold_grub_menu(vm, mark, secs=180):
+    """Tap Up until GRUB's menu is up, which also stops its countdown.
+
+    GRUB writes its menu to ttyS0 too, so the serial log shows it at no cost. The taps must
+    not pause: a screenshot plus tesseract can take longer than the 5 s countdown on a busy
+    runner, and that is how GRUB used to boot on its own. OCR is only the fallback for a
+    GRUB that prints nothing on serial, and then only every 10 s.
+    """
+    deadline = time.time() + secs
+    last_ocr = time.time()
+    while time.time() < deadline and vm.alive():
+        vm.keys("up", delay=0.3)
+        if any(s in vm.ser.text()[mark:] for s in GRUB_MENU):
+            vm.keys("up", "up", delay=0.3)  # make sure one lands after the menu is drawn
+            return True
+        if time.time() - last_ocr > 10:
+            if "installsparkos" in vm.norm(vm.ocr()):
+                return True
+            last_ocr = time.time()
+    return False
+
+
+def grub_booted_default(vm, mark):
+    """GRUB prints this only when it boots a menu entry, not for 'boot' typed at its prompt."""
+    return "Booting `" in vm.ser.text()[mark:]
+
+
 def install(a):
     vm = VM(a, "install")
     fw = "UEFI with Secure Boot on" if a.sb else "UEFI (Secure Boot off)"
     vm.start()
-    # Stop GRUB's 5 s countdown: tap Up until its menu is on screen
-    seen = False
-    deadline = time.time() + 180
-    i = 0
-    while time.time() < deadline and vm.alive():
-        vm.keys("up", delay=0.3)
-        i += 1
-        if i % 6 == 0:
-            t = vm.norm(vm.ocr())
-            if "installsparkos" in t:
-                seen = True
-                break
-    vm.ocr("grub-menu", keep=True)
-    if not seen:
-        result(a.work, "FAIL", f"ISO boots from a USB stick ({fw})", "GRUB menu not seen in 3 min")
-        vm.stop(10)
-        return 1
+    # GRUB gives 5 s before it boots the default entry. If that happens, the test's kernel
+    # line (with the root shell) never runs and the test would wait out its whole timeout.
+    # So: hold the menu, check it held, and power-cycle and try again if it did not.
+    attempts = 3
+    for attempt in range(1, attempts + 1):
+        mark = len(vm.ser.text())
+        seen = hold_grub_menu(vm, mark)
+        vm.ocr("grub-menu", keep=True)
+        if not seen:
+            result(a.work, "FAIL", f"ISO boots from a USB stick ({fw})", "GRUB menu not seen in 3 min")
+            vm.stop(10)
+            return 1
+        # GRUB command line: the menu entry's own kernel and arguments, plus a root shell on
+        # ttyS0 for the test (systemd.debug_shell). Nothing on the ISO is changed.
+        if not grub_booted_default(vm, mark):
+            vm.keys("c", delay=1.5)
+            lines = [
+                "search --no-floppy --set=root --file /images/pxeboot/vmlinuz",
+                "linux /images/pxeboot/vmlinuz quiet rhgb root=live:CDLABEL=SparkOS-Live enforcing=0 rd.live.image systemd.debug_shell=ttyS0",
+                "initrd /images/pxeboot/initrd.img",
+            ]
+            for ln in lines:
+                vm.type(ln + "\n")
+                time.sleep(1.5 if ln.startswith("search") else 0.5)
+            time.sleep(8)  # initrd load from USB
+            vm.ocr("grub-commands", keep=True)
+        if not grub_booted_default(vm, mark):
+            break
+        log(f"GRUB's countdown ran out and it booted the default entry (attempt {attempt}/{attempts}); resetting")
+        if attempt == attempts:
+            result(a.work, "FAIL", f"ISO boots from a USB stick ({fw})",
+                   f"GRUB booted its default entry before the test could stop it, {attempts} times")
+            vm.stop(10)
+            return 1
+        vm.qmp.cmd("system_reset")
     result(a.work, "PASS", f"ISO boots from a USB stick ({fw})", "SparkOS GRUB menu on screen")
-    # GRUB command line: the menu entry's own kernel and arguments, plus a root shell on
-    # ttyS0 for the test (systemd.debug_shell). Nothing on the ISO is changed.
-    vm.keys("c", delay=1.5)
-    lines = [
-        "search --no-floppy --set=root --file /images/pxeboot/vmlinuz",
-        "linux /images/pxeboot/vmlinuz quiet rhgb root=live:CDLABEL=SparkOS-Live enforcing=0 rd.live.image systemd.debug_shell=ttyS0",
-        "initrd /images/pxeboot/initrd.img",
-    ]
-    for ln in lines:
-        vm.type(ln + "\n")
-        time.sleep(1.5 if ln.startswith("search") else 0.5)
-    time.sleep(8)  # initrd load from USB
-    vm.ocr("grub-commands", keep=True)
     vm.type("boot\n")
     # Wait for the root shell, then start the install from the KSTEST disk
     start_cmd = "mkdir -p /run/kst; until mount -L KSTEST /run/kst; do sleep 2; done; cp /run/kst/run-in-live.sh /tmp/; bash /tmp/run-in-live.sh\n"
