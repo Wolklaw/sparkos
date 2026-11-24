@@ -79,6 +79,10 @@ EN = {
     'dev.battery_charging': "battery {level} %, charging",
     'dev.key': "key {key}",
     'dev.send_files': "Send files",
+    'dev.send_snip': "Send screenshot",
+    'dev.snip_none': "No screenshot to send. Take one with Spark Snip (Print) first.",
+    'dev.snip_sending': "Offered your last screenshot to {name}. It's sent once the phone "
+                        "accepts.",
     'dev.send_link': "Send a link",
     'dev.ring': "Ring",
     'dev.unpair': "Unpair",
@@ -234,6 +238,11 @@ FR = {
     'dev.battery_charging': "batterie {level} %, en charge",
     'dev.key': "clé {key}",
     'dev.send_files': "Envoyer des fichiers",
+    'dev.send_snip': "Envoyer la capture",
+    'dev.snip_none': "Aucune capture à envoyer. Prenez-en une avec Spark Snip (Impr. écran) "
+                     "d'abord.",
+    'dev.snip_sending': "Dernière capture proposée à {name}. Elle part quand le téléphone "
+                        "accepte.",
     'dev.send_link': "Envoyer un lien",
     'dev.ring': "Faire sonner",
     'dev.unpair': "Oublier",

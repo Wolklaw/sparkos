@@ -27,6 +27,15 @@ def config_dir() -> str:
     return os.path.join(_xdg('XDG_CONFIG_HOME', '.config'), APP_SLUG)
 
 
+def cache_dir() -> str:
+    return os.path.join(_xdg('XDG_CACHE_HOME', '.cache'), APP_SLUG)
+
+
+def snip_latest() -> str:
+    """Where Spark Snip keeps its last screenshot as a PNG (its cache folder, latest.png)."""
+    return os.path.join(_xdg('XDG_CACHE_HOME', '.cache'), 'spark-snip', 'latest.png')
+
+
 def data_dir() -> str:
     return os.path.join(_xdg('XDG_DATA_HOME', os.path.join('.local', 'share')), APP_SLUG)
 

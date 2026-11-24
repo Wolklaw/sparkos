@@ -5,7 +5,7 @@
   "name_fr": "Spark Link",
   "summary": "Your phone and this PC, linked over the local network: links, files, phone notifications, battery, find my phone, and a shared clipboard if you switch it on. Pairs with Soot on Android.",
   "summary_fr": "Votre téléphone et ce PC, reliés par le réseau local : liens, fichiers, notifications du téléphone, batterie, retrouver le téléphone, et un presse-papiers partagé si vous l'activez. S'appaire avec Soot sur Android.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "installed_size_kb": 480,
   "icon": "icons/spark-link-256.png",
   "categories": ["Network", "Utility"],

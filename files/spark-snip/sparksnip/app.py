@@ -21,9 +21,10 @@ from PIL import Image
 
 from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, MODES, SHORTCUTS, VERSION
 from .core import (DEFAULT_LANG, CaptureError, Clipboard, Monitor, OCREngine, OCRError, Tesseract,
-                   bounding_box, cache_dir, grab_screen, language_label, language_short,
-                   load_config, log, monitors, place_on_desktop, recordings_dir, reduced_motion,
-                   runtime_dir, sample_image, save_config, setup_logging, system_font_file)
+                   bounding_box, cache_dir, grab_screen, keep_latest, language_label,
+                   language_short, load_config, log, monitors, place_on_desktop, recordings_dir,
+                   reduced_motion, runtime_dir, sample_image, save_config, setup_logging,
+                   system_font_file)
 from .text import t
 from .widgets import T, Glitch, GlitchText, Mark, Segmented, Strip, Toggle, WolkButton, pick_mono
 
@@ -384,6 +385,9 @@ class App:
         if selection.mode == "text":
             self.read_text(selection.image, popup)
         else:
+            error = keep_latest(selection.image)
+            if error:
+                log.warning("could not keep the screenshot for Spark Link: %s", error)
             popup.show_image(self.clipboard.copy_image(selection.image))
 
     # OCR

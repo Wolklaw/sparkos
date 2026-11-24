@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-spark-link-send-screenshot",
+      "date": "2026-11-24",
+      "en": "Spark Link 1.1.0 has a Send screenshot button on each phone. It sends the last screenshot you took with Spark Snip to the phone as the same PNG. The phone asks before it keeps it, like any file. Spark Snip 1.2.0 keeps that last screenshot for it. Not tried with a real phone yet.",
+      "fr": "Spark Link 1.1.0 a un bouton Envoyer la capture pour chaque téléphone. Il envoie au téléphone la dernière capture prise avec Spark Snip, dans le même PNG. Le téléphone demande avant de la garder, comme pour tout fichier. Spark Snip 1.2.0 garde cette dernière capture pour lui. Pas encore essayé avec un vrai téléphone."
+    },
+    {
       "id": "2026-11-24-nova-firewall",
       "date": "2026-11-24",
       "en": "The SparkOS firewall now lets the Nova phone app reach this PC on your Wi-Fi. Before, it blocked Nova's ports, so the phone could only connect through Tailscale or the relay. Nova itself is still a separate install; without it nothing listens on those ports. Spark Firewall 0.1.2 has a Nova phone app switch to close them again.",

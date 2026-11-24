@@ -98,6 +98,31 @@ def user_dir(kind: str, fallback: str) -> str:
     return found
 
 
+LATEST_NAME = 'latest.png'
+
+
+def latest_path() -> str:
+    """The last screenshot, kept as a PNG so Spark Link's Send screenshot can pick it up."""
+    return os.path.join(cache_dir(), LATEST_NAME)
+
+
+def keep_latest(image: Image.Image, path: Optional[str] = None) -> Optional[str]:
+    """Write the screenshot to latest_path() in one step (no half-written file for a reader).
+    None on success, otherwise what went wrong."""
+    path = path or latest_path()
+    part = path + '.part'
+    try:
+        image.save(part, 'PNG')
+        os.replace(part, path)
+        return None
+    except (OSError, ValueError) as exc:
+        try:
+            os.remove(part)
+        except OSError:
+            pass
+        return str(exc)
+
+
 def screenshots_dir() -> str:
     return os.path.join(user_dir('PICTURES', 'Pictures'), 'Screenshots')
 

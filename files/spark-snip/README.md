@@ -10,7 +10,7 @@ It follows the PC's language: French when the system language is French (`LANG=f
 | Meta+Shift+T | Copy the text in an area (OCR, English and French). |
 | Meta+Shift+R | Record an area or a whole screen. Press again, or STOP, to finish. |
 
-The screen freezes, you drag a box (or click once for the whole monitor), and the chip at the top switches between TEXT, IMAGE and VIDEO (T, I and V also work). Esc or a right-click cancels. Recordings go to `~/Videos/Screencasts` and saved screenshots to `~/Pictures/Screenshots`. Settings are in `~/.config/spark-snip/config.json` and the log in `~/.local/state/spark-snip/`.
+The screen freezes, you drag a box (or click once for the whole monitor), and the chip at the top switches between TEXT, IMAGE and VIDEO (T, I and V also work). Esc or a right-click cancels. Recordings go to `~/Videos/Screencasts` and saved screenshots to `~/Pictures/Screenshots`. The last screenshot is also kept as `~/.cache/spark-snip/latest.png`, replaced by the next one, for Spark Link's Send screenshot. Settings are in `~/.config/spark-snip/config.json` and the log in `~/.local/state/spark-snip/`.
 
 Everything runs on the computer. Nothing is uploaded.
 

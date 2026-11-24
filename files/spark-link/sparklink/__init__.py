@@ -13,7 +13,7 @@ APP_NAME = "Spark Link"
 APP_SLUG = "spark-link"          # command, folders, log names
 APP_CLASS = "SparkLink"          # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkLink"
-VERSION = "1.0.1"
+VERSION = "1.1.0"
 
 PROTOCOL = 1                     # docs/spark-link-protocol.md, "v"
 SERVICE_TYPE = "_sparklink._tcp"
