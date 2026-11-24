@@ -22,7 +22,7 @@ from .text import t
 from .ui import TabBar, style_tables
 from .widgets import T, Glitch, GlitchText, Mark, Strip, pick_mono
 
-TABS = ("overview", "fans", "rgb", "drivers")
+TABS = ("overview", "fans", "rgb", "pads", "drivers")
 HELPER = "/usr/libexec/spark-controller-helper"
 STATE_STALE_S = 10.0
 
@@ -317,6 +317,9 @@ class App:
             elif tab == "rgb":
                 from .rgbview import RgbView
                 self.views[tab] = RgbView(self)
+            elif tab == "pads":
+                from .padsview import PadsView
+                self.views[tab] = PadsView(self)
             else:
                 from .driversview import DriversView
                 self.views[tab] = DriversView(self)
