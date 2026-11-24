@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-spark-games-screen-change",
+      "date": "2026-11-24",
+      "en": "Spark Games 0.3.5 fixes games from Battle.net, EA, Ubisoft and Rockstar opening in the wrong place after a screen went to sleep or was unplugged. Wine kept the old screen layout, so a game like World of Warcraft opened offset and not fullscreen, and buttons such as Select missed the click. Spark Games now watches the screens while a launcher it started is open. When one comes back, it waits until no game is running, restarts the launcher and tells you. Start the launcher from Spark Games for this to apply.",
+      "fr": "Spark Games 0.3.5 corrige les jeux de Battle.net, EA, Ubisoft et Rockstar qui s'ouvraient au mauvais endroit après la mise en veille ou le débranchement d'un écran. Wine gardait l'ancienne disposition des écrans, donc un jeu comme World of Warcraft s'ouvrait décalé et pas en plein écran, et des boutons comme Sélectionner ne prenaient pas le clic. Spark Games surveille maintenant les écrans tant qu'un lanceur qu'il a démarré est ouvert. Quand un écran revient, il attend qu'aucun jeu ne tourne, redémarre le lanceur et vous prévient. Démarrez le lanceur depuis Spark Games pour en profiter."
+    },
+    {
       "id": "2026-11-24-hardware-checks-archive-backup",
       "date": "2026-11-24",
       "en": "Two small fixes found by trying apps on this PC. Spark Archive 1.2.1 shows where a link inside a zip points (it showed nothing after the arrow). Spark Backup 0.1.2 no longer offers a drive that is mounted read-only, such as D:, as a place for the copy.",
