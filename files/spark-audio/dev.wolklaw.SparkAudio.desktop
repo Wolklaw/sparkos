@@ -1,0 +1,32 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Audio
+Name[fr]=Spark Audio
+GenericName=Sound mixer
+GenericName[fr]=Mixeur de son
+Comment=Outputs, microphones, per-app volume, an equalizer and Focusrite Scarlett controls
+Comment[fr]=Sorties, micros, volume par appli, égaliseur et commandes Focusrite Scarlett
+Exec=spark-audio
+Icon=dev.wolklaw.SparkAudio
+Terminal=false
+Categories=AudioVideo;Audio;Mixer;
+Keywords=audio;sound;volume;mixer;speaker;headphones;microphone;mic;output;input;equalizer;eq;pipewire;scarlett;focusrite;son;mixeur;haut-parleur;casque;micro;égaliseur;
+Keywords[fr]=audio;son;volume;mixeur;haut-parleur;casque;micro;microphone;sortie;entrée;égaliseur;pipewire;scarlett;focusrite;
+StartupWMClass=SparkAudio
+SingleMainWindow=true
+Actions=Outputs;Inputs;EQ;
+
+[Desktop Action Outputs]
+Name=Outputs
+Name[fr]=Sorties
+Exec=spark-audio --tab outputs
+
+[Desktop Action Inputs]
+Name=Inputs
+Name[fr]=Entrées
+Exec=spark-audio --tab inputs
+
+[Desktop Action EQ]
+Name=Equalizer
+Name[fr]=Égaliseur
+Exec=spark-audio --tab eq
