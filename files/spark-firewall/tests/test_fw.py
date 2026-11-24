@@ -66,8 +66,9 @@ class Snapshot(unittest.TestCase):
         self.assertEqual([(n.device, n.zone) for n in snap.networks],
                          [("eno1", "FedoraWorkstation"), ("tailscale0", "")])
         self.assertEqual(snap.service_ports["spark-link"], ["47100/tcp"])
-        self.assertEqual([r.id for r in catalog.available(snap.services)][:3],
-                         ["steam_remote_play", "steam_transfer", "spark_link"])
+        self.assertEqual(snap.service_ports["nova"], ["8765/tcp", "8766/udp", "8780/tcp"])
+        self.assertEqual([r.id for r in catalog.available(snap.services)][:4],
+                         ["steam_remote_play", "steam_transfer", "spark_link", "nova"])
 
     def test_stopped(self):
         snap = fw.Firewall(support.FakeRun(running=False)).snapshot(has_cmd=True)

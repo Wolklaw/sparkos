@@ -48,12 +48,13 @@ PUBLIC = """public
   rich rules:
 """
 
-SERVICES = ("dhcpv6-client http https kdeconnect mdns samba samba-client spark-link ssh "
+SERVICES = ("dhcpv6-client http https kdeconnect mdns nova samba samba-client spark-link ssh "
             "steam-lan-transfer steam-streaming syncthing warpinator")
 SERVICE_INFO = {
     "steam-streaming": "steam-streaming\n  ports: 27036/tcp 27037/tcp 27031-27036/udp 10400/udp "
                        "10401/udp\n  protocols: \n",
     "spark-link": "spark-link\n  ports: 47100/tcp\n  protocols: \n",
+    "nova": "nova\n  ports: 8765/tcp 8766/udp 8780/tcp\n  protocols: \n",
     "ssh": "ssh\n  ports: 22/tcp\n  protocols: \n",
     "http": "http\n  ports: 80/tcp\n  protocols: \n",
 }

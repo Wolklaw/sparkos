@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<service>
+  <short>Nova</short>
+  <description>Nova, the assistant: the Nova phone app reaches this PC on the local network. TCP 8765 is Nova's page (sign-in required), UDP 8766 answers the phone's search for the PC, TCP 8780 lets a paired phone start Nova when it is closed. Nova is installed per user, not in SparkOS; with Nova absent nothing listens on these ports.</description>
+  <port protocol="tcp" port="8765"/>
+  <port protocol="udp" port="8766"/>
+  <port protocol="tcp" port="8780"/>
+</service>

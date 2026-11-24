@@ -7,6 +7,6 @@ APP_NAME = "Spark Firewall"
 APP_SLUG = "spark-firewall"    # command, folders, log names
 APP_CLASS = "SparkFirewall"    # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkFirewall"
-VERSION = "0.1.1"
+VERSION = "0.1.2"
 
 INTERVAL_MS = 4000             # firewalld is read again this often while the window is visible

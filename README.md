@@ -50,7 +50,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 | **Spark Monitor** | 1.1.0 | The task manager, on Ctrl+Shift+Esc: apps grouped by app, End task, live graphs, startup apps, the system log live, and a hardware summary to copy. | [source](files/spark-monitor) |
 | **Spark Disks** | 0.1.0 (new) | Drives and partitions: mount, format, resize, drive health (SMART) and writing an image to a USB stick. | [source](files/spark-disks) |
 | **Spark Backup** | 0.1.0 (new) | Snapshots of your home folder on a schedule, a copy on another drive, and restoring a file. Not tried on a real PC yet. | [source](files/spark-backup) |
-| **Spark Firewall** | 0.1.0 (new) | The firewall in plain words: on or off, open what a game or app needs, and a zone for each network. Replaces firewall-config. | [source](files/spark-firewall) |
+| **Spark Firewall** | 0.1.2 (new) | The firewall in plain words: on or off, open what a game or app needs, and a zone for each network. Replaces firewall-config. | [source](files/spark-firewall) |
 
 ### Games, hardware and phone
 
