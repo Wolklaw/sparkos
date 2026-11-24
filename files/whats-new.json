@@ -14,6 +14,12 @@
       "fr": "L'onglet Spark RGB de Spark Controller affiche toutes les lumières. Deux pièces identiques (une paire de barrettes de mémoire, par exemple) arrêtaient la liste à la deuxième, donc la carte mère, la souris et ce qui suivait n'apparaissaient jamais. Un effet qu'un appareil n'a pas affiche maintenant sa couleur fixe au lieu d'échouer."
     },
     {
+      "id": "2026-11-23-spark-backup",
+      "date": "2026-11-23",
+      "en": "New app, Spark Backup (first version, not yet tried on a real PC): it takes snapshots of your home folder on a schedule, copies them to another drive, lets you browse a snapshot and restore a file or folder, and keeps only the last few. Nothing runs until you pick a drive and a schedule and save.",
+      "fr": "Nouvelle application, Spark Backup (première version, pas encore essayée sur un vrai PC) : elle prend des instantanés de votre dossier personnel à heure fixe, les copie sur un autre disque, permet de parcourir un instantané et de restaurer un fichier ou un dossier, et ne garde que les derniers. Rien ne se lance avant que vous choisissiez un disque et un horaire et enregistriez."
+    },
+    {
       "id": "2026-11-23-update-checking-not-downloading",
       "date": "2026-11-23",
       "en": "Spark Update says Checking while it looks for a new version, and Downloading only when it found one.",

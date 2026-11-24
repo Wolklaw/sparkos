@@ -1,0 +1,24 @@
+[Unit]
+Description=Spark Backup: snapshot /home and copy it to the chosen drive
+Documentation=https://github.com/Wolklaw/sparkos/blob/main/briefs/spark-backup.md
+# Runs only once settings have been saved from the Spark Backup window
+ConditionPathExists=/etc/spark-backup/config.json
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/spark-backup-helper run
+# A backup should never slow the desktop down
+Nice=10
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle
+# /run/spark-backup holds state.json (what is running now) and the lock; /var/lib/spark-backup
+# holds history.json (the last runs). The window reads both, so they are world readable.
+RuntimeDirectory=spark-backup
+RuntimeDirectoryMode=0755
+RuntimeDirectoryPreserve=yes
+StateDirectory=spark-backup
+StateDirectoryMode=0755
+NoNewPrivileges=yes
+PrivateTmp=yes
+LockPersonality=yes
+RestrictRealtime=yes

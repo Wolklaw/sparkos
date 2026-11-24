@@ -1,0 +1,13 @@
+[Unit]
+Description=Spark Backup schedule
+Documentation=https://github.com/Wolklaw/sparkos/blob/main/briefs/spark-backup.md
+
+[Timer]
+# The Spark Backup window replaces this line (a drop-in in /etc/systemd/system/spark-backup.timer.d)
+# when you save a schedule. The timer is not enabled until then.
+OnCalendar=*-*-* 02:00:00
+Persistent=true
+RandomizedDelaySec=10min
+
+[Install]
+WantedBy=timers.target

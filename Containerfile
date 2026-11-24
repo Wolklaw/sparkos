@@ -105,6 +105,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      Update is the one updater: its timer downloads and stages updates daily
 #    - spark-controller: fans (curves, run by a small root service), RGB and firmware; the
 #      sensor-chip module for the motherboard's fan headers loads at boot (modules-load.d)
+#    - spark-backup: snapshots of /home, a copy on another drive, file restore (a root service
+#      and a timer; the timer stays off until a schedule is saved)
 #    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
 #      usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
@@ -130,6 +132,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-monitor.sh \
         spark-controller.sh \
         spark-firewall.sh \
+        spark-backup.sh \
         spark-edit.sh \
         spark-calc.sh \
         spark-archive.sh \
