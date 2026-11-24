@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Updates: none. Symbolic, drawn for 16 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" d="M2 12H14V14H2Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" d="M3.5 7.5L6.5 10.5L7.5 9.5L4.5 6.5Z M7.5 10.5L12.5 4.5L11.5 3.5L6.5 9.5Z"/>
+</svg>

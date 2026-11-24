@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Caps Lock on. Symbolic, drawn for 16 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" d="M8 1L14 8L10 8L10 11L6 11L6 8L2 8Z M6 13H10V15H6Z"/>
+</svg>

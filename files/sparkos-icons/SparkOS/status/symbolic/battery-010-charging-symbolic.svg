@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Battery, 10%, charging. Symbolic, drawn for 16 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 3H13V13H1Z M2 4H12V12H2Z M13 6H15V10H13Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M3 5H4V11H3Z M9 5L5 8.5L7.5 8.5L7 11L11 7.5L8.5 7.5Z"/>
+</svg>

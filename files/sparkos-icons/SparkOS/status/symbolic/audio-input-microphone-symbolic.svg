@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Microphone on. Symbolic, drawn for 16 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" d="M6 1H10V9H6Z M4 6H5V10H4Z M11 6H12V10H11Z M4 10H12V11H4Z M7 11H9V13H7Z M5 13H11V15H5Z"/>
+</svg>

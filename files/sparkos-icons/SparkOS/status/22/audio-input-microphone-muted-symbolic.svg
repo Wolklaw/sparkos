@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!-- Microphone muted. Symbolic, drawn for 22 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" opacity="0.35" d="M8 1H14V12H8Z M6 8H7V14H6Z M15 8H16V14H15Z M6 14H16V15H6Z M10 15H12V18H10Z M7 18H15V21H7Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" d="M3.5 20L20 3.5L18.5 2L2 18.5Z"/>
+</svg>
