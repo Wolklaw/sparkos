@@ -58,6 +58,7 @@ jobs:
 
       - name: The bundle equals the built-in copy
         run: |
+          dnf -y -q install diffutils # not in the plain Fedora container
           python3 files/spark-apps/ci/appindex.py build --apps-dir files --out out spark-calc
           mkdir unpacked && tar -xzf out/spark-calc-*.tar.gz -C unpacked
           find unpacked -name __pycache__ -prune -exec rm -rf {} +
