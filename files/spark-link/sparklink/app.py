@@ -543,25 +543,33 @@ class App:
             low = dev['battery'] is not None and dev['battery'] <= 15 and not dev['charging']
             self.label(inner, '  ·  '.join(facts), 8, fg=T["gold"] if low else T["muted"]).pack(
                 anchor="w", pady=(px(3), px(8)))
+            # sending on one row; ring, unpair and the accept switch on the next, so the
+            # French labels still fit at the window's smallest width
             row = tk.Frame(inner, bg=T["panel"])
             row.pack(fill="x")
+            low_row = tk.Frame(inner, bg=T["panel"])
+            low_row.pack(fill="x", pady=(px(8), 0))
             feats = set(dev['features'])
             mine = (st.get('features') or {})
+
+            def allowed(feature):
+                return on and feature in feats and mine.get(feature, False)
             for text, feature, fn in ((t('dev.send_files'), 'files', self.send_files),
                                       (t('dev.send_snip'), 'snip', self.send_snip),
-                                      (t('dev.send_link'), 'url', self.send_link),
-                                      (t('dev.ring'), 'ring', self.ring)):
+                                      (t('dev.send_link'), 'url', self.send_link)):
                 b = self.button(row, text, lambda f=fn, d=dev: f(d))
                 b.pack(side="left", padx=(0, px(6)))
                 if feature == 'snip':
                     feature = 'files' if snip is not None else ''
-                b.set_enabled(on and feature in feats and mine.get(feature, False))
-            self.button(row, t('dev.unpair'), lambda d=dev: self.unpair(d), "danger").pack(
-                side="right")
-            Toggle(inner, t('dev.always_accept'), dev['always_accept'],
+                b.set_enabled(allowed(feature))
+            Toggle(low_row, t('dev.always_accept'), dev['always_accept'],
                    lambda v, d=dev: self.call({'cmd': 'device.always_accept', 'device': d['id'],
-                                               'on': v}), self.font(7)).pack(anchor="w",
-                                                                              pady=(px(8), 0))
+                                               'on': v}), self.font(7)).pack(side="left")
+            self.button(low_row, t('dev.unpair'), lambda d=dev: self.unpair(d), "danger").pack(
+                side="right")
+            ring = self.button(low_row, t('dev.ring'), lambda d=dev: self.ring(d))
+            ring.pack(side="right", padx=(0, px(6)))
+            ring.set_enabled(allowed('ring'))
         if transfers:
             self.label(frame, t('dev.transfers'), 7, True, fg=T["muted"]).pack(anchor="w",
                                                                         pady=(px(6), px(4)))
