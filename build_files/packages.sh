@@ -151,6 +151,17 @@ dnf_install --enablerepo=fedora-cisco-openh264 mozilla-openh264
 # would take it too; marking it installed on purpose keeps it
 dnf -y mark user mozilla-openh264
 
+# 32-bit graphics drivers. Proton runs a 32-bit Windows program (Battle.net, many older
+# games, most launchers' helper processes) as a 32-bit Linux process, and the Steam Runtime
+# container umu-run starts takes its GPU drivers from the host. Without these, Vulkan and
+# OpenGL fail in every 32-bit process ("DxvkInstance::createInstance: Failed to create Vulkan
+# instance") and the program quits with no window. Bazzite shipped them; Kinoite doesn't.
+# Steam from Flathub brings its own; this is for umu-run (Spark Games, Spark Run).
+dnf_install mesa-dri-drivers.i686 mesa-vulkan-drivers.i686 vulkan-loader.i686 \
+  mesa-libGL.i686 mesa-libEGL.i686 mesa-libgbm.i686
+test -s /usr/share/vulkan/icd.d/radeon_icd.i686.json \
+  || { echo "32-bit Vulkan driver missing"; exit 1; }
+
 # Tuning Bazzite has (files/scripts/fedora-tuning.sh sets the rest up), from Fedora:
 # vkBasalt (Vulkan post-processing layer, off unless ENABLE_VKBASALT=1) and python3-pyinotify
 # (for ds-inhibit, the DualSense touchpad fix in files/ds-inhibit)
