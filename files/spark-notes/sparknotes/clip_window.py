@@ -25,7 +25,7 @@ def _thumbnail(path: str):
         dims = f"{info[1]} x {info[2]}" if info and info[0] else ''
         pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 120, 56, True)
         return Gdk.Texture.new_for_pixbuf(pixbuf), dims
-    except (ImportError, ValueError):
+    except (ImportError, ValueError, GLib.Error):
         full = Gdk.Texture.new_from_filename(path)
         return full, f"{full.get_width()} x {full.get_height()}"
 

@@ -142,7 +142,7 @@ class ClipboardPopupTest(Base):
     def test_lists_newest_first(self):
         self.assertEqual([r.item.text for r in self.win.rows],
                          ['https://example.org/a/long/link', 'Dîner à Québec', 'first copy'])
-        self.assertIn('3 kept', labels(self.win))
+        self.assertIn(text.t('clip.count', n=3), labels(self.win))
 
     def test_search_filters_and_ignores_accents(self):
         self.win.entry.set_text('quebec')
@@ -186,10 +186,10 @@ class ClipboardPopupTest(Base):
         self.assertIn('2', self.win.status.get_text())
 
     def test_pause_button_toggles_and_reports(self):
-        self.assertEqual(self.win.pause_button.get_label(), text.EN['clip.pause'])
+        self.assertEqual(self.win.pause_button.get_label(), text.t('clip.pause'))
         self.win.pause_button.emit('clicked')
         self.assertEqual(self.paused, [True])
-        self.assertEqual(self.win.pause_button.get_label(), text.EN['clip.paused'])
+        self.assertEqual(self.win.pause_button.get_label(), text.t('clip.paused'))
         self.assertTrue(self.win.pause_button.has_css_class('paused'))
         self.win.pause_button.emit('clicked')
         self.assertEqual(self.paused, [True, False])
@@ -209,13 +209,13 @@ class ClipboardPopupTest(Base):
     def test_empty_history_says_so(self):
         self.history.clear(keep_pinned=False)
         self.win.reload()
-        self.assertEqual(self.win.empty.get_text(), text.EN['clip.empty'])
+        self.assertEqual(self.win.empty.get_text(), text.t('clip.empty'))
 
     def test_paused_and_empty_says_paused(self):
         self.history.clear(keep_pinned=False)
         self.win.settings['paused'] = True
         self.win.reload()
-        self.assertEqual(self.win.empty.get_text(), text.EN['clip.paused_empty'])
+        self.assertEqual(self.win.empty.get_text(), text.t('clip.paused_empty'))
 
     def test_image_row_has_a_thumbnail(self):
         self.history.add_image(REAL_PNG, 'image/png')
