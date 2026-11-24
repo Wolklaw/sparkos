@@ -621,7 +621,7 @@ class WidgetStatus(unittest.TestCase):
         self.assertEqual([(s['name'], s['status'], s['level']) for s in bad],
                          [('app.example.org', 'HTTP 502', DOWN)])
         self.assertEqual(out['level'], DOWN)         # the worst of everything
-        self.assertIn('need a look', out['summary'])
+        self.assertEqual(out['summary'], t('widget.trouble', n=1))
         json.dumps(out)                              # all of it is plain JSON
 
     def test_down_machine_and_its_words(self):
@@ -629,7 +629,7 @@ class WidgetStatus(unittest.TestCase):
         main = out['machines'][MAIN]
         self.assertEqual((main['level'], main['state'], main['up'], main['uptime']),
                          (DOWN, t('card.down'), False, '—'))
-        self.assertTrue(main['verdict'].startswith('Unreachable since'), main['verdict'])
+        self.assertTrue(main['verdict'].startswith(t('verdict.unreachable', since='')), main['verdict'])
 
     def test_down_since_is_kept_between_runs(self):
         path = os.path.join(tempfile.mkdtemp(), 'down.json')

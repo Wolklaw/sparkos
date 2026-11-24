@@ -1,3 +1,5 @@
+pragma ComponentBehavior: Bound
+
 // Spark Connect as a Plasma widget. On a panel: the app's icon with a status dot (cyan all
 // good, gold a warning, magenta something down); a click opens the board. On the desktop: the
 // board itself. Every refreshSeconds it runs `spark-connect --status` (one probe per machine
@@ -88,8 +90,8 @@ PlasmoidItem {
         hoverEnabled: true
         Accessible.name: "Spark Connect: " + (widget.report ? widget.report.summary : "")
         Accessible.role: Accessible.Button
-        onPressed: wasExpanded = widget.expanded
-        onClicked: widget.expanded = !wasExpanded
+        onPressed: button.wasExpanded = widget.expanded
+        onClicked: widget.expanded = !button.wasExpanded
 
         Kirigami.Icon {
             anchors.centerIn: parent

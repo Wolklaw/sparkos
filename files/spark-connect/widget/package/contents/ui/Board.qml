@@ -96,7 +96,7 @@ Rectangle {
                 font.pixelSize: 10
                 wrapMode: Text.Wrap
             }
-            Rectangle { Layout.fillWidth: true; height: 1; color: Theme.line; Layout.topMargin: 2 }
+            Rectangle { Layout.fillWidth: true; implicitHeight: 1; color: Theme.line; Layout.topMargin: 2 }
 
             // ── Machines ─────────────────────────────────
             Text {
