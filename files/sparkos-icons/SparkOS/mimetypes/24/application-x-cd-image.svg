@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Disc and disk image (ISO), drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <path d="M3.5 1.5 H13.5 L18.5 6.5 V20.5 H3.5 Z" fill="#2c2870" stroke="#4a45a6" stroke-width="1"/>
+  <path d="M13.5 1.5 V6.5 H18.5 Z" fill="#4a45a6"/>
+  <!-- the slip: magenta 1 left, cyan 1 right, the colour on top -->
+  <g transform="translate(-1 0)" fill="#ff2e88">
+    <path d="M6 14 A5 5 0 1 0 16 14 A5 5 0 1 0 6 14 Z M9.5 14 A1.5 1.5 0 1 0 12.5 14 A1.5 1.5 0 1 0 9.5 14 Z" fill="#ff2e88" fill-rule="evenodd"/>
+  </g>
+  <g transform="translate(1 0)" fill="#22d8ff">
+    <path d="M6 14 A5 5 0 1 0 16 14 A5 5 0 1 0 6 14 Z M9.5 14 A1.5 1.5 0 1 0 12.5 14 A1.5 1.5 0 1 0 9.5 14 Z" fill="#22d8ff" fill-rule="evenodd"/>
+  </g>
+  <g fill="#b9a6ff">
+    <path d="M6 14 A5 5 0 1 0 16 14 A5 5 0 1 0 6 14 Z M9.5 14 A1.5 1.5 0 1 0 12.5 14 A1.5 1.5 0 1 0 9.5 14 Z" fill="#b9a6ff" fill-rule="evenodd"/>
+  </g>
+</svg>

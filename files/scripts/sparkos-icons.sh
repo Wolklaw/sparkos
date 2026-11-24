@@ -25,7 +25,8 @@ for d in $dirs; do test -d "$DEST/$d" || { echo "index.theme lists $d, which is 
 for f in apps/scalable/preferences-system.svg apps/16/preferences-system.svg places/scalable/folder.svg \
          places/16/folder.svg places/scalable/user-trash.svg places/scalable/user-trash-full.svg \
          apps/scalable/application-x-executable.svg apps/scalable/com.valvesoftware.Steam.svg \
-         places/symbolic/folder-symbolic.svg; do
+         places/symbolic/folder-symbolic.svg mimetypes/scalable/unknown.svg mimetypes/16/text-plain.svg \
+         mimetypes/scalable/application-zip.svg mimetypes/22/application-x-msdownload.svg; do
   test -s "$DEST/$f" || { echo "missing $DEST/$f"; exit 1; }
 done
 grep -q '^Inherits=breeze-dark' "$DEST/index.theme" || { echo "index.theme doesn't inherit breeze-dark"; exit 1; }
