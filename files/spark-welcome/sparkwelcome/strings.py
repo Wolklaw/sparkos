@@ -20,7 +20,6 @@ EN: Dict[str, str] = {
     'nav.welcome': "WELCOME",
     'nav.games': "GAMES",
     'nav.apps': "APPS",
-    'nav.windows': "FILES FROM WINDOWS",
     'nav.checks': "CHECK THIS PC",
     'nav.done': "DONE",
     'nav.next': "Next",
@@ -38,24 +37,6 @@ EN: Dict[str, str] = {
     'welcome.intro': "SparkOS is a Linux system for gaming and everyday use, built on Fedora. "
                      "It updates itself in the background and keeps the system "
                      "files read-only, so an update or an app can't break it.",
-    'welcome.rest': "It comes with only its own apps. Everything else, from Steam to Discord, "
-                    "is one click away: the next pages offer the common ones, and the Store "
-                    "has the rest.",
-    'welcome.onboard': "Already on this PC",
-    'welcome.soot': "web browser",
-    'welcome.freesuite': "documents, spreadsheets and presentations",
-    'welcome.snip': "screenshots, text from the screen, screen recording",
-    'welcome.media': "photos, videos and music",
-    'welcome.games': "all your games from every launcher, in one library",
-    'welcome.monitor': "task manager: what's running, End task, live graphs (Ctrl+Shift+Esc)",
-    'welcome.edit': "text and code editor",
-    'welcome.calc': "calculator: standard, scientific and programmer",
-    'welcome.archive': "zip, 7z, tar, rar and iso; Extract and Compress in the file manager",
-    'welcome.scan': "scanning to PDF, with searchable text",
-    'welcome.run': "Windows programs (.exe and .msi)",
-    'welcome.link': "your phone and this PC, through Soot's phone app",
-    'welcome.store': "apps from Flathub, and the Spark apps",
-    'welcome.update': "updates and going back to the previous version",
     'welcome.how': "How this works",
     'welcome.skip': "Each page can be skipped. Nothing is installed or copied until you click "
                     "a button, and you can close this window at any time. Spark Welcome stays "
@@ -63,24 +44,15 @@ EN: Dict[str, str] = {
 
     # 2. games
     'games.title': "Games",
-    'games.intro': "Tick the launchers you use. They install from Flathub for your account "
-                   "only, no admin password, one at a time in the background. You can keep "
-                   "going through the pages while they install.",
-    'games.launchers': "Launchers",
-    'games.spark_games': "Spark Games is installed: it shows the games from all these "
-                         "launchers in one place.",
     'games.anticheat.label': "What doesn't work",
     'games.anticheat': "Games with kernel-level anti-cheat don't run on Linux, whatever the "
                        "launcher: Valorant, Fortnite, and some Call of Duty and EA games, among "
                        "others. That's the game maker's choice, not something SparkOS can fix. "
                        "Check a game before you buy it.",
     'games.anticheat.button': "Open areweanticheatyet.com",
-    'games.later': "You can install more launchers later from the Store.",
 
     # 3. apps
     'apps.title': "Apps",
-    'apps.intro': "Some apps people usually want. Nothing is ticked: pick what you use. Each "
-                  "one says whose app it is.",
     'apps.by': "by {who}",
     'apps.install': "Install ticked ({n})",
     'apps.install_none': "Install ticked",
@@ -101,9 +73,6 @@ EN: Dict[str, str] = {
     'flatpak.stopped': "Stopped when the window closed.",
 
     # 4. files from Windows
-    'win.title': "Bring your files from Windows",
-    'win.intro': "If Windows is on this PC too, Spark Welcome can copy your Desktop, "
-                 "Documents, Pictures, Videos, Music and Downloads into the same folders here.",
     'win.safe': "It copies and never moves. The Windows drive is opened read-only, so nothing "
                 "on it changes. Files that are already here with the same size are skipped. "
                 "Opening the drive may ask for your password.",
@@ -218,24 +187,174 @@ EN: Dict[str, str] = {
 
     # 6. done
     'done.title': "You're set",
-    'done.intro': "Three things worth knowing.",
     'done.store.title': "Installing apps",
-    'done.store': "The Store has thousands of apps that install with one click and update "
-                  "by themselves. You can also double-click a downloaded .exe, .AppImage or "
-                  ".rpm file: SparkOS says what it can do with it.",
     'done.store.button': "Open the Store",
-    'done.snip.title': "Screenshots",
-    'done.snip': "Press Print Screen, or open Spark Snip from the menu. It also copies text "
-                 "from the screen and records video.",
-    'done.snip.button': "Open Spark Snip",
     'done.settings.title': "Settings",
-    'done.settings': "Display, sound, mouse, keyboard, accounts and the rest are in System "
-                     "Settings, in the app menu.",
     'done.settings.button': "Open Settings",
     'done.show_again': "Show Spark Welcome at login",
     'done.menu': "{name} stays in the app menu.",
     'done.still_installing': "Apps are still installing. Leave this window open until they "
                              "finish; closing it stops them.",
+
+    # moving from Windows (1.1)
+    'open': "Open",
+    'nav.windows': "MOVE FROM WINDOWS",
+    'welcome.rest': "It comes with its own apps for the everyday jobs, listed below. The next "
+                    "page helps you move from Windows: your files, which app to use here for "
+                    "each program you had, and what to do before you erase Windows.",
+    'welcome.swaps': "What you used on Windows, and what does it here",
+    'welcome.swaps.intro': "These are already on this PC. Open shows the app.",
+    'welcome.instead': "Instead of {win}",
+    'swap.browser.win': "Chrome, Edge or Firefox",
+    'swap.browser.what': "Web browser. Sign in to your Google, Microsoft or Firefox account in "
+                         "it to bring your bookmarks and passwords.",
+    'swap.office.win': "Microsoft Office, Outlook and Adobe Reader",
+    'swap.office.what': "Mail, calendar, documents, spreadsheets, presentations and PDF. Opens "
+                        "and saves Word, Excel and PowerPoint files.",
+    'swap.files.win': "File Explorer",
+    'swap.files.what': "Your folders, drives and the trash. Extract and Compress are in the "
+                       "right-click menu.",
+    'swap.launcher.win': "the Start menu",
+    'swap.launcher.what': "Press the Windows key (Meta) and type to find an app, a file or a "
+                          "setting.",
+    'swap.settings.win': "Windows Settings and the Control Panel",
+    'swap.settings.what': "Displays, sound, network, Bluetooth, power, default apps, language, "
+                          "printers and startup apps.",
+    'swap.store.win': "the Microsoft Store and installers from websites",
+    'swap.store.what': "Apps from Flathub and the optional Spark apps, installed in one click "
+                       "and updated by themselves.",
+    'swap.update.win': "Windows Update",
+    'swap.update.what': "Gets the new version ready in the background and starts it at the "
+                        "next restart. If something goes wrong, go back to the previous one.",
+    'swap.monitor.win': "Task Manager",
+    'swap.monitor.what': "What's running, End task and live graphs. Ctrl+Shift+Esc opens it, "
+                         "as on Windows.",
+    'swap.games.win': "Steam, Epic, GOG, Battle.net, EA and Ubisoft launchers",
+    'swap.games.what': "All your games in one library. Signs in to Epic, GOG and Amazon "
+                       "itself, and adds the other launchers for you.",
+    'swap.run.win': "Windows programs (.exe and .msi)",
+    'swap.run.what': "Runs Windows programs on Wine, or installs them as apps with their own "
+                     "menu entry. Double-click a .exe to start.",
+    'swap.snip.win': "the Snipping Tool and Xbox Game Bar recording",
+    'swap.snip.what': "Print Screen or Meta+Shift+S for a screenshot, Meta+Shift+R to record "
+                      "the screen, Meta+Shift+T to copy text from the screen.",
+    'swap.media.win': "Photos, Media Player and VLC",
+    'swap.media.what': "Photos, videos and music.",
+    'swap.edit.win': "Notepad and Notepad++",
+    'swap.edit.what': "Text and code editor.",
+    'swap.calc.win': "Calculator",
+    'swap.calc.what': "Standard, scientific and programmer.",
+    'swap.archive.win': "7-Zip and WinRAR",
+    'swap.archive.what': "zip, 7z, tar, rar and iso.",
+    'swap.terminal.win': "Command Prompt, PowerShell and Windows Terminal",
+    'swap.terminal.what': "Terminal. Ctrl+C and Ctrl+V copy and paste, as on Windows.",
+    'swap.scan.win': "Windows Scan",
+    'swap.scan.what': "Scans to PDF, with text you can search.",
+    'swap.link.win': "Phone Link",
+    'swap.link.what': "Links, files, notifications and the clipboard between your phone and "
+                      "this PC. Pairs with Soot on Android.",
+    'swap.controller.win': "Armoury Crate, iCUE-style RGB tools and fan control",
+    'swap.controller.what': "Fans, RGB lighting and firmware updates for this PC.",
+    'games.intro': "Spark Games is your game library on SparkOS. Steam is the one launcher you "
+                   "install yourself.",
+    'games.spark': "One library for Steam, Epic, GOG and Amazon games, with covers, play time "
+                   "and a Play button. Sign in to Epic, GOG and Amazon inside Spark Games: no "
+                   "other launcher needed.",
+    'games.spark.stores': "Battle.net, the EA app, Ubisoft Connect and Rockstar are added from "
+                          "Spark Games too: it installs each one on Wine and lists its games.",
+    'games.open': "Open Spark Games",
+    'games.launchers': "Install Steam",
+    'games.steam_move': "Steam games on the Windows drive don't have to download again: the "
+                        "Move from Windows page shows them and how to copy them.",
+    'games.later': "Other launchers, like Minecraft's, are in Spark Games and the Store.",
+    'apps.intro': "SparkOS apps first, then apps from other companies for what SparkOS doesn't "
+                  "do itself. Nothing is ticked: pick what you use.",
+    'apps.spark': "Spark apps you can add",
+    'apps.spark.intro': "Made for SparkOS and already on this PC, not installed yet. They "
+                        "install for your account, no download.",
+    'apps.instead': "Instead of {win}",
+    'optional.spark-space.win': "WinDirStat, TreeSize or WizTree",
+    'optional.spark-bench.win': "CapFrameX or PresentMon",
+    'optional.spark-connect.win': "Remote Desktop and PuTTY, for your own PCs and servers",
+    'apps.others': "Apps from other companies",
+    'apps.others.intro': "For chat, music, streaming and creative work. Each one says whose "
+                         "app it is.",
+    'win.title': "Move from Windows",
+    'win.intro': "If Windows is on this PC too, Spark Welcome can copy your Desktop, "
+                 "Documents, Pictures, Videos, Music, Downloads and fonts into the same "
+                 "folders here. It also lists the programs you had, with what to use for each "
+                 "one here, and the Steam games you can copy instead of downloading.",
+    'win.programs': "Your Windows programs",
+    'win.programs.intro': "Found on the Windows drive, with what to use here.",
+    'win.others': "{n} other programs have no answer here. Look for them in the Store; many "
+                  "Windows programs also run with Spark Run.",
+    'win.others.show': "Show their names",
+    'prog.spark': "Use {name}. It's already on this PC.",
+    'prog.games': "Spark Games signs in to it or adds it for you.",
+    'prog.app': "Install {name} for Linux.",
+    'prog.optional': "Install {name}, made for SparkOS.",
+    'prog.store': "Look for it in the Store.",
+    'prog.install': "Install",
+    'prog.queued': "Queued",
+    'prog.anticheat': "Uses kernel-level anti-cheat: these games don't run on Linux.",
+    'prog.onedrive': "No OneDrive app for Linux. Use onedrive.com in Soot. Before you erase "
+                     "Windows, make sure your files are really on this drive or online (see "
+                     "below).",
+    'prog.cloud': "No app for Linux from this company. Use its website in Soot.",
+    'prog.teams': "Use teams.microsoft.com in Soot.",
+    'prog.drivers': "Not needed: the graphics drivers come with SparkOS and update with it.",
+    'prog.peripherals': "No Linux version. Mouse and keyboard settings are in Spark Settings; "
+                        "lighting and fans in Spark Controller.",
+    'win.steam': "Steam games on the Windows drive",
+    'win.steam.found': "{n} games are on this drive. Copying is faster than downloading them "
+                       "again.",
+    'win.steam.none': "Steam is on the Windows drive, but no games were found in its libraries "
+                      "on this drive. Libraries on other drives are listed here.",
+    'win.steam.more': "and {n} more",
+    'win.steam.open': "Open folder",
+    'win.steam.how': "For each game: in Steam here, start installing it, then pause the "
+                     "download. Copy the game's folder from the Windows drive into {common}, "
+                     "then resume. Steam checks the files and only downloads what's missing.",
+    'win.before': "Before you erase Windows",
+    'win.before.intro': "Copying folders doesn't bring everything. Check these while Windows "
+                        "still works.",
+    'win.before.1.title': "Passwords and bookmarks",
+    'win.before.1': "They're encrypted on the Windows drive and can't be copied. Sign in to "
+                    "your browser's account and turn on sync, or export the passwords from the "
+                    "browser's settings, then import them in Soot.",
+    'win.before.2.title': "OneDrive files",
+    'win.before.2': "Files with a cloud icon are only online. Right-click the OneDrive folder "
+                    "and pick Always keep on this device before you copy, or download them "
+                    "later from onedrive.com.",
+    'win.before.3.title': "Game saves",
+    'win.before.3': "Most launchers sync saves online. Games that don't keep them in "
+                    "Documents\\My Games, Saved Games or AppData: copy those folders too.",
+    'win.before.4.title': "Licences",
+    'win.before.4': "Write down the keys of programs you paid for, and sign out of apps that "
+                    "only allow a few devices, like Adobe or Office.",
+    'win.before.5.title': "Two-step codes",
+    'win.before.5': "If an authenticator app or security key is set up on Windows, move it to "
+                    "your phone first, or you could lock yourself out.",
+    'win.before.6.title': "Wi-Fi password",
+    'win.before.6': "Note it, or find it on your router.",
+    'win.before.7.title': "BitLocker",
+    'win.before.7': "A locked drive can't be opened here. Turn BitLocker off in Windows, or "
+                    "note the recovery key from account.microsoft.com.",
+    'win.before.8.title': "Fast Startup",
+    'win.before.8': "Turn it off in Windows' power options. Windows otherwise keeps its drive "
+                    "half-closed, and it can only be opened read-only here.",
+    'win.before.9.title': "Keep Windows a little longer",
+    'win.before.9': "Use SparkOS for a normal week first. Once nothing is missing, Windows can "
+                    "go.",
+    'done.intro': "Three things worth knowing.",
+    'done.store': "Apps install from the Store with one click and update by themselves. "
+                  "Double-click a downloaded .exe, .AppImage or .rpm: SparkOS says what it can "
+                  "do with it, and Spark Run opens Windows programs.",
+    'done.keys.title': "Windows keys that still work",
+    'done.keys': "Windows key: Spark Launcher. Ctrl+Shift+Esc: Spark Monitor. Print Screen or "
+                 "Meta+Shift+S: Spark Snip. Ctrl+C, Ctrl+V and Alt+Tab work as usual.",
+    'done.settings': "Display, sound, network, Bluetooth, printers and the rest are in Spark "
+                     "Settings.",
 }
 
 FR: Dict[str, str] = {
@@ -251,7 +370,6 @@ FR: Dict[str, str] = {
     'nav.welcome': "BIENVENUE",
     'nav.games': "JEUX",
     'nav.apps': "APPLICATIONS",
-    'nav.windows': "FICHIERS DE WINDOWS",
     'nav.checks': "VÉRIFIER CE PC",
     'nav.done': "TERMINÉ",
     'nav.next': "Suivant",
@@ -273,26 +391,6 @@ FR: Dict[str, str] = {
                      "construit sur Fedora. Il se met à jour en arrière-plan et "
                      "garde les fichiers du système en lecture seule, alors une mise à jour ou "
                      "une application ne peut pas le briser.",
-    'welcome.rest': "Il vient seulement avec ses propres applications. Tout le reste, de Steam "
-                    "à Discord, est à un clic : les pages suivantes proposent les plus "
-                    "courantes, et le magasin a le reste.",
-    'welcome.onboard': "Déjà sur ce PC",
-    'welcome.soot': "navigateur Web",
-    'welcome.freesuite': "documents, feuilles de calcul et présentations",
-    'welcome.snip': "captures d'écran, texte à l'écran, enregistrement de l'écran",
-    'welcome.media': "photos, vidéos et musique",
-    'welcome.games': "tous vos jeux de tous les lanceurs, dans une seule bibliothèque",
-    'welcome.monitor': "gestionnaire des tâches : ce qui tourne, Fin de tâche, graphiques en "
-                       "direct (Ctrl+Maj+Échap)",
-    'welcome.edit': "éditeur de texte et de code",
-    'welcome.calc': "calculatrice : standard, scientifique et programmeur",
-    'welcome.archive': "zip, 7z, tar, rar et iso; Extraire et Compresser dans le gestionnaire "
-                       "de fichiers",
-    'welcome.scan': "numérisation en PDF, avec texte cherchable",
-    'welcome.run': "programmes Windows (.exe et .msi)",
-    'welcome.link': "votre téléphone et ce PC, avec l'application mobile de Soot",
-    'welcome.store': "applications de Flathub, et les applications Spark",
-    'welcome.update': "mises à jour et retour à la version précédente",
     'welcome.how': "Comment ça marche",
     'welcome.skip': "Chaque page peut être sautée. Rien n'est installé ni copié avant que vous "
                     "cliquiez sur un bouton, et vous pouvez fermer cette fenêtre en tout temps. "
@@ -301,12 +399,6 @@ FR: Dict[str, str] = {
 
     # 2. games
     'games.title': "Jeux",
-    'games.intro': "Cochez les lanceurs que vous utilisez. Ils s'installent depuis Flathub pour "
-                   "votre compte seulement, sans mot de passe d'administrateur, un à la fois en "
-                   "arrière-plan. Vous pouvez continuer à parcourir les pages pendant ce temps.",
-    'games.launchers': "Lanceurs",
-    'games.spark_games': "Spark Games est installé : il montre les jeux de tous ces lanceurs "
-                         "au même endroit.",
     'games.anticheat.label': "Ce qui ne fonctionne pas",
     'games.anticheat': "Les jeux avec un anti-triche au niveau du noyau ne tournent pas sous "
                        "Linux, peu importe le lanceur : Valorant, Fortnite, et certains jeux "
@@ -314,12 +406,9 @@ FR: Dict[str, str] = {
                        "pas quelque chose que SparkOS peut régler. Vérifiez un jeu avant de "
                        "l'acheter.",
     'games.anticheat.button': "Ouvrir areweanticheatyet.com",
-    'games.later': "Vous pourrez installer d'autres lanceurs plus tard à partir du magasin.",
 
     # 3. apps
     'apps.title': "Applications",
-    'apps.intro': "Des applications que les gens veulent souvent. Rien n'est coché : "
-                  "choisissez ce que vous utilisez. Chacune indique à qui elle appartient.",
     'apps.by': "par {who}",
     'apps.install': "Installer la sélection ({n})",
     'apps.install_none': "Installer la sélection",
@@ -334,16 +423,13 @@ FR: Dict[str, str] = {
     'apps.state.stopped': "ARRÊTÉE",
     'flatpak.no_reason': "flatpak s'est arrêté sans dire pourquoi.",
     'web.comment': "Le lecteur web de {name}, dans votre navigateur",
-    'web.bad_address': "L'adresse de cette appli web n'est pas une adresse https sûre : elle n'a pas été ajoutée.",
+    'web.bad_address': "L'adresse de cette appli web n'est pas une adresse https sûre : elle "
+                       "n'a pas été ajoutée.",
     'flatpak.remote_failed': "Impossible d'ajouter Flathub : {error}",
     'flatpak.cant_run': "Impossible de lancer flatpak : {error}",
     'flatpak.stopped': "Arrêté à la fermeture de la fenêtre.",
 
     # 4. files from Windows
-    'win.title': "Récupérer vos fichiers de Windows",
-    'win.intro': "Si Windows est aussi sur ce PC, Spark Welcome peut copier votre Bureau, vos "
-                 "Documents, Images, Vidéos, Musique et Téléchargements dans les mêmes "
-                 "dossiers ici.",
     'win.safe': "Il copie et ne déplace jamais rien. Le disque Windows est ouvert en lecture "
                 "seule, alors rien n'y change. Les fichiers déjà ici avec la même taille sont "
                 "sautés. Ouvrir le disque peut demander votre mot de passe.",
@@ -468,25 +554,192 @@ FR: Dict[str, str] = {
 
     # 6. done
     'done.title': "C'est prêt",
-    'done.intro': "Trois choses à savoir.",
     'done.store.title': "Installer des applications",
-    'done.store': "Le magasin a des milliers d'applications qui s'installent en un clic et se "
-                  "mettent à jour toutes seules. Vous pouvez aussi double-cliquer sur un "
-                  "fichier .exe, .AppImage ou .rpm téléchargé : SparkOS vous dit ce qu'il peut "
-                  "en faire.",
     'done.store.button': "Ouvrir le magasin",
-    'done.snip.title': "Captures d'écran",
-    'done.snip': "Appuyez sur Impr. écran, ou ouvrez Spark Snip dans le menu. Il copie aussi "
-                 "le texte à l'écran et enregistre des vidéos.",
-    'done.snip.button': "Ouvrir Spark Snip",
     'done.settings.title': "Réglages",
-    'done.settings': "L'affichage, le son, la souris, le clavier, les comptes et le reste sont "
-                     "dans Configuration du système, dans le menu des applications.",
     'done.settings.button': "Ouvrir les réglages",
     'done.show_again': "Afficher Spark Welcome à la connexion",
     'done.menu': "{name} reste dans le menu des applications.",
     'done.still_installing': "Des applications s'installent encore. Laissez cette fenêtre "
                              "ouverte jusqu'à la fin; la fermer les arrête.",
+
+    # moving from Windows (1.1)
+    'open': "Ouvrir",
+    'nav.windows': "QUITTER WINDOWS",
+    'welcome.rest': "Il vient avec ses propres applications pour les tâches de tous les jours, "
+                    "listées plus bas. La page suivante vous aide à quitter Windows : vos "
+                    "fichiers, l'application à utiliser ici pour chaque programme que vous "
+                    "aviez, et quoi faire avant d'effacer Windows.",
+    'welcome.swaps': "Ce que vous utilisiez sous Windows, et ce qui le fait ici",
+    'welcome.swaps.intro': "Elles sont déjà sur ce PC. Ouvrir affiche l'application.",
+    'welcome.instead': "Au lieu de {win}",
+    'swap.browser.win': "Chrome, Edge ou Firefox",
+    'swap.browser.what': "Navigateur Web. Connectez-vous à votre compte Google, Microsoft ou "
+                         "Firefox pour ramener vos favoris et mots de passe.",
+    'swap.office.win': "Microsoft Office, Outlook et Adobe Reader",
+    'swap.office.what': "Courriel, calendrier, documents, feuilles de calcul, présentations et "
+                        "PDF. Ouvre et enregistre les fichiers Word, Excel et PowerPoint.",
+    'swap.files.win': "l'Explorateur de fichiers",
+    'swap.files.what': "Vos dossiers, vos disques et la corbeille. Extraire et Compresser sont "
+                       "dans le menu du clic droit.",
+    'swap.launcher.win': "le menu Démarrer",
+    'swap.launcher.what': "Appuyez sur la touche Windows (Meta) et tapez pour trouver une "
+                          "application, un fichier ou un réglage.",
+    'swap.settings.win': "les Paramètres de Windows et le Panneau de configuration",
+    'swap.settings.what': "Écrans, son, réseau, Bluetooth, alimentation, applications par "
+                          "défaut, langue, imprimantes et démarrage.",
+    'swap.store.win': "le Microsoft Store et les installateurs des sites Web",
+    'swap.store.what': "Les applications de Flathub et les applications Spark facultatives, "
+                       "installées en un clic et mises à jour toutes seules.",
+    'swap.update.win': "Windows Update",
+    'swap.update.what': "Prépare la nouvelle version en arrière-plan et la démarre au prochain "
+                        "redémarrage. Si quelque chose ne va pas, revenez à la précédente.",
+    'swap.monitor.win': "le Gestionnaire des tâches",
+    'swap.monitor.what': "Ce qui tourne, Fin de tâche et graphiques en direct. Ctrl+Maj+Échap "
+                         "l'ouvre, comme sous Windows.",
+    'swap.games.win': "les lanceurs Steam, Epic, GOG, Battle.net, EA et Ubisoft",
+    'swap.games.what': "Tous vos jeux dans une seule bibliothèque. Se connecte lui-même à "
+                       "Epic, GOG et Amazon, et ajoute les autres lanceurs pour vous.",
+    'swap.run.win': "les programmes Windows (.exe et .msi)",
+    'swap.run.what': "Lance les programmes Windows avec Wine, ou les installe comme "
+                     "applications avec leur entrée dans le menu. Double-cliquez sur un .exe "
+                     "pour commencer.",
+    'swap.snip.win': "l'Outil Capture et l'enregistrement de la Xbox Game Bar",
+    'swap.snip.what': "Impr. écran ou Meta+Maj+S pour une capture, Meta+Maj+R pour enregistrer "
+                      "l'écran, Meta+Maj+T pour copier le texte à l'écran.",
+    'swap.media.win': "Photos, le Lecteur multimédia et VLC",
+    'swap.media.what': "Photos, vidéos et musique.",
+    'swap.edit.win': "le Bloc-notes et Notepad++",
+    'swap.edit.what': "Éditeur de texte et de code.",
+    'swap.calc.win': "la Calculatrice",
+    'swap.calc.what': "Standard, scientifique et programmeur.",
+    'swap.archive.win': "7-Zip et WinRAR",
+    'swap.archive.what': "zip, 7z, tar, rar et iso.",
+    'swap.terminal.win': "l'Invite de commandes, PowerShell et le Terminal Windows",
+    'swap.terminal.what': "Terminal. Ctrl+C et Ctrl+V copient et collent, comme sous Windows.",
+    'swap.scan.win': "Numériser de Windows",
+    'swap.scan.what': "Numérise en PDF, avec du texte cherchable.",
+    'swap.link.win': "Lien avec Windows (Phone Link)",
+    'swap.link.what': "Liens, fichiers, notifications et presse-papiers entre votre téléphone "
+                      "et ce PC. S'associe à Soot sur Android.",
+    'swap.controller.win': "Armoury Crate, les outils RGB et le contrôle des ventilateurs",
+    'swap.controller.what': "Ventilateurs, éclairage RGB et mises à jour du micrologiciel de "
+                            "ce PC.",
+    'games.intro': "Spark Games est votre bibliothèque de jeux sur SparkOS. Steam est le seul "
+                   "lanceur à installer vous-même.",
+    'games.spark': "Une bibliothèque pour les jeux Steam, Epic, GOG et Amazon, avec les "
+                   "pochettes, le temps de jeu et un bouton Jouer. Connectez-vous à Epic, GOG "
+                   "et Amazon dans Spark Games : aucun autre lanceur n'est nécessaire.",
+    'games.spark.stores': "Battle.net, l'application EA, Ubisoft Connect et Rockstar "
+                          "s'ajoutent aussi depuis Spark Games : il installe chacun avec Wine "
+                          "et liste ses jeux.",
+    'games.open': "Ouvrir Spark Games",
+    'games.launchers': "Installer Steam",
+    'games.steam_move': "Les jeux Steam du disque Windows n'ont pas à être téléchargés de "
+                        "nouveau : la page Quitter Windows les montre et explique comment les "
+                        "copier.",
+    'games.later': "Les autres lanceurs, comme celui de Minecraft, sont dans Spark Games et le "
+                   "magasin.",
+    'apps.intro': "Les applications SparkOS d'abord, puis celles d'autres entreprises pour ce "
+                  "que SparkOS ne fait pas lui-même. Rien n'est coché : choisissez ce que vous "
+                  "utilisez.",
+    'apps.spark': "Applications Spark à ajouter",
+    'apps.spark.intro': "Faites pour SparkOS et déjà sur ce PC, pas encore installées. Elles "
+                        "s'installent pour votre compte, sans téléchargement.",
+    'apps.instead': "Au lieu de {win}",
+    'optional.spark-space.win': "WinDirStat, TreeSize ou WizTree",
+    'optional.spark-bench.win': "CapFrameX ou PresentMon",
+    'optional.spark-connect.win': "Bureau à distance et PuTTY, pour vos propres PC et serveurs",
+    'apps.others': "Applications d'autres entreprises",
+    'apps.others.intro': "Pour clavarder, la musique, la diffusion et la création. Chacune "
+                         "indique à qui elle appartient.",
+    'win.title': "Quitter Windows",
+    'win.intro': "Si Windows est aussi sur ce PC, Spark Welcome peut copier votre Bureau, vos "
+                 "Documents, Images, Vidéos, Musique, Téléchargements et polices dans les "
+                 "mêmes dossiers ici. Il liste aussi les programmes que vous aviez, avec quoi "
+                 "utiliser ici pour chacun, et les jeux Steam à copier au lieu de les "
+                 "télécharger.",
+    'win.programs': "Vos programmes Windows",
+    'win.programs.intro': "Trouvés sur le disque Windows, avec quoi utiliser ici.",
+    'win.others': "{n} autres programmes n'ont pas de réponse ici. Cherchez-les dans le "
+                  "magasin; beaucoup de programmes Windows tournent aussi avec Spark Run.",
+    'win.others.show': "Afficher leurs noms",
+    'prog.spark': "Utilisez {name}. Il est déjà sur ce PC.",
+    'prog.games': "Spark Games s'y connecte ou l'ajoute pour vous.",
+    'prog.app': "Installez {name} pour Linux.",
+    'prog.optional': "Installez {name}, fait pour SparkOS.",
+    'prog.store': "Cherchez-le dans le magasin.",
+    'prog.install': "Installer",
+    'prog.queued': "En attente",
+    'prog.anticheat': "Utilise un anti-triche au niveau du noyau : ces jeux ne tournent pas "
+                      "sous Linux.",
+    'prog.onedrive': "Pas d'application OneDrive pour Linux. Utilisez onedrive.com dans Soot. "
+                     "Avant d'effacer Windows, assurez-vous que vos fichiers sont vraiment sur "
+                     "ce disque ou en ligne (voir plus bas).",
+    'prog.cloud': "Pas d'application Linux de cette entreprise. Utilisez son site dans Soot.",
+    'prog.teams': "Utilisez teams.microsoft.com dans Soot.",
+    'prog.drivers': "Pas nécessaire : les pilotes graphiques viennent avec SparkOS et se "
+                    "mettent à jour avec lui.",
+    'prog.peripherals': "Pas de version Linux. La souris et le clavier sont dans Spark "
+                        "Settings; l'éclairage et les ventilateurs dans Spark Controller.",
+    'win.steam': "Jeux Steam sur le disque Windows",
+    'win.steam.found': "{n} jeux sont sur ce disque. Les copier est plus rapide que de les "
+                       "télécharger de nouveau.",
+    'win.steam.none': "Steam est sur le disque Windows, mais aucun jeu n'a été trouvé dans ses "
+                      "bibliothèques sur ce disque. Celles des autres disques sont listées ici.",
+    'win.steam.more': "et {n} autres",
+    'win.steam.open': "Ouvrir le dossier",
+    'win.steam.how': "Pour chaque jeu : dans Steam ici, lancez son installation, puis mettez "
+                     "le téléchargement en pause. Copiez le dossier du jeu du disque Windows "
+                     "dans {common}, puis reprenez. Steam vérifie les fichiers et ne "
+                     "télécharge que ce qui manque.",
+    'win.before': "Avant d'effacer Windows",
+    'win.before.intro': "Copier les dossiers n'apporte pas tout. Vérifiez ceci pendant que "
+                        "Windows fonctionne encore.",
+    'win.before.1.title': "Mots de passe et favoris",
+    'win.before.1': "Ils sont chiffrés sur le disque Windows et ne peuvent pas être copiés. "
+                    "Connectez-vous au compte de votre navigateur et activez la "
+                    "synchronisation, ou exportez les mots de passe depuis ses réglages, puis "
+                    "importez-les dans Soot.",
+    'win.before.2.title': "Fichiers OneDrive",
+    'win.before.2': "Les fichiers avec une icône de nuage sont seulement en ligne. Faites un "
+                    "clic droit sur le dossier OneDrive et choisissez Toujours conserver sur "
+                    "cet appareil avant de copier, ou téléchargez-les plus tard depuis "
+                    "onedrive.com.",
+    'win.before.3.title': "Sauvegardes de jeux",
+    'win.before.3': "La plupart des lanceurs synchronisent les sauvegardes en ligne. Les jeux "
+                    "qui ne le font pas les gardent dans Documents\\My Games, Saved Games ou "
+                    "AppData : copiez aussi ces dossiers.",
+    'win.before.4.title': "Licences",
+    'win.before.4': "Notez les clés des programmes payés, et déconnectez-vous des applications "
+                    "limitées à quelques appareils, comme Adobe ou Office.",
+    'win.before.5.title': "Codes de validation en deux étapes",
+    'win.before.5': "Si une application d'authentification ou une clé de sécurité est "
+                    "configurée sous Windows, déplacez-la d'abord vers votre téléphone, sinon "
+                    "vous pourriez perdre l'accès à vos comptes.",
+    'win.before.6.title': "Mot de passe Wi-Fi",
+    'win.before.6': "Notez-le, ou trouvez-le sur votre routeur.",
+    'win.before.7.title': "BitLocker",
+    'win.before.7': "Un disque verrouillé ne peut pas être ouvert ici. Désactivez BitLocker "
+                    "dans Windows, ou notez la clé de récupération sur account.microsoft.com.",
+    'win.before.8.title': "Démarrage rapide",
+    'win.before.8': "Désactivez-le dans les options d'alimentation de Windows. Sinon, Windows "
+                    "laisse son disque à moitié fermé, et il ne peut être ouvert qu'en lecture "
+                    "seule ici.",
+    'win.before.9.title': "Gardez Windows encore un peu",
+    'win.before.9': "Utilisez SparkOS pendant une semaine normale d'abord. Quand rien ne "
+                    "manque, Windows peut partir.",
+    'done.intro': "Trois choses à savoir.",
+    'done.store': "Les applications s'installent depuis le magasin en un clic et se mettent à "
+                  "jour toutes seules. Double-cliquez sur un .exe, .AppImage ou .rpm "
+                  "téléchargé : SparkOS dit ce qu'il peut en faire, et Spark Run ouvre les "
+                  "programmes Windows.",
+    'done.keys.title': "Les touches de Windows qui marchent encore",
+    'done.keys': "Touche Windows : Spark Launcher. Ctrl+Maj+Échap : Spark Monitor. Impr. écran "
+                 "ou Meta+Maj+S : Spark Snip. Ctrl+C, Ctrl+V et Alt+Tab marchent comme "
+                 "d'habitude.",
+    'done.settings': "L'affichage, le son, le réseau, le Bluetooth, les imprimantes et le "
+                     "reste sont dans Spark Settings.",
 }
 
 LANG = ui_language()

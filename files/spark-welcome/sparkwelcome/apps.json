@@ -1,79 +1,151 @@
 {
-  "_comment": "What Spark Welcome offers. Every id is a Flathub app id; nothing here is installed until the user ticks it and clicks Install. 'by' is whose app it is. French: name_fr, by_fr and blurb_fr (the English is used when one is left out).",
+  "_comment": "What Spark Welcome offers from other companies: only what no SparkOS app already does (Spark Games handles Epic, GOG, Amazon, Battle.net, EA, Ubisoft and Rockstar, so Steam is the only launcher here). Every id is a Flathub app id, run.<key> (a Windows app Spark Run installs) or web.<name> (a menu entry that opens a web app); nothing is installed until the user ticks it and clicks Install. 'by' is whose app it is. French: name_fr, by_fr and blurb_fr (the English is used when one is left out).",
   "version": 1,
   "launchers": [
-    {"id": "com.valvesoftware.Steam", "name": "Steam", "by": "Valve",
-     "blurb": "The biggest PC game store. Runs most Windows games through Proton.",
-     "blurb_fr": "Le plus grand magasin de jeux PC. Fait fonctionner la plupart des jeux Windows grâce à Proton."},
-    {"id": "com.heroicgameslauncher.hgl", "name": "Heroic", "by": "the Heroic Games Launcher project",
-     "blurb": "Your Epic Games, GOG and Amazon Prime Gaming libraries.",
-     "by_fr": "le projet Heroic Games Launcher",
-     "blurb_fr": "Vos bibliothèques Epic Games, GOG et Amazon Prime Gaming."},
-    {"id": "net.lutris.Lutris", "name": "Lutris", "by": "the Lutris project",
-     "blurb": "Battle.net, EA app, Ubisoft Connect and other launchers, set up by install scripts.",
-     "by_fr": "le projet Lutris",
-     "blurb_fr": "Battle.net, l'application EA, Ubisoft Connect et d'autres lanceurs, installés par des scripts."},
-    {"id": "net.davidotek.pupgui2", "name": "ProtonUp-Qt", "by": "DavidoTek",
-     "blurb": "Adds newer Proton and Wine builds to Steam, Heroic and Lutris, for games that need them.",
-     "blurb_fr": "Ajoute des versions récentes de Proton et de Wine à Steam, Heroic et Lutris, pour les jeux qui en ont besoin."}
+    {
+      "id": "com.valvesoftware.Steam",
+      "name": "Steam",
+      "by": "Valve",
+      "blurb": "The biggest PC game store, and Spark Games needs it for your Steam games. Runs most Windows games through Proton.",
+      "blurb_fr": "Le plus grand magasin de jeux PC, et Spark Games en a besoin pour vos jeux Steam. Fait fonctionner la plupart des jeux Windows grâce à Proton."
+    }
   ],
   "categories": [
-    {"name": "Chat", "name_fr": "Clavardage", "apps": [
-      {"id": "com.discordapp.Discord", "name": "Discord", "by": "Discord Inc.",
-       "blurb": "Voice, video and text chat, mostly for gaming.",
-       "blurb_fr": "Clavardage vocal, vidéo et texte, surtout pour les jeux."},
-      {"id": "org.signal.Signal", "name": "Signal", "by": "the Signal Foundation",
-       "blurb": "Encrypted messages and calls. Links to the Signal app on your phone.",
-       "by_fr": "la Signal Foundation",
-       "blurb_fr": "Messages et appels chiffrés. Se relie à l'application Signal de votre téléphone."},
-      {"id": "org.telegram.desktop", "name": "Telegram", "by": "Telegram",
-       "blurb": "Messages, groups and channels.",
-       "blurb_fr": "Messages, groupes et canaux."}
-    ]},
-    {"name": "Music", "name_fr": "Musique", "apps": [
-      {"id": "com.spotify.Client", "name": "Spotify", "by": "Spotify",
-       "blurb": "Music and podcasts streaming. Needs a Spotify account.",
-       "blurb_fr": "Musique et balados en continu. Demande un compte Spotify."},
-      {"id": "run.amazon-music", "name": "Amazon Music (Windows app, Ultra HD)", "by": "Amazon", "run": "amazon-music",
-       "name_fr": "Amazon Music (application Windows, Ultra HD)",
-       "blurb": "Amazon has no Linux app, so this runs Amazon's Windows app with Spark Run. It downloads Amazon's installer (about 90 MB, checked before it runs) and adds Amazon Music to your menu. Ultra HD only plays above 48 kHz when your sound output runs at that rate: set it in Spark Settings, Sound. Needs an Amazon account.",
-       "blurb_fr": "Amazon n'a pas d'application Linux : ceci lance l'application Windows d'Amazon avec Spark Run. Il télécharge l'installateur d'Amazon (environ 90 Mo, vérifié avant d'être lancé) et ajoute Amazon Music à votre menu. L'Ultra HD ne joue au-delà de 48 kHz que si votre sortie audio tourne à ce taux : réglez-le dans Spark Settings, Son. Demande un compte Amazon."}
-    ]},
-    {"name": "Streaming and recording", "name_fr": "Diffusion et enregistrement", "apps": [
-      {"id": "com.obsproject.Studio", "name": "OBS Studio", "by": "the OBS Project",
-       "blurb": "Record your screen or stream to Twitch and YouTube.",
-       "by_fr": "le projet OBS",
-       "blurb_fr": "Enregistrez votre écran ou diffusez sur Twitch et YouTube."}
-    ]},
-    {"name": "Video calls", "name_fr": "Appels vidéo", "apps": [
-      {"id": "us.zoom.Zoom", "name": "Zoom", "by": "Zoom Communications",
-       "blurb": "Video meetings.",
-       "blurb_fr": "Réunions vidéo."}
-    ]},
-    {"name": "Creative", "name_fr": "Création", "apps": [
-      {"id": "org.gimp.GIMP", "name": "GIMP", "by": "the GIMP team",
-       "blurb": "Photo editing and retouching.",
-       "by_fr": "l'équipe GIMP",
-       "blurb_fr": "Retouche et édition de photos."},
-      {"id": "org.kde.krita", "name": "Krita", "by": "KDE and the Krita Foundation",
-       "blurb": "Digital painting and drawing.",
-       "by_fr": "KDE et la Krita Foundation",
-       "blurb_fr": "Peinture et dessin numériques."},
-      {"id": "org.kde.kdenlive", "name": "Kdenlive", "by": "KDE",
-       "blurb": "Video editing.",
-       "blurb_fr": "Montage vidéo."},
-      {"id": "org.blender.Blender", "name": "Blender", "by": "the Blender Foundation",
-       "blurb": "3D modelling, animation and rendering.",
-       "by_fr": "la Blender Foundation",
-       "blurb_fr": "Modélisation 3D, animation et rendu."}
-    ]},
-    {"name": "Utilities", "name_fr": "Utilitaires", "apps": [
-      {"id": "org.kde.kcalc", "name": "KCalc", "by": "KDE",
-       "blurb": "A calculator.",
-       "blurb_fr": "Une calculatrice."},
-      {"id": "com.bitwarden.desktop", "name": "Bitwarden", "by": "Bitwarden Inc.",
-       "blurb": "Password manager. Needs a Bitwarden account.",
-       "blurb_fr": "Gestionnaire de mots de passe. Demande un compte Bitwarden."}
-    ]}
+    {
+      "name": "Chat",
+      "name_fr": "Clavardage",
+      "apps": [
+        {
+          "id": "com.discordapp.Discord",
+          "name": "Discord",
+          "by": "Discord Inc.",
+          "blurb": "Voice, video and text chat, mostly for gaming. This version can't see your games, so friends won't see \"Playing\" next to your name.",
+          "blurb_fr": "Clavardage vocal, vidéo et texte, surtout pour les jeux. Cette version ne voit pas vos jeux, alors vos amis ne verront pas « Joue à » à côté de votre nom."
+        },
+        {
+          "id": "org.signal.Signal",
+          "name": "Signal",
+          "by": "the Signal Foundation",
+          "blurb": "Encrypted messages and calls. Links to the Signal app on your phone.",
+          "by_fr": "la Signal Foundation",
+          "blurb_fr": "Messages et appels chiffrés. Se relie à l'application Signal de votre téléphone."
+        },
+        {
+          "id": "org.telegram.desktop",
+          "name": "Telegram",
+          "by": "Telegram",
+          "blurb": "Messages, groups and channels.",
+          "blurb_fr": "Messages, groupes et canaux."
+        },
+        {
+          "id": "web.whatsapp",
+          "name": "WhatsApp (web)",
+          "by": "Meta",
+          "web": "https://web.whatsapp.com",
+          "name_fr": "WhatsApp (Web)",
+          "blurb": "WhatsApp has no Linux app. This adds WhatsApp Web to your menu: it opens in your browser and links to WhatsApp on your phone.",
+          "blurb_fr": "WhatsApp n'a pas d'application Linux. Ceci ajoute WhatsApp Web à votre menu : il s'ouvre dans votre navigateur et se relie à WhatsApp sur votre téléphone."
+        }
+      ]
+    },
+    {
+      "name": "Music",
+      "name_fr": "Musique",
+      "apps": [
+        {
+          "id": "com.spotify.Client",
+          "name": "Spotify",
+          "by": "Spotify",
+          "blurb": "Music and podcasts streaming. Needs a Spotify account.",
+          "blurb_fr": "Musique et balados en continu. Demande un compte Spotify."
+        },
+        {
+          "id": "run.amazon-music",
+          "name": "Amazon Music (Windows app, Ultra HD)",
+          "by": "Amazon",
+          "run": "amazon-music",
+          "name_fr": "Amazon Music (application Windows, Ultra HD)",
+          "blurb": "Amazon has no Linux app, so this runs Amazon's Windows app with Spark Run. It downloads Amazon's installer (about 90 MB, checked before it runs) and adds Amazon Music to your menu. Ultra HD only plays above 48 kHz when your sound output runs at that rate: set it in Spark Settings, Sound. Needs an Amazon account.",
+          "blurb_fr": "Amazon n'a pas d'application Linux : ceci lance l'application Windows d'Amazon avec Spark Run. Il télécharge l'installateur d'Amazon (environ 90 Mo, vérifié avant d'être lancé) et ajoute Amazon Music à votre menu. L'Ultra HD ne joue au-delà de 48 kHz que si votre sortie audio tourne à ce taux : réglez-le dans Spark Settings, Son. Demande un compte Amazon."
+        }
+      ]
+    },
+    {
+      "name": "Streaming",
+      "name_fr": "Diffusion",
+      "apps": [
+        {
+          "id": "com.obsproject.Studio",
+          "name": "OBS Studio",
+          "by": "the OBS Project",
+          "blurb": "Stream to Twitch and YouTube, with scenes and sources. To just record the screen, Spark Snip already does it (Meta+Shift+R).",
+          "by_fr": "le projet OBS",
+          "blurb_fr": "Diffusez sur Twitch et YouTube, avec des scènes et des sources. Pour seulement enregistrer l'écran, Spark Snip le fait déjà (Méta+Maj+R)."
+        }
+      ]
+    },
+    {
+      "name": "Video calls",
+      "name_fr": "Appels vidéo",
+      "apps": [
+        {
+          "id": "us.zoom.Zoom",
+          "name": "Zoom",
+          "by": "Zoom Communications",
+          "blurb": "Video meetings.",
+          "blurb_fr": "Réunions vidéo."
+        }
+      ]
+    },
+    {
+      "name": "Creative",
+      "name_fr": "Création",
+      "apps": [
+        {
+          "id": "org.gimp.GIMP",
+          "name": "GIMP",
+          "by": "the GIMP team",
+          "blurb": "Photo editing and retouching (Spark Media shows photos but doesn't edit them).",
+          "by_fr": "l'équipe GIMP",
+          "blurb_fr": "Retouche et édition de photos (Spark Media affiche les photos, mais ne les modifie pas)."
+        },
+        {
+          "id": "org.kde.krita",
+          "name": "Krita",
+          "by": "KDE and the Krita Foundation",
+          "blurb": "Digital painting and drawing.",
+          "by_fr": "KDE et la Krita Foundation",
+          "blurb_fr": "Peinture et dessin numériques."
+        },
+        {
+          "id": "org.kde.kdenlive",
+          "name": "Kdenlive",
+          "by": "KDE",
+          "blurb": "Video editing.",
+          "blurb_fr": "Montage vidéo."
+        },
+        {
+          "id": "org.blender.Blender",
+          "name": "Blender",
+          "by": "the Blender Foundation",
+          "blurb": "3D modelling, animation and rendering.",
+          "by_fr": "la Blender Foundation",
+          "blurb_fr": "Modélisation 3D, animation et rendu."
+        }
+      ]
+    },
+    {
+      "name": "Passwords",
+      "name_fr": "Mots de passe",
+      "apps": [
+        {
+          "id": "com.bitwarden.desktop",
+          "name": "Bitwarden",
+          "by": "Bitwarden Inc.",
+          "blurb": "Password manager. Needs a Bitwarden account.",
+          "blurb_fr": "Gestionnaire de mots de passe. Demande un compte Bitwarden."
+        }
+      ]
+    }
   ]
 }

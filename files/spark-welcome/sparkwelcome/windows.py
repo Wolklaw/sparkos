@@ -43,6 +43,8 @@ SHELL_VALUES = {
     'Music': 'my music',
     'Downloads': '{374de290-123f-4565-9164-39c4925e467b}',
 }
+# Fonts installed for the account only (Windows 10 1809 and later), copied to ~/.local/share/fonts.
+USER_FONTS = r'AppData\Local\Microsoft\Windows\Fonts'
 SHELL_FOLDERS_KEY = r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders'
 # OneDrive's folder names in the languages Windows is most often set up in, for when the
 # registry file can't be read.
@@ -221,6 +223,18 @@ class Hive:
             else:
                 return None
         return nk
+
+    def subkeys(self, path: str) -> List[str]:
+        """Names of the keys under the key at path; [] if it's missing."""
+        nk = self.key(path)
+        if nk is None or not self._u32(nk + 0x14):
+            return []
+        names = []
+        for offset in self._list(self._u32(nk + 0x1C)):
+            child = self._cell(offset)
+            if self.data[child:child + 2] == b'nk':
+                names.append(self._key_name(child))
+        return names
 
     def values(self, path: str) -> Dict[str, Tuple[int, bytes]]:
         """{value name in lower case: (type, data)} of the key at path; {} if it's missing.
@@ -491,6 +505,10 @@ def find_users(root: str, windows: Optional[Partition] = None,
                 continue
             taken.add(os.path.realpath(path))
             user.folders.append(SourceFolder(key, path, xdg, fallback, where=where))
+        fonts = _walk_ci(entry.path, USER_FONTS)
+        if fonts and has_content(fonts):
+            user.folders.append(SourceFolder('Fonts', fonts, 'FONTS', '',
+                                             where=f"{profile_where}\\{USER_FONTS}"))
         if user.folders:
             found.append(user)
     return found
@@ -519,7 +537,15 @@ def measure(path: str, cancel: Optional[threading.Event] = None) -> Tuple[int, i
     return total, count
 
 
+def fonts_dir() -> str:
+    base = os.environ.get('XDG_DATA_HOME') or os.path.join(os.path.expanduser('~'), '.local',
+                                                           'share')
+    return os.path.join(base, 'fonts')
+
+
 def destination(folder: SourceFolder) -> str:
+    if folder.xdg == 'FONTS':
+        return fonts_dir()
     return xdg_user_dir(folder.xdg, folder.fallback)
 
 

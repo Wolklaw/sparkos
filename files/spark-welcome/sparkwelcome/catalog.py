@@ -37,6 +37,9 @@ class Entry:
     by_fr: str = ''
     web: str = ''    # a web app: the address its menu entry opens (empty for a Flathub app)
     run: str = ''    # a Windows app: its key in Spark Run's catalogue (spark-run --get KEY)
+    source: str = ''  # an optional Spark app: its source folder (install.sh --user), not apps.json
+    command: str = ''  # an optional Spark app: its command, to tell whether it's installed
+    desktop: str = ''  # an optional Spark app: its desktop entry id
 
     def label(self, lang: str = 'en') -> str:
         return (self.name_fr if lang == 'fr' and self.name_fr else self.name)

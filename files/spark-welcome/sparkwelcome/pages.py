@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import tkinter as tk
 
-from . import APP_NAME, catalog as catalog_mod, checks, core, flatpak, windows
+from . import APP_NAME, catalog as catalog_mod, checks, core, flatpak, switch, windows
 from .strings import LANG, t
 from .widgets import T, GlitchPanel, GlitchText, Segmented, Strip, Toggle, WolkButton
 
@@ -166,26 +166,30 @@ class WelcomePage(Page):
         wrap = self.px(460)
         self.para(t('welcome.intro'), text, wrap=wrap)
         self.para(t('welcome.rest'), text, wrap=wrap)
-        self.micro(t('welcome.onboard'))
-        for name, what in (('Soot', t('welcome.soot')), ('FreeSuite', t('welcome.freesuite')),
-                           ('Spark Snip', t('welcome.snip')), ('Spark Media', t('welcome.media')),
-                           ('Spark Games', t('welcome.games')), ('Spark Monitor', t('welcome.monitor')),
-                           ('Spark Edit', t('welcome.edit')), ('Spark Calc', t('welcome.calc')),
-                           ('Spark Archive', t('welcome.archive')), ('Spark Scan', t('welcome.scan')),
-                           ('Spark Run', t('welcome.run')), ('Spark Link', t('welcome.link')),
-                           ('Spark Store', t('welcome.store')), ('Spark Update', t('welcome.update'))):
+        self.micro(t('welcome.swaps'))
+        self.para(t('welcome.swaps.intro'), muted=True, size=9)
+        for item in switch.SWAPS:
             box = self.panel(pady=(0, 6))
-            line = tk.Frame(box.inner, bg=T["panel"])
-            line.pack(fill="x", padx=px(12), pady=px(8))
-            tk.Label(line, text=name.upper(), bg=T["panel"], fg=T["accent"], font=self.app.font(9),
-                     width=15, anchor="w").pack(side="left")
-            tk.Label(line, text=what, bg=T["panel"], fg=T["text"], font=self.app.font(9, False),
-                     anchor="w", justify="left", wraplength=px(480)).pack(side="left", fill="x")
+            inner = tk.Frame(box.inner, bg=T["panel"])
+            inner.pack(fill="x", padx=px(12), pady=px(8))
+            head = tk.Frame(inner, bg=T["panel"])
+            head.pack(fill="x")
+            tk.Label(head, text=item.name.upper(), bg=T["panel"], fg=T["accent"],
+                     font=self.app.font(9), anchor="w").pack(side="left")
+            if switch.swap_installed(item):
+                WolkButton(head, t('open'), lambda c=item.command: self.app.action(f'open:{c}'),
+                           self.app.font(8), padx=8, pady=2).pack(side="right")
+            tk.Label(inner, text=t('welcome.instead', win=t(f'swap.{item.key}.win')),
+                     bg=T["panel"], fg=T["muted"], font=self.app.font(8, False), anchor="w",
+                     justify="left", wraplength=px(600)).pack(fill="x", pady=(px(2), 0))
+            tk.Label(inner, text=t(f'swap.{item.key}.what'), bg=T["panel"], fg=T["text"],
+                     font=self.app.font(9, False), anchor="w", justify="left",
+                     wraplength=px(600)).pack(fill="x", pady=(px(2), 0))
         self.micro(t('welcome.how'))
         self.para(t('welcome.skip'), muted=True)
 
 
-# ─── 2 and 3. Games and Apps ──────────────────────────────────
+# ─── 3 and 4. Games and Apps ──────────────────────────────────
 
 class Tick(Toggle):
     """A Toggle that can be locked (installed, queued)."""
@@ -218,7 +222,8 @@ class Tick(Toggle):
 class AppRow(GlitchPanel):
     """One app: tick, name, whose app it is, a line about it, and how its install is going."""
 
-    def __init__(self, parent: tk.Misc, page: 'InstallPage', entry: catalog_mod.Entry):
+    def __init__(self, parent: tk.Misc, page: 'InstallPage', entry: catalog_mod.Entry,
+                 note: str = ''):
         super().__init__(parent, T["panel"])
         app, px = page.app, page.px
         self.page, self.app, self.entry = page, app, entry
@@ -241,6 +246,10 @@ class AppRow(GlitchPanel):
         tk.Label(left, text=entry.text(LANG), bg=T["panel"], fg=T["muted"],
                  font=app.font(9, False), anchor="w", justify="left",
                  wraplength=px(520)).pack(anchor="w", fill="x", pady=(px(4), 0))
+        if note:
+            tk.Label(left, text=note, bg=T["panel"], fg=T["dim"], font=app.font(8, False),
+                     anchor="w", justify="left", wraplength=px(520)).pack(
+                         anchor="w", fill="x", pady=(px(3), 0))
         self.error = tk.Label(left, text="", bg=T["panel"], fg=T["pink"], font=app.font(8, False),
                               anchor="w", justify="left", wraplength=px(520))
         app.rows[entry.id] = self
@@ -292,9 +301,9 @@ class InstallPage(Page):
 
     rows: List[AppRow]
 
-    def add_rows(self, entries: List[catalog_mod.Entry]):
+    def add_rows(self, entries: List[catalog_mod.Entry], notes: Optional[Dict[str, str]] = None):
         for entry in entries:
-            row = AppRow(self.col, self, entry)
+            row = AppRow(self.col, self, entry, (notes or {}).get(entry.id, ''))
             row.pack(fill="x", pady=(0, self.px(6)))
             self.rows.append(row)
 
@@ -329,11 +338,19 @@ class GamesPage(InstallPage):
         self.rows = []
         self.title(t('games.title'))
         self.para(t('games.intro'))
+        box = self.panel(pady=(4, 8))
+        inner = tk.Frame(box.inner, bg=T["panel"])
+        inner.pack(fill="x", padx=self.px(12), pady=self.px(10))
+        self.micro('Spark Games', inner, colour=T["accent"], pady=(0, 6))
+        self.para(t('games.spark'), inner, size=9, pady=(0, 6), wrap=self.px(620))
+        self.para(t('games.spark.stores'), inner, size=9, muted=True, pady=(0, 8),
+                  wrap=self.px(620))
+        if swap_open(switch.swap('games')):
+            self.button(inner, t('games.open'), lambda: self.app.action('open:spark-games'))
         self.micro(t('games.launchers'))
         self.add_rows(self.app.catalog.launchers)
         self.install_bar()
-        if core.app_installed('dev.wolklaw.SparkGames', 'spark-games'):
-            self.para(t('games.spark_games'), muted=True, pady=(12, 0))
+        self.para(t('games.steam_move'), muted=True, pady=(6, 0))
         self.micro(t('games.anticheat.label'), colour=T["gold"], pady=(22, 6))
         box = self.panel()
         inner = tk.Frame(box.inner, bg=T["panel"])
@@ -343,11 +360,23 @@ class GamesPage(InstallPage):
         self.para(t('games.later'), muted=True, pady=(14, 0))
 
 
+def swap_open(item: Optional[switch.Swap]) -> bool:
+    return item is not None and switch.swap_installed(item)
+
+
 class AppsPage(InstallPage):
     def build(self):
         self.rows = []
         self.title(t('apps.title'))
         self.para(t('apps.intro'))
+        if self.app.optional:
+            self.micro(t('apps.spark'))
+            self.para(t('apps.spark.intro'), muted=True, size=9, pady=(0, 6))
+            notes = {e.id: t('apps.instead', win=t(f'optional.{e.id[6:]}.win'))
+                     for e in self.app.optional if e.id[6:] in switch.OPTIONAL_WIN}
+            self.add_rows(self.app.optional, notes)
+        self.micro(t('apps.others'), pady=(18, 6))
+        self.para(t('apps.others.intro'), muted=True, size=9, pady=(0, 6))
         for cat in self.app.catalog.categories:
             self.micro(cat.label(LANG))
             self.add_rows(cat.apps)
@@ -356,7 +385,7 @@ class AppsPage(InstallPage):
         self.para(t('apps.flathub'), muted=True, pady=(14, 0))
 
 
-# ─── 4. Files from Windows ────────────────────────────────────
+# ─── 2. Moving from Windows ───────────────────────────────────
 
 class WindowsPage(Page):
     def build(self):
@@ -369,8 +398,10 @@ class WindowsPage(Page):
         self.drives.pack(fill="x", pady=(self.px(10), 0))
         self.area = tk.Frame(self.col, bg=T["bg"])
         self.area.pack(fill="x")
+        self.extra = tk.Frame(self.col, bg=T["bg"])     # programs and Steam games found
+        self.extra.pack(fill="x")
+        self.checklist()
         self.scanned = False
-        self.parts: List[windows.Partition] = []
         self.parts: List[windows.Partition] = []
         self.cancel = threading.Event()
         self.copying = False
@@ -378,6 +409,7 @@ class WindowsPage(Page):
         self.user: Optional[windows.WindowsUser] = None
         self.ticks: Dict[str, Toggle] = {}
         self.sizes: Dict[str, tk.Label] = {}
+        self.install_btns: Dict[Any, WolkButton] = {}
 
     def shown(self):
         if not self.scanned:
@@ -433,18 +465,33 @@ class WindowsPage(Page):
         self.para(t('win.mounting', name=part.label or part.name), self.area, muted=True,
                   pady=(12, 0))
 
+        self.clear(self.extra)
+
         def work():
             point, problem = windows.mount_read_only(part)
-            users = windows.find_users(point, part, self.parts)                 if point else []
-            return point, problem, users
+            users = windows.find_users(point, part, self.parts) if point else []
+            programs, steam = switch.Programs(), []
+            if point:
+                try:
+                    profiles = [u.path for u in users]
+                    programs = switch.find_programs(point, profiles)
+                    steam = switch.steam_libraries(point, windows.Drives(point, part,
+                                                                          self.parts))
+                except Exception as exc:          # a damaged registry must not hide the files
+                    core.log.info("programs not read: %s", exc)
+            return point, problem, users, programs, steam
 
         self.app.bg(work, self._mounted)
 
     def _mounted(self, result):
         self.clear(self.area)
+        self.clear(self.extra)
         if isinstance(result, Exception):
-            result = (None, str(result), [])
-        point, problem, users = result
+            result = (None, str(result), [], switch.Programs(), [])
+        point, problem, users, programs, steam = result
+        if point:
+            self.show_programs(programs)
+            self.show_steam(steam)
         if not point:
             self.para(problem, self.area, colour=T["pink"], pady=(12, 0))
             self.app.event(error=True)
@@ -609,6 +656,131 @@ class WindowsPage(Page):
         self.app.event(error=bool(summary.failed))
 
 
+    # programs and games found on the Windows drive
+    def show_programs(self, found: switch.Programs):
+        if not found.matched and not found.others:
+            return
+        self.micro(t('win.programs'), self.extra, pady=(22, 6))
+        self.para(t('win.programs.intro'), self.extra, muted=True, size=9, pady=(0, 6))
+        for program in found.matched:
+            self.program_row(program)
+        if found.others:
+            box = self.panel(self.extra, pady=(4, 6))
+            inner = tk.Frame(box.inner, bg=T["panel"])
+            inner.pack(fill="x", padx=self.px(12), pady=self.px(10))
+            self.para(t('win.others', n=len(found.others)), inner, size=9, pady=(0, 6),
+                      wrap=self.px(620))
+            names = tk.Label(inner, text=', '.join(found.others), bg=T["panel"], fg=T["muted"],
+                             font=self.app.font(8, False), anchor="w", justify="left",
+                             wraplength=self.px(620))
+            bar = tk.Frame(inner, bg=T["panel"])
+            bar.pack(fill="x")
+            btn = WolkButton(bar, t('win.others.show'), lambda: None, self.app.font(8),
+                             padx=8, pady=2)
+
+            def show():
+                names.pack(fill="x", pady=(self.px(8), 0))
+                btn.pack_forget()
+
+            btn.command = show
+            btn.pack(side="left")
+            WolkButton(bar, t('apps.store'), lambda: self.app.action('store'), self.app.font(8),
+                       padx=8, pady=2).pack(side="left", padx=(self.px(6), 0))
+
+    def program_row(self, program: switch.Program):
+        kind, key = program.answer
+        box = self.panel(self.extra, pady=(0, 6))
+        inner = tk.Frame(box.inner, bg=T["panel"])
+        inner.pack(fill="x", padx=self.px(12), pady=self.px(8))
+        head = tk.Frame(inner, bg=T["panel"])
+        head.pack(fill="x")
+        tk.Label(head, text=program.name, bg=T["panel"], fg=T["text"], font=self.app.font(9),
+                 anchor="w").pack(side="left")
+        text, button = '', None
+        if kind == 'spark':
+            item = switch.swap(key)
+            text = t('prog.spark', name=item.name if item else key)
+            if item and switch.swap_installed(item):
+                button = (t('open'), lambda c=item.command: self.app.action(f'open:{c}'))
+        elif kind == 'games':
+            text = t('prog.games')
+            if swap_open(switch.swap('games')):
+                button = (t('open'), lambda: self.app.action('open:spark-games'))
+        elif kind in ('app', 'optional'):
+            entry = self.app.entry(key if kind == 'app' else f'spark.{key}')
+            if entry is None:
+                text = t('prog.store')
+            else:
+                text = t('prog.optional' if kind == 'optional' else 'prog.app',
+                         name=entry.label(LANG))
+                if entry.id not in self.app.installed:
+                    button = (t('prog.install'), lambda e=entry: self.queue(e))
+        else:
+            text = t(key)
+        tk.Label(inner, text=text, bg=T["panel"], fg=T["muted"], font=self.app.font(8, False),
+                 anchor="w", justify="left", wraplength=self.px(600)).pack(
+                     fill="x", pady=(self.px(2), 0))
+        if button:
+            btn = WolkButton(head, button[0], button[1], self.app.font(8), padx=8, pady=2)
+            btn.pack(side="right")
+            if button[0] == t('prog.install'):
+                self.install_btns[program.answer] = btn
+
+    def queue(self, entry):
+        self.app.install([entry])
+        for answer, btn in self.install_btns.items():
+            if answer[1] in (entry.id, entry.id[6:]) and btn.winfo_exists():
+                btn.set_text(t('prog.queued'))
+                btn.set_enabled(False)
+
+    def show_steam(self, libraries: List[switch.SteamLibrary]):
+        if not libraries:
+            return
+        self.micro(t('win.steam'), self.extra, pady=(22, 6))
+        box = self.panel(self.extra)
+        inner = tk.Frame(box.inner, bg=T["panel"])
+        inner.pack(fill="x", padx=self.px(12), pady=self.px(10))
+        games = sum(len(lib.games) for lib in libraries)
+        self.para(t('win.steam.found', n=games) if games else t('win.steam.none'), inner,
+                  size=9, pady=(0, 6), wrap=self.px(620))
+        for lib in libraries:
+            head = tk.Frame(inner, bg=T["panel"])
+            head.pack(fill="x", pady=(self.px(4), self.px(2)))
+            line = lib.where + (f"  ·  {len(lib.games)}" if lib.games else '')
+            tk.Label(head, text=line, bg=T["panel"], fg=T["muted"], font=self.app.font(8),
+                     anchor="w").pack(side="left")
+            if lib.common:
+                WolkButton(head, t('win.steam.open'), lambda c=lib.common: self.open_folder(c),
+                           self.app.font(8), padx=8, pady=2).pack(side="right")
+            if lib.games:
+                shown = ', '.join(lib.games[:12])
+                if len(lib.games) > 12:
+                    shown += ' ' + t('win.steam.more', n=len(lib.games) - 12)
+                self.para(shown, inner, size=8, colour=T["dim"], pady=(0, 4), wrap=self.px(620))
+        self.para(t('win.steam.how', common=switch.STEAM_FLATPAK_COMMON), inner, size=9,
+                  pady=(8, 0), wrap=self.px(620))
+
+    def open_folder(self, path: str):
+        if core.open_url(path):
+            self.app.set_status(t('status.opened'))
+        else:
+            self.app.set_status(t('status.cant_open'), T["pink"], 6000)
+
+    def checklist(self):
+        self.micro(t('win.before'), colour=T["gold"], pady=(26, 6))
+        self.para(t('win.before.intro'), muted=True, size=9, pady=(0, 6))
+        for n in range(1, 10):
+            box = self.panel(pady=(0, 6))
+            inner = tk.Frame(box.inner, bg=T["panel"])
+            inner.pack(fill="x", padx=self.px(12), pady=self.px(8))
+            tk.Label(inner, text=t(f'win.before.{n}.title'), bg=T["panel"], fg=T["accent"],
+                     font=self.app.font(9), anchor="w", justify="left",
+                     wraplength=self.px(600)).pack(fill="x")
+            tk.Label(inner, text=t(f'win.before.{n}'), bg=T["panel"], fg=T["text"],
+                     font=self.app.font(8, False), anchor="w", justify="left",
+                     wraplength=self.px(600)).pack(fill="x", pady=(self.px(2), 0))
+
+
 # ─── 5. Check this PC ─────────────────────────────────────────
 
 class ChecksPage(Page):
@@ -696,16 +868,16 @@ class DonePage(Page):
     def build(self):
         self.title(t('done.title'))
         self.para(t('done.intro'))
-        for key, button, action in (('store', 'done.store.button', 'store'),
-                                    ('snip', 'done.snip.button', 'snip'),
-                                    ('settings', 'done.settings.button', 'settings')):
+        for key, action in (('store', 'store'), ('keys', ''), ('settings', 'settings')):
             box = self.panel(pady=(0, 8))
             inner = tk.Frame(box.inner, bg=T["panel"])
             inner.pack(fill="x", padx=self.px(12), pady=self.px(10))
             self.micro(t(f'done.{key}.title'), inner, colour=T["accent"], pady=(0, 4))
-            self.para(t(f'done.{key}'), inner, size=9, pady=(0, 8), wrap=self.px(620))
-            WolkButton(inner, t(button), lambda a=action: self.app.action(a),
-                       self.app.font(8), padx=8, pady=2).pack(anchor="w")
+            self.para(t(f'done.{key}'), inner, size=9, pady=(0, 8 if action else 0),
+                      wrap=self.px(620))
+            if action:
+                WolkButton(inner, t(f'done.{key}.button'), lambda a=action: self.app.action(a),
+                           self.app.font(8), padx=8, pady=2).pack(anchor="w")
         bar = self.row(pady=(16, 0))
         self.show_again = Toggle(bar, t('done.show_again'), self.app.show_again,
                                  self.app.set_show_again, self.app.font(9))
