@@ -76,7 +76,7 @@ Unit names, the host, paths and health URLs are checked against a short list of 
 - Always `-o BatchMode=yes -o StrictHostKeyChecking=yes`. An unknown or changed host key stops the refresh; the machine shows the message and the fingerprint ssh printed, and you check and accept the key yourself in a terminal.
 - Every 15 seconds for the machine that is open, every 60 seconds for the rest and the websites; nothing while the window is minimized. All SSH calls and site checks run on worker threads, so the window never waits.
 - On Linux one connection per host is reused (`ControlMaster`, socket in `~/.cache/spark-connect/`, closed 2 minutes after the last call). Windows' OpenSSH can't do that, so each refresh there is a new connection.
-- Website checks: one GET from this PC, 5 second timeout, user agent `SparkConnect/<version>`, nothing else.
+- Website checks: one GET from this PC, 5 second timeout, user agent `SparkConnect/<version>`, nothing else. A GET that times out or can't connect is tried once more over IPv4 only, so an IPv6 route that stalls for a minute doesn't show a working site as down; the time shown then covers both tries.
 - Ready for later: a machine has a `kind` (`linux`) and a `transport` (`ssh`); the screens only see the probe's JSON, so a hub transport can return the same format, and a tablet view can be added beside the machine view (`sparkconnect/views.py`). Neither exists yet.
 
 ## Install, run, test
