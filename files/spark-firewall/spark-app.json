@@ -1,0 +1,29 @@
+{
+  "id": "dev.wolklaw.SparkFirewall",
+  "slug": "spark-firewall",
+  "name": "Spark Firewall",
+  "name_fr": "Spark Firewall",
+  "summary": "Turn the firewall on or off, open what your games and apps need, and pick a zone for each network.",
+  "summary_fr": "Activer ou désactiver le pare-feu, ouvrir ce dont vos jeux et applications ont besoin, et choisir une zone pour chaque réseau.",
+  "version": "0.1.0",
+  "installed_size_kb": 260,
+  "icon": "icons/spark-firewall-256.png",
+  "categories": ["System", "Settings", "Security"],
+  "needs": {
+    "root": true,
+    "commands": ["python3", "pkexec", "firewall-cmd"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "nmcli": "remember the zone of each network (NetworkManager)"
+    },
+    "system": "Linux with firewalld and systemd; polkit for saving changes"
+  },
+  "install": {
+    "system": "sudo bash install.sh --deps",
+    "uninstall": "sudo bash install.sh --uninstall",
+    "self_test": "spark-firewall --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-firewall"
+}

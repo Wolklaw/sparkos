@@ -413,6 +413,21 @@ jobs:
           # Nothing is saved on a fresh system, so the service stays idle and no fan is touched
           $SSH 'test ! -e /etc/spark-controller/fans.json; ! systemctl is-active --quiet spark-controller.service'
 
+      - name: Check Spark Firewall
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # The firewall in plain words, in firewall-config's place: the files, the polkit action,
+          # a self-test that only reads firewalld, a helper that refuses a bad operation without
+          # running anything, and firewall-config out of the menu but still installed
+          $SSH 'set -e; spark-firewall --version; ls -l /usr/bin/spark-firewall /usr/libexec/spark-firewall-helper /usr/share/applications/dev.wolklaw.SparkFirewall.desktop /usr/share/polkit-1/actions/dev.wolklaw.SparkFirewall.policy'
+          $SSH 'spark-firewall --self-test' 2>&1 | tee "$WORK/spark-firewall-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-firewall-self-test.txt"
+          $SSH 'echo "{\"ops\": [{\"op\": \"service\", \"zone\": \"--reload\", \"name\": \"ssh\", \"add\": true}]}" | /usr/libexec/spark-firewall-helper apply; echo "exit $?"' 2>&1 | tee "$WORK/spark-firewall-refuse.txt"
+          grep -q 'refused' "$WORK/spark-firewall-refuse.txt"
+          grep -qx 'exit 2' "$WORK/spark-firewall-refuse.txt"
+          $SSH 'rpm -q firewalld >/dev/null; grep -c "^NoDisplay=true" /usr/share/applications/firewall-config.desktop' | tee "$WORK/spark-firewall-takeover.txt"
+          grep -qx '1' "$WORK/spark-firewall-takeover.txt" || { echo "::error::firewall-config is still in the menu"; exit 1; }
+
       - name: Check Spark Files
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
@@ -649,7 +664,7 @@ jobs:
           $SSH 'cd /usr/share/applications; for f in *.desktop; do
                   sed -n "/^\[Desktop Entry\]/,/^\[/p" "$f" | grep -qE "^(NoDisplay|Hidden)=true" || echo "$f"
                 done' | tee "$WORK/menu.txt"
-          SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-|org\.kde\.(plasma\.emojier|kdeconnect\.(daemon|handler))|org\.gnome\.DiskUtility|firewall-config)' "$WORK/menu.txt" || true)
+          SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-|org\.kde\.(plasma\.emojier|kdeconnect\.(daemon|handler))|org\.gnome\.DiskUtility)' "$WORK/menu.txt" || true)
           [ -z "$SHOWN" ] || echo "::warning::in the app menu but not SparkOS's own: $(echo $SHOWN)"
           for id in org.kde.kdeconnect.app org.kde.ark org.kde.discover btop nvtop org.kde.kinfocenter org.kde.kjournaldbrowser; do
             if grep -qx "$id.desktop" "$WORK/menu.txt"; then echo "::error::$id is still in the app menu"; exit 1; fi

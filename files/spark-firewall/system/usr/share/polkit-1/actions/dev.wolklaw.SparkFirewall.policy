@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>SparkOS</vendor>
+  <vendor_url>https://github.com/Wolklaw/sparkos</vendor_url>
+
+  <action id="dev.wolklaw.SparkFirewall.configure">
+    <description>Change the firewall</description>
+    <description xml:lang="fr">Modifier le pare-feu</description>
+    <message>Authentication is required to change the firewall</message>
+    <message xml:lang="fr">Une authentification est requise pour modifier le pare-feu</message>
+    <icon_name>dev.wolklaw.SparkFirewall</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/spark-firewall-helper</annotate>
+  </action>
+</policyconfig>

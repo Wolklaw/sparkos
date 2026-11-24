@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-spark-firewall",
+      "date": "2026-11-23",
+      "en": "Spark Firewall replaces firewall-config. It shows whether the firewall is on, lets you turn it on or off, picks a zone for each network, and has switches for Steam Remote Play, Spark Link, file sharing and more. Nothing changes until you press Apply. It tells you when the default zone already leaves ports 1025 and up open. firewall-config stays installed but is out of the menu. Not tried on a real firewall change yet.",
+      "fr": "Spark Firewall remplace firewall-config. Il montre si le pare-feu est activé, permet de l'activer ou de le désactiver, choisit une zone pour chaque réseau et offre des interrupteurs pour Steam Remote Play, Spark Link, le partage de fichiers et plus. Rien ne change avant d'appuyer sur Appliquer. Il indique quand la zone par défaut laisse déjà les ports 1025 et plus ouverts. firewall-config reste installé mais n'est plus dans le menu. Pas encore essayé sur un vrai changement de pare-feu."
+    },
+    {
       "id": "2026-11-23-controller-rgb-identical-devices",
       "date": "2026-11-23",
       "en": "Spark Controller's Spark RGB tab lists every light. Two identical parts (a pair of RAM sticks, for example) stopped the list at the second one, so the motherboard, mouse and anything after them never showed. Effects a device doesn't have now show its colour steady instead of failing.",
