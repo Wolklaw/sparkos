@@ -10,8 +10,10 @@ Spark Monitor ships in the SparkOS image ([build step](../scripts/spark-monitor.
 - **Performance:** the last 60 seconds of CPU (total and each thread, clock, temperature), memory (in use, available, cached, swap and zram), each GPU (usage, video memory, clock, temperature, hotspot, power, fan), each disk (active time, read and write, temperature for NVMe, how full it is) and each network adapter (send and receive).
 - **Startup:** autostart entries and `systemd --user` services, each with a switch.
 - **Details:** every process with PID, user, state, CPU, memory, nice and command line; End process and End process tree.
+- **Logs:** the systemd journal, live. Pick this boot or the previous one, errors only, warnings and errors, or everything, then filter by app or unit and search the text. Each row has a plain sentence ("blender was ended because the PC ran out of memory"); select it for the full entry and a Copy entry button. A second view lists crashes from `coredumpctl` (app, time, signal) with the details and a Copy report button that puts a report on the clipboard and sends nothing anywhere; the machine ID, host name and user name are left out. Failed units and a previous boot that didn't shut down cleanly show at the top.
+- **System:** what this PC is, for a support request: SparkOS version and image digest, kernel, processor, each GPU with its kernel driver and Mesa version, memory (size, type and speed), motherboard and BIOS, disks, displays and uptime. **Copy all** puts it on the clipboard without serial numbers; the Serial numbers switch adds them to the screen and the copy.
 
-Ctrl+1 to Ctrl+4 switch tabs, F5 refreshes now, Ctrl+W closes. Pressing Ctrl+Shift+Esc while it is open brings the open window forward instead of starting a second one.
+Ctrl+1 to Ctrl+6 switch tabs, F5 refreshes now, Ctrl+W closes. Pressing Ctrl+Shift+Esc while it is open brings the open window forward instead of starting a second one.
 
 ## How it works
 
@@ -59,6 +61,16 @@ python3 make_icons.py                     # redraw icons/ after changing the mar
 `spark-app.json` describes the app for the Spark Portal (ID, name, summary, version, size, what it needs, how to install it).
 
 The tests use a fake `/proc` and `/sys` in `tests/fixtures/root`: a Ryzen 7 7800X3D with 16 threads, an RX 6800 XT plus the CPU's own graphics with their hwmon sensors, an NVMe drive behind LUKS, Plasma 6 app scopes, a Flatpak Steam running a game. End task is tested against real processes the tests start (Linux only). CI ([workflow](../../.github/workflows/spark-monitor.yml)) runs the image build step and everything else under Xvfb in Fedora, measures the speed, and inside the published SparkOS image installs it with `--user` as a normal user, runs the self-test and the unit tests, and uninstalls it.
+
+## Logs and System: how they work
+
+- **Nothing runs until you open the tab.** The Logs tab starts `journalctl -o json -f` when it opens and stops it when you leave; the System tab reads its programs once, on a thread. Spark Monitor still runs nothing in the background.
+- **The journal is capped.** The newest 2000 entries are kept, long messages are cut, and the table shows what matches your filters among those. Boot and level are chosen in `journalctl`, so a quiet level reaches back further; the app and text filters look only at what is loaded.
+- **Read as your user.** The journal needs your account to be in `wheel` or `systemd-journal` (the SparkOS default account is); if it isn't, the tab says so. Memory size and speed come from the udev database (`udevadm info -p /devices/virtual/dmi/id`), which holds what the firmware reported at boot and needs no root. Motherboard fields come from `/sys/class/dmi/id`; fields only root can read (serial numbers on some boards) are shown as not readable.
+- **Programs used, all optional:** `journalctl`, `coredumpctl`, `systemctl --failed`, `rpm-ostree status --json`, `udevadm`, `vulkaninfo` (GPU driver and Mesa version, `glxinfo` as a fallback), `kscreen-doctor`. If one is missing, its rows say so instead of failing. Tests use fixture files in `tests/fixtures/root/commands` instead of the real programs.
+- **Unclean shutdown is a guess.** The previous boot is called unclean when its last 300 lines contain none of the shutdown steps. A log cut short for another reason reads the same.
+- **Times** are in the PC's time zone, with the zone shown in copies.
+- **Tried on the real PC:** the owner's all-AMD desktop (Ryzen 7 7800X3D, RX 6800 XT, ASUS PRIME X670-P WIFI) showed the right processor, graphics driver and Mesa version, two memory modules with their rated and running speeds, the board and BIOS, three disks and three displays. The Logs tab loaded this and the previous boot, the crash list and a crash's details. Screenshots could not be taken in that session, so the look was checked in the widget tree and by the width test, not by eye.
 
 ## Known gaps
 

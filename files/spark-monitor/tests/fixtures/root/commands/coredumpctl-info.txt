@@ -1,0 +1,11 @@
+           PID: 4301 (fixture-viewer)
+           UID: 1000 (fixtureuser)
+           GID: 1000 (fixtureuser)
+        Signal: 11 (SEGV)
+     Timestamp: Mon 2026-03-02 09:00:50 EST (1h ago)
+  Command Line: fixture-viewer /home/fixtureuser/pic.png
+    Executable: /usr/bin/fixture-viewer
+    Machine ID: 00000000000000000000000000fixture
+       Boot ID: 11111111111111111111111111fixture
+      Hostname: fixture-host
+       Message: Process 4301 (fixture-viewer) of user 1000 dumped core.

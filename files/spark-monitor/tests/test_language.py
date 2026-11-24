@@ -88,7 +88,7 @@ class Window(unittest.TestCase):
     def test_text_fits_on_every_tab(self):
         from sparkmonitor.app import App
         from sparkmonitor.source import Source
-        for tab in ('apps', 'performance', 'startup', 'details'):
+        for tab in ('apps', 'performance', 'startup', 'details', 'logs', 'system'):
             app = App(Source(self.root), tab=tab)
             try:
                 self.pump(app, 0.8)
