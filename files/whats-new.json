@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-update-small-window",
+      "date": "2026-11-23",
+      "en": "Spark Update keeps Check now, Roll back, Settings and Log on screen in a small window: the list of changes gets shorter and scrolls instead, and long messages wrap to the window.",
+      "fr": "Spark Update garde Vérifier, Revenir en arrière, Réglages et Journal à l'écran dans une petite fenêtre : la liste des changements raccourcit et défile, et les longs messages s'ajustent à la fenêtre."
+    },
+    {
       "id": "2026-11-23-welcome-move-from-windows",
       "date": "2026-11-23",
       "en": "Spark Welcome is a guide for moving from Windows. It shows which Spark app replaces each Windows program, reads the programs installed on your Windows drive and says what to use for each one, copies your files and fonts, finds your Steam games so they don't download again, and gives a checklist for before you erase Windows. Optional Spark apps come first on the Apps page.",

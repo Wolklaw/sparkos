@@ -1037,6 +1037,31 @@ class UITests(unittest.TestCase):
         from sparkupdate.updater import user_state_path
         self.assertEqual(load_json(user_state_path()).get('seen_notes'), ['n1'])
 
+    def test_buttons_stay_visible_in_a_small_window(self):
+        root = make_root()
+        staged = os.path.join(root, f'ostree/deploy/default/deploy/{B_SUM}.0',
+                              'usr/share/sparkos/release.json')
+        nxt = load_json(staged)
+        nxt['notes'] = [note(f'n{i}', '2026-11-22') for i in range(30)]
+        with open(staged, 'w') as f:
+            json.dump(nxt, f)
+        app = self.open(root=root)
+        long = "error: Upgrading: Deployment contains local rpm-ostree modifications; " * 3
+        app.check_line.config(text=long)
+        app.message.config(text=long)
+        w, h = app.root.minsize()
+        app.root.geometry(f"{w}x{h}")
+        for _ in range(20):
+            app.root.update()
+            time.sleep(0.02)
+        bottom = app.root.winfo_rooty() + app.root.winfo_height()
+        for key in ('check', 'rollback', 'settings', 'log'):
+            btn = app.buttons[key]
+            self.assertTrue(btn.winfo_ismapped(), key)
+            self.assertLessEqual(btn.winfo_rooty() + btn.winfo_height(), bottom, key)
+        self.assertTrue(app.message.winfo_ismapped())
+        self.assertLessEqual(app.message.winfo_rooty() + app.message.winfo_height(), bottom)
+
     def test_previous_version_from_files(self):
         app = self.open('rpm-ostree-none.json')
         self.assertFalse(app.buttons['restart'].winfo_ismapped())

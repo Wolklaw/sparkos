@@ -335,14 +335,16 @@ class App:
                  highlightbackground=T["line"]).pack(side="right", anchor="n", pady=(px(4), 0))
         self.strip = Strip(root, height=px(2))
         self.strip.pack(fill="x")
+        # the footer is packed before the body so a short window shrinks the body, not it
+        foot = tk.Frame(root, bg=bg)
+        foot.pack(side="bottom", fill="x", padx=px(14), pady=(px(6), px(10)))
         self.body = tk.Frame(root, bg=bg)
         self.body.pack(fill="both", expand=True, padx=px(14), pady=(px(10), 0))
-        foot = tk.Frame(root, bg=bg)
-        foot.pack(fill="x", padx=px(14), pady=(px(6), px(10)))
         self.message = tk.Label(foot, text="", bg=bg, fg=T["muted"], font=self.font(8, False),
                                 anchor="w", justify="left")
         self.message.pack(fill="x")
         self.foot = foot
+        self.fit_width(self.message)
         root.bind('<Expose>', self._exposed, add='+')
         root.bind('<FocusIn>', self._focused, add='+')
         root.bind('<Escape>', lambda _e: self.show('main') if self.view_name != 'main' else None)
@@ -361,6 +363,14 @@ class App:
         if event.widget is self.root and self.snap and time.time() - self.snap.read_at > 30 \
                 and not self.pending:
             self.reload()
+
+    def fit_width(self, *labels: tk.Label):
+        """Wrap each label at its parent's width, so a long line (an error) wraps in a narrow
+        window instead of running past the edge."""
+        for lab in labels:
+            parent = lab.master
+            parent.bind('<Configure>', lambda e, l=lab: l.config(wraplength=max(1, e.width - 2)),
+                        add='+')
 
     def label(self, parent, text, size=7, fg=None, bold=True, **kw) -> tk.Label:
         return tk.Label(parent, text=text, bg=parent.cget("bg"), fg=fg or T["muted"],
@@ -413,10 +423,10 @@ class App:
         self.next_detail.pack(anchor="w")
 
         self.changes_panel, ch = self.panel(f, t('panel.changes_current'))
-        self.changes_panel.pack(fill="both", expand=True, pady=(px(10), 0))
         self.changes_head = ch.winfo_children()[0]
         self.changes_note = self.label(ch, "", 8, T["muted"], bold=False, wraplength=px(780))
         self.changes_note.pack(anchor="w", pady=(px(2), px(6)))
+        self.fit_width(self.changes_note)
         # the release notes (scrolls when there are many: several updates' worth)
         self.notes_box = tk.Frame(ch, bg=T["panel"])
         notes = tk.Text(self.notes_box, bg=T["panel"], fg=T["text"], font=self.font(9, False),
@@ -433,17 +443,16 @@ class App:
         self.notes_text = notes
         self.versions_head = self.label(ch, t('changes.versions').upper(), 7, T["accent"])
         self.changes_grid = tk.Frame(ch, bg=T["panel"])
-        self.changes_grid.pack(fill="x", anchor="w")
+        self.changes_grid.pack(side="bottom", fill="x", anchor="w")   # before the notes: they shrink
 
         info = tk.Frame(f, bg=T["bg"])
-        info.pack(fill="x", pady=(px(10), 0))
         self.apps_line = self.label(info, "", 8, T["text"], bold=False, wraplength=px(800))
         self.apps_line.pack(anchor="w")
         self.check_line = self.label(info, "", 8, T["muted"], bold=False, wraplength=px(800))
         self.check_line.pack(anchor="w", pady=(px(2), 0))
+        self.fit_width(self.apps_line, self.check_line)
 
         row = tk.Frame(f, bg=T["bg"])
-        row.pack(fill="x", pady=(px(12), 0))
         b = self.buttons = {}
         b['restart'] = WolkButton(row, t('btn.restart'), self.on_restart, self.font(8), 'primary')
         b['check'] = WolkButton(row, t('btn.check'), self.on_check, self.font(8), 'ghost')
@@ -455,6 +464,12 @@ class App:
         b['log'].pack(side="right")
         b['settings'].pack(side="right", padx=(0, px(8)))
         self.button_row = row
+        # Pack order is space order in Tk: the buttons and the status lines go in first, from
+        # the bottom, so a short window shrinks the release notes (they scroll) and never hides
+        # Check now, Roll back, Settings or Log.
+        row.pack(side="bottom", fill="x", pady=(px(12), 0))
+        info.pack(side="bottom", fill="x", pady=(px(10), 0))
+        self.changes_panel.pack(fill="both", expand=True, pady=(px(10), 0))
 
     def _layout_buttons(self):
         b, px = self.buttons, self.px
@@ -594,8 +609,9 @@ class App:
                     'update': t('changes.notes_update'),
                     'rollback': t('changes.notes_rollback')}[snap.compare]
             self._render_notes(notes)
-            self.notes_box.pack(fill="both", expand=True, before=self.changes_grid)
-            self.versions_head.pack(anchor="w", pady=(px(8), px(4)), before=self.changes_grid)
+            self.versions_head.pack(side="bottom", anchor="w", pady=(px(8), px(4)),
+                                    after=self.changes_grid)
+            self.notes_box.pack(fill="both", expand=True, after=self.versions_head)
         elif release.notes_of(old if snap.compare == 'rollback' else new) is None:
             note = (note + " " if note else "") + t('changes.no_notes')
         self.changes_note.config(text=note)
