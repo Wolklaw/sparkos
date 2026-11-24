@@ -1,0 +1,17 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Emoji
+Name[fr]=Spark Emoji
+GenericName=Emoji and symbol picker
+GenericName[fr]=Sélecteur d'émojis et de symboles
+Comment=Find an emoji or a symbol by its English or French name and paste it
+Comment[fr]=Trouver un émoji ou un symbole par son nom anglais ou français et le coller
+Exec=spark-emoji
+Icon=dev.wolklaw.SparkEmoji
+Terminal=false
+Categories=Utility;
+Keywords=emoji;emojis;emoticon;smiley;symbol;symbols;arrow;currency;accent;unicode;character;émoji;émojis;symbole;symboles;flèche;caractère;
+Keywords[fr]=émoji;émojis;emoji;smiley;symbole;symboles;flèche;monnaie;accent;caractère;unicode;
+StartupNotify=false
+X-KDE-Shortcuts=Meta+.
+StartupWMClass=dev.wolklaw.SparkEmoji

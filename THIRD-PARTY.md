@@ -27,6 +27,16 @@ through GObject introspection and does not modify it. Writing a terminal emulato
 would break programs in ways VTE already handles, the same reason SparkOS uses Mesa and Linux
 rather than its own.
 
+Spark Emoji's emoji, symbol names and search words are the Unicode Consortium's data: the
+Unicode emoji data files (`emoji-test.txt`, version 18.0) and the English and French annotations
+from the Unicode CLDR project (`common/annotations` and `common/annotationsDerived`). They are
+licensed under the Unicode License v3 (Unicode-3.0, https://www.unicode.org/license.txt), a
+permissive licence that asks for the copyright notice and permission notice to be kept:
+Copyright © 1991-present Unicode, Inc. `files/spark-emoji/tools/make_data.py` converts them to the
+JSON files in `files/spark-emoji/sparkemoji/data/`; the data is not otherwise changed. The
+colour emoji are drawn by the system's emoji font (Noto Color Emoji, `google-noto-color-emoji-fonts`
+from Fedora, OFL-1.1), which Spark Emoji installs but does not modify.
+
 SparkOS also builds kernel modules from other projects'
 source while the image builds: zenergy, ryzen_smu, xone (xonedo), hid-fanatecff, new-lg4ff,
 hid-tmff2 with hid-tminit (GPL-2.0) and vhba (GPL-2.0-or-later), plus v4l2loopback (GPL-2.0)
