@@ -78,7 +78,7 @@ class Window(unittest.TestCase):
 
     def test_every_tab_opens_and_its_text_fits(self):
         from sparkcontroller.app import App
-        for tab in ('overview', 'fans', 'rgb', 'pads', 'drivers'):
+        for tab in ("overview", "fans", "rgb", "mouse", "pads", "drivers"):
             app = App(Hwmon(self.tree), tab=tab, use_usb=False)
             try:
                 self.pump(app, 0.8)

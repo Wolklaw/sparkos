@@ -41,8 +41,8 @@ The same tags BlueBuild used, so the boot test, the installer and every PC keep 
 | Build | Tags |
 |---|---|
 | main (a push, the daily 06:00 UTC build, or Run workflow) | `<commit>-45`, `YYYYMMDD-45`, `YYYYMMDD`, `45`, `latest` |
-| another branch | `br-<branch>-45` only, for testing with the boot test's `image_tag` |
-| a pull request | built and checked, not pushed (Dependabot's and forks' PRs get no signing key) |
+| another branch (Run workflow on it; a push to a branch doesn't build) | `br-<branch>-45` only, for testing with the boot test's `image_tag` |
+| a pull request (only if it touches the Containerfile, build_files, files/ outside a Spark app's folder, or an app's install.sh or spark-app.json) | built and checked, not pushed (Dependabot's and forks' PRs get no signing key) |
 
 ## Signing
 
