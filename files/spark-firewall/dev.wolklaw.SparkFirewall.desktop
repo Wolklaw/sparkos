@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Firewall
+Name[fr]=Spark Firewall
+GenericName=Firewall
+GenericName[fr]=Pare-feu
+Comment=Turn the firewall on or off, open ports and services, and pick a zone for each network
+Comment[fr]=Activer ou désactiver le pare-feu, ouvrir des ports et des services, choisir une zone pour chaque réseau
+Exec=spark-firewall
+Icon=dev.wolklaw.SparkFirewall
+Terminal=false
+Categories=System;Settings;Security;
+Keywords=firewall;firewalld;port;ports;zone;network;security;steam;pare-feu;pare feu;réseau;sécurité;
+Keywords[fr]=pare-feu;firewalld;port;ports;zone;réseau;sécurité;
+StartupWMClass=SparkFirewall
+SingleMainWindow=true
+Actions=Rules;Ports;
+
+[Desktop Action Rules]
+Name=Rules
+Name[fr]=Règles
+Exec=spark-firewall --tab rules
+
+[Desktop Action Ports]
+Name=Ports
+Name[fr]=Ports
+Exec=spark-firewall --tab ports

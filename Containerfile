@@ -129,6 +129,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-games.sh \
         spark-monitor.sh \
         spark-controller.sh \
+        spark-firewall.sh \
         spark-edit.sh \
         spark-calc.sh \
         spark-archive.sh \
