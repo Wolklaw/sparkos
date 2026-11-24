@@ -150,6 +150,13 @@ jobs:
           test -n "$DISK" || { echo "no qcow2 produced"; find "$WORK/output"; exit 1; }
           echo "DISK=$DISK" >> "$GITHUB_ENV"
           ls -lh "$DISK"
+          # SparkOS's firewall zone doesn't allow SSH, and QEMU's port forward arrives on the
+          # network like any other device. Open it for this boot only (runtime, not saved), before
+          # sshd starts, through a sshd drop-in passed as a systemd credential (SMBIOS type 11).
+          # Nothing is added to the disk or the zone files, so the firewall checks see SparkOS as shipped.
+          printf '%s\n' '[Unit]' 'Wants=firewalld.service' 'After=firewalld.service' \
+            '[Service]' 'ExecStartPre=-/usr/bin/firewall-cmd --add-service=ssh' > "$WORK/sshd-dropin.conf"
+          echo "SSH_DROPIN=$(base64 -w0 "$WORK/sshd-dropin.conf")" >> "$GITHUB_ENV"
 
       - name: Build a Windows test drive
         # GPT with NTFS C: (registry file naming the letters, a Claude Code profile), D: "Scrap", E: "Games" (a Git repository);
@@ -167,6 +174,7 @@ jobs:
             -drive file="$DISK",if=virtio,format=qcow2 \
             -drive file="$WORK/windows.img",if=virtio,format=raw \
             -nic user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:2222-:22 \
+            -smbios "type=11,value=io.systemd.credential.binary:systemd.unit-dropin.sshd.service=$SSH_DROPIN" \
             -vga virtio -display none \
             -serial file:"$WORK/serial.log" \
             -monitor unix:"$WORK/qmon",server,nowait \
