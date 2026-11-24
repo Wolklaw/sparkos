@@ -1,0 +1,21 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Camera
+Name[fr]=Spark Camera
+GenericName=Webcam
+GenericName[fr]=Webcam
+Comment=Take photos and videos with your webcam, and record your voice
+Comment[fr]=Prendre des photos et des vidéos avec votre webcam, et enregistrer votre voix
+Exec=spark-camera
+Icon=dev.wolklaw.SparkCamera
+Terminal=false
+Categories=AudioVideo;Video;Recorder;
+Keywords=camera;webcam;photo;video;record;microphone;voice;audio;selfie;caméra;enregistrer;micro;voix;
+StartupWMClass=SparkCamera
+SingleMainWindow=true
+Actions=voice;
+
+[Desktop Action voice]
+Name=Voice recorder
+Name[fr]=Enregistreur vocal
+Exec=spark-camera --tab voice

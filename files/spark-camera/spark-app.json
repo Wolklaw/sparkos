@@ -1,0 +1,31 @@
+{
+  "id": "dev.wolklaw.SparkCamera",
+  "slug": "spark-camera",
+  "name": "Spark Camera",
+  "name_fr": "Spark Camera",
+  "summary": "Your webcam: preview, photos with a countdown, video with sound, and a voice recorder.",
+  "summary_fr": "Votre webcam : aperçu, photos avec minuterie, vidéo avec son, et un enregistreur vocal.",
+  "version": "0.1.0",
+  "installed_size_kb": 400,
+  "icon": "icons/spark-camera-256.png",
+  "categories": ["AudioVideo", "Video", "Recorder"],
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter", "PIL.ImageTk", "gi"],
+    "optional": {
+      "spark-media": "Opens the photos, videos and recordings (xdg-open uses the default player otherwise)",
+      "xdg-open": "Open files and folders"
+    },
+    "system": "Linux"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-camera --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-camera"
+}
