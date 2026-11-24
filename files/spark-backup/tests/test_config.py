@@ -116,6 +116,19 @@ class Drives(unittest.TestCase):
         for gone in ('EFI-1', 'SW-1', 'CD'):
             self.assertNotIn(gone, self.drives)
 
+    def test_a_drive_mounted_read_only_is_refused(self):
+        from support import FakeRunner
+        from sparkbackup.runner import Result
+        runner = FakeRunner({
+            "lsblk": Result(0, json.dumps(LSBLK), ""),
+            "findmnt -rno": Result(0, "SYS-UUID\n", ""),
+            "findmnt -rn -o TARGET,OPTIONS": Result(
+                0, "/ rw,relatime\n/run/media/x/Away ro,nosuid\n", "")})
+        listed = {d.uuid: d for d in targets.list_drives(runner)}
+        self.assertEqual(listed['EXT-1'].reason, 'refuse.readonly')
+        self.assertFalse(listed['EXT-1'].usable)
+        self.assertTrue(listed['NTFS-1'].usable)
+
     def test_usable_drives_come_first(self):
         listed = targets.parse_drives(json.dumps(LSBLK), 'SYS-UUID')
         flags = [d.usable for d in listed]

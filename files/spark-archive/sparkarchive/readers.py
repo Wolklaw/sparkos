@@ -183,6 +183,12 @@ class ZipReader(Reader):
             if cancelled():
                 raise Cancelled()
             e = self.entry(info)
+            if listing and e.kind == LINK and not e.encrypted and info.file_size <= 4096:
+                try:                                     # a link's target is its content
+                    e.target = self.zf.read(info).decode('utf-8', 'surrogateescape')
+                except (zipfile.BadZipFile, zlib.error, lzma.LZMAError, EOFError, RuntimeError,
+                        NotImplementedError, OSError):
+                    pass                                 # the listing just shows no target
             if listing or e.kind in (DIR, OTHER):
                 yield e, None
                 continue
