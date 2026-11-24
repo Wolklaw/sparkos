@@ -2,6 +2,18 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-spark-monitor-logs-system",
+      "date": "2026-11-24",
+      "en": "Spark Monitor 1.1.0 has two new tabs. Logs shows the system journal live, with this boot or the last one, errors or everything, a filter by app and a search; each line is a plain sentence, and a crashes view lists what crashed with a Copy report button that sends nothing. System shows what this PC is (SparkOS version, kernel, processor, graphics driver, memory, motherboard, disks, displays) with a Copy all button for support requests that leaves out serial numbers. Ctrl+5 and Ctrl+6 open them. Tried on one PC so far.",
+      "fr": "Spark Monitor 1.1.0 a deux nouveaux onglets. Journaux affiche le journal du système en direct, pour ce démarrage ou le précédent, les erreurs ou tout, avec un filtre par application et une recherche ; chaque ligne est une phrase simple, et une vue des plantages liste ce qui a planté avec un bouton Copier le rapport qui n'envoie rien. Système montre ce qu'est ce PC (version de SparkOS, noyau, processeur, pilote graphique, mémoire, carte mère, disques, écrans) avec un bouton Tout copier pour les demandes d'aide qui laisse de côté les numéros de série. Ctrl+5 et Ctrl+6 les ouvrent. Essayé sur un seul PC jusqu'ici."
+    },
+    {
+      "id": "2026-11-24-controller-pads",
+      "date": "2026-11-24",
+      "en": "Spark Controller has a Pads tab for game controllers: what is connected (USB or Bluetooth, battery), a live tester for every button, stick, trigger and the d-pad, a rumble test, and controller firmware through fwupd for the models it supports. Plugging a controller in or out tears the title. Not tried with a real controller yet.",
+      "fr": "Spark Controller a un onglet Manettes pour les manettes de jeu : ce qui est branché (USB ou Bluetooth, pile), un testeur en direct pour chaque bouton, joystick, gâchette et la croix directionnelle, un test de vibration, et le firmware des manettes via fwupd pour les modèles pris en charge. Brancher ou débrancher une manette fait trembler le titre. Pas encore essayé avec une vraie manette."
+    },
+    {
       "id": "2026-11-23-spark-firewall",
       "date": "2026-11-23",
       "en": "Spark Firewall replaces firewall-config. It shows whether the firewall is on, lets you turn it on or off, picks a zone for each network, and has switches for Steam Remote Play, Spark Link, file sharing and more. Nothing changes until you press Apply. It tells you when the default zone already leaves ports 1025 and up open. firewall-config stays installed but is out of the menu. Not tried on a real firewall change yet.",

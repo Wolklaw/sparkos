@@ -65,10 +65,16 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="read this machine list instead of the usual machines.toml")
     parser.add_argument('--self-test', action='store_true',
                         help="check ssh, the machine list and the probe; connects to nothing")
+    parser.add_argument('--status', action='store_true',
+                        help="check every machine and website once and print the result as "
+                        "JSON (what the Plasma widget shows); no window")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test(args.config)
+    if args.status:
+        from . import status
+        return status.main(args.config)   # no log: the widget runs it every minute
     try:
         import tkinter as tk
     except ImportError as exc:

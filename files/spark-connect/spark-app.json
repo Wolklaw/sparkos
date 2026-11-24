@@ -5,8 +5,8 @@
   "name_fr": "Spark Connect",
   "summary": "See your home servers on one screen and fix them over SSH: services, health, tunnel, failover and websites.",
   "summary_fr": "Voir vos serveurs sur un seul écran et les réparer par SSH : services, état, tunnel, bascule et sites web.",
-  "version": "0.1.0",
-  "installed_size_kb": 260,
+  "version": "0.2.0",
+  "installed_size_kb": 290,
   "icon": "icons/spark-connect-256.png",
   "categories": ["Network", "System", "Monitor"],
   "needs": {
