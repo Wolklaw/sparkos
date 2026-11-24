@@ -20,6 +20,12 @@
       "fr": "Nouvelle application, Spark Backup (première version, pas encore essayée sur un vrai PC) : elle prend des instantanés de votre dossier personnel à heure fixe, les copie sur un autre disque, permet de parcourir un instantané et de restaurer un fichier ou un dossier, et ne garde que les derniers. Rien ne se lance avant que vous choisissiez un disque et un horaire et enregistriez."
     },
     {
+      "id": "2026-11-23-spark-emoji",
+      "date": "2026-11-23",
+      "en": "Spark Emoji replaces Plasma's Emoji Selector on Meta+. (Windows key and full stop). Type in English or French to find an emoji, a symbol, an arrow, a currency sign or an accented letter. Recently used come first, and skin tones are one click. A pick is copied. Pasting into the window you were in needs your OK on the desktop the first time, through a Turn on pasting button, and has not been tried on a real SparkOS yet; until then press Ctrl+V.",
+      "fr": "Spark Emoji remplace le sélecteur d'émojis de Plasma sur Meta+. (touche Windows et point). Écrivez en français ou en anglais pour trouver un émoji, un symbole, une flèche, une monnaie ou une lettre accentuée. Les récents viennent en premier, et les teintes de peau sont à un clic. Le choix est copié. Coller dans la fenêtre où vous étiez demande votre accord sur le bureau la première fois, avec le bouton Activer le collage, et n'a pas encore été essayé sur un vrai SparkOS ; d'ici là, faites Ctrl+V."
+    },
+    {
       "id": "2026-11-23-spark-disks",
       "date": "2026-11-23",
       "en": "Spark Disks lists your drives and partitions, mounts and unmounts them, formats, creates, resizes and deletes partitions, shows drive health (SMART) and writes an image to a USB stick. D: can only be looked at, the running system can't be changed, and anything on an internal drive asks you to type its name first. It is version 0.1.0: it was tried on a test disk, not yet on every kind of drive. GNOME Disks is hidden from the menu.",

@@ -1,0 +1,33 @@
+{
+  "id": "dev.wolklaw.SparkEmoji",
+  "slug": "spark-emoji",
+  "name": "Spark Emoji",
+  "name_fr": "Spark Emoji",
+  "summary": "Emoji and symbol picker on Meta+. Search in English and French, recently used, skin tones, arrows, maths, currency and accented letters.",
+  "summary_fr": "Sélecteur d'émojis et de symboles sur Meta+. Recherche en anglais et en français, récents, teintes de peau, flèches, maths, monnaies et lettres accentuées.",
+  "version": "0.1.0",
+  "installed_size_kb": 0,
+  "icon": "icons/spark-emoji-256.png",
+  "categories": ["Utility"],
+  "command": "spark-emoji",
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["gi"],
+    "gi_namespaces": {"Gtk": "4.0"},
+    "packages_fedora": ["python3-gobject", "gtk4"],
+    "optional": {
+      "google-noto-color-emoji-fonts": "colour emoji (without it they show as boxes or in black and white)"
+    },
+    "system": "Linux; any desktop. Pasting into the previous window needs a desktop with the RemoteDesktop portal (KDE Plasma 6 has it) and the person's OK; without it Spark Emoji copies"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-emoji --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-emoji"
+}

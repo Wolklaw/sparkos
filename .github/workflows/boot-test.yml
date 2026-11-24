@@ -485,8 +485,8 @@ jobs:
       - name: Check the other Spark apps
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # Edit, Calc, Archive, Scan, Run, Link, Store and Terminal: installed system-wide, each self-test passes
-          for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal; do
+          # Edit, Calc, Archive, Scan, Run, Link, Store, Terminal and Emoji: installed system-wide, each self-test passes
+          for app in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-terminal spark-emoji; do
             echo "== $app"
             $SSH "set -e; $app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
@@ -505,6 +505,9 @@ jobs:
           # Spark Terminal is the default terminal; Konsole is hidden and gave up Ctrl+Alt+T
           $SSH 'kreadconfig6 --group General --key TerminalApplication; xdg-terminal-exec --print-id; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
           diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n1\n') "$WORK/terminal.txt"
+          # Spark Emoji has Meta+. and Plasma's Emoji Selector is hidden and gave the key up
+          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.plasma.emojier.desktop; grep -c "^X-KDE-Shortcuts=" /usr/share/applications/org.kde.plasma.emojier.desktop || true' | tee "$WORK/emoji.txt"
+          diff <(printf '1\nlinked\n1\n0\n') "$WORK/emoji.txt" || { echo "::error::Meta+. is not Spark Emoji's"; exit 1; }
           # Text and code open in Spark Edit, archives in Spark Archive
           $SSH 'for m in text/plain text/markdown application/json text/x-python application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/edit-archive-defaults.txt"
           for m in text/plain text/markdown application/json text/x-python; do
@@ -686,13 +689,13 @@ jobs:
           $SSH 'cd /usr/share/applications; for f in *.desktop; do
                   sed -n "/^\[Desktop Entry\]/,/^\[/p" "$f" | grep -qE "^(NoDisplay|Hidden)=true" || echo "$f"
                 done' | tee "$WORK/menu.txt"
-          SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-|org\.kde\.(plasma\.emojier|kdeconnect\.(daemon|handler))|org\.gnome\.DiskUtility)' "$WORK/menu.txt" || true)
+          SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-|org\.kde\.(kdeconnect\.(daemon|handler))|org\.gnome\.DiskUtility)' "$WORK/menu.txt" || true)
           [ -z "$SHOWN" ] || echo "::warning::in the app menu but not SparkOS's own: $(echo $SHOWN)"
-          for id in org.kde.kdeconnect.app org.kde.ark org.kde.discover btop nvtop org.kde.kinfocenter org.kde.kjournaldbrowser; do
+          for id in org.kde.kdeconnect.app org.kde.ark org.kde.discover org.kde.plasma.emojier btop nvtop org.kde.kinfocenter org.kde.kjournaldbrowser; do
             if grep -qx "$id.desktop" "$WORK/menu.txt"; then echo "::error::$id is still in the app menu"; exit 1; fi
           done
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH "rpm -q dolphin konsole plasma-systemsettings ark >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && test -x /usr/bin/spark-disks && test -x /usr/bin/spark-backup && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          $SSH "rpm -q dolphin konsole plasma-systemsettings ark >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && test -x /usr/bin/spark-disks && test -x /usr/bin/spark-emoji && test -x /usr/bin/spark-backup && for a in spark-edit spark-calc spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
