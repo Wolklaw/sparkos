@@ -44,6 +44,27 @@ class WindowsDrivesTests(unittest.TestCase):
         self.assertEqual(parts[0]["partuuid"], C)
         self.assertEqual(parts[2]["fstype"], "bitlocker")
 
+    def test_a_label_can_not_climb_out_of_the_mount_folder(self):
+        for label in ("..", ".", "...", "../etc", "/", "-", " . ", ".hidden"):
+            taken = set()
+            _letter, name = wd.name_for({"partuuid": "12345678-aaaa", "label": label, "name": "x"}, {}, taken)
+            self.assertRegex(name, r"^[a-z0-9][a-z0-9._-]*$", label)
+            self.assertNotIn(name, (".", ".."))
+            self.assertEqual(os.path.dirname(os.path.join("/var/mnt", name)), "/var/mnt", label)
+        self.assertEqual(wd.name_for({"partuuid": "12345678-aaaa", "label": "..", "name": "x"}, {}, set()), ("", "12345678"))
+
+    def test_every_mount_is_nosuid_nodev(self):
+        calls = []
+        self.addCleanup(setattr, wd, "run", wd.run)
+        wd.run = lambda cmd: (calls.append(cmd), (1, "no"))[1]
+        with tempfile.TemporaryDirectory() as base:
+            wd.mount("/dev/x", os.path.join(base, "x"), "rw", 1000, 1000)
+        self.assertEqual(len(calls), 3)
+        for cmd in calls:
+            opts = cmd[cmd.index("-o") + 1].split(",")
+            self.assertIn("nosuid", opts)
+            self.assertIn("nodev", opts)
+
     def test_conf(self):
         modes, user = wd.read_conf("# comment\nD ro\ne: RW   # trailing\nX bogus\n* off\nuser=ann\n")
         self.assertEqual(modes, {"D": "ro", "E": "rw", "*": "off"})

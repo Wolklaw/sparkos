@@ -301,34 +301,30 @@ def pkexec_path() -> Optional[str]:
     return os.environ.get('SPARK_EDIT_PKEXEC') or shutil.which('pkexec')
 
 
-def admin_command(tmp: str, target: str) -> List[str]:
-    """cp over the existing file keeps its owner and permissions; a new file gets the
-    usual 0644. pkexec asks for the password through Plasma's own prompt."""
-    cp = shutil.which('cp', path='/usr/bin:/bin') or '/usr/bin/cp'
-    return [pkexec_path() or 'pkexec', cp, '--no-preserve=mode,ownership', '--', tmp, target]
+def admin_command(target: str) -> List[str]:
+    """dd writes over the existing file, so it keeps its owner and permissions; a new file gets
+    the usual 0644. The text goes in through stdin: root never opens a file the user can swap.
+    oflag=nofollow refuses a target that turned into a symlink. pkexec asks for the password
+    through Plasma's own prompt."""
+    dd = shutil.which('dd', path='/usr/bin:/bin') or '/usr/bin/dd'
+    return [pkexec_path() or 'pkexec', dd, f'of={target}', 'oflag=nofollow', 'bs=64K',
+            'status=none']
 
 
-def admin_write(path: str, data: bytes, temp_dir: str) -> Optional[str]:
+def admin_write(path: str, data: bytes, temp_dir: str = '') -> Optional[str]:
     """Write `data` to `path` as root through pkexec. Blocks until the password prompt is
     answered, so call it from a worker thread. None when saved, else what went wrong;
-    'cancelled' when the prompt was dismissed."""
+    'cancelled' when the prompt was dismissed. `temp_dir` is unused: nothing is staged on disk."""
     if not pkexec_path():
         return "pkexec isn't installed"
     target = os.path.realpath(path)
-    fd, tmp = tempfile.mkstemp(prefix='admin-save-', dir=temp_dir)
     try:
-        with os.fdopen(fd, 'wb') as f:
-            f.write(data)
-        os.chmod(tmp, 0o644)
-        result = subprocess.run(admin_command(tmp, target), capture_output=True, text=True,
+        result = subprocess.run(admin_command(target), input=data, capture_output=True,
                                 timeout=600)
     except (OSError, subprocess.SubprocessError) as exc:
         return str(exc)
-    finally:
-        try:
-            os.unlink(tmp)
-        except OSError:
-            pass
+    result.stderr = result.stderr.decode('utf-8', 'replace')
+    result.stdout = result.stdout.decode('utf-8', 'replace')
     if result.returncode == 0:
         return None
     if result.returncode == 126:                     # dismissed, or wrong password three times

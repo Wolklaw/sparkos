@@ -129,9 +129,13 @@ def host_name() -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", socket.gethostname().split(".")[0]) or "sparkos"
 
 
+def backup_parts(host: str = "") -> Tuple[str, str]:
+    return TARGET_FOLDER, host or host_name()
+
+
 def backup_root(mountpoint: str, host: str = "") -> str:
     """The one folder this app uses on a drive."""
-    return os.path.join(mountpoint, TARGET_FOLDER, host or host_name())
+    return os.path.join(mountpoint, *backup_parts(host))
 
 
 def mount_temporarily(drive: Drive, runner: Runner,

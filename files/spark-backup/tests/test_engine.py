@@ -197,6 +197,56 @@ class Rsync(Case):
         self.assertFalse(os.path.exists(os.path.join(root, '.cache')))
 
 
+class SymlinkedTarget(Case):
+    """The user owns SparkBackup/ on a Windows drive and can swap it for a symlink."""
+
+    def setUp(self):
+        super().setUp()
+        self.runner.real = {'rsync'}
+        self.victim = os.path.join(self.dir, 'victim')
+        os.makedirs(self.victim)
+        self.d, self.usb_dir = self.usb()
+        self.drives = [self.d]
+        self.target = {'uuid': self.d.uuid, 'label': 'x', 'fstype': 'ntfs'}
+
+    def run_and_check(self):
+        report = self.backup(target=self.target).run()
+        self.assertEqual(report['copy'], 'failed', report)
+        self.assertEqual(os.listdir(self.victim), [])
+        self.assertEqual(self.runner.commands('rsync'), [])
+        return report
+
+    def test_a_symlinked_SparkBackup_is_refused(self):
+        os.symlink(self.victim, os.path.join(self.usb_dir, 'SparkBackup'))
+        self.run_and_check()
+
+    def test_a_symlinked_host_folder_is_refused(self):
+        os.makedirs(os.path.join(self.usb_dir, 'SparkBackup'))
+        os.symlink(self.victim, os.path.join(self.usb_dir, 'SparkBackup', 'pc'))
+        self.run_and_check()
+
+    def test_a_symlinked_partial_folder_is_refused(self):
+        root = os.path.join(self.usb_dir, 'SparkBackup', 'pc')
+        os.makedirs(root)
+        name = '2026-11-25_020000'  # the name the first run of this setUp's clock gets
+        os.symlink(self.victim, os.path.join(root, name + '.partial'))
+        self.run_and_check()
+
+    def test_a_symlinked_old_copy_is_not_deleted_through(self):
+        root = os.path.join(self.usb_dir, 'SparkBackup', 'pc')
+        os.makedirs(root)
+        keep_me = os.path.join(self.victim, 'important')
+        open(keep_me, 'w').close()
+        os.symlink(self.victim, os.path.join(root, '2020-01-01_000000'))
+        report = self.backup(keep_target=1, target=self.target).run()
+        self.assertTrue(os.path.exists(keep_me), report)
+
+    def test_plain_folders_still_work(self):
+        report = self.backup(target=self.target).run()
+        self.assertEqual(report['copy'], 'rsync', report)
+        self.assertTrue(os.path.isdir(os.path.join(self.usb_dir, 'SparkBackup', 'pc', report['copied'])))
+
+
 class Drives(Case):
     def test_an_unplugged_drive_keeps_the_local_snapshot(self):
         report = self.backup(target={'uuid': 'GONE-0000', 'label': 'x', 'fstype': 'ext4'}).run()

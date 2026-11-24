@@ -217,9 +217,9 @@ class FileFormats(TempDir):
         self.assertEqual(self.read('w.txt'), b'bb')
 
     def test_admin_command(self):
-        cmd = fileio.admin_command('/tmp/x', '/etc/hosts')
-        self.assertTrue(cmd[1].endswith('cp'))
-        self.assertEqual(cmd[2:], ['--no-preserve=mode,ownership', '--', '/tmp/x', '/etc/hosts'])
+        cmd = fileio.admin_command('/etc/hosts')
+        self.assertTrue(cmd[1].endswith('dd'))
+        self.assertEqual(cmd[2:4], ['of=/etc/hosts', 'oflag=nofollow'])
 
     @unittest.skipUnless(LINUX, "runs a fake pkexec shell script")
     def test_admin_write_through_fake_pkexec(self):
@@ -239,6 +239,20 @@ class FileFormats(TempDir):
             os.environ.pop('SPARK_EDIT_PKEXEC', None)
         leftovers = [n for n in os.listdir(self.dir) if n.startswith('admin-save-')]
         self.assertEqual(leftovers, [])
+
+    @unittest.skipUnless(LINUX, "runs a fake pkexec shell script")
+    def test_admin_write_keeps_mode_and_shrinks_the_file(self):
+        fake = self.write('pkexec', b'#!/bin/sh\nexec "$@"\n')
+        os.chmod(fake, 0o755)
+        target = self.write('mode.conf', b'a long old content')
+        os.chmod(target, 0o640)
+        os.environ['SPARK_EDIT_PKEXEC'] = fake
+        try:
+            self.assertIsNone(fileio.admin_write(target, b'new', self.dir))
+        finally:
+            os.environ.pop('SPARK_EDIT_PKEXEC', None)
+        self.assertEqual(self.read('mode.conf'), b'new')
+        self.assertEqual(os.stat(target).st_mode & 0o777, 0o640)
 
 
 # ─── Syntax ────────────────────────────────────────────────────
