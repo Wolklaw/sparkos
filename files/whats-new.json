@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-closed-firewall",
+      "date": "2026-11-24",
+      "en": "The firewall is closed by default. SparkOS used Fedora's desktop zone, which let any device on your network reach every port from 1025 up. The new SparkOS zone opens only what SparkOS uses: finding devices, Spark Link, KDE Connect and Steam Remote Play. If an app you installed needs a port, open it in Spark Firewall. Programs also can no longer read the memory of programs they didn't start.",
+      "fr": "Le pare-feu est fermé par défaut. SparkOS utilisait la zone bureau de Fedora, qui laissait tout appareil du réseau joindre chaque port à partir de 1025. La nouvelle zone SparkOS n'ouvre que ce que SparkOS utilise : la découverte d'appareils, Spark Link, KDE Connect et Steam Remote Play. Si une application installée a besoin d'un port, ouvrez-le dans Spark Firewall. Les programmes ne peuvent plus non plus lire la mémoire des programmes qu'ils n'ont pas lancés."
+    },
+    {
       "id": "2026-11-24-32bit-graphics",
       "date": "2026-11-24",
       "en": "Battle.net and other 32-bit Windows programs open again in Spark Games and Spark Run. SparkOS now ships 32-bit graphics drivers, which they need to draw a window.",

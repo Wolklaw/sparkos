@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>SparkOS</short>
+  <description>SparkOS's default. Connections from outside are refused unless a rule below allows them: getting an address, finding devices on the network, Windows file sharing as a client, Spark Link, KDE Connect and Steam's Remote Play and local game transfers. Replies to connections this PC makes are always allowed.</description>
+  <service name="dhcpv6-client"/>
+  <service name="mdns"/>
+  <service name="samba-client"/>
+  <service name="spark-link"/>
+  <service name="kdeconnect"/>
+  <service name="steam-streaming"/>
+  <service name="steam-lan-transfer"/>
+  <forward/>
+</zone>
