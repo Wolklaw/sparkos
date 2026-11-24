@@ -32,6 +32,9 @@ class FwDevice:
         self.version = str(data.get("Version", "") or "").strip()
         self.summary = str(data.get("Summary", "") or "")
         self.plugin = str(data.get("Plugin", "") or "")
+        self.vendor_id = str(data.get("VendorId", "") or "")     # e.g. "USB:0x2DC8"
+        guids = data.get("Guid")
+        self.guids = [str(g) for g in guids] if isinstance(guids, list) else []
         flags = data.get("Flags")
         self.flags: List[str] = [str(f) for f in flags] if isinstance(flags, list) else []
         releases = data.get("Releases")
@@ -122,10 +125,12 @@ class Fwupd:
         if code not in (0, 2):                  # 2: nothing new
             raise RuntimeError(_last_line(out) or "couldn't reach LVFS")
 
-    def update(self) -> str:
-        """Install every pending update. fwupd asks for authorisation itself; some updates
-        finish at the next restart."""
-        code, out = self.runner([self.path, "update", "-y", "--no-reboot-check"], 1800)
+    def update(self, device_id: str = "") -> str:
+        """Install every pending update, or only the one for device_id. fwupd asks for
+        authorisation itself; some updates finish at the next restart."""
+        args = [self.path, "update"] + ([device_id] if device_id else []) + \
+            ["-y", "--no-reboot-check"]
+        code, out = self.runner(args, 1800)
         if code != 0:
             raise RuntimeError(_last_line(out) or "the update failed")
         return _last_line(out)
