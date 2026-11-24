@@ -11,6 +11,12 @@
 #                       Fedora's switch for Google Chrome, NVIDIA and Steam repositories
 #   spectacle, plasma-systemmonitor
 #                       replaced by Spark Snip and Spark Monitor
+#   plasma-keyboard, kcm-plasma-keyboard
+#                       the on-screen keyboard; KWin starts it whenever it is installed (about
+#                       190 MB of RAM on a desktop with a real keyboard)
+#   plasma-discover-notifier
+#                       Discover's update checker in the tray; Spark Update sends the update
+#                       notification (Discover itself stays, hidden, for now)
 set -oue pipefail
 
 remove=()
@@ -18,7 +24,8 @@ for pkg in firefox firefox-langpacks kwrite kate filelight kfind krdc krfb kwall
            kdebugsettings khelpcenter kmahjongg kmines kpat elisa-player dragon \
            gwenview okular kcalc skanpage haruna plasma-welcome kcharselect kde-partitionmanager \
            plasma-setup plasma-drkonqi fedora-third-party fedora-workstation-repositories \
-           spectacle plasma-systemmonitor; do
+           spectacle plasma-systemmonitor \
+           plasma-keyboard kcm-plasma-keyboard plasma-discover-notifier; do
   rpm -q "$pkg" >/dev/null 2>&1 && remove+=("$pkg")
 done
 if [ ${#remove[@]} -gt 0 ]; then
