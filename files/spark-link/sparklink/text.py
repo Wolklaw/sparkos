@@ -116,6 +116,8 @@ EN = {
     'pair.no': "Don't pair",
     'pair.not_listening': "Spark Link can't listen for phones: {why}",
     'pair.no_address': "This PC has no local network address right now.",
+    'pair.tailscale': "Away from home, a paired phone with Tailscale on reaches this PC at "
+                      "{address}.",
 
     'feat.url': "Links",
     'feat.url_about': "Open links and tabs sent from your phone in Soot, and send links "
@@ -271,6 +273,8 @@ FR = {
     'pair.no': "Ne pas jumeler",
     'pair.not_listening': "Spark Link ne peut pas écouter les téléphones : {why}",
     'pair.no_address': "Ce PC n'a pas d'adresse sur le réseau local en ce moment.",
+    'pair.tailscale': "Hors de la maison, un téléphone jumelé avec Tailscale activé joint ce PC à "
+                      "{address}.",
 
     'feat.url': "Liens",
     'feat.url_about': "Ouvrir dans Soot les liens et les onglets envoyés de votre téléphone, "

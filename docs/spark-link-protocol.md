@@ -102,7 +102,8 @@ closes.
   and the handshake or the first read then fails with such an alert (twice in a row, so flaky
   Wi-Fi doesn't trigger it), the phone shows that the PC no longer knows this phone and offers to
   pair again.
-- The PC accepts connections only from private, link-local and loopback addresses, and at most 8
+- The PC accepts connections only from private, link-local and loopback addresses, plus
+  Tailscale's 100.64.0.0/10 while the PC itself has a Tailscale address, and at most 8
   at a time. A newer connection from the same phone replaces the older one.
 - **Frames**: a 4-byte big-endian length, then the payload, at most 1 MiB (1,048,576 bytes).
   A payload is UTF-8 JSON (one object), except the one binary frame after each `file.chunk`.
@@ -113,7 +114,11 @@ closes.
 - **hello**: the phone sends it first after the handshake, the PC answers with its own:
   `{"type":"hello","v":1,"id":0,"device":{"id":"…","name":"…","kind":"pc"|"phone"},"features":["url","files",…]}`.
   The PC closes the connection if the phone's `device.id` isn't the one it paired with. Only
-  features both sides list are used. Either side may send `hello` again at any time to update
+  features both sides list are used. The PC's `hello` may add `"addresses":["100.x.y.z",…]`: its
+  Tailscale IPv4 addresses (100.64.0.0/10), empty or absent when it isn't on a tailnet. The phone
+  keeps them and tries them, on the same port, after the local addresses it knows; it does not
+  save a Tailscale address as its last local one.
+  Either side may send `hello` again at any time to update
   its list (the user switched clipboard on, say); the latest list counts.
 - **ping**: the phone sends `{"type":"ping","id":n}` every 30 s; the other side answers
   `{"type":"pong","id":m,"re":n}`. The PC may ping too; always answer. Either side drops the link
@@ -158,7 +163,8 @@ frame directly follows its own `file.chunk`.
 
 ## Privacy and limits
 
-- Everything stays on the local network. No telemetry, no outside servers.
+- Everything stays on the local network, or on the owner's own tailnet when both ends use
+  Tailscale. No telemetry, no outside servers of Spark Link's own.
 - Each feature can be switched off on each side; the phone's background connection can be turned
   off entirely in Soot's settings.
 - The PC never logs clipboard text, notification contents, file contents or pairing codes.
