@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-update-checking-not-downloading",
+      "date": "2026-11-23",
+      "en": "Spark Update says Checking while it looks for a new version, and Downloading only when it found one.",
+      "fr": "Spark Update affiche Vérification pendant qu'il cherche une nouvelle version, et Téléchargement seulement s'il en a trouvé une."
+    },
+    {
       "id": "2026-11-23-update-small-window",
       "date": "2026-11-23",
       "en": "Spark Update keeps Check now, Roll back, Settings and Log on screen in a small window: the list of changes gets shorter and scrolls instead, and long messages wrap to the window.",

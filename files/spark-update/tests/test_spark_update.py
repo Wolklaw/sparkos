@@ -524,7 +524,7 @@ class SystemRunTests(unittest.TestCase):
         self.assertFalse(st['running'])
         self.assertEqual(st['flatpak']['updated'], ['com.valvesoftware.Steam'])
         self.assertTrue(run.ran('upgrade'))
-        self.assertEqual(run.ran('upgrade --check'), [])
+        self.assertEqual(len(run.ran('upgrade --check')), 1)     # checks first, then stages
         self.assertEqual(run.ran('flatpak update --system --noninteractive -y')[0][:2],
                          ['flatpak', 'update'])
         for call in run.calls:      # never restarts, never applies
@@ -627,9 +627,31 @@ class SystemRunTests(unittest.TestCase):
                                                'version': B_VER}})
         run = FakeRunner(self.root, stage_to='rpm-ostree-staged.json')
         updater.system_run(self.env, now_mode='stage', runner=run, clock=self.clock)
-        self.assertEqual(run.ran('upgrade --check'), [])
+        self.assertEqual(len(run.ran('upgrade --check')), 1)     # the stage's own check
         self.assertTrue(run.ran('upgrade'))
         self.assertNotIn('held', self.state())
+
+    def test_downloading_only_when_there_is_an_update(self):
+        # The window showed DOWNLOADING for every Check now, then "up to date".
+        env = self.env
+
+        class Watch(FakeRunner):
+            def __call__(self, cmd, timeout=0, quiet=False, env=None):
+                if cmd[1:2] == ['upgrade'] and '--check' not in cmd:
+                    phases.append(updater.load_state(Env(self.root)).get('phase'))
+                return super().__call__(cmd, timeout, quiet, env)
+
+        phases = []
+        updater.system_run(env, now_mode='stage', runner=Watch(self.root, upgrade_code=77),
+                           clock=self.clock)
+        self.assertEqual(phases, ['checking'])          # nothing new: still upgrades, quietly
+        self.assertEqual(self.state()['result'], 'up_to_date')
+        phases.clear()
+        updater.system_run(env, now_mode='stage', clock=self.clock, runner=Watch(
+            self.root, stage_to='rpm-ostree-staged.json',
+            check_out=(f"AvailableUpdate:\n  Version: {B_VER}\n", 0)))
+        self.assertEqual(phases, ['downloading'])
+        self.assertEqual(self.state()['result'], 'staged')
 
     def test_notify_mode_respects_the_hold(self):
         settings.write_system(self.env, settings.SystemSettings(True, 'notify', 6, False))

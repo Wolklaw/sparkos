@@ -237,7 +237,8 @@ def _lock(env: Env, state_path: Optional[str], wait: bool):
 
 def _system_pass(env: Env, conf: SystemSettings, state: Dict[str, Any], mode: str,
                  runner: Runner, clock, state_path, flatpak_scope) -> int:
-    host = read_host(env, prefer_bootc=True)
+    # rpm-ostree first: bootc status leaves out the layered packages and, with them, the version
+    host = read_host(env)
     if host.booted is None:
         state.update(result='failed', error=f"can't read the system status: {host.error}",
                      last_check=clock())
@@ -258,14 +259,19 @@ def _system_pass(env: Env, conf: SystemSettings, state: Dict[str, Any], mode: st
         else:
             state.update(result='up_to_date', available_version='', error='')
     else:
-        state['phase'] = 'downloading'
-        save_state(env, state, state_path)
+        # Check first, so the window says Downloading only when there is something to
+        # download. rpm-ostree calls its --check unreliable (for layered packages), so a "no"
+        # still runs the upgrade below, just under Checking: an update is never skipped.
+        found = check_image(host, runner)
+        if not found['ok'] or found['available']:
+            state['phase'] = 'downloading'
+            save_state(env, state, state_path)
         result = stage_image(host, runner)
         state['method'] = result['method']
         if not result['ok']:
             state.update(result='failed', error=result['error'])
         else:
-            after = read_host(env, prefer_bootc=True)
+            after = read_host(env)
             if after.update_ready:
                 state.update(result='staged', staged_version=after.staged.version,
                              available_version='', error='')
