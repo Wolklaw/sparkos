@@ -46,7 +46,8 @@ LAUNCHERS: Dict[str, Dict[str, Any]] = {
         'hosts': ('battle.net', 'blizzard.com', 'akamaihd.net'),
         'exes': ('drive_c/Program Files (x86)/Battle.net/Battle.net Launcher.exe',
                  'drive_c/Program Files (x86)/Battle.net/Battle.net.exe'),
-        'lutris': ('battlenet', 'battle-net')},
+        'lutris': ('battlenet', 'battle-net'),
+        'homes': ('c:\\programdata\\battle.net\\',)},
     'ea': {
         'name': 'EA app',
         'url': 'https://origin-a.akamaihd.net/EA-Desktop-Client-Download/installer-releases/'
@@ -312,7 +313,19 @@ def plan(game: Game, options: Dict[str, Any], which: Callable[[str], Optional[st
     env = umu_env(info.get('store') or game.source, info.get('prefix') or game.install_dir,
                   options)
     gamemode = ['gamemoderun'] if options.get('gamemode') and which('gamemoderun') else []
-    return Plan(gamemode + [umu, exe], env=env, cwd=os.path.dirname(exe))
+    return Plan(gamemode + [umu, exe], env=env, cwd=os.path.dirname(exe),
+                session=session(info.get('store') or game.source,
+                                info.get('prefix') or game.install_dir, exe))
+
+
+def session(slug: str, prefix: str, exe: str) -> Dict[str, Any]:
+    """What screens.keep needs: the prefix, and the folders whose programs are the launcher's
+    own (its program's folder and any helpers'), so anything else counts as a game."""
+    from .screens import windows_dir
+    homes = [windows_dir(prefix, os.path.dirname(exe))]
+    homes += list(LAUNCHERS.get(slug, {}).get('homes', ()))
+    return {'prefix': prefix, 'name': LAUNCHERS.get(slug, {}).get('name', slug),
+            'homes': [h for h in homes if h]}
 
 
 def remove(slug: str) -> None:
