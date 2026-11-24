@@ -8,6 +8,12 @@
       "fr": "Spark Games 0.3.4 lit votre bibliothèque Steam plus vite. Chercher la jaquette de chaque jeu possédé listait le même dossier une fois par jeu ; il est maintenant listé une seule fois, et les noms des jeux sont gardés en mémoire jusqu'à ce que Steam les change. Avec 611 jeux Steam, un balayage est passé d'une demi-seconde environ à un dixième, et à presque rien quand rien n'a changé, donc la fenêtre ne saccade plus au démarrage ni quand vous y revenez. Les jeux ajoutés depuis Battle.net, EA, Ubisoft et Rockstar ne laissent plus non plus un assistant qui sonde pendant dix minutes après leur lancement."
     },
     {
+      "id": "2026-11-24-32bit-graphics",
+      "date": "2026-11-24",
+      "en": "Battle.net and other 32-bit Windows programs open again in Spark Games and Spark Run. SparkOS now ships 32-bit graphics drivers, which they need to draw a window.",
+      "fr": "Battle.net et les autres programmes Windows 32 bits s'ouvrent de nouveau dans Spark Games et Spark Run. SparkOS inclut maintenant les pilotes graphiques 32 bits dont ils ont besoin pour afficher une fenêtre."
+    },
+    {
       "id": "2026-11-24-spark-monitor-logs-system",
       "date": "2026-11-24",
       "en": "Spark Monitor 1.1.0 has two new tabs. Logs shows the system journal live, with this boot or the last one, errors or everything, a filter by app and a search; each line is a plain sentence, and a crashes view lists what crashed with a Copy report button that sends nothing. System shows what this PC is (SparkOS version, kernel, processor, graphics driver, memory, motherboard, disks, displays) with a Copy all button for support requests that leaves out serial numbers. Ctrl+5 and Ctrl+6 open them. Tried on one PC so far.",
