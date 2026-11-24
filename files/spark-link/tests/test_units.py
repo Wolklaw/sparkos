@@ -84,9 +84,15 @@ class Addresses(unittest.TestCase):
         for ok in ('192.168.1.5', '10.0.0.2', '172.16.4.4', '127.0.0.1', '::1',
                    'fe80::1%eth0', 'fd12:3456::1', '::ffff:192.168.1.9', '169.254.3.3'):
             self.assertTrue(allowed_peer(ok), ok)
-        for bad in ('8.8.8.8', '2001:4860:4860::8888', '::ffff:8.8.8.8', '100.64.1.1',
-                    'not an address'):
+        for bad in ('8.8.8.8', '2001:4860:4860::8888', '::ffff:8.8.8.8', 'not an address'):
             self.assertFalse(allowed_peer(bad), bad)
+
+    def test_tailscale_only_on_a_tailnet(self):
+        for ts in ('100.64.1.1', '100.122.66.49', '100.127.255.254', '::ffff:100.100.1.2'):
+            self.assertTrue(allowed_peer(ts, tailnet=True), ts)
+            self.assertFalse(allowed_peer(ts, tailnet=False), ts)
+        for bad in ('100.63.255.255', '100.128.0.1', '8.8.8.8'):
+            self.assertFalse(allowed_peer(bad, tailnet=True), bad)
 
 
 @unittest.skipUnless(identity.backend(), 'needs openssl or cryptography')

@@ -128,15 +128,52 @@ def local_addresses() -> List[str]:
     return out
 
 
-def allowed_peer(host: str) -> bool:
-    """Private, link-local and loopback addresses only (docs: Connection)."""
+TAILNET = ipaddress.ip_network('100.64.0.0/10')      # the range Tailscale gives out
+_TAIL_CACHE: Tuple[float, List[str]] = (0.0, [])
+
+
+def tailscale_addresses() -> List[str]:
+    """This PC's Tailscale IPv4 addresses, empty when it isn't on a tailnet (looked up at most
+    every 10 s). Read from the interfaces, or from `tailscale ip -4` if that finds none."""
+    global _TAIL_CACHE
+    if time.monotonic() - _TAIL_CACHE[0] < 10:
+        return list(_TAIL_CACHE[1])
+    found: List[str] = []
+    for cmd in (['ip', '-4', '-o', 'addr', 'show', 'scope', 'global'], ['tailscale', 'ip', '-4']):
+        exe = shutil.which(cmd[0])
+        if not exe:
+            continue
+        try:
+            text = subprocess.run([exe] + cmd[1:], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                                  timeout=3).stdout.decode('ascii', 'replace')
+        except (OSError, subprocess.TimeoutExpired):
+            continue
+        for match in re.finditer(r'\b(100\.\d+\.\d+\.\d+)\b', text):
+            try:
+                if ipaddress.ip_address(match.group(1)) in TAILNET and match.group(1) not in found:
+                    found.append(match.group(1))
+            except ValueError:
+                pass
+        if found:
+            break
+    _TAIL_CACHE = (time.monotonic(), found)
+    return found
+
+
+def allowed_peer(host: str, tailnet: Optional[bool] = None) -> bool:
+    """Private, link-local and loopback addresses, plus Tailscale's 100.64.0.0/10 while this PC is
+    on a tailnet (docs: Connection). `tailnet` overrides the lookup, for tests."""
     try:
         addr = ipaddress.ip_address(host.split('%')[0])
     except ValueError:
         return False
     if isinstance(addr, ipaddress.IPv6Address) and addr.ipv4_mapped:
         addr = addr.ipv4_mapped
-    return addr.is_private or addr.is_link_local or addr.is_loopback
+    if addr.is_private or addr.is_link_local or addr.is_loopback:
+        return True
+    if isinstance(addr, ipaddress.IPv4Address) and addr in TAILNET:
+        return bool(tailscale_addresses()) if tailnet is None else tailnet
+    return False
 
 
 @dataclass
@@ -317,7 +354,8 @@ class Service:
         host = str(peername[0])
         if not allowed_peer(host) or self.total >= MAX_CONNECTIONS:
             log.warning("refused a connection from %s (%s)", host,
-                        'not on the local network' if not allowed_peer(host) else 'too many')
+                        'not on the local network or Tailscale' if not allowed_peer(host)
+                        else 'too many')
             writer.close()
             return
         self.total += 1
@@ -500,7 +538,8 @@ class Service:
         return {'type': 'hello', 'v': PROTOCOL,
                 'device': {'id': self.ident.id, 'name': self.settings.display_name(),
                            'kind': 'pc'},
-                'features': self.settings.enabled()}
+                'features': self.settings.enabled(),
+                'addresses': tailscale_addresses()}       # so the phone can reach this PC away from home
 
     def active(self, conn: Conn, feature: str) -> bool:
         return self.settings.features.get(feature, False) and feature in conn.features
@@ -1030,7 +1069,7 @@ class Service:
                      for x in self.transfers.values()]
         return {'pc': {'id': self.ident.id, 'name': self.settings.display_name(),
                        'key': identity.short_fp(self.ident.fp), 'fp': self.ident.fp,
-                       'addresses': addrs},
+                       'addresses': addrs, 'tailscale': tailscale_addresses()},
                 'listening': self.server is not None, 'port': self.bound_port or self.port,
                 'error': self.listen_error, 'mdns': self.mdns_how,
                 'features': dict(self.settings.features), 'pairing': pairing,

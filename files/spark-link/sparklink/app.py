@@ -682,6 +682,10 @@ class App:
                        fg=T["muted"]).pack(anchor="w")
         else:
             self.label(col, t('pair.no_address'), 8, wrap=330, fg=T["gold"]).pack(anchor="w")
+        tail = st['pc'].get('tailscale') or []
+        if tail:
+            self.label(col, t('pair.tailscale', address=', '.join(tail)), 8, wrap=330,
+                       fg=T["muted"]).pack(anchor="w", pady=(px(6), 0))
         self.button(col, t('pair.stop'), lambda: self.call({'cmd': 'pair.cancel'})).pack(
             anchor="w", pady=(px(12), 0))
         self.label(frame, t('pair.no_camera'), 8, fg=T["muted"]).pack(anchor="w",
