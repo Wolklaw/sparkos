@@ -2,6 +2,11 @@
 # A user's own settings in ~/.config/kdeglobals still win.
 [KDE]
 LookAndFeelPackage=dev.wolklaw.sparkos.desktop
+# The Dark Mode switch in the Brightness & Color popup (and automatic day/night switching)
+# swaps between these two. SparkOS has one look, so both point at it; otherwise the switch
+# jumps to Breeze Dark and replaces the SparkOS colours, icons and splash.
+DefaultDarkLookAndFeel=dev.wolklaw.sparkos.desktop
+DefaultLightLookAndFeel=dev.wolklaw.sparkos.desktop
 SingleClick=false
 widgetStyle=Breeze
 
