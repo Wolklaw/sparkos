@@ -1,12 +1,12 @@
 # Switching this PC from Windows 11 to SparkOS
 
-This guide covers what this PC has installed and plugged in, checked on 2026-11-19. Each line says what happens on SparkOS:
+This guide covers what this PC has installed and plugged in, checked on 2026-11-19 and updated 2026-11-23 for the Spark apps. For any PC, Spark Welcome's **Move from Windows** page does the same from the Windows drive itself: it reads the installed programs and says what to use for each one, copies your files and fonts, finds your Steam libraries, and has a checklist for before you erase Windows. Each line says what happens on SparkOS:
 - **Works**: no change for you.
 - **Replaced**: a different program does the job.
 - **Partly**: works with limits.
 - **No**: keep Windows (dual boot or a Windows VM) for it.
 
-"In the image" means SparkOS ships it already: only SparkOS's own apps (Soot, FreeSuite, Spark Snip, Spark Media) and the system itself. "From the Store" means you install it with one click from Spark Store. "Check" means I couldn't confirm it, and you should test it before you rely on it.
+"In the image" means SparkOS ships it already: only SparkOS's own apps (Soot, FreeSuite and the Spark apps) and the system itself. "Optional Spark app" means a Spark app you add with one click from Spark Store or Spark Welcome's Apps page. "From the Store" means you install it with one click from Spark Store. "Check" means I couldn't confirm it, and you should test it before you rely on it.
 
 **Installing apps:** a store with an Install button, or double-click what you downloaded (`.exe`, `.AppImage`, `.rpm`). See [installing-apps.md](installing-apps.md).
 
@@ -14,7 +14,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 
 | Device | On SparkOS | Notes |
 |---|---|---|
-| Canon TR4700 series (network) printer | **Works** | Printing is driverless (IPP/AirPrint). SparkOS finds the printer on the network by itself. Add or check it in System Settings > Printers (from the Store). |
+| Canon TR4700 series (network) printer | **Works** | Printing is driverless (IPP/AirPrint). SparkOS finds the printer on the network by itself. Add or check it in **Spark Settings**, Printers. |
 | Canon TR4700 scanner | **Works** (check) | SANE's `pixma` and `airscan` scanner support is in the image. Scan with **Spark Scan**, SparkOS's own scanning app: preview, crop, the glass or the feeder, one PDF (searchable, if you want) or an image per page, saved to Documents/Scans. It has only been tested with SANE's test scanner so far; confirm with your printer on the first day. |
 | Canon fax | **No** (probably) | The Linux printing system has no Canon fax support. Fax from the printer's own panel. |
 | Canon IJ Printer Assistant (nozzle check, cleaning) | **Replaced** | Open the printer's IP address in a browser to reach its own maintenance page (Remote UI). |
@@ -28,20 +28,20 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | 8BitDo controller | **Works** | Works through Steam Input. Firmware updates and remapping need 8BitDo's Windows app, so use Windows or a Windows VM for those. |
 | Bluetooth adapter | **Works** | |
 | Realtek 2.5 GbE network | **Works** | |
-| RX 6800 XT | **Works** | Open drivers are built in. **LACT** (Flathub) replaces Adrenalin for fan curves and overclocking. It isn't in the image yet because it needs a system service. |
-| Three monitors, mixed refresh rates | **Works** | KDE Plasma on Wayland handles mixed refresh rates, VRR and HDR. Set them up in System Settings > Display. |
-| RGB: ASUS Aura, Patriot Viper RAM and SSD, Corsair RAM, Holtek RAM (SignalRGB) | **Partly** | **OpenRGB** (from the Store) drives most of these. RAM lighting sometimes needs one extra setting to work, so check it on day one. |
+| RX 6800 XT | **Works** | Open drivers are built in. **Spark Controller** (in the image) shows temperatures and sets fan curves. For overclocking and undervolting, **LACT** (Flathub) replaces Adrenalin; it isn't in the image because it needs a system service. |
+| Three monitors, mixed refresh rates | **Works** | KDE Plasma on Wayland handles mixed refresh rates, VRR and HDR. Set them up in **Spark Settings**, Displays. |
+| RGB: ASUS Aura, Patriot Viper RAM and SSD, Corsair RAM, Holtek RAM (SignalRGB) | **Partly** | **Spark Controller** (in the image) drives most of these through OpenRGB. RAM lighting sometimes needs one extra setting to work, so check it on day one. |
 | Steam virtual mic and speakers, VB-CABLE | **Replaced** | PipeWire virtual devices. Route audio with **qpwgraph** (from the Store), or run `spark audio-channels on` for Game, Voice, Browser and Music outputs. |
 
 ## Games and launchers
 
 | Item | On SparkOS | Notes |
 |---|---|---|
-| Steam | **Works** | Install **Steam** from the Store. Proton runs Windows games. |
-| Epic Games | **Works** | Through **Heroic** (from the Store). |
-| Battle.net: World of Warcraft, Diablo III | **Works** | Install **Lutris** from the Store, then Battle.net through it. |
-| EA app | **Partly** | Through Lutris. EA games you own on Steam are easier there. |
-| Rockstar: GTA V Enhanced | **Partly** | Story mode works. **GTA Online doesn't**: its anti-cheat blocks Linux. LSPD First Response depends on script hooks under Proton, so check it. |
+| Steam | **Works** | Install **Steam** from Spark Welcome's Games page or the Store. Proton runs Windows games. Games already on the Windows drives don't download again: Spark Welcome's Move from Windows page lists each Steam library, and you add its folder in Steam, Settings, Storage. |
+| Epic Games, GOG, Amazon Games | **Works** | **Spark Games** (in the image) signs in to them itself, lists what you own and installs and starts the games. |
+| Battle.net: World of Warcraft, Diablo III | **Works** | **Spark Games** adds Battle.net: it installs it on Wine and lists its games. |
+| EA app | **Partly** | **Spark Games** adds it the same way. EA games you own on Steam are easier there. |
+| Rockstar: GTA V Enhanced | **Partly** | **Spark Games** adds the Rockstar launcher. Story mode works. **GTA Online doesn't**: its anti-cheat blocks Linux. LSPD First Response depends on script hooks under Proton, so check it. |
 | League of Legends, Teamfight Tactics | **No** | Riot Vanguard is kernel anti-cheat. Keep Windows for these. |
 | Minecraft and CurseForge | **Replaced** | **Prism Launcher** (from the Store) signs in with your Microsoft account and imports CurseForge modpacks. |
 | Jagex Launcher and RuneLite | **Replaced** | **Bolt** (from the Store) signs in with Jagex accounts. **RuneLite** (from the Store) runs natively. |
@@ -51,7 +51,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Dragon Ball Sparking! Zero | **Works** | ProtonDB Gold, trending Platinum (97 reports, strong confidence). Steam Deck: Playable. Checked 2026-11-19. |
 | Forza Horizon 6 | **Works** | ProtonDB Gold (best report Platinum), 1,099 reports, strong confidence. Steam Deck: Verified. Checked 2026-11-19. |
 | Harry Potter: Quidditch Champions | **Works** | ProtonDB Gold (best report Platinum), only 10 reports. Steam Deck: Verified. Needs an internet connection even for single player. Checked 2026-11-19. |
-| Pokémon TCG Live | **Check** | Not on Steam or ProtonDB. Lutris has one community install script whose author calls it temporary: click past install errors, and you may need to pick the language several times (last updated 2024-11). Fallback: the Android version in an Android emulator, not confirmed. If neither works, use Windows or a phone. |
+| Pokémon TCG Live | **Check** | Not on Steam or ProtonDB. Try its Windows installer with **Spark Run** (double-click the .exe); not tested yet. Fallback: the Android version in Androidbox, not confirmed. If neither works, use Windows or a phone. |
 | Blitz (League companion) | **No** | Not needed without League. |
 
 ## Work, creative and everyday apps
@@ -64,7 +64,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Amazon Music | **Works** | The Windows app runs through **Spark Run** (Spark Welcome, Apps, installs it; or `spark-run --get amazon-music`), with Ultra HD (lossless FLAC) up to your DAC's sample rate. Spark Run adds the CJK font mapping and the empty `update.ini` it needs. Wine apps use the device's current rate, 48 kHz by default; for Ultra HD above that, pick a higher fixed rate in Spark Settings, Sound, or set it in `~/.config/pipewire/pipewire.conf.d/` (see the note in `/usr/share/pipewire/pipewire.conf.d/10-sparkos-sample-rates.conf`). The web player is standard quality only. |
 | PDFgear | **Replaced** | **FreeSuite PDF** (in the image, default for PDFs). |
 | Firefox, Chrome | **Works** | **Soot** (in the image) is the default browser. Chrome and Firefox install from the Store. |
-| Google Drive | **Partly** | Add your Google account in System Settings > Online Accounts and Drive appears in Dolphin, which is still in the image for this release (start it with `dolphin`; Spark Files doesn't show online accounts yet). Unlike the Windows client, it doesn't keep offline copies. For that, use rclone or a paid client such as Insync. |
+| Google Drive | **Partly** | Add your Google account in KDE's Online Accounts (hidden from the menu: run `spark-settings --kde kcm_kaccounts`) and Drive appears in Dolphin, which is still in the image for this release (start it with `dolphin`; Spark Files doesn't show online accounts yet). Unlike the Windows client, it doesn't keep offline copies. For that, use rclone or a paid client such as Insync. |
 | Discord, Spotify | **Works** | Both install from the Store. |
 | OBS Studio | **Works** | From the Store. |
 | Blender, GIMP, Audacity | **Works** | From the Store. Blender renders on the RX 6800 XT through HIP. |
@@ -72,17 +72,19 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Clipchamp | **Replaced** | **Kdenlive** (from the Store). |
 | Snipping Tool, QuickOCR | **Replaced** | **Spark Snip** (in the image): Print or Meta+Shift+S for a screenshot, Meta+Shift+T to copy text off the screen (OCR, English and French), Meta+Shift+R to start and stop a recording. The keys match Snipping Tool and PowerToys Text Extractor, with Meta for the Windows key. |
 | ShareX | **Replaced** | **Spark Snip** for quick snips, text and recordings, or **Flameshot** (from the Store) to annotate and upload. |
-| Notepad++ | **Replaced** | Text files open in **FreeSuite Writer** (default). For a code-style editor, install **Kate** from the Store. |
-| 7-Zip | **Replaced** | **Ark** (built in). |
-| WinDirStat | **Replaced** | **Filelight** from the Store. |
+| Notepad, Notepad++ | **Replaced** | **Spark Edit** (in the image): tabs, find and replace, and unsaved tabs come back after a restart, like Notepad on Windows 11. |
+| 7-Zip, WinRAR | **Replaced** | **Spark Archive** (in the image): zip, 7z, rar, tar and iso, with passwords. Extract and Compress are in Spark Files' right-click menu. |
+| WinDirStat | **Replaced** | **Spark Space**, an optional Spark app: a map of what takes the space on each drive, and the trash for what you don't want. |
 | HWiNFO, Task Manager | **Replaced** | **Spark Monitor** (in the image): Ctrl+Shift+Esc, as on Windows (Meta+Esc and Ctrl+Esc work too). For detailed sensor readings like HWiNFO, **Mission Center** is in the Store. |
 | Ryzen Master | **No** | Set PBO and Curve Optimizer in the BIOS instead. They then apply to both systems. |
 | Logitech G HUB, SignalRGB, 8BitDo, Focusrite Control | See Devices above | |
 | Wallpaper Engine | **Partly** | A community KDE plugin plays many Wallpaper Engine scenes. It isn't in the image. |
 | Tailscale | **Works** | Not in the image (it's a company's service). To add it, run `sudo curl -fsSLo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo`, then `rpm-ostree install tailscale` and restart. Then `sudo systemctl enable --now tailscaled` and `sudo tailscale up` to sign in. It updates with SparkOS from then on. |
-| hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN work in System Settings > Network. |
+| hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN connections import in **Spark Settings**, Network. |
 | TeamViewer | **Works** | Download the Linux .rpm from teamviewer.com and double-click it: SparkOS asks, installs it and offers a restart. |
-| PuTTY | **Replaced** | `ssh` in Spark Terminal (built in). |
+| PuTTY | **Replaced** | `ssh` in **Spark Terminal** (in the image), or **Spark Connect**, an optional Spark app, for your own servers. |
+| Phone Link | **Replaced** | **Spark Link** (in the image): links, files, notifications and the clipboard between your phone and this PC. |
+| Calculator | **Replaced** | **Spark Calc** (in the image): standard, scientific and programmer. |
 | VirtualBox | **Partly** | **virt-manager** with KVM is the replacement and runs VMs faster than VirtualBox, but SparkOS doesn't set it up yet (Bazzite's `ujust setup-virtualization` went with Bazzite, and `spark` has no replacement yet). |
 | MuseHub | **No** | Windows and Mac only. |
 
@@ -107,11 +109,12 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 Honest answer: for most of what you do, it should be at least as fast, but some things can be slower, and it gets measured rather than assumed (Phase 5 in PLAN.md).
 - **Usually as fast or faster:** boot to desktop, the desktop itself, file operations, and many games on an AMD GPU. Current Mesa drivers do well on AMD GPUs, and Windows background services are gone.
 - **Can be slower:** some DirectX 12 games under Proton run a few percent behind Windows. The first run of a game can stutter while shaders compile, and it settles after that.
-- **The measurement:** the same games at the same settings and resolution on both systems. Linux is logged with MangoHud and Windows with PresentMon/CapFrameX, comparing average FPS and 1% lows. Boot time is timed on both. Results go into `docs/benchmarks.md`.
+- **The measurement:** the same games at the same settings and resolution on both systems. Linux is logged with MangoHud and Windows with PresentMon, and **Spark Bench** (an optional Spark app) reads both and compares average FPS and 1% lows. Boot time is timed on both. Results go into `docs/benchmarks.md`.
 
 ## The switch, step by step
 
 1. Check the **Check** items above, especially the games you play most.
 2. Install SparkOS alongside Windows: step by step in [install.md](install.md) (Phase 5 in PLAN.md). Windows stays until SparkOS has covered a normal week of work and games.
-3. On SparkOS: sign in to Steam, Heroic, Bolt and Prism. Add your Google account. Run `sparkos-dev-setup`. Print and scan one page.
-4. Keep Windows (on a smaller partition, or as a VM) for anything marked **No** that you still need.
+3. On SparkOS, open **Spark Welcome** and go through **Move from Windows**: copy your files and fonts, see what to use for each program, and add your Steam library folders in Steam. Sign in to Epic, GOG and Amazon in Spark Games, and to Bolt and Prism. Add your Google account. Run `sparkos-dev-setup`. Print and scan one page.
+4. Before you erase Windows, go through the checklist at the end of Move from Windows: passwords and bookmarks, OneDrive files, game saves, licences, two-step codes, the Wi-Fi password, BitLocker and Fast Startup.
+5. Keep Windows (on a smaller partition, or as a VM) for anything marked **No** that you still need.

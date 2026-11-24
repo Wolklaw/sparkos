@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-23-welcome-move-from-windows",
+      "date": "2026-11-23",
+      "en": "Spark Welcome is a guide for moving from Windows. It shows which Spark app replaces each Windows program, reads the programs installed on your Windows drive and says what to use for each one, copies your files and fonts, finds your Steam games so they don't download again, and gives a checklist for before you erase Windows. Optional Spark apps come first on the Apps page.",
+      "fr": "Spark Welcome est un guide pour quitter Windows. Il montre quelle application Spark remplace chaque programme Windows, lit les programmes installés sur votre disque Windows et dit quoi utiliser pour chacun, copie vos fichiers et vos polices, trouve vos jeux Steam pour qu'ils n'aient pas à se télécharger de nouveau, et donne une liste à vérifier avant d'effacer Windows. Les applications Spark optionnelles passent en premier dans la page Applications."
+    },
+    {
       "id": "2026-11-23-update-layered",
       "date": "2026-11-23",
       "en": "Spark Update installs updates on a PC where you added packages with rpm-ostree (Tailscale, for example). Before, every check failed with \"cannot upgrade via bootc\".",

@@ -45,6 +45,12 @@ def run_cmd(key: str, spark_run: Sequence[str] = ('spark-run',)) -> List[str]:
     return [*spark_run, '--get', key, '--no-window']
 
 
+def spark_cmd(source: str) -> List[str]:
+    """An optional Spark app installs itself for this user from its source folder on this PC,
+    as Spark Store's Install button does: no download, no password."""
+    return ['bash', os.path.join(source, 'install.sh'), '--user']
+
+
 def list_cmd(flatpak: Sequence[str] = ('flatpak',)) -> List[str]:
     return [*flatpak, 'list', '--app', '--columns=application']
 
@@ -159,6 +165,7 @@ class Job:
     error: str = ''
     url: str = ''        # a web app: its address (no Flathub install)
     run: str = ''        # a Windows app: its key in Spark Run's catalogue
+    source: str = ''     # an optional Spark app: its source folder (install.sh --user)
 
 
 class Installer:
@@ -181,12 +188,13 @@ class Installer:
         self._stop = False
 
     # called from the window
-    def add(self, app_id: str, name: str, url: str = '', run: str = '') -> Job:
+    def add(self, app_id: str, name: str, url: str = '', run: str = '',
+            source: str = '') -> Job:
         with self._lock:
             job = self.jobs.get(app_id)
             if job and job.state in (QUEUED, WORKING, DONE):
                 return job
-            job = Job(app_id, name, url=url, run=run)
+            job = Job(app_id, name, url=url, run=run, source=source)
             self.jobs[app_id] = job
         self._todo.put(app_id)
         self._events.put(Job(**job.__dict__))
@@ -196,7 +204,7 @@ class Installer:
     def retry(self, app_id: str) -> Optional[Job]:
         job = self.jobs.get(app_id)
         if job and job.state in (FAILED, CANCELLED):
-            return self.add(app_id, job.name, job.url, job.run)
+            return self.add(app_id, job.name, job.url, job.run, job.source)
         return job
 
     def busy(self) -> bool:
@@ -283,7 +291,7 @@ class Installer:
                 self._set(job, state=FAILED if problem else DONE, error=problem,
                           percent=None if problem else 100)
                 continue
-            problem = '' if job.run else self._ensure_remote()
+            problem = '' if (job.run or job.source) else self._ensure_remote()
             if problem:
                 self._set(job, state=FAILED, error=problem)
                 continue
@@ -306,7 +314,12 @@ class Installer:
         return ''
 
     def _install(self, job: Job) -> None:
-        cmd = run_cmd(job.run, self.spark_run) if job.run else install_cmd(job.app_id, self.flatpak)
+        if job.source:
+            cmd = spark_cmd(job.source)
+        elif job.run:
+            cmd = run_cmd(job.run, self.spark_run)
+        else:
+            cmd = install_cmd(job.app_id, self.flatpak)
         log.info("running %s", ' '.join(cmd))
         lines: List[str] = []
         try:

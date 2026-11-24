@@ -17,7 +17,7 @@ from . import dialogs as messagebox
 
 from . import APP_CLASS, APP_ID, APP_NAME, APP_SLUG, PAGES, VERSION
 from . import catalog as catalog_mod
-from . import checks, core, flatpak
+from . import checks, core, flatpak, switch
 from .core import log
 from .strings import t
 from .widgets import T, Glitch, GlitchText, Mark, Strip, WolkButton, pick_mono
@@ -91,6 +91,7 @@ class App:
         except catalog_mod.CatalogError as exc:
             log.error("catalog: %s", exc)
             self.catalog = catalog_mod.Catalog([])
+        self.optional = switch.optional_apps()    # optional Spark apps whose source is here
         self.installed: set = set()
         self.installer = flatpak.Installer(on_change=self.install_changed)
         self.rows: Dict[str, Any] = {}           # app id -> AppRow, for install progress
@@ -105,7 +106,8 @@ class App:
         self.go(start_page if start_page in PAGES else 'welcome')
         self.root.deiconify()
         self.glitch.add(self.title, self.mark, self.strip)
-        self.bg(flatpak.installed_ids, self._got_installed)
+        self.bg(lambda: flatpak.installed_ids() | switch.optional_installed(self.optional),
+                self._got_installed)
 
     # look helpers
     def px(self, value: float) -> int:
@@ -329,10 +331,15 @@ class App:
                 if app_id in result:
                     row.set_installed()
 
+    def entry(self, app_id: str) -> Optional[Any]:
+        """An app Spark Welcome can install: from apps.json, or an optional Spark app."""
+        return self.catalog.find(app_id) or next((e for e in self.optional if e.id == app_id),
+                                                 None)
+
     def install(self, entries: List[Any]) -> None:
         for entry in entries:
             self.installer.add(entry.id, entry.label(), getattr(entry, "web", ""),
-                               getattr(entry, "run", ""))
+                               getattr(entry, "run", ""), getattr(entry, "source", ""))
         log.info("queued %s", ', '.join(e.id for e in entries))
         self.event()
         self._ensure_pump()
@@ -379,8 +386,8 @@ class App:
             ok = core.open_store()
         elif key == 'settings':
             ok = core.open_settings()
-        elif key == 'snip':
-            ok = core.launch(['spark-snip'])
+        elif key.startswith('open:'):              # a SparkOS app, by its command
+            ok = core.launch([key[5:]])
         elif key == 'anticheat':
             ok = core.open_url(catalog_mod.ANTICHEAT_URL)
         elif key == 'test_sound':

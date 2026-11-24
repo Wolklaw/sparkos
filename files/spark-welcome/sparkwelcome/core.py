@@ -204,11 +204,13 @@ def open_url(url: str) -> bool:
 
 
 def open_settings(module: Optional[str] = None) -> bool:
-    """Plasma's System Settings, on one page when given (kcm_printer_manager...)."""
+    """Spark Settings, on one page when given a KDE module name (kcm_printer_manager...): it
+    opens its own page for that module, or KDE's. Plasma's System Settings where it isn't."""
     if module:
-        cmd = first_available(['systemsettings', module], ['kcmshell6', module])
+        cmd = first_available(['spark-settings', module], ['systemsettings', module],
+                              ['kcmshell6', module])
     else:
-        cmd = first_available(['systemsettings'])
+        cmd = first_available(['spark-settings'], ['systemsettings'])
     return launch(cmd) if cmd else False
 
 

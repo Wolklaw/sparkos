@@ -31,7 +31,7 @@ os.environ['SPARK_WELCOME_TEST'] = '1'
 os.environ['SPARK_WELCOME_REDUCED_MOTION'] = '0'
 
 import sparkwelcome  # noqa: E402
-from sparkwelcome import catalog, checks, core, flatpak, strings, windows  # noqa: E402
+from sparkwelcome import catalog, checks, core, flatpak, strings, switch, windows  # noqa: E402
 
 FROM = strings.t('win.renamed')       # copies that would clash: 'x (from Windows).txt'
 
@@ -70,6 +70,16 @@ def touch(path: str, data: bytes = b'x') -> str:
     return path
 
 
+def make_source(base: str, slug: str, **meta) -> str:
+    """An optional Spark app's source folder, as Spark Store ships them."""
+    src = os.path.join(base, slug)
+    touch(os.path.join(src, 'install.sh'), b'#!/bin/bash\nexit 0\n')
+    meta = {'id': f'dev.wolklaw.{slug}', 'name': slug, 'summary': f'{slug} does a thing.',
+            'summary_fr': f'{slug} fait une chose.', **meta}
+    touch(os.path.join(src, 'spark-app.json'), json.dumps(meta).encode('utf-8'))
+    return src
+
+
 def read(path: str) -> bytes:
     with open(path, 'rb') as f:
         return f.read()
@@ -87,8 +97,22 @@ def uuid_bytes(guid: str) -> bytes:
 def make_hive(path: str, key_path: str, values) -> None:
     """A Windows registry file holding one key (key_path, under a root key) with values
     {name: (type, data)}, in the same layout Windows writes."""
+    make_hive_keys(path, {key_path: values})
+
+
+def make_hive_keys(path: str, keys) -> None:
+    """A Windows registry file holding several keys {key path: {name: (type, data)}}."""
     import struct
     cells = bytearray(b'hbin' + b'\0' * 28)
+    tree: dict = {}
+    for key_path, values in keys.items():
+        node = tree
+        for part in key_path.split('\\'):
+            node = node.setdefault(part, ({}, {}))[1]
+        parent = tree
+        for part in key_path.split('\\')[:-1]:
+            parent = parent[part][1]
+        parent[key_path.split('\\')[-1]][0].update(values)
 
     def add(data: bytes) -> int:
         offset, size = len(cells), len(data) + 4
@@ -96,32 +120,40 @@ def make_hive(path: str, key_path: str, values) -> None:
         cells.extend(struct.pack('<i', -size) + data + b'\0' * (size - 4 - len(data)))
         return offset
 
-    def nk(name: str, subkeys: Optional[int], value_list: Optional[int], n_values: int) -> int:
+    def nk(name: str, subkeys: Optional[int], n_subkeys: int, value_list: Optional[int],
+           n_values: int) -> int:
         raw = bytearray(0x4C)
         raw[0:2] = b'nk'
         struct.pack_into('<H', raw, 2, 0x20)
-        struct.pack_into('<I', raw, 0x14, 1 if subkeys is not None else 0)
+        struct.pack_into('<I', raw, 0x14, n_subkeys)
         struct.pack_into('<I', raw, 0x1C, subkeys if subkeys is not None else 0xFFFFFFFF)
         struct.pack_into('<I', raw, 0x24, n_values)
         struct.pack_into('<I', raw, 0x28, value_list if value_list is not None else 0xFFFFFFFF)
         struct.pack_into('<H', raw, 0x48, len(name))
         return add(bytes(raw) + name.encode('latin-1'))
 
-    offsets = []
-    for name, (vtype, data) in values.items():
-        data_cell = add(data)
-        offsets.append(add(b'vk' + struct.pack('<HIIIHH', len(name), len(data), data_cell,
-                                               vtype, 1, 0) + name.encode('latin-1')))
-    value_list = add(b''.join(struct.pack('<I', o) for o in offsets))
-    parts = key_path.split('\\')
-    child = nk(parts[-1], None, value_list, len(offsets))
-    for name in reversed(['ROOT'] + parts[:-1]):
-        sig = b'li' if len(name) % 2 else b'lh'       # both list kinds Windows uses
-        entry = struct.pack('<I', child) + (b'' if sig == b'li' else b'\0' * 4)
-        child = nk(name, add(sig + struct.pack('<H', 1) + entry), None, 0)
+    def build(name: str, values, children) -> int:
+        value_list = None
+        if values:
+            offsets = []
+            for vname, (vtype, data) in values.items():
+                data_cell = add(data)
+                offsets.append(add(b'vk' + struct.pack('<HIIIHH', len(vname), len(data),
+                                                       data_cell, vtype, 1, 0)
+                                   + vname.encode('latin-1')))
+            value_list = add(b''.join(struct.pack('<I', o) for o in offsets))
+        kids = [build(k, v, c) for k, (v, c) in children.items()]
+        sub = None
+        if kids:
+            sig = b'li' if len(name) % 2 else b'lh'      # both list kinds Windows uses
+            sub = add(sig + struct.pack('<H', len(kids)) + b''.join(
+                struct.pack('<I', k) + (b'' if sig == b'li' else b'\0' * 4) for k in kids))
+        return nk(name, sub, len(kids), value_list, len(values))
+
+    root = build('ROOT', {}, tree)
     header = bytearray(0x1000)
     header[0:4] = b'regf'
-    struct.pack_into('<I', header, 0x24, child)
+    struct.pack_into('<I', header, 0x24, root)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'wb') as f:
         f.write(bytes(header) + bytes(cells))
@@ -141,11 +173,11 @@ class CatalogTests(unittest.TestCase):
     def test_the_list_loads(self):
         cat = catalog.load()
         ids = [e.id for e in cat.launchers]
-        self.assertEqual(ids, ['com.valvesoftware.Steam', 'com.heroicgameslauncher.hgl',
-                               'net.lutris.Lutris', 'net.davidotek.pupgui2'])
+        # Spark Games does the other launchers: Steam is the only one offered
+        self.assertEqual(ids, ['com.valvesoftware.Steam'])
         names = {e.name for e in cat.all()}
         for wanted in ('Discord', 'Signal', 'Telegram', 'Spotify', 'OBS Studio', 'Zoom', 'GIMP',
-                       'Krita', 'Kdenlive', 'Blender', 'KCalc', 'Bitwarden'):
+                       'Krita', 'Kdenlive', 'Blender', 'Bitwarden', 'WhatsApp (web)'):
             self.assertIn(wanted, names)
         for entry in cat.all():
             if entry.run:
@@ -282,6 +314,31 @@ class FlatpakTests(unittest.TestCase):
         with open(log_file) as f:
             self.assertEqual(f.read().splitlines(),
                              ['--get amazon-music --no-window', '--get fail --no-window'])
+
+    def test_optional_spark_apps_install_from_their_source(self):
+        self.assertEqual(flatpak.spark_cmd('/usr/share/spark-store/sources/spark-space'),
+                         ['bash', '/usr/share/spark-store/sources/spark-space/install.sh',
+                          '--user'])
+        folder = tempfile.mkdtemp()
+        log_file = os.path.join(folder, 'calls.log')
+        src = os.path.join(folder, 'spark-good')
+        touch(os.path.join(src, 'install.sh'),
+              f'echo "$@" >> "{log_file}"\n'.encode('utf-8'))
+        bad = touch(os.path.join(folder, 'spark-bad', 'install.sh'),
+                    b'echo "no room on the disk" >&2\nexit 1\n')
+        # flatpak is never run for them: no Flathub remote is needed
+        inst = flatpak.Installer(['no-flatpak-here'])
+        inst.add('spark.spark-good', 'Spark Good', source=src)
+        inst.add('spark.spark-bad', 'Spark Bad', source=os.path.dirname(bad))
+        self.assertTrue(inst.wait(30))
+        inst.poll()
+        self.assertEqual(inst.jobs['spark.spark-good'].state, flatpak.DONE)
+        self.assertEqual(inst.jobs['spark.spark-bad'].state, flatpak.FAILED)
+        self.assertIn('no room', inst.jobs['spark.spark-bad'].error)
+        self.assertEqual(inst.retry('spark.spark-bad').source, os.path.dirname(bad))
+        self.assertTrue(inst.wait(30))
+        with open(log_file) as f:
+            self.assertEqual(f.read().splitlines(), ['--user'])
 
     def test_installer_queue(self):
         folder = tempfile.mkdtemp()
@@ -736,9 +793,17 @@ class PackagingTests(unittest.TestCase):
             self.assertIn(f'nav.{name}', strings.EN)
         for fn in checks.CHECKS:
             self.assertIn('check.' + fn.__name__[6:], strings.EN)
-        for key in ('store', 'snip', 'settings'):
-            for part in ('', '.title', '.button'):
+        for key in ('store', 'keys', 'settings'):
+            for part in ('', '.title'):
                 self.assertIn(f'done.{key}{part}', strings.EN)
+        for item in switch.SWAPS:
+            self.assertIn(f'swap.{item.key}.win', strings.EN)
+            self.assertIn(f'swap.{item.key}.what', strings.EN)
+        for slug in switch.OPTIONAL_WIN:
+            self.assertIn(f'optional.{slug}.win', strings.EN)
+        for _pattern, (kind, key) in switch.PROGRAMS:
+            if kind == 'note':
+                self.assertIn(key, strings.EN)
 
     def test_language(self):
         from sparkwelcome.lang import ui_language
@@ -808,12 +873,199 @@ def have_display() -> bool:
         return False
 
 
+# ─── Moving from Windows: Spark apps, programs, Steam ────────
+
+def reg_sz(text: str):
+    return (1, (text + '\0').encode('utf-16-le'))
+
+
+class SwitchTests(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.mkdtemp(prefix='spark-welcome-switch-')
+
+    def test_every_swap_is_a_spark_app(self):
+        keys = [s.key for s in switch.SWAPS]
+        self.assertEqual(len(keys), len(set(keys)))
+        for item in switch.SWAPS:
+            if item.command:
+                self.assertTrue(re.fullmatch(r'(spark-[a-z]+|soot|freesuite)', item.command))
+        self.assertIsNone(switch.swap('nope'))
+        self.assertFalse(switch.swap_installed(switch.swap('launcher')))   # nothing to open
+        for _pattern, (kind, key) in switch.PROGRAMS:
+            if kind == 'spark':
+                self.assertIsNotNone(switch.swap(key), key)
+            elif kind == 'app':
+                self.assertIsNotNone(catalog.load().find(key), key)
+            elif kind == 'optional':
+                self.assertIn(key, switch.OPTIONAL_WIN)
+
+    def test_programs_get_the_right_answer(self):
+        cases = {
+            'Google Chrome': ('spark', 'browser'), 'Microsoft Edge': ('spark', 'browser'),
+            'Mozilla Firefox (x64 en-US)': ('spark', 'browser'),
+            'Microsoft 365 - en-us': ('spark', 'office'),
+            'Adobe Acrobat (64-bit)': ('spark', 'office'),
+            '7-Zip 24.08 (x64)': ('spark', 'archive'), 'WinRAR 7.01 (64-bit)': ('spark', 'archive'),
+            'Notepad++ (64-bit x64)': ('spark', 'edit'), 'ShareX': ('spark', 'snip'),
+            'VLC media player': ('spark', 'media'), 'HWiNFO64': ('spark', 'monitor'),
+            'ARMOURY CRATE Service': ('spark', 'controller'), 'Git': ('spark', 'terminal'),
+            'WinDirStat 1.1.2': ('optional', 'spark-space'),
+            'CapFrameX': ('optional', 'spark-bench'),
+            'Steam': ('app', 'com.valvesoftware.Steam'),
+            'Epic Games Launcher': ('games', ''), 'GOG GALAXY': ('games', ''),
+            'Battle.net': ('games', ''), 'EA app': ('games', ''), 'Ubisoft Connect': ('games', ''),
+            'Riot Vanguard': ('note', 'prog.anticheat'),
+            'Discord': ('app', 'com.discordapp.Discord'),
+            'Spotify': ('app', 'com.spotify.Client'),
+            'SpotifyAB.SpotifyMusic': ('app', 'com.spotify.Client'),
+            '5319275A.WhatsAppDesktop': ('app', 'web.whatsapp'),
+            'OBS Studio': ('app', 'com.obsproject.Studio'),
+            'Microsoft OneDrive': ('note', 'prog.onedrive'),
+            'AMD Software': ('note', 'prog.drivers'),
+            'NVIDIA Graphics Driver 566.36': ('note', 'prog.drivers'),
+            'Logitech G HUB': ('note', 'prog.peripherals'),
+        }
+        for name, want in cases.items():
+            self.assertEqual(switch.answer_for(name), want, name)
+        for name in ('Some Game Mod Manager', 'Steamworks Common Redistributables',
+                     'Gitter'):
+            self.assertIsNone(switch.answer_for(name), name)
+
+    def test_sorting_keeps_one_line_per_answer_and_drops_noise(self):
+        found = switch.sort_programs([
+            'Discord', 'Discord PTB', '  ', 'Microsoft Visual C++ 2015-2022 Redistributable',
+            'Microsoft .NET Runtime - 8.0.11', 'Steam', 'Google Chrome', 'Microsoft Edge',
+            'Microsoft OneDrive', 'Paint.NET', 'Audacity 3.7', 'audacity 3.7', 'Epic Games Launcher',
+            'Microsoft.WindowsCalculator', 'WinDirStat'])
+        self.assertEqual([p.name for p in found.matched],
+                         ['Google Chrome', 'Epic Games Launcher', 'Discord', 'Steam',
+                          'WinDirStat', 'Microsoft OneDrive'])
+        self.assertEqual(found.others, ['Audacity 3.7', 'Paint.NET'])
+
+    def test_programs_from_the_windows_drive(self):
+        root = os.path.join(self.dir, 'C')
+        key = switch.UNINSTALL
+        make_hive_keys(os.path.join(root, 'Windows', 'System32', 'config', 'SOFTWARE'), {
+            key + '\\Steam': {'DisplayName': reg_sz('Steam')},
+            key + '\\{7-zip}': {'DisplayName': reg_sz('7-Zip 24.08 (x64)')},
+            key + '\\Hidden': {'DisplayName': reg_sz('Hidden Part'),
+                                'SystemComponent': (4, b'\x01\0\0\0')},
+            key + '\\KB123': {'DisplayName': reg_sz('Patch'), 'ParentKeyName': reg_sz('x')},
+            key + '\\NoName': {'Publisher': reg_sz('Nobody')},
+            'WOW6432Node\\' + key + '\\Old': {'DisplayName': reg_sz('Audacity 2.4')},
+        })
+        profile = os.path.join(root, 'Users', 'Ann')
+        make_hive_keys(os.path.join(profile, 'NTUSER.DAT'), {
+            'Software\\' + key + '\\Discord': {'DisplayName': reg_sz('Discord')}})
+        os.makedirs(os.path.join(root, 'Program Files', 'WindowsApps',
+                                 'SpotifyAB.SpotifyMusic_1.2.3_x64__zpdnekdrzrea0'))
+        names = switch.program_names(root, [profile])
+        self.assertEqual(sorted(names), ['7-Zip 24.08 (x64)', 'Audacity 2.4', 'Discord',
+                                         'SpotifyAB.SpotifyMusic', 'Steam'])
+        found = switch.find_programs(root, [profile])
+        self.assertEqual(found.others, ['Audacity 2.4'])
+        self.assertIn('Spotify Music', [p.name for p in found.matched])
+        self.assertEqual(switch.program_names(os.path.join(self.dir, 'empty')), [])
+
+    def test_hive_subkeys(self):
+        path = os.path.join(self.dir, 'hive')
+        make_hive_keys(path, {r'A\B\One': {'x': reg_sz('1')}, r'A\B\Two': {}, r'A\C': {}})
+        hive = windows.read_hive(path)
+        self.assertEqual(sorted(hive.subkeys(r'A\B')), ['One', 'Two'])
+        self.assertEqual(sorted(hive.subkeys('a')), ['B', 'C'])
+        self.assertEqual(hive.subkeys(r'A\B\One'), [])
+        self.assertEqual(hive.subkeys('Missing'), [])
+
+    def test_optional_apps_from_the_store_sources(self):
+        user, image = os.path.join(self.dir, 'user'), os.path.join(self.dir, 'image')
+        make_source(image, 'spark-space', name='Spark Space', name_fr='Spark Espace',
+                    command='spark-space', id='dev.wolklaw.SparkSpace')
+        make_source(image, 'spark-bench', name='Spark Bench', summary='', summary_fr='',
+                    description='Benchmarks.', description_fr='Mesures.')
+        make_source(user, 'spark-bench', name='Spark Bench (mine)')    # the user's copy wins
+        touch(os.path.join(image, 'spark-broken', 'install.sh'))       # no spark-app.json
+        touch(os.path.join(image, 'spark-nameless', 'install.sh'))
+        touch(os.path.join(image, 'spark-nameless', 'spark-app.json'), b'[1]')
+        touch(os.path.join(image, 'not-spark', 'install.sh'))
+        os.makedirs(os.path.join(image, 'spark-noinstall'))
+        apps = {e.id: e for e in switch.optional_apps([user, image, '/no/such/dir'])}
+        self.assertEqual(sorted(apps), ['spark.spark-bench', 'spark.spark-space'])
+        bench, space = apps['spark.spark-bench'], apps['spark.spark-space']
+        self.assertEqual(bench.name, 'Spark Bench (mine)')
+        self.assertEqual(bench.source, os.path.join(user, 'spark-bench'))
+        self.assertEqual(space.label('fr'), 'Spark Espace')
+        self.assertEqual((space.by, space.text('fr')), ('SparkOS', 'spark-space fait une chose.'))
+        self.assertEqual((space.command, space.desktop), ('spark-space', 'dev.wolklaw.SparkSpace'))
+        data = os.path.join(self.dir, 'data')
+        with mock.patch.dict(os.environ, {'XDG_DATA_HOME': data, 'XDG_DATA_DIRS': data,
+                                          'PATH': self.dir}):
+            self.assertEqual(switch.optional_installed(list(apps.values())), set())
+            touch(os.path.join(data, 'applications', 'dev.wolklaw.SparkSpace.desktop'))
+            self.assertEqual(switch.optional_installed(list(apps.values())),
+                             {'spark.spark-space'})
+
+    def test_user_fonts_are_offered(self):
+        root = os.path.join(self.dir, 'C')
+        touch(os.path.join(root, 'Users', 'Ann', 'Documents', 'a.txt'))
+        touch(os.path.join(root, 'Users', 'Ann', 'AppData', 'Local', 'Microsoft', 'Windows',
+                           'Fonts', 'Inter.ttf'))
+        users = windows.find_users(root)
+        fonts = [f for f in users[0].folders if f.key == 'Fonts']
+        self.assertEqual(len(fonts), 1)
+        with mock.patch.dict(os.environ, {'XDG_DATA_HOME': os.path.join(self.dir, 'data')}):
+            self.assertEqual(windows.destination(fonts[0]),
+                             os.path.join(self.dir, 'data', 'fonts'))
+
+    def test_steam_libraries(self):
+        root = os.path.join(self.dir, 'C')
+        steam = os.path.join(root, 'Program Files (x86)', 'Steam')
+        touch(os.path.join(steam, 'steamapps', 'common', 'Hades', 'Hades.exe'))
+        os.makedirs(os.path.join(steam, 'steamapps', 'common', 'Steamworks Shared'))
+        touch(os.path.join(root, 'Games', 'steamapps', 'common', 'Celeste', 'Celeste.exe'))
+        touch(os.path.join(steam, 'steamapps', 'libraryfolders.vdf'), b'''"libraryfolders"
+{
+	"0"	{ "path"		"C:\\\\Program Files (x86)\\\\Steam" }
+	"1"	{ "path"		"C:\\\\Games" }
+	"2"	{ "path"		"D:\\\\SteamLibrary" }
+}''')
+        libs = switch.steam_libraries(root)
+        self.assertEqual([(lib.where, lib.games) for lib in libs],
+                         [(r'C:\Program Files (x86)\Steam', ['Hades']),
+                          (r'C:\Games', ['Celeste']), (r'D:\SteamLibrary', [])])
+        self.assertEqual(libs[1].common, os.path.join(root, 'Games', 'steamapps', 'common'))
+        self.assertEqual(libs[2].common, '')
+        # another drive is found by its letter, through windows.Drives
+        other = os.path.join(self.dir, 'D')
+        touch(os.path.join(other, 'SteamLibrary', 'steamapps', 'common', 'Doom', 'doom.exe'))
+        drives = mock.Mock(windows_letter='C')
+        drives.mount_point.side_effect = lambda letter: other if letter == 'D' else None
+        libs = switch.steam_libraries(root, drives)
+        self.assertEqual(libs[2].games, ['Doom'])
+        drives.mount_point.assert_called_once_with('D')
+        self.assertEqual(switch.steam_libraries(os.path.join(self.dir, 'nothing')), [])
+
+    def test_store_package_names_are_readable(self):
+        self.assertEqual(switch.display_name('SpotifyAB.SpotifyMusic'), 'Spotify Music')
+        self.assertEqual(switch.display_name('Microsoft.Paint'), 'Paint')
+        self.assertEqual(switch.display_name('Battle.net'), 'Battle.net')
+        self.assertEqual(switch.display_name('Paint.NET'), 'Paint.NET')
+        self.assertEqual(switch.display_name('7-Zip 24.08 (x64)'), '7-Zip 24.08 (x64)')
+        self.assertEqual(switch.answer_for('Battle.net'), ('games', ''))
+        found = switch.sort_programs(['Microsoft.MicrosoftOfficeHub'])
+        self.assertEqual([(p.name, p.answer) for p in found.matched],
+                         [('Microsoft Office Hub', ('spark', 'office'))])
+
+
 @unittest.skipUnless(have_display(), "no display")
 class UITests(unittest.TestCase):
     def setUp(self):
         self.config = tempfile.mkdtemp()
         self.env = mock.patch.dict(os.environ, {'XDG_CONFIG_HOME': self.config})
         self.env.start()
+        sources = os.path.join(self.config, 'sources')         # one optional Spark app
+        make_source(sources, 'spark-fake', name='Spark Fake')
+        self.sources = mock.patch.object(switch, 'source_dirs', return_value=[sources])
+        self.sources.start()
         from sparkwelcome.app import App
         self.App = App
         self.app = None
@@ -821,6 +1073,7 @@ class UITests(unittest.TestCase):
     def tearDown(self):
         if self.app is not None and not self.app.closing:
             self.app.close()
+        self.sources.stop()
         self.env.stop()
 
     def pump(self, seconds: float = 0.3, until=None):
@@ -846,8 +1099,11 @@ class UITests(unittest.TestCase):
             self.assertIsNotNone(page.heading, name)
             self.assertGreater(len(page.col.winfo_children()), 1, name)
         rows = self.app.pages['games'].rows
-        self.assertEqual(len(rows), 4)
-        self.assertGreaterEqual(len(self.app.pages['apps'].rows), 12)
+        self.assertEqual([r.entry.id for r in rows], ['com.valvesoftware.Steam'])
+        apps = self.app.pages['apps'].rows
+        self.assertGreaterEqual(len(apps), 12)
+        # the optional Spark apps come before the other companies' apps
+        self.assertEqual([r.entry.id for r in apps[:1]], ['spark.spark-fake'])
         # the checks finish and every row gets a verdict
         checks_page = self.app.pages['checks']
         self.assertTrue(self.pump(60, until=lambda: not checks_page.running))
@@ -911,6 +1167,13 @@ class UITests(unittest.TestCase):
         root = tempfile.mkdtemp()
         touch(os.path.join(root, 'Users', 'Ann', 'Documents', 'a.txt'), b'hello')
         touch(os.path.join(root, 'Users', 'Ann', 'Pictures', 'p.jpg'), b'jpg')
+        make_hive_keys(os.path.join(root, 'Windows', 'System32', 'config', 'SOFTWARE'), {
+            switch.UNINSTALL + '\\Discord': {'DisplayName': reg_sz('Discord')},
+            switch.UNINSTALL + '\\Paint': {'DisplayName': reg_sz('Some Paint Program')},
+            switch.UNINSTALL + '\\Chrome': {'DisplayName': reg_sz('Google Chrome')},
+        })
+        touch(os.path.join(root, 'Program Files (x86)', 'Steam', 'steamapps', 'common', 'Hades',
+                           'Hades.exe'))
         home = tempfile.mkdtemp()
         part = windows.Partition('sdz1', '/dev/sdz1', 'ntfs', 'Windows', root, 10 ** 9)
         with mock.patch.object(windows, 'list_partitions', return_value=([part], '')), \
@@ -924,6 +1187,12 @@ class UITests(unittest.TestCase):
             self.assertTrue(self.pump(10, until=lambda: page.user is not None
                                       and not self.app._busy))
             self.assertEqual(sorted(page.ticks), ['Documents', 'Pictures'])
+            # the programs found get a line each, and installing one queues it
+            self.assertIn(('app', 'com.discordapp.Discord'), page.install_btns)
+            with mock.patch.object(self.app, 'install') as install:
+                page.queue(self.app.entry('com.discordapp.Discord'))
+            install.assert_called_once()
+            self.assertFalse(page.install_btns[('app', 'com.discordapp.Discord')].enabled)
             page.copy()
             self.assertTrue(self.pump(10, until=lambda: not page.copying))
         with open(os.path.join(home, 'Documents', 'a.txt'), 'rb') as f:
