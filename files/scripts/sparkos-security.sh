@@ -5,7 +5,8 @@
 # zones/sparkos.xml) instead of Fedora's FedoraWorkstation, which accepts every port from 1025
 # to 65535 from the local network, so any program that listens is reachable by every device on
 # it. The sparkos zone opens only what SparkOS uses: DHCPv6, mDNS (finding devices), Samba as a
-# client, Spark Link, KDE Connect, Steam Remote Play and Steam's local transfers. Anything else
+# client, Spark Link, Nova's phone ports (files/system/usr/lib/firewalld/services/nova.xml;
+# nothing listens there unless Nova is installed), KDE Connect, Steam Remote Play and Steam's local transfers. Anything else
 # is a switch or a port in Spark Firewall. A network given its own zone in NetworkManager keeps it.
 #
 # Tailscale's interface goes to the trusted zone: every device there is one the owner signed in
@@ -21,6 +22,7 @@ set -oue pipefail
 zone=sparkos
 test -f "/usr/lib/firewalld/zones/$zone.xml" || { echo "zone file missing"; exit 1; }
 test -f /usr/lib/firewalld/services/spark-link.xml || { echo "spark-link service missing"; exit 1; }
+test -f /usr/lib/firewalld/services/nova.xml || { echo "nova service missing"; exit 1; }
 firewall-offline-cmd --check-config
 firewall-offline-cmd --set-default-zone="$zone"
 firewall-offline-cmd --zone=trusted --add-interface=tailscale0
@@ -28,7 +30,7 @@ firewall-offline-cmd --zone=trusted --add-interface=tailscale0
 test "$(firewall-offline-cmd --get-default-zone)" = "$zone"
 open=$(firewall-offline-cmd --zone="$zone" --list-ports)
 test -z "$open" || { echo "the $zone zone opens ports: $open"; exit 1; }
-for svc in mdns spark-link kdeconnect steam-streaming; do
+for svc in mdns spark-link nova kdeconnect steam-streaming; do
   firewall-offline-cmd --zone="$zone" --list-services | tr ' ' '\n' | grep -qx "$svc" \
     || { echo "$svc missing from $zone"; exit 1; }
 done

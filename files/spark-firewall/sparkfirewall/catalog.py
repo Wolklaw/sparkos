@@ -1,5 +1,5 @@
 """The rules people actually want, in plain words. Each one is a firewalld service that ships with
-Fedora (or with SparkOS, for Spark Link), so turning it on adds that service to the zone and
+Fedora (or with SparkOS, for Spark Link and Nova), so turning it on adds that service to the zone and
 nothing else. A rule whose service this PC's firewalld doesn't define is not shown. The words are
 in text.py under rule.<id>.title and rule.<id>.detail."""
 
@@ -15,6 +15,7 @@ RULES: List[Rule] = [
     Rule("steam_remote_play", "steam-streaming"),
     Rule("steam_transfer", "steam-lan-transfer"),
     Rule("spark_link", "spark-link"),
+    Rule("nova", "nova"),
     Rule("kde_connect", "kdeconnect"),
     Rule("find_devices", "mdns"),
     Rule("file_sharing", "samba"),
