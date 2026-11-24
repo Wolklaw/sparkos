@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-32bit-graphics",
+      "date": "2026-11-24",
+      "en": "Battle.net and other 32-bit Windows programs open again in Spark Games and Spark Run. SparkOS now ships 32-bit graphics drivers, which they need to draw a window.",
+      "fr": "Battle.net et les autres programmes Windows 32 bits s'ouvrent de nouveau dans Spark Games et Spark Run. SparkOS inclut maintenant les pilotes graphiques 32 bits dont ils ont besoin pour afficher une fenêtre."
+    },
+    {
       "id": "2026-11-24-spark-monitor-logs-system",
       "date": "2026-11-24",
       "en": "Spark Monitor 1.1.0 has two new tabs. Logs shows the system journal live, with this boot or the last one, errors or everything, a filter by app and a search; each line is a plain sentence, and a crashes view lists what crashed with a Copy report button that sends nothing. System shows what this PC is (SparkOS version, kernel, processor, graphics driver, memory, motherboard, disks, displays) with a Copy all button for support requests that leaves out serial numbers. Ctrl+5 and Ctrl+6 open them. Tried on one PC so far.",
