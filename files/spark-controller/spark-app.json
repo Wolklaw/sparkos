@@ -3,9 +3,9 @@
   "slug": "spark-controller",
   "name": "Spark Controller",
   "name_fr": "Spark Controller",
-  "summary": "Fans, RGB lighting, game controllers and firmware updates for this PC, in one place.",
-  "summary_fr": "Ventilateurs, éclairage RGB, manettes de jeu et mises à jour du firmware de ce PC, au même endroit.",
-  "version": "1.1.0",
+  "summary": "Fans, RGB lighting, gaming mouse DPI, game controllers and firmware updates for this PC, in one place.",
+  "summary_fr": "Ventilateurs, éclairage RGB, DPI de la souris de jeu, manettes et mises à jour du firmware de ce PC, au même endroit.",
+  "version": "1.2.0",
   "installed_size_kb": 520,
   "icon": "icons/spark-controller-256.png",
   "categories": ["System", "Settings"],
@@ -17,7 +17,8 @@
     "optional": {
       "liquidctl": "NZXT and other USB coolers and lighting controllers (Python library)",
       "openrgb": "ASUS Aura, mice, keyboards and memory lighting (command line)",
-      "fwupdmgr": "device firmware from LVFS"
+      "fwupdmgr": "device firmware from LVFS",
+      "ratbagd": "gaming mice: DPI, report rate, profiles (libratbag; needs PyGObject)"
     },
     "system": "Linux with /sys/class/hwmon and systemd; polkit for saving fan curves"
   },

@@ -7,6 +7,7 @@ EN = {
     'tab.overview': "Overview",
     'tab.fans': "Fans",
     'tab.rgb': "Spark RGB",
+    'tab.mouse': "Mouse",
     'tab.pads': "Pads",
     'tab.drivers': "Drivers & firmware",
 
@@ -103,6 +104,60 @@ EN = {
     'speed.slow': "Slow",
     'speed.normal': "Normal",
     'speed.fast': "Fast",
+
+    'mouse.mice': "Mice",
+    'mouse.scanning': "Looking for mice...",
+    'mouse.rescan': "Look again",
+    'mouse.none': "No supported gaming mouse found. Plug one in (or its receiver). Spark talks to "
+                  "the mice libratbag supports, which includes many Logitech, Razer, SteelSeries "
+                  "and Roccat models.",
+    'mouse.no_daemon': "ratbagd, the service that talks to gaming mice, did not answer. Look "
+                       "again in a moment.",
+    'mouse.no_gio': "Mouse settings need PyGObject (python3-gobject), which is not installed.",
+    'mouse.denied': "This account isn't allowed to talk to ratbagd. Only the person logged in at "
+                    "the PC can change mouse settings.",
+    'mouse.busy': "The mouse is busy. Close any other program that configures it, then try "
+                  "again.",
+    'mouse.failed': "Mouse settings failed: {error}",
+    'mouse.profile_n': "Profile {n}",
+    'mouse.profile_off': "Profile {n} (off)",
+    'mouse.profiles': "Onboard profiles",
+    'mouse.active_now': "In use on the mouse: profile {n}.",
+    'mouse.active_next': "In use on the mouse after Apply: profile {n}.",
+    'mouse.use_profile': "Use this profile",
+    'mouse.in_use': "In use",
+    'mouse.profile_is_off': "This profile is switched off on the mouse.",
+    'mouse.slots': "DPI slots",
+    'mouse.slot_n': "Slot {n}",
+    'mouse.dpi': "{dpi} DPI",
+    'mouse.on': "On",
+    'mouse.active': "Active",
+    'mouse.default': "Default",
+    'mouse.keep_on': "The active and the default slot have to stay on, and one slot has to be "
+                     "left on. Make another slot active or default first.",
+    'mouse.rate': "Report rate",
+    'mouse.hz': "{hz} Hz",
+    'mouse.warn_off': "The mouse is set to {dpi} DPI on slot {slot}, which is switched off. "
+                      "That is very slow. Use {suggest} DPI?",
+    'mouse.warn_low': "The mouse is set to {dpi} DPI, which is very slow. Use {suggest} DPI?",
+    'mouse.fix': "Use {dpi} DPI",
+    'mouse.apply': "Apply",
+    'mouse.revert': "Undo changes",
+    'mouse.unsaved': "Changes not applied yet. Nothing has been sent to the mouse.",
+    'mouse.applied': "Saved on the mouse.",
+    'mouse.applied_unread': "Sent to the mouse, but it could not be read back to check.",
+    'mouse.not_kept': "The mouse did not keep {n} change(s). What it holds now is shown.",
+    'mouse.apply_failed': "Not applied: {error}",
+    'mouse.note': "Nothing is sent to the mouse until you press Apply. Apply saves the settings "
+                  "in the mouse's own memory, so they also hold on Windows and in other "
+                  "programs. Remapping buttons isn't here yet.",
+    'mouse.bad_profile': "Pick an active profile that is switched on.",
+    'mouse.bad_rate': "Profile {n}: {rate} Hz is not a rate this mouse supports.",
+    'mouse.bad_dpi': "Profile {n}, slot {slot}: {dpi} DPI is not a value this mouse supports.",
+    'mouse.no_slot_on': "Profile {n}: leave at least one slot on.",
+    'mouse.active_off': "Profile {n}: slot {slot} is the active one, so it has to stay on.",
+    'mouse.default_off': "Profile {n}: slot {slot} is the default one, so it has to stay on.",
+    'status.mouse_scanning': "LOOKING FOR MICE",
 
     'status.pads_in': "CONTROLLER CONNECTED",
     'status.pads_out': "CONTROLLER GONE",
@@ -211,6 +266,7 @@ FR = {
     'tab.overview': "Aperçu",
     'tab.fans': "Ventilateurs",
     'tab.rgb': "Spark RGB",
+    'tab.mouse': "Souris",
     'tab.pads': "Manettes",
     'tab.drivers': "Pilotes et firmware",
 
@@ -311,6 +367,68 @@ FR = {
     'speed.slow': "Lent",
     'speed.normal': "Normal",
     'speed.fast': "Rapide",
+
+    'mouse.mice': "Souris",
+    'mouse.scanning': "Recherche des souris...",
+    'mouse.rescan': "Chercher à nouveau",
+    'mouse.none': "Aucune souris de jeu prise en charge. Branchez-en une (ou son récepteur). "
+                  "Spark parle aux souris que libratbag prend en charge, dont beaucoup de "
+                  "modèles Logitech, Razer, SteelSeries et Roccat.",
+    'mouse.no_daemon': "ratbagd, le service qui parle aux souris de jeu, n'a pas répondu. "
+                       "Cherchez à nouveau dans un instant.",
+    'mouse.no_gio': "Les réglages de souris demandent PyGObject (python3-gobject), qui n'est "
+                    "pas installé.",
+    'mouse.denied': "Ce compte n'a pas le droit de parler à ratbagd. Seule la personne connectée "
+                    "au PC peut changer les réglages de la souris.",
+    'mouse.busy': "La souris est occupée. Fermez les autres programmes qui la configurent, puis "
+                  "réessayez.",
+    'mouse.failed': "Les réglages de la souris ont échoué : {error}",
+    'mouse.profile_n': "Profil {n}",
+    'mouse.profile_off': "Profil {n} (désactivé)",
+    'mouse.profiles': "Profils de la souris",
+    'mouse.active_now': "Utilisé sur la souris : profil {n}.",
+    'mouse.active_next': "Utilisé sur la souris après Appliquer : profil {n}.",
+    'mouse.use_profile': "Utiliser ce profil",
+    'mouse.in_use': "Utilisé",
+    'mouse.profile_is_off': "Ce profil est désactivé sur la souris.",
+    'mouse.slots': "Paliers de DPI",
+    'mouse.slot_n': "Palier {n}",
+    'mouse.dpi': "{dpi} DPI",
+    'mouse.on': "Actif",
+    'mouse.active': "En cours",
+    'mouse.default': "Par défaut",
+    'mouse.keep_on': "Le palier en cours et le palier par défaut doivent rester activés, et un "
+                     "palier doit rester activé. Choisissez d'abord un autre palier.",
+    'mouse.rate': "Fréquence d'envoi",
+    'mouse.hz': "{hz} Hz",
+    'mouse.warn_off': "La souris est réglée à {dpi} DPI sur le palier {slot}, qui est désactivé. "
+                      "C'est très lent. Utiliser {suggest} DPI ?",
+    'mouse.warn_low': "La souris est réglée à {dpi} DPI, ce qui est très lent. Utiliser "
+                      "{suggest} DPI ?",
+    'mouse.fix': "Utiliser {dpi} DPI",
+    'mouse.apply': "Appliquer",
+    'mouse.revert': "Annuler les changements",
+    'mouse.unsaved': "Changements pas encore appliqués. Rien n'a été envoyé à la souris.",
+    'mouse.applied': "Enregistré sur la souris.",
+    'mouse.applied_unread': "Envoyé à la souris, mais impossible de le relire pour vérifier.",
+    'mouse.not_kept': "La souris n'a pas gardé {n} changement(s). Ce qu'elle contient "
+                      "maintenant est affiché.",
+    'mouse.apply_failed': "Pas appliqué : {error}",
+    'mouse.note': "Rien n'est envoyé à la souris avant d'appuyer sur Appliquer. Appliquer "
+                  "enregistre les réglages dans la mémoire de la souris elle-même, donc ils "
+                  "tiennent aussi sous Windows et dans d'autres programmes. Le remappage des "
+                  "boutons n'est pas encore là.",
+    'mouse.bad_profile': "Choisissez un profil en cours qui est activé.",
+    'mouse.bad_rate': "Profil {n} : {rate} Hz n'est pas une fréquence que cette souris prend "
+                      "en charge.",
+    'mouse.bad_dpi': "Profil {n}, palier {slot} : {dpi} DPI n'est pas une valeur que cette "
+                     "souris prend en charge.",
+    'mouse.no_slot_on': "Profil {n} : laissez au moins un palier activé.",
+    'mouse.active_off': "Profil {n} : le palier {slot} est celui en cours, il doit rester "
+                        "activé.",
+    'mouse.default_off': "Profil {n} : le palier {slot} est celui par défaut, il doit rester "
+                         "activé.",
+    'status.mouse_scanning': "RECHERCHE DES SOURIS",
 
     'status.pads_in': "MANETTE BRANCHÉE",
     'status.pads_out': "MANETTE DÉBRANCHÉE",

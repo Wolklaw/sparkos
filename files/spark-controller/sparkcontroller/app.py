@@ -17,12 +17,13 @@ from . import (APP_CLASS, APP_NAME, APP_SLUG, INTERVAL_MS, RUN_DIR, VERSION, con
 from .hwmon import Hwmon
 from .liquid import LiquidHub
 from .log import cache_dir, config_dir, log
+from .mouse import RatbagBackend
 from .rgb import RgbManager
 from .text import t
 from .ui import TabBar, style_tables
 from .widgets import T, Glitch, GlitchText, Mark, Strip, pick_mono
 
-TABS = ("overview", "fans", "rgb", "pads", "drivers")
+TABS = ("overview", "fans", "rgb", "mouse", "pads", "drivers")
 HELPER = "/usr/libexec/spark-controller-helper"
 STATE_STALE_S = 10.0
 
@@ -136,7 +137,7 @@ class Snapshot:
 
 class App:
     def __init__(self, hwmon: Optional[Hwmon] = None, tab: Optional[str] = None,
-                 use_usb: bool = True):
+                 use_usb: bool = True, mouse_backend: Optional[RatbagBackend] = None):
         self.root = tk.Tk(className=APP_CLASS)
         self.root.withdraw()
         self.root.report_callback_exception = self._on_tk_error
@@ -155,6 +156,7 @@ class App:
         self.hub: Optional[LiquidHub] = None
         self.rgb: Optional[RgbManager] = None
         self.use_usb = use_usb
+        self.mouse_backend = mouse_backend or RatbagBackend()
         self.worker = Worker(self.root)
         self.snap = Snapshot()
         self.views: Dict[str, tk.Frame] = {}
@@ -317,6 +319,9 @@ class App:
             elif tab == "rgb":
                 from .rgbview import RgbView
                 self.views[tab] = RgbView(self)
+            elif tab == "mouse":
+                from .mouseview import MouseView
+                self.views[tab] = MouseView(self)
             elif tab == "pads":
                 from .padsview import PadsView
                 self.views[tab] = PadsView(self)
