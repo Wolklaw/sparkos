@@ -31,15 +31,17 @@ class RgbView(View):
         left = tk.Frame(body, bg=T["bg"])
         left.pack(side="left", fill="y", padx=(0, px(12)))
         self.heading(left, t("rgb.devices")).pack(anchor="w", pady=(0, px(4)))
+        # Packed before the list, from the bottom: a short window shrinks the list (it
+        # scrolls) instead of pushing Rescan and the problems off screen.
+        self.problems = self.note(left, "", px(270), T["gold"])
+        self.problems.pack(side="bottom", anchor="w", pady=(px(6), 0))
+        self.rescan_button = self.button(left, t("rgb.rescan"), self.scan)
+        self.rescan_button.pack(side="bottom", anchor="w", pady=(px(8), 0))
         frame, self.tree = make_table(left, ("name",), show="tree")
         self.tree.column("#0", width=0, stretch=False)
         self.tree.column("name", width=px(270), stretch=True)
         frame.pack(fill="both", expand=True)
         self.tree.bind("<<TreeviewSelect>>", self._picked)
-        self.rescan_button = self.button(left, t("rgb.rescan"), self.scan)
-        self.rescan_button.pack(anchor="w", pady=(px(8), 0))
-        self.problems = self.note(left, "", px(270), T["gold"])
-        self.problems.pack(anchor="w", pady=(px(6), 0))
 
         right = tk.Frame(body, bg=T["bg"])
         right.pack(side="left", fill="both", expand=True)
@@ -98,17 +100,21 @@ class RgbView(View):
             return
         self.scanning = True
         self.title.config(text=t("rgb.scanning"))
+        self.kind.config(text="")
         self.app.set_status(t("status.scanning"), T["gold"])
 
         def found(devices, error) -> None:
             self.scanning, self.scanned = False, True
             self.app.set_status(t("status.watching"), T["accent"])
-            self.devices = list(devices or [])
+            self.devices = []
             self.problems.config(text="\n".join(manager.errors) if error is None
                                  else str(error))
             self.tree.delete(*self.tree.get_children())
-            for device in self.devices:
+            for device in devices or []:
+                if self.tree.exists(device.key):    # one bad row must not stop the list
+                    continue
                 self.tree.insert("", "end", iid=device.key, values=(device.name,))
+                self.devices.append(device)
             if self.devices:
                 self.tree.selection_set(self.devices[0].key)
                 self._picked()

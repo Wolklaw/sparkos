@@ -117,14 +117,17 @@ def pick_openrgb_mode(effect: str, modes: List[str]) -> Optional[str]:
 
 
 def openrgb_args(index: int, setting: Dict[str, str], modes: List[str]) -> List[str]:
-    """The arguments for one device. 'Off' without an Off mode is a static black."""
+    """The arguments for one device. 'Off' without an Off mode is a static black; an effect
+    the device doesn't have is its colour, steady."""
     effect = setting["effect"]
     mode = pick_openrgb_mode(effect, modes)
     color = "000000" if effect == "off" else setting["color"].lstrip("#")
-    if mode is None and effect == "off":
-        mode = pick_openrgb_mode("static", modes)
     if mode is None:
-        raise ValueError(f"no {effect} mode on this device")
+        # A device without the effect (RAM often lists only Direct) shows the colour steady.
+        mode = pick_openrgb_mode("static", modes)
+        effect = "off" if effect == "off" else "static"
+    if mode is None:
+        raise ValueError(f"no {setting['effect']} mode on this device")
     args = ["--device", str(index), "--mode", mode]
     if effect != "spectrum":
         args += ["--color", color]
@@ -177,12 +180,18 @@ class RgbManager:
             code, out = self.runner([self.openrgb, "--list-devices"], 90)
             if code != 0:
                 self.errors.append(f"openrgb: {out.strip().splitlines()[-1] if out.strip() else code}")
+            seen: Dict[str, int] = {}
             for item in parse_openrgb_list(out if code == 0 else ""):
                 if any(w in item["name"].lower() for w in ("nzxt",)) and any(
                         "nzxt" in o for o in owned):
                     continue                    # liquidctl already drives it
-                found.append(RgbDevice(f"openrgb:{item['name']}", item["name"], "openrgb",
-                                       item["type"], item["modes"], item["index"]))
+                # Identical parts (two RAM sticks) share a name: number the second one on,
+                # so each keeps its own key and its own saved setting.
+                count = seen[item["name"]] = seen.get(item["name"], 0) + 1
+                key = f"openrgb:{item['name']}" + (f"#{count}" if count > 1 else "")
+                name = item["name"] + (f" #{count}" if count > 1 else "")
+                found.append(RgbDevice(key, name, "openrgb", item["type"], item["modes"],
+                                       item["index"]))
         elif use_openrgb:
             self.errors.append("openrgb is not installed")
         return found

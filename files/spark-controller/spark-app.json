@@ -5,7 +5,7 @@
   "name_fr": "Spark Controller",
   "summary": "Fans, RGB lighting and firmware updates for this PC, in one place.",
   "summary_fr": "Ventilateurs, éclairage RGB et mises à jour du firmware de ce PC, au même endroit.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "installed_size_kb": 520,
   "icon": "icons/spark-controller-256.png",
   "categories": ["System", "Settings"],
