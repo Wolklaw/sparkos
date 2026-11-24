@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-24-closed-firewall",
+      "date": "2026-11-24",
+      "en": "The firewall is closed by default. SparkOS used Fedora's desktop zone, which let any device on your network reach every port from 1025 up. The new SparkOS zone opens only what SparkOS uses: finding devices, Spark Link, KDE Connect and Steam Remote Play. If an app you installed needs a port, open it in Spark Firewall. Programs also can no longer read the memory of programs they didn't start.",
+      "fr": "Le pare-feu est fermé par défaut. SparkOS utilisait la zone bureau de Fedora, qui laissait tout appareil du réseau joindre chaque port à partir de 1025. La nouvelle zone SparkOS n'ouvre que ce que SparkOS utilise : la découverte d'appareils, Spark Link, KDE Connect et Steam Remote Play. Si une application installée a besoin d'un port, ouvrez-le dans Spark Firewall. Les programmes ne peuvent plus non plus lire la mémoire des programmes qu'ils n'ont pas lancés."
+    },
+    {
       "id": "2026-11-24-spark-monitor-logs-system",
       "date": "2026-11-24",
       "en": "Spark Monitor 1.1.0 has two new tabs. Logs shows the system journal live, with this boot or the last one, errors or everything, a filter by app and a search; each line is a plain sentence, and a crashes view lists what crashed with a Copy report button that sends nothing. System shows what this PC is (SparkOS version, kernel, processor, graphics driver, memory, motherboard, disks, displays) with a Copy all button for support requests that leaves out serial numbers. Ctrl+5 and Ctrl+6 open them. Tried on one PC so far.",
