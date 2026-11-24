@@ -54,13 +54,15 @@ fi
 
 # --- Out of the app menu (still installed; the commands and the platform keep working)
 # Replaced by a Spark app, hidden for one release and then removed, as Dolphin and Konsole were:
-#   KDE Connect (Spark Link), Ark (Spark Archive), Discover (Spark Store)
+#   KDE Connect (Spark Link), Ark (Spark Archive), Discover (Spark Store), GNOME Disks and its
+#   disk-image mounter and writer (Spark Disks)
 # Command-line tools that need no menu entry (they run in Spark Terminal): btop, nvtop,
 #   Microsoft Edit (msedit), yad's Icon Browser
 # Admin and developer tools: Info Center, Journald Browser, Btrfs Assistant (snapshots are off),
 #   the Foreground Booster's settings, the Menu Editor (Spark Launcher is the menu)
 HIDE=(org.kde.kdeconnect.app org.kde.kdeconnect.sms org.kde.kdeconnect.nonplasma
       org.kde.ark org.kde.discover
+      org.gnome.DiskUtility gnome-disk-image-mounter gnome-disk-image-writer
       btop nvtop com.microsoft.edit yad-icon-browser
       org.kde.kinfocenter org.kde.kjournaldbrowser btrfs-assistant org.kde.foreground-booster
       org.kde.kmenuedit firewall-config)

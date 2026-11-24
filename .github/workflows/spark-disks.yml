@@ -1,0 +1,52 @@
+name: spark-disks
+# Spark Disks ships in the SparkOS image (files/scripts/spark-disks.sh). It talks to udisks2
+# over D-Bus as the user; polkit asks for the password.
+#
+# fedora: runs the image build step in a plain Fedora container (installs udisks2, smartmontools
+#         and the mkfs tools with dnf), then the self-test and the unit tests (English and
+#         French; the window tests run under Xvfb), and checks the uninstall leaves nothing in
+#         /usr. A CI runner has no real drive to change: the tests use made-up drives, a backend
+#         that only records what it was asked, and temp files in place of a USB stick.
+on:
+  push:
+    paths:
+      - "files/spark-disks/**"
+      - "files/scripts/spark-disks.sh"
+      - ".github/workflows/spark-disks.yml"
+  pull_request:
+    paths:
+      - "files/spark-disks/**"
+      - "files/scripts/spark-disks.sh"
+      - ".github/workflows/spark-disks.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-disks.sh
+
+      - name: Self-test
+        run: spark-disks --self-test
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth
+          cd files/spark-disks
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Tests in French (SPARK_LANG=fr)
+        run: |
+          cd files/spark-disks
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Uninstall, and check nothing is left
+        run: |
+          bash files/spark-disks/install.sh --uninstall
+          left=$(find /usr -iname '*spark-disks*' -o -iname '*SparkDisks*' 2>/dev/null || true)
+          if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi

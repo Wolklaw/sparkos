@@ -20,6 +20,12 @@
       "fr": "Nouvelle application, Spark Backup (première version, pas encore essayée sur un vrai PC) : elle prend des instantanés de votre dossier personnel à heure fixe, les copie sur un autre disque, permet de parcourir un instantané et de restaurer un fichier ou un dossier, et ne garde que les derniers. Rien ne se lance avant que vous choisissiez un disque et un horaire et enregistriez."
     },
     {
+      "id": "2026-11-23-spark-disks",
+      "date": "2026-11-23",
+      "en": "Spark Disks lists your drives and partitions, mounts and unmounts them, formats, creates, resizes and deletes partitions, shows drive health (SMART) and writes an image to a USB stick. D: can only be looked at, the running system can't be changed, and anything on an internal drive asks you to type its name first. It is version 0.1.0: it was tried on a test disk, not yet on every kind of drive. GNOME Disks is hidden from the menu.",
+      "fr": "Spark Disks liste vos disques et partitions, les monte et les démonte, formate, crée, redimensionne et supprime des partitions, affiche la santé des disques (SMART) et écrit une image sur une clé USB. D: ne peut qu'être consulté, le système en marche ne peut pas être modifié, et tout ce qui touche un disque interne demande de taper son nom d'abord. C'est la version 0.1.0 : essayée sur un disque de test, pas encore sur tous les types de disques. GNOME Disks est masqué du menu."
+    },
+    {
       "id": "2026-11-23-update-checking-not-downloading",
       "date": "2026-11-23",
       "en": "Spark Update says Checking while it looks for a new version, and Downloading only when it found one.",

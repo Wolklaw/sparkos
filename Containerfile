@@ -133,6 +133,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-controller.sh \
         spark-firewall.sh \
         spark-backup.sh \
+        spark-disks.sh \
         spark-edit.sh \
         spark-calc.sh \
         spark-archive.sh \
