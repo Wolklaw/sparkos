@@ -1,0 +1,31 @@
+{
+  "id": "dev.wolklaw.SparkNotes",
+  "slug": "spark-notes",
+  "name": "Spark Notes",
+  "name_fr": "Spark Notes",
+  "summary": "Quick notes and clipboard history. Notes are plain files on this PC; the clipboard popup is on Meta+V, with search, pin and a pause. No account, no cloud.",
+  "summary_fr": "Notes rapides et historique du presse-papiers. Les notes sont de simples fichiers sur ce PC; la fenêtre du presse-papiers est sur Meta+V, avec recherche, épinglage et pause. Aucun compte, aucun nuage.",
+  "version": "0.1.0",
+  "installed_size_kb": 0,
+  "icon": "icons/spark-notes-256.png",
+  "categories": ["Utility"],
+  "command": "spark-notes",
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["gi"],
+    "gi_namespaces": {"Gtk": "4.0"},
+    "packages_fedora": ["python3-gobject", "gtk4", "wl-clipboard"],
+    "optional": {},
+    "system": "Linux with a Wayland desktop that offers the data-control protocol (KDE Plasma 6 does). The clipboard history needs wl-clipboard; notes work without it"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-notes --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-notes"
+}

@@ -37,6 +37,11 @@ JSON files in `files/spark-emoji/sparkemoji/data/`; the data is not otherwise ch
 colour emoji are drawn by the system's emoji font (Noto Color Emoji, `google-noto-color-emoji-fonts`
 from Fedora, OFL-1.1), which Spark Emoji installs but does not modify.
 
+Spark Notes' clipboard history runs `wl-paste --watch` and `wl-copy` from Fedora's `wl-clipboard`
+package (GPL-3.0-or-later, https://github.com/bugaevc/wl-clipboard). It is called as a separate
+command and is not linked into or modified by Spark Notes. The image step installs it
+(`files/spark-notes/install.sh --deps`).
+
 SparkOS also builds kernel modules from other projects'
 source while the image builds: zenergy, ryzen_smu, xone (xonedo), hid-fanatecff, new-lg4ff,
 hid-tmff2 with hid-tminit (GPL-2.0) and vhba (GPL-2.0-or-later), plus v4l2loopback (GPL-2.0)
