@@ -107,6 +107,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      sensor-chip module for the motherboard's fan headers loads at boot (modules-load.d)
 #    - spark-backup: snapshots of /home, a copy on another drive, file restore (a root service
 #      and a timer; the timer stays off until a schedule is saved)
+#    - sparkos-security: the closed "sparkos" firewall zone as the default (only what SparkOS
+#      uses is open), Tailscale in the trusted zone, ptrace limited to a program's children
 #    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
 #      usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
@@ -149,6 +151,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-notes.sh \
         spark-audio.sh \
         spark-update.sh \
+        sparkos-security.sh \
         sparkos-cleanup.sh \
         sparkos-defaults.sh \
         sparkos-icons.sh \

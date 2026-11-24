@@ -63,6 +63,8 @@ EN = {
     'default.note': "A network you haven't picked a zone for uses this one.",
 
     'zone.other': "A zone you or the system added.",
+    'zone.sparkos': "SparkOS: the default. Only what SparkOS uses is open: finding devices, "
+                    "Spark Link, KDE Connect and Steam Remote Play. Add more under Rules.",
     'zone.public': "Public: for networks you don't know, like a café. Only the listed rules are open.",
     'zone.home': "Home: a network you trust. Finding devices and sharing are allowed.",
     'zone.work': "Work: a network at work. Like Home, with fewer shortcuts.",
@@ -191,6 +193,9 @@ FR = {
     'default.note': "Un réseau pour lequel vous n'avez pas choisi de zone utilise celle-ci.",
 
     'zone.other': "Une zone ajoutée par vous ou par le système.",
+    'zone.sparkos': "SparkOS : le réglage par défaut. Seul ce que SparkOS utilise est ouvert : "
+                    "la découverte d'appareils, Spark Link, KDE Connect et Steam Remote Play. "
+                    "Ajoutez-en d'autres dans Règles.",
     'zone.public': "Public : pour les réseaux inconnus, comme un café. Seules les règles listées "
                    "sont ouvertes.",
     'zone.home': "Maison : un réseau de confiance. La découverte d'appareils et le partage sont "

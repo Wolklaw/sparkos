@@ -8,6 +8,12 @@
       "fr": "Spark Games 0.3.4 lit votre bibliothèque Steam plus vite. Chercher la jaquette de chaque jeu possédé listait le même dossier une fois par jeu ; il est maintenant listé une seule fois, et les noms des jeux sont gardés en mémoire jusqu'à ce que Steam les change. Avec 611 jeux Steam, un balayage est passé d'une demi-seconde environ à un dixième, et à presque rien quand rien n'a changé, donc la fenêtre ne saccade plus au démarrage ni quand vous y revenez. Les jeux ajoutés depuis Battle.net, EA, Ubisoft et Rockstar ne laissent plus non plus un assistant qui sonde pendant dix minutes après leur lancement."
     },
     {
+      "id": "2026-11-24-closed-firewall",
+      "date": "2026-11-24",
+      "en": "The firewall is closed by default. SparkOS used Fedora's desktop zone, which let any device on your network reach every port from 1025 up. The new SparkOS zone opens only what SparkOS uses: finding devices, Spark Link, KDE Connect and Steam Remote Play. If an app you installed needs a port, open it in Spark Firewall. Programs also can no longer read the memory of programs they didn't start.",
+      "fr": "Le pare-feu est fermé par défaut. SparkOS utilisait la zone bureau de Fedora, qui laissait tout appareil du réseau joindre chaque port à partir de 1025. La nouvelle zone SparkOS n'ouvre que ce que SparkOS utilise : la découverte d'appareils, Spark Link, KDE Connect et Steam Remote Play. Si une application installée a besoin d'un port, ouvrez-le dans Spark Firewall. Les programmes ne peuvent plus non plus lire la mémoire des programmes qu'ils n'ont pas lancés."
+    },
+    {
       "id": "2026-11-24-32bit-graphics",
       "date": "2026-11-24",
       "en": "Battle.net and other 32-bit Windows programs open again in Spark Games and Spark Run. SparkOS now ships 32-bit graphics drivers, which they need to draw a window.",
