@@ -1,0 +1,21 @@
+{
+    "KPackageStructure": "Plasma/Applet",
+    "KPlugin": {
+        "Authors": [
+            {
+                "Name": "Wolklaw"
+            }
+        ],
+        "Category": "System Information",
+        "Description": "Spark Connect on the panel or the desktop: your machines and websites, up or down, checked every minute.",
+        "Description[fr]": "Spark Connect sur le panneau ou le bureau : vos machines et sites web, en ligne ou non, vérifiés chaque minute.",
+        "Icon": "dev.wolklaw.SparkConnect",
+        "Id": "dev.wolklaw.sparkconnect",
+        "License": "LicenseRef-proprietary",
+        "Name": "Spark Connect",
+        "Name[fr]": "Spark Connect",
+        "Version": "0.1.0",
+        "Website": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-connect"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0"
+}

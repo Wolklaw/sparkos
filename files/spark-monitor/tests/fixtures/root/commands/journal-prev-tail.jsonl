@@ -1,0 +1,5 @@
+{"__REALTIME_TIMESTAMP": "1772459900000000", "PRIORITY": "6", "MESSAGE": "Fixture line 0", "__CURSOR": "s=fixture;i=-100", "SYSLOG_IDENTIFIER": "fixture-old"}
+{"__REALTIME_TIMESTAMP": "1772459901000000", "PRIORITY": "6", "MESSAGE": "Fixture line 1", "__CURSOR": "s=fixture;i=-99", "SYSLOG_IDENTIFIER": "fixture-old"}
+{"__REALTIME_TIMESTAMP": "1772459902000000", "PRIORITY": "6", "MESSAGE": "Fixture line 2", "__CURSOR": "s=fixture;i=-98", "SYSLOG_IDENTIFIER": "fixture-old"}
+{"__REALTIME_TIMESTAMP": "1772459903000000", "PRIORITY": "6", "MESSAGE": "Fixture line 3", "__CURSOR": "s=fixture;i=-97", "SYSLOG_IDENTIFIER": "fixture-old"}
+{"__REALTIME_TIMESTAMP": "1772459904000000", "PRIORITY": "6", "MESSAGE": "Fixture line 4", "__CURSOR": "s=fixture;i=-96", "SYSLOG_IDENTIFIER": "fixture-old"}

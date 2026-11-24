@@ -199,7 +199,7 @@ def self_test(src: Source) -> int:
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog=APP_SLUG, description=f"{APP_NAME}: the SparkOS "
                                      "task manager.")
-    parser.add_argument('--tab', choices=('apps', 'performance', 'startup', 'details'),
+    parser.add_argument('--tab', choices=('apps', 'performance', 'startup', 'details', 'logs', 'system'),
                         help="open on this tab")
     parser.add_argument('--self-test', action='store_true',
                         help="read /proc and /sys and report what is readable; no display "

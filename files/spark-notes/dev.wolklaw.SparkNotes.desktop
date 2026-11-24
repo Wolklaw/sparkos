@@ -1,0 +1,22 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Notes
+Name[fr]=Spark Notes
+GenericName=Notes and clipboard history
+GenericName[fr]=Notes et historique du presse-papiers
+Comment=Quick notes on this PC, and the history of what you copied
+Comment[fr]=Des notes rapides sur ce PC, et l'historique de ce que vous avez copié
+Exec=spark-notes
+Icon=dev.wolklaw.SparkNotes
+Terminal=false
+Categories=Utility;TextEditor;
+Keywords=notes;note;memo;clipboard;history;copy;paste;klipper;presse-papiers;historique;copier;coller;mémo;
+Keywords[fr]=notes;note;mémo;presse-papiers;historique;copier;coller;
+StartupNotify=false
+StartupWMClass=dev.wolklaw.SparkNotes
+Actions=Clipboard;
+
+[Desktop Action Clipboard]
+Name=Clipboard history
+Name[fr]=Historique du presse-papiers
+Exec=spark-notes --clipboard
