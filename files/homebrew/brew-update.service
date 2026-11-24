@@ -8,3 +8,6 @@ ConditionPathIsSymbolicLink=/home/linuxbrew/.linuxbrew/bin/brew
 [Service]
 Type=oneshot
 ExecStart=/usr/libexec/sparkos-brew-run update
+Nice=19
+IOSchedulingClass=idle
+CPUSchedulingPolicy=idle

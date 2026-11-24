@@ -11,7 +11,7 @@ from typing import Callable, Deque, Dict, List, Optional, Tuple
 import tkinter as tk
 import tkinter.font as tkfont
 
-from . import APP_CLASS, APP_NAME, APP_SLUG, END_GRACE_S, HISTORY, INTERVAL_MS, VERSION
+from . import APP_CLASS, APP_NAME, APP_SLUG, END_GRACE_S, HISTORY, INTERVAL_MS, UNFOCUSED_INTERVAL_MS, VERSION
 from . import core
 from .core import load_json, log, reduced_motion, save_json
 from .desktop import find_icon
@@ -87,6 +87,32 @@ def load_icon(root: tk.Misc) -> Optional[tk.PhotoImage]:
     return None
 
 
+class _Fill:
+    """append() on a history deque that adds `steps` points, a straight line from the last."""
+
+    def __init__(self, dq: Deque[Optional[float]], steps: int):
+        self.dq, self.steps = dq, steps
+
+    def append(self, value: Optional[float]):
+        dq = self.dq
+        prev = dq[-1] if dq else None
+        if self.steps > 1 and prev is not None and value is not None:
+            for k in range(1, self.steps):
+                dq.append(prev + (value - prev) * k / self.steps)
+        elif self.steps > 1:
+            for _ in range(self.steps - 1):
+                dq.append(value)
+        dq.append(value)
+
+
+class _History:
+    def __init__(self, hist: Dict[str, Deque[Optional[float]]], steps: int):
+        self.hist, self.steps = hist, steps
+
+    def __getitem__(self, key: str) -> _Fill:
+        return _Fill(self.hist[key], self.steps)
+
+
 class App:
     def __init__(self, src: Optional[Source] = None, tab: Optional[str] = None):
         if os.name == 'nt':                      # Windows dev runs only: no bitmap stretching
@@ -120,6 +146,8 @@ class App:
         self.views: Dict[str, tk.Frame] = {}
         self.tab: Optional[str] = None
         self.visible = True
+        self.focused = True               # no focus events (no window manager) counts as focused
+        self._last_sample: Optional[float] = None
         self.hidden_at: Optional[float] = None
         self._tick_id: Optional[str] = None
         self._status_id: Optional[str] = None
@@ -132,6 +160,8 @@ class App:
         self.root.deiconify()
         self.root.bind('<Map>', self._mapped, add='+')
         self.root.bind('<Unmap>', self._unmapped, add='+')
+        self.root.bind('<FocusIn>', self._focus_in, add='+')
+        self.root.bind('<FocusOut>', self._focus_out, add='+')
         self.glitch.add(self.title, self.mark, self.strip)
         self.listener = Listener(self.root, self.bring_to_front)
         # CPU % needs two samples; take the second sooner than the usual second
@@ -264,7 +294,8 @@ class App:
         self.sample()
         self.refresh()
         took = time.monotonic() - started
-        delay = max(100, INTERVAL_MS - int(took * 1000))
+        step = INTERVAL_MS if self.focused else UNFOCUSED_INTERVAL_MS
+        delay = max(100, step - int(took * 1000))
         self._tick_id = self.root.after(delay, self._tick)
 
     def sample(self):
@@ -276,7 +307,14 @@ class App:
         if self.tab in ('apps', 'details'):
             self.procs.sample(now, gpu=self.tab == 'apps')
         c = time.perf_counter()
-        h = self.hist
+        # Each point of history is one second. When the window is unfocused it samples every
+        # few seconds, so the gap is filled with a straight line to the new value: the graphs
+        # keep their 60 s width.
+        steps = 1
+        if self._last_sample is not None:
+            steps = max(1, min(HISTORY, round((now - self._last_sample) / (INTERVAL_MS / 1000))))
+        self._last_sample = now
+        h = _History(self.hist, steps)
         h['cpu'].append(snap.cpu)
         for i in range(self.system.threads):
             h[f'cpu{i}'].append(snap.threads[i] if i < len(snap.threads) else None)
@@ -312,6 +350,18 @@ class App:
                 self._tick_id = None
             log.info("hidden: sampling paused")
 
+    def _focus_out(self, event):
+        if event.widget is self.root:
+            self.focused = False
+
+    def _focus_in(self, event):
+        if event.widget is not self.root or self.focused:
+            return
+        self.focused = True
+        if self.visible and self._tick_id is not None:    # back to every second, now
+            self.root.after_cancel(self._tick_id)
+            self._tick_id = self.root.after(50, self._tick)
+
     def _unmapped(self, event):
         if event.widget is self.root:
             self._pause()
@@ -323,6 +373,7 @@ class App:
         if self.hidden_at and time.monotonic() - self.hidden_at > 3:
             self.hist.clear()               # the graphs restart rather than draw a false line
         self.hidden_at = None
+        self._last_sample = None
         if self._tick_id is None:
             self._tick_id = self.root.after(50, self._tick)
 

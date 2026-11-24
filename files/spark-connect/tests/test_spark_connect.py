@@ -12,12 +12,15 @@ import http.server
 import json
 import os
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
 import threading
 import time
 import unittest
+import urllib.error
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.dirname(HERE)
@@ -531,6 +534,30 @@ class Websites(unittest.TestCase):
         gone = sites.check(config.Site('gone', 'http://127.0.0.1:9/'), timeout=2)
         self.assertFalse(gone.ok)
         self.assertTrue(gone.error)
+
+    def test_retry_over_ipv4_after_a_stall(self):
+        class Stalled:
+            def open(self, request, timeout=None):
+                raise urllib.error.URLError(socket.timeout('timed out'))
+
+        server = http.server.HTTPServer(('127.0.0.1', 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        url = f"http://localhost:{server.server_port}/"
+        try:
+            with mock.patch.object(sites, '_DEFAULT', Stalled()):
+                saved = sites.check(config.Site('stalled', url))
+        finally:
+            server.shutdown()
+        self.assertEqual((saved.status, saved.ok, saved.error), (200, True, ''))
+
+    def test_both_tries_fail_keeps_the_first_reason(self):
+        class Stalled:
+            def open(self, request, timeout=None):
+                raise urllib.error.URLError(socket.timeout('timed out'))
+
+        with mock.patch.object(sites, '_DEFAULT', Stalled()):
+            gone = sites.check(config.Site('gone', 'http://127.0.0.1:9/'), timeout=2)
+        self.assertEqual((gone.ok, gone.error), (False, 'timed out'))
 
 
 class SelfTest(unittest.TestCase):
