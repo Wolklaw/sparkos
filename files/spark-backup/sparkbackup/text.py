@@ -114,6 +114,7 @@ EN = {
     'refuse.fat': "FAT drives can't hold file permissions or large files. Format it as "
                   "ext4 or Btrfs.",
     'refuse.system': "This is the system disk.",
+    'refuse.readonly': "This drive is mounted read-only, so nothing can be copied to it.",
     'refuse.other': "Not supported.",
 
     'day.Mon': "Mon", 'day.Tue': "Tue", 'day.Wed': "Wed", 'day.Thu': "Thu",
@@ -243,6 +244,7 @@ FR = {
     'refuse.fat': "Les disques FAT ne gardent pas les permissions et refusent les gros "
                   "fichiers. Formatez-le en ext4 ou en Btrfs.",
     'refuse.system': "C'est le disque du système.",
+    'refuse.readonly': "Ce disque est monté en lecture seule, on ne peut rien y copier.",
     'refuse.other': "Non pris en charge.",
 
     'day.Mon': "Lun", 'day.Tue': "Mar", 'day.Wed': "Mer", 'day.Thu': "Jeu",

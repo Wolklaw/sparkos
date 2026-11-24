@@ -4,7 +4,7 @@ Snapshots of your home folder on a schedule, a copy on another drive, and file r
 
 It follows the PC's language: French when the system language is French, English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 
-Version 0.1.1. It has been tested with fake `btrfs` and `lsblk` output, plain folders, a throwaway loop image and a temp folder. It has not been run on a real /home or a real drive yet. Spark Backup ships in the SparkOS image ([build step](../scripts/spark-backup.sh)) and installs system-wide only (`sudo bash install.sh --deps`), because a root service takes the snapshots. Design and the reasons for the choices: [briefs/spark-backup.md](../../briefs/spark-backup.md).
+Version 0.1.2. It has been tested with fake `btrfs` and `lsblk` output, plain folders, a throwaway loop image and a temp folder. On 2026-11-24 the parts that need no root were run on the real /home (found as a Btrfs subvolume) and the real drives (listed; a drive mounted read-only, like D:, is refused). A real snapshot, copy and restore have not been tried yet; they need a polkit approval. Spark Backup ships in the SparkOS image ([build step](../scripts/spark-backup.sh)) and installs system-wide only (`sudo bash install.sh --deps`), because a root service takes the snapshots. Design and the reasons for the choices: [briefs/spark-backup.md](../../briefs/spark-backup.md).
 
 - **Backups:** when the last backup ran, when the next one will, which drive gets the copy, and every backup with where it is (on this PC, on the drive). Back up now, Remove, Browse.
 - **Browse:** pick a snapshot, walk its folders, restore a file or folder. Restore never overwrites: it copies beside the original as `name (restored YYYY-MM-DD HH:MM)`, or to a folder you pick.
