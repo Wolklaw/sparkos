@@ -19,7 +19,8 @@ An app opts in with `"live_update": true` and `"system_api": N` in its `spark-ap
 ## How it works
 
 1. A push to main that raises an opted-in app's `version` runs `.github/workflows/app-updates.yml`.
-2. It tests the app (English and French), builds a deterministic `<slug>-<version>.tar.gz` from
+2. It waits for the app's own check (its workflow: tests on Fedora and inside the image, English
+   and French) to pass on those exact app files, builds a deterministic `<slug>-<version>.tar.gz` from
    the app's `install.sh --stage`, and publishes it as release `app-<slug>-<version>`.
 3. It then signs a new index and uploads it as `index.json` on release `apps-index`. Bundles go
    up first, so the index never names a file that isn't there. A weekly run signs it again so it

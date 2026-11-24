@@ -21,7 +21,8 @@ bash "$SRC/install.sh" --deps --key "$KEY"
 test -f /usr/lib/spark-apps/launch.py
 test -x /usr/libexec/spark-apps-update
 test -f /usr/share/spark-apps/index-key.pub
-cmp "$KEY" /usr/share/spark-apps/index-key.pub
+[ "$(sha256sum < "$KEY")" = "$(sha256sum < /usr/share/spark-apps/index-key.pub)" ] \
+  || { echo "index-key.pub is not the image key"; exit 1; }
 test -f /usr/lib/systemd/system/spark-apps-update.timer
 test -f /usr/lib/systemd/system/spark-apps-now@.service
 test -f /usr/share/polkit-1/rules.d/50-spark-apps.rules
