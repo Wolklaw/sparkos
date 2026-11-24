@@ -69,7 +69,7 @@ fi
 if [ "$DEPS" = 1 ]; then
   missing=()
   for pkg in python3 python3-tkinter polkit fwupd lm_sensors xrdb cascadia-mono-fonts \
-             python3-liquidctl openrgb; do
+             python3-liquidctl python3-gobject openrgb; do
     rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
   done
   if [ ${#missing[@]} -gt 0 ]; then

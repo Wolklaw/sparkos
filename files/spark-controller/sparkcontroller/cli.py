@@ -9,8 +9,20 @@ from typing import List, Optional
 from . import APP_NAME, APP_SLUG, VERSION
 
 
+def mouse_line(mouse) -> str:
+    """What ratbagd knows, read only. A PC without ratbagd or without a mouse is not a failure."""
+    try:
+        found = mouse.RatbagBackend().list_mice()
+    except mouse.MouseError as exc:
+        return f"not available ({exc.kind})"
+    except Exception as exc:  # noqa: BLE001
+        return f"not available ({exc})"
+    return f"{len(found)} gaming mouse/mice" + "".join(
+        f"; {m.name} ({len(m.profiles)} profiles)" for m in found)
+
+
 def self_test() -> int:
-    from . import config, liquid, pads, sysinfo
+    from . import config, liquid, mouse, pads, sysinfo
     from .fwupd import Fwupd
     from .hwmon import Hwmon
     from .text import EN, FR
@@ -42,6 +54,7 @@ def self_test() -> int:
     print(f"pads:      {len(found)} game controller(s)"
           + "".join(f"; {p.name} ({p.bus}, {'readable' if p.can_read else 'no access'})"
                     for p in found))
+    print(f"mouse:     {mouse_line(mouse)}")      # read only; never a failure
     try:
         config.load(config.config_path())
         print(f"config:    {config.config_path()} ok")
@@ -86,7 +99,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--self-test", action="store_true", help="check what this PC offers")
     parser.add_argument("--apply-rgb", action="store_true",
                         help="apply the saved lighting and exit (runs at login)")
-    parser.add_argument("--tab", choices=("overview", "fans", "rgb", "pads", "drivers"))
+    parser.add_argument("--tab", choices=("overview", "fans", "rgb", "mouse", "pads", "drivers"))
     parser.add_argument("--no-usb", action="store_true", help="don't scan USB controllers")
     args = parser.parse_args(argv)
     if args.version:
