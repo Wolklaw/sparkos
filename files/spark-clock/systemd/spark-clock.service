@@ -1,0 +1,12 @@
+[Unit]
+Description=Spark Clock: rings your alarms and timers, even with the window closed
+Documentation=https://github.com/Wolklaw/sparkos/tree/main/files/spark-clock
+
+[Service]
+Type=simple
+ExecStart=@BIN@ --daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
