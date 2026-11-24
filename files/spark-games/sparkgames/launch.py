@@ -65,6 +65,7 @@ class Plan:
     watch_dir: str = ''           # a launcher starts it: look for processes in this folder
     pre: List[Dict[str, Any]] = field(default_factory=list)    # {argv, env}: run before (cloud saves)
     post: List[Dict[str, Any]] = field(default_factory=list)   # ... and after the game ends
+    session: Dict[str, Any] = field(default_factory=dict)      # an added launcher: screens.keep
 
 
 def steam_paste_line(mangohud: bool, gamemode: bool) -> str:
@@ -201,7 +202,8 @@ def start(game: Game, options: Optional[Dict[str, Any]] = None,
     if p.env.get('WINEPREFIX'):
         os.makedirs(p.env['WINEPREFIX'], exist_ok=True)
     spec = {'key': game.key, 'title': game.title, 'argv': p.argv, 'env': p.env, 'cwd': p.cwd,
-            'wait': p.wait, 'watch_dir': p.watch_dir, 'pre': p.pre, 'post': p.post}
+            'wait': p.wait, 'watch_dir': p.watch_dir, 'pre': p.pre, 'post': p.post,
+            'session': p.session}
     # Store games carry a sign-in token in their arguments: log the program only.
     log.info("starting %s: %s", game.key, os.path.basename(p.argv[0]) if p.argv else '')
     try:
@@ -264,6 +266,17 @@ def track(spec: Dict[str, Any], proc: str = '/proc', poll: float = POLL, appear:
                                  stderr=subprocess.DEVNULL)
     except OSError as exc:
         log.warning("could not start %s: %s", spec.get('key'), exc)
+        return None
+    if spec.get('session'):
+        # an added launcher (Battle.net, EA...): no session to record, but its Wine session is
+        # restarted when the screens change (screens.py)
+        from . import screens
+
+        def again() -> subprocess.Popen:
+            return subprocess.Popen(spec['argv'], env=env, cwd=spec.get('cwd') or None,
+                                    stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+        screens.keep(child, again, spec['session'])
         return None
     if spec.get('wait'):
         child.wait()

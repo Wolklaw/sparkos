@@ -220,6 +220,8 @@ EN: Dict[str, str] = {
     'err_installer_host': "The download was sent to an address that isn't the company's. Stopped.",
     'err_installer_bad': 'The downloaded file does not look like the installer. Stopped.',
     'err_launcher_not_found': 'The installer finished but the launcher was not found. Add it again.',
+    'screens_restarted': "Restarted {name} because your screens changed. Games it starts now "
+                         "open fullscreen on the right screen.",
     'err_space_detail': 'Not enough free space: the game needs {need} and {free} is free.',
     'err_client_network': 'The store program could not be downloaded: {detail}',
     'err_client_mismatch': 'The downloaded store program did not match its checksum and was deleted.',
@@ -458,6 +460,8 @@ FR: Dict[str, str] = {
     'err_installer_host': "Le téléchargement a été redirigé vers une adresse qui n'est pas celle de l'entreprise. Arrêté.",
     'err_installer_bad': "Le fichier téléchargé ne ressemble pas à l'installeur. Arrêté.",
     'err_launcher_not_found': "L'installeur s'est terminé mais le lanceur est introuvable. Ajoutez-le de nouveau.",
+    'screens_restarted': "{name} a été redémarré parce que vos écrans ont changé. Les jeux qu'il "
+                         "lance s'ouvrent de nouveau en plein écran sur le bon écran.",
     'err_space_detail': "Pas assez d'espace libre : le jeu demande {need} et {free} sont libres.",
     'err_client_network': "Le programme de la boutique n'a pas pu être téléchargé : {detail}",
     'err_client_mismatch': 'Le programme de boutique téléchargé ne correspondait pas à sa somme de contrôle et a été supprimé.',
