@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- User desktop, symbolic. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 2 H15 V11 H1 Z M2 3 V10 H14 V3 Z M7 11 H9 V13 H7 Z M4 13 H12 V14 H4 Z"/>
+</svg>

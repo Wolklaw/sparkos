@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Server: two rack units; the slip is on the top edge of the upper one. SparkOS icon theme, 48 grid. -->
+  <rect x="8" y="9" width="32" height="13" fill="#2c2870"/>
+  <rect x="8" y="26" width="32" height="13" fill="#2c2870"/>
+  <path d="M8.5 12 V21.5 H39.5 V12" fill="none" stroke="#ece9ff" stroke-opacity="0.3"/>
+  <path d="M8.5 29 V38.5 H39.5 V29" fill="none" stroke="#ece9ff" stroke-opacity="0.3"/>
+  <rect x="6" y="9" width="32" height="3" fill="#ff2e88"/>
+  <rect x="10" y="9" width="32" height="3" fill="#22d8ff"/>
+  <rect x="8" y="9" width="32" height="3" fill="#9be8b8"/>
+  <rect x="8" y="26" width="32" height="3" fill="#9be8b8"/>
+  <rect x="12" y="16" width="12" height="2" fill="#b3b0d2"/>
+  <rect x="12" y="33" width="12" height="2" fill="#b3b0d2"/>
+  <rect x="33" y="15" width="4" height="4" fill="#9be8b8"/>
+  <rect x="33" y="32" width="4" height="4" fill="#9be8b8"/>
+</svg>
