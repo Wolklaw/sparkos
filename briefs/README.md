@@ -129,3 +129,4 @@ one place so a French translation can be added (the owner is in Quebec).
 - Times for the owner are in Eastern (Quebec), not UTC.
 - Don't list the app as part of SparkOS in [README.md](../README.md) or [PLAN.md](../PLAN.md); it's
   optional. Mark the brief's status in the table above when the PR is open.
+| [spark-camera.md](spark-camera.md) | Spark Camera: webcam preview, photos with a countdown, video with sound, and a voice recorder | PR open, optional app, in [files/spark-camera](../files/spark-camera). Version 0.1.0: tried with a C920 and a QuadCast for the engine; the window mostly on a test pattern and tone. |
