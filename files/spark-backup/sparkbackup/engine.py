@@ -65,6 +65,42 @@ def _rmtree(path: str) -> None:
     shutil.rmtree(path, onerror=fix)
 
 
+def _open_dir(name: str, dir_fd: int) -> int:
+    """Open a folder by name under `dir_fd`, never following a symlink in the last step."""
+    return os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC,
+                   dir_fd=dir_fd)
+
+
+@contextlib.contextmanager
+def anchored_root(mountpoint: str, host: str) -> Iterator[str]:
+    """The backup folder on a drive, as a path that stays on the folder we checked.
+
+    The service runs as root, but a Windows drive is mounted as the user, so the user (or any
+    program running as them) can swap SparkBackup/ or SparkBackup/<host>/ for a symlink. Each
+    level is created or opened by name with O_NOFOLLOW|O_DIRECTORY, relative to the fd of the
+    level above, so a symlink is refused and a swap after the check can't redirect us. The
+    path given back is /proc/<pid>/fd/N of the final folder: it names that very inode."""
+    fds: List[int] = []
+    try:
+        try:
+            fd = os.open(mountpoint, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+            fds.append(fd)
+            for part in targets.backup_parts(host):
+                try:
+                    os.mkdir(part, 0o755, dir_fd=fd)
+                except FileExistsError:
+                    pass
+                fd = _open_dir(part, fd)
+                fds.append(fd)
+        except OSError as exc:
+            raise BackupError(f"{mountpoint} has a backup folder that is not a plain folder "
+                              f"({exc.strerror or exc}); not writing to it") from exc
+        yield f"/proc/{os.getpid()}/fd/{fd}"
+    finally:
+        for f in fds:
+            os.close(f)
+
+
 class Backup:
     def __init__(self, cfg: Dict[str, Any], runner: Optional[Runner] = None,
                  fs: Optional[Btrfs] = None, source: str = "",
@@ -162,10 +198,28 @@ class Backup:
         args += [f"--exclude={p}" for p in EXCLUDES]
         if have:
             args.append("--link-dest=" + os.path.join(root, have[-1]))
-        os.makedirs(partial, exist_ok=True)
-        res = self.runner.run(args + [os.path.join(self.snap_dir, name) + "/", partial + "/"])
+        # `root` is fd-anchored. Make the partial folder fresh, open it without following
+        # links and hand rsync that fd's path, so it can't be swapped for a symlink mid-run.
+        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_CLOEXEC)
+        try:
+            try:
+                os.mkdir(name + ".partial", 0o755, dir_fd=root_fd)
+            except FileExistsError:
+                pass
+            try:
+                part_fd = _open_dir(name + ".partial", root_fd)
+            except OSError as exc:
+                raise BackupError(f"{name}.partial is not a plain folder ({exc.strerror})") from exc
+            try:
+                res = self.runner.run(args + [os.path.join(self.snap_dir, name) + "/",
+                                              f"/proc/{os.getpid()}/fd/{part_fd}/"])
+            finally:
+                os.close(part_fd)
+            if res.code in RSYNC_OK or res.code == RSYNC_PARTIAL:
+                os.rename(name + ".partial", name, src_dir_fd=root_fd, dst_dir_fd=root_fd)
+        finally:
+            os.close(root_fd)
         if res.code in RSYNC_OK or res.code == RSYNC_PARTIAL:
-            os.rename(partial, final)
             if res.code == RSYNC_PARTIAL:
                 return sum(1 for line in res.err.splitlines() if line.startswith("rsync:"))
             return 0
@@ -191,20 +245,19 @@ class Backup:
             report["error"] = f"can't mount {drive.name}: {err}"
             return
         try:
-            root = targets.backup_root(where, self.host)
-            os.makedirs(root, exist_ok=True)
-            self.progress("copy", drive.name)
-            if drive.method == "btrfs":
-                report["warnings"] = self._copy_btrfs(name, root)
-            else:
-                report["warnings"] = self._copy_rsync(name, root, drive.fstype)
-            report["copy"] = drive.method
-            report["copied"] = name
-            self.progress("prune", drive.name)
-            keep = int(self.cfg["keep_target"])
-            for old in to_remove(self.copy_names(root, drive.method), keep):
-                self._remove_copy(root, old, drive.method)
-                report["removed_copies"] += 1
+            with anchored_root(where, self.host) as root:
+                self.progress("copy", drive.name)
+                if drive.method == "btrfs":
+                    report["warnings"] = self._copy_btrfs(name, root)
+                else:
+                    report["warnings"] = self._copy_rsync(name, root, drive.fstype)
+                report["copy"] = drive.method
+                report["copied"] = name
+                self.progress("prune", drive.name)
+                keep = int(self.cfg["keep_target"])
+                for old in to_remove(self.copy_names(root, drive.method), keep):
+                    self._remove_copy(root, old, drive.method)
+                    report["removed_copies"] += 1
         except (BackupError, OSError) as exc:
             log.warning("copy to %s failed: %s", drive.name, exc)
             report["copy"] = "failed"

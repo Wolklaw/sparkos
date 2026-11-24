@@ -5,7 +5,7 @@
   "name_fr": "Spark Firewall",
   "summary": "Turn the firewall on or off, open what your games and apps need, and pick a zone for each network.",
   "summary_fr": "Activer ou désactiver le pare-feu, ouvrir ce dont vos jeux et applications ont besoin, et choisir une zone pour chaque réseau.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "installed_size_kb": 260,
   "icon": "icons/spark-firewall-256.png",
   "categories": ["System", "Settings", "Security"],

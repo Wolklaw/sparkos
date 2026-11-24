@@ -25,7 +25,7 @@ import zlib
 from typing import Dict, List, Optional, Set, Tuple
 
 from . import STEAM_FLATPAK, vdf
-from .core import Game, log
+from .core import Game, cache_dir, log, read_json, write_json
 
 # Apps that are tools, not games. Three checks, any one is enough: a known appid, a known
 # name, or a toolmanifest.vdf in its folder (Proton and the runtimes have one, games don't).
@@ -216,10 +216,70 @@ def app_names(path: str, wanted: Set[int]) -> Dict[int, str]:
     return names
 
 
-def has_art(root: str, appid: str) -> bool:
-    cache = os.path.join(root, 'appcache', 'librarycache')
-    return os.path.isdir(os.path.join(cache, appid)) or bool(
-        glob.glob(os.path.join(cache, f'{appid}_*')))
+def art_listing(root: str) -> Set[str]:
+    """What librarycache holds, read once: every folder name, and the appid before the first
+    underscore of every file name (the <appid>_header.jpg kind)."""
+    found: Set[str] = set()
+    try:
+        with os.scandir(os.path.join(root, 'appcache', 'librarycache')) as entries:
+            for entry in entries:
+                name = entry.name
+                if name.startswith('.'):         # glob's '*' skipped these too
+                    continue
+                if '_' in name:
+                    found.add(name.split('_', 1)[0])
+                if entry.is_dir():
+                    found.add(name)
+    except OSError:
+        pass
+    return found
+
+
+def has_art(root: str, appid: str, listing: Optional[Set[str]] = None) -> bool:
+    """Whether librarycache has art for this app. Pass art_listing(root) to test many apps
+    without listing the folder each time."""
+    if listing is None:
+        listing = art_listing(root)
+    return appid in listing
+
+
+_names_memory: Dict[str, dict] = {}
+
+
+def cached_app_names(root: str, packages: str, appinfo: str,
+                     wanted: Set[int]) -> Dict[int, str]:
+    """app_names, but the 6 MB appinfo.vdf is only parsed again when it or packageinfo.vdf
+    changed, or when wanted has apps the last parse didn't look at. Kept in memory and in
+    ~/.cache/spark-games/steam-names.json (the next start reads that instead)."""
+    try:
+        sig = [[os.path.basename(p), st.st_mtime_ns, st.st_size]
+               for p in (appinfo, packages) for st in (os.stat(p),)]
+    except OSError:
+        return app_names(appinfo, wanted)
+    path = os.path.join(cache_dir(), 'steam-names.json')
+    entry = _names_memory.get(root)
+    if not entry or entry['sig'] != sig:
+        entry = None
+        saved = read_json(path, {})
+        saved = saved.get(root) if isinstance(saved, dict) else None
+        if isinstance(saved, dict) and saved.get('sig') == sig:
+            try:
+                entry = {'sig': sig, 'seen': {int(a) for a in saved['seen']},
+                         'names': {int(a): str(n) for a, n in saved['names'].items()}}
+            except (KeyError, TypeError, ValueError, AttributeError):
+                entry = None
+    if entry and wanted <= entry['seen']:
+        _names_memory[root] = entry
+        return {a: n for a, n in entry['names'].items() if a in wanted}
+    look = set(wanted) | (entry['seen'] if entry else set())
+    names = app_names(appinfo, look)
+    _names_memory[root] = {'sig': sig, 'seen': look, 'names': names}
+    saved = read_json(path, {})
+    saved = saved if isinstance(saved, dict) else {}
+    saved[root] = {'sig': sig, 'seen': sorted(look),
+                   'names': {str(a): n for a, n in names.items()}}
+    write_json(path, saved)
+    return {a: n for a, n in names.items() if a in wanted}
 
 
 def owned(root: str) -> Dict[str, str]:
@@ -230,8 +290,9 @@ def owned(root: str) -> Dict[str, str]:
     if not (os.path.isfile(packages) and os.path.isfile(appinfo)):
         return {}
     try:
-        wanted = {a for a in package_apps(packages) if has_art(root, str(a))}
-        names = app_names(appinfo, wanted)
+        listing = art_listing(root)
+        wanted = {a for a in package_apps(packages) if has_art(root, str(a), listing)}
+        names = cached_app_names(root, packages, appinfo, wanted)
     except (struct.error, IndexError, UnicodeError) as exc:     # cut short, or not Steam's
         raise vdf.VDFError(f"Steam's app caches are damaged: {exc}") from exc
     return {str(a): name for a, name in names.items() if not is_tool(str(a), name, '')}

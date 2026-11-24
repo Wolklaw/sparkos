@@ -34,6 +34,7 @@ def available(services: List[str]) -> List[Rule]:
 
 # Zones in everyday words. A zone not listed here is shown by its own name.
 ZONE_WORDS = {
+    "sparkos": "zone.sparkos",
     "public": "zone.public",
     "home": "zone.home",
     "work": "zone.work",
@@ -48,4 +49,4 @@ ZONE_WORDS = {
     "nm-shared": "zone.nm_shared",
 }
 # What a person should be offered for a network: not the server, router or sharing zones
-CHOOSABLE = ("public", "home", "work", "trusted", "block", "FedoraWorkstation")
+CHOOSABLE = ("sparkos", "public", "home", "work", "trusted", "block", "FedoraWorkstation")

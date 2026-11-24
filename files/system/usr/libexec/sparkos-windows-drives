@@ -203,12 +203,19 @@ def owner(user=None, passwd="/etc/passwd"):
     return best or (0, 0)
 
 
+def safe_name(text):
+    """A label made safe to be one folder name under BASE: letters, digits, . _ -, starting with a letter or digit.
+    "" when nothing usable is left (so "." and ".." never get through: they would mount over /var or BASE itself)."""
+    name = re.sub(r"[^a-z0-9._-]+", "-", text.lower()).strip("-.")
+    return name if re.fullmatch(r"[a-z0-9][a-z0-9._-]*", name) else ""
+
+
 def name_for(part, letters_by_guid, taken):
     letter = letters_by_guid.get(part["partuuid"])
     if letter:
         name = letter.lower()
     else:
-        name = re.sub(r"[^a-z0-9._-]+", "-", part["label"].lower()).strip("-") or (part["partuuid"][:8] or part["name"])
+        name = safe_name(part["label"]) or safe_name(part["partuuid"][:8]) or safe_name(part["name"]) or "drive"
     base, n = name, 2
     while name in taken:
         name, n = f"{base}-{n}", n + 1
@@ -224,7 +231,7 @@ def run(cmd):
 def mount(device, point, mode, uid, gid):
     """(mode actually used, problem). Read-write first when asked; read-only when that fails."""
     os.makedirs(point, exist_ok=True)
-    owner_opts = f"uid={uid},gid={gid},umask=022"
+    owner_opts = f"nosuid,nodev,uid={uid},gid={gid},umask=022"
     attempts = [("rw", f"rw,{owner_opts},windows_names"), ("rw", f"rw,{owner_opts}")] if mode == "rw" else []
     attempts += [("ro", f"ro,{owner_opts}")]
     problem = ""
@@ -254,7 +261,7 @@ def find_letters(parts):
             continue
         probe = tempfile.mkdtemp(prefix="windows-drive-", dir="/run")
         try:
-            if run(["mount", "-t", "ntfs3", "-o", "ro", p["device"], probe])[0] != 0:
+            if run(["mount", "-t", "ntfs3", "-o", "ro,nosuid,nodev", p["device"], probe])[0] != 0:
                 continue
             try:
                 hive = system_hive(probe)

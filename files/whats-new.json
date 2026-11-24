@@ -8,6 +8,24 @@
       "fr": "Spark Controller a un onglet Souris pour les souris de jeu, à la place des réglages DPI de Logitech G HUB. Il montre chaque profil de la souris et ses paliers de DPI (la valeur, activé ou non, lequel est en cours et lequel est par défaut) et la fréquence d'envoi. Si la souris est sur un palier désactivé ou sous 400 DPI, il avertit et propose 2400 DPI. Rien n'est envoyé à la souris avant d'appuyer sur Appliquer, et Appliquer enregistre dans la mémoire de la souris elle-même, donc ça tient aussi sous Windows. Essayé seulement avec une Logitech G502 HERO ; les autres souris prises en charge par libratbag devraient fonctionner. Le remappage des boutons n'est pas encore là."
     },
     {
+      "id": "2026-11-24-spark-games-faster-scan",
+      "date": "2026-11-24",
+      "en": "Spark Games 0.3.4 reads your Steam library faster. Looking up each owned game's cover used to list the same folder once per game; it now lists it once, and the game names are remembered until Steam changes them. With 611 Steam games, a scan went from about half a second to about a tenth, and to almost nothing when nothing changed, so the window stops stuttering at start and when you come back to it. Games added from Battle.net, EA, Ubisoft and Rockstar also no longer leave a helper polling for ten minutes after they start.",
+      "fr": "Spark Games 0.3.4 lit votre bibliothèque Steam plus vite. Chercher la jaquette de chaque jeu possédé listait le même dossier une fois par jeu ; il est maintenant listé une seule fois, et les noms des jeux sont gardés en mémoire jusqu'à ce que Steam les change. Avec 611 jeux Steam, un balayage est passé d'une demi-seconde environ à un dixième, et à presque rien quand rien n'a changé, donc la fenêtre ne saccade plus au démarrage ni quand vous y revenez. Les jeux ajoutés depuis Battle.net, EA, Ubisoft et Rockstar ne laissent plus non plus un assistant qui sonde pendant dix minutes après leur lancement."
+    },
+    {
+      "id": "2026-11-24-closed-firewall",
+      "date": "2026-11-24",
+      "en": "The firewall is closed by default. SparkOS used Fedora's desktop zone, which let any device on your network reach every port from 1025 up. The new SparkOS zone opens only what SparkOS uses: finding devices, Spark Link, KDE Connect and Steam Remote Play. If an app you installed needs a port, open it in Spark Firewall. Programs also can no longer read the memory of programs they didn't start.",
+      "fr": "Le pare-feu est fermé par défaut. SparkOS utilisait la zone bureau de Fedora, qui laissait tout appareil du réseau joindre chaque port à partir de 1025. La nouvelle zone SparkOS n'ouvre que ce que SparkOS utilise : la découverte d'appareils, Spark Link, KDE Connect et Steam Remote Play. Si une application installée a besoin d'un port, ouvrez-le dans Spark Firewall. Les programmes ne peuvent plus non plus lire la mémoire des programmes qu'ils n'ont pas lancés."
+    },
+    {
+      "id": "2026-11-24-32bit-graphics",
+      "date": "2026-11-24",
+      "en": "Battle.net and other 32-bit Windows programs open again in Spark Games and Spark Run. SparkOS now ships 32-bit graphics drivers, which they need to draw a window.",
+      "fr": "Battle.net et les autres programmes Windows 32 bits s'ouvrent de nouveau dans Spark Games et Spark Run. SparkOS inclut maintenant les pilotes graphiques 32 bits dont ils ont besoin pour afficher une fenêtre."
+    },
+    {
       "id": "2026-11-24-spark-monitor-logs-system",
       "date": "2026-11-24",
       "en": "Spark Monitor 1.1.0 has two new tabs. Logs shows the system journal live, with this boot or the last one, errors or everything, a filter by app and a search; each line is a plain sentence, and a crashes view lists what crashed with a Copy report button that sends nothing. System shows what this PC is (SparkOS version, kernel, processor, graphics driver, memory, motherboard, disks, displays) with a Copy all button for support requests that leaves out serial numbers. Ctrl+5 and Ctrl+6 open them. Tried on one PC so far.",
