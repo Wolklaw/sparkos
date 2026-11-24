@@ -1,0 +1,27 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Backup
+Name[fr]=Spark Backup
+GenericName=Backups of your files
+GenericName[fr]=Sauvegardes de vos fichiers
+Comment=Snapshots of your home folder, a copy on another drive, and file restore
+Comment[fr]=Instantanés de votre dossier personnel, copie sur un autre disque et restauration de fichiers
+Exec=spark-backup
+Icon=dev.wolklaw.SparkBackup
+Terminal=false
+Categories=System;Utility;Archiving;
+Keywords=backup;snapshot;restore;btrfs;rsync;history;recover;copy;sauvegarde;instantané;restaurer;historique;
+Keywords[fr]=sauvegarde;instantané;restaurer;restauration;historique;récupérer;copie;disque;
+StartupWMClass=SparkBackup
+SingleMainWindow=true
+Actions=Browse;Settings;
+
+[Desktop Action Browse]
+Name=Browse snapshots
+Name[fr]=Parcourir les instantanés
+Exec=spark-backup --tab browse
+
+[Desktop Action Settings]
+Name=Settings
+Name[fr]=Réglages
+Exec=spark-backup --tab settings

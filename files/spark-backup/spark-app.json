@@ -1,0 +1,26 @@
+{
+  "id": "dev.wolklaw.SparkBackup",
+  "slug": "spark-backup",
+  "name": "Spark Backup",
+  "name_fr": "Spark Backup",
+  "summary": "Snapshots of /home on a schedule, a copy on another drive, and file restore.",
+  "summary_fr": "Instantanés de /home à heure fixe, copie sur un autre disque et restauration de fichiers.",
+  "version": "0.1.0",
+  "installed_size_kb": 300,
+  "icon": "icons/spark-backup-256.png",
+  "categories": ["System", "Utility"],
+  "needs": {
+    "root": true,
+    "commands": ["python3", "pkexec", "btrfs", "rsync", "lsblk"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "system": "Linux with /home on Btrfs and systemd; polkit for saving settings"
+  },
+  "install": {
+    "system": "sudo bash install.sh --deps",
+    "uninstall": "sudo bash install.sh --uninstall",
+    "self_test": "spark-backup --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-backup"
+}

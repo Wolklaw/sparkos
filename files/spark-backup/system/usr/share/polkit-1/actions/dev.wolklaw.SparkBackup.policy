@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>SparkOS</vendor>
+  <vendor_url>https://github.com/Wolklaw/sparkos</vendor_url>
+
+  <action id="dev.wolklaw.SparkBackup.manage">
+    <description>Manage backups of /home</description>
+    <description xml:lang="fr">Gérer les sauvegardes de /home</description>
+    <message>Authentication is required to change the backup schedule, start a backup or remove a snapshot</message>
+    <message xml:lang="fr">Une authentification est requise pour changer l'horaire des sauvegardes, lancer une sauvegarde ou supprimer un instantané</message>
+    <icon_name>dev.wolklaw.SparkBackup</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/spark-backup-helper</annotate>
+  </action>
+</policyconfig>

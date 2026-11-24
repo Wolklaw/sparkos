@@ -1,0 +1,52 @@
+name: spark-backup
+# Spark Backup ships in the SparkOS image (files/scripts/spark-backup.sh). It installs system-wide
+# only: a root service takes the snapshots and polkit guards saving settings.
+#
+# fedora: runs the image build step in a plain Fedora container (installs btrfs-progs, rsync and
+#         polkit with dnf), then the self-test and the unit tests (English and French; the
+#         window tests run under Xvfb), and checks the uninstall leaves nothing in /usr.
+#         A CI runner has no Btrfs /home and no spare drive: the tests use fake btrfs and lsblk
+#         output and plain folders, and nothing here creates or deletes a real snapshot.
+on:
+  push:
+    paths:
+      - "files/spark-backup/**"
+      - "files/scripts/spark-backup.sh"
+      - ".github/workflows/spark-backup.yml"
+  pull_request:
+    paths:
+      - "files/spark-backup/**"
+      - "files/scripts/spark-backup.sh"
+      - ".github/workflows/spark-backup.yml"
+  workflow_dispatch:
+
+jobs:
+  fedora:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install (the image build step)
+        run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-backup.sh
+
+      - name: Self-test
+        run: spark-backup --self-test
+
+      - name: Tests (Xvfb)
+        run: |
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth
+          cd files/spark-backup
+          xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Tests in French (SPARK_LANG=fr)
+        run: |
+          cd files/spark-backup
+          SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
+
+      - name: Uninstall, and check nothing is left
+        run: |
+          bash files/spark-backup/install.sh --uninstall
+          left=$(find /usr /etc -iname '*spark-backup*' -o -iname '*SparkBackup*' 2>/dev/null || true)
+          if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
