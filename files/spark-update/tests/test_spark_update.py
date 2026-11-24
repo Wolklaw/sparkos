@@ -524,7 +524,7 @@ class SystemRunTests(unittest.TestCase):
         self.assertFalse(st['running'])
         self.assertEqual(st['flatpak']['updated'], ['com.valvesoftware.Steam'])
         self.assertTrue(run.ran('upgrade'))
-        self.assertEqual(run.ran('upgrade --check'), [])
+        self.assertEqual(len(run.ran('upgrade --check')), 1)     # checks first, then stages
         self.assertEqual(run.ran('flatpak update --system --noninteractive -y')[0][:2],
                          ['flatpak', 'update'])
         for call in run.calls:      # never restarts, never applies
@@ -627,9 +627,31 @@ class SystemRunTests(unittest.TestCase):
                                                'version': B_VER}})
         run = FakeRunner(self.root, stage_to='rpm-ostree-staged.json')
         updater.system_run(self.env, now_mode='stage', runner=run, clock=self.clock)
-        self.assertEqual(run.ran('upgrade --check'), [])
+        self.assertEqual(len(run.ran('upgrade --check')), 1)     # the stage's own check
         self.assertTrue(run.ran('upgrade'))
         self.assertNotIn('held', self.state())
+
+    def test_downloading_only_when_there_is_an_update(self):
+        # The window showed DOWNLOADING for every Check now, then "up to date".
+        env = self.env
+
+        class Watch(FakeRunner):
+            def __call__(self, cmd, timeout=0, quiet=False, env=None):
+                if cmd[1:2] == ['upgrade'] and '--check' not in cmd:
+                    phases.append(updater.load_state(Env(self.root)).get('phase'))
+                return super().__call__(cmd, timeout, quiet, env)
+
+        phases = []
+        updater.system_run(env, now_mode='stage', runner=Watch(self.root, upgrade_code=77),
+                           clock=self.clock)
+        self.assertEqual(phases, ['checking'])          # nothing new: still upgrades, quietly
+        self.assertEqual(self.state()['result'], 'up_to_date')
+        phases.clear()
+        updater.system_run(env, now_mode='stage', clock=self.clock, runner=Watch(
+            self.root, stage_to='rpm-ostree-staged.json',
+            check_out=(f"AvailableUpdate:\n  Version: {B_VER}\n", 0)))
+        self.assertEqual(phases, ['downloading'])
+        self.assertEqual(self.state()['result'], 'staged')
 
     def test_notify_mode_respects_the_hold(self):
         settings.write_system(self.env, settings.SystemSettings(True, 'notify', 6, False))
@@ -1036,6 +1058,31 @@ class UITests(unittest.TestCase):
         # the window remembers the notes of the version it opened on
         from sparkupdate.updater import user_state_path
         self.assertEqual(load_json(user_state_path()).get('seen_notes'), ['n1'])
+
+    def test_buttons_stay_visible_in_a_small_window(self):
+        root = make_root()
+        staged = os.path.join(root, f'ostree/deploy/default/deploy/{B_SUM}.0',
+                              'usr/share/sparkos/release.json')
+        nxt = load_json(staged)
+        nxt['notes'] = [note(f'n{i}', '2026-11-22') for i in range(30)]
+        with open(staged, 'w') as f:
+            json.dump(nxt, f)
+        app = self.open(root=root)
+        long = "error: Upgrading: Deployment contains local rpm-ostree modifications; " * 3
+        app.check_line.config(text=long)
+        app.message.config(text=long)
+        w, h = app.root.minsize()
+        app.root.geometry(f"{w}x{h}")
+        for _ in range(20):
+            app.root.update()
+            time.sleep(0.02)
+        bottom = app.root.winfo_rooty() + app.root.winfo_height()
+        for key in ('check', 'rollback', 'settings', 'log'):
+            btn = app.buttons[key]
+            self.assertTrue(btn.winfo_ismapped(), key)
+            self.assertLessEqual(btn.winfo_rooty() + btn.winfo_height(), bottom, key)
+        self.assertTrue(app.message.winfo_ismapped())
+        self.assertLessEqual(app.message.winfo_rooty() + app.message.winfo_height(), bottom)
 
     def test_previous_version_from_files(self):
         app = self.open('rpm-ostree-none.json')
