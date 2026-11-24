@@ -15,6 +15,7 @@ import sys
 import tempfile
 import time
 import unittest
+from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 APP_DIR = os.path.dirname(HERE)
@@ -254,6 +255,62 @@ class SteamOwnedTests(FixtureHome):
     def test_no_caches_yet(self):
         os.remove(os.path.join(self.cache, 'packageinfo.vdf'))
         self.assertEqual(steam.owned(self.root), {})
+
+    def test_art_listing_matches_the_old_glob(self):
+        lib = os.path.join(self.cache, 'librarycache')
+        for name in ('1000_header.jpg', '1000_library_600x900.jpg', '2000_icon.jpg',
+                     '.3000_hidden.jpg', '30000_header.jpg', '4000'):
+            path = os.path.join(lib, name)
+            if name == '4000':
+                os.makedirs(path)
+            else:
+                with open(path, 'wb') as f:
+                    f.write(b'x')
+        listing = steam.art_listing(self.root)
+        for appid, expected in (('1000', True), ('2000', True), ('4000', True), ('620', True),
+                                ('3000', False), ('30000', True), ('300', False),
+                                ('99999', False)):
+            self.assertEqual(steam.has_art(self.root, appid, listing), expected, appid)
+            self.assertEqual(steam.has_art(self.root, appid), expected, appid)
+        self.assertFalse(steam.has_art(os.path.join(self.tmp, 'nowhere'), '1000'))
+
+    def test_scan_lists_librarycache_once(self):
+        write_appinfo(os.path.join(self.cache, 'appinfo.vdf'), self.APPS, 29)
+        lib = os.path.join(self.cache, 'librarycache')
+        with mock.patch.object(steam.os, 'scandir', wraps=os.scandir) as scan:
+            steam.owned(self.root)
+        self.assertEqual(sum(1 for c in scan.call_args_list if c.args[0] == lib), 1)
+
+    def test_names_are_not_parsed_again_until_the_files_change(self):
+        info = os.path.join(self.cache, 'appinfo.vdf')
+        write_appinfo(info, self.APPS, 29)
+        with mock.patch.object(steam, 'app_names', wraps=steam.app_names) as parse:
+            first = steam.owned(self.root)
+            self.assertEqual(steam.owned(self.root), first)
+            self.assertEqual(parse.call_count, 1)
+            steam._names_memory.clear()            # a new process reads the cache file
+            self.assertEqual(steam.owned(self.root), first)
+            self.assertEqual(parse.call_count, 1)
+            self.assertEqual(first['400'], 'Portal')
+            # new art for an app the last parse never looked at: parse again
+            os.makedirs(os.path.join(self.cache, 'librarycache', '393380'))
+            self.assertIn('393380', steam.owned(self.root))
+            self.assertEqual(parse.call_count, 2)
+            # appinfo.vdf changed: parse again and use the new names
+            apps = dict(self.APPS)
+            apps[400] = ('Portal Reloaded', 'game')
+            write_appinfo(info, apps, 29)
+            self.assertEqual(steam.owned(self.root)['400'], 'Portal Reloaded')
+            self.assertEqual(parse.call_count, 3)
+
+    def test_damaged_names_cache_is_ignored(self):
+        write_appinfo(os.path.join(self.cache, 'appinfo.vdf'), self.APPS, 29)
+        first = steam.owned(self.root)
+        steam._names_memory.clear()
+        path = os.path.join(steam.cache_dir(), 'steam-names.json')
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write('{"%s": {"sig": 1}}' % self.root)
+        self.assertEqual(steam.owned(self.root), first)
 
     def test_owned_steam_games_in_the_library(self):
         write_appinfo(os.path.join(self.cache, 'appinfo.vdf'), self.APPS, 29)
@@ -585,6 +642,16 @@ class PlaytimeTests(unittest.TestCase):
         self.assertIsNotNone(session)
         self.assertEqual(session['end'] - session['start'], 260)    # first seen to last seen
         self.assertEqual(launch.totals()['steam:9']['minutes'], 4)
+
+    def test_track_with_nothing_to_watch_returns_at_once(self):
+        # Battle.net and the other added launchers: no folder, no scanning /proc for 10 minutes
+        slept = []
+        spec = {'key': 'battlenet:x', 'argv': [sys.executable, '-c', 'pass'],
+                'watch_dir': '', 'wait': False}
+        self.assertIsNone(launch.track(spec, proc=os.path.join(self.tmp, 'proc'),
+                                       sleep=slept.append))
+        self.assertEqual(slept, [])
+        self.assertNotIn('battlenet:x', launch.totals())
 
     def test_track_gives_up_when_game_never_appears(self):
         os.makedirs(os.path.join(self.tmp, 'proc'))

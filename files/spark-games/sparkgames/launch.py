@@ -269,8 +269,11 @@ def track(spec: Dict[str, Any], proc: str = '/proc', poll: float = POLL, appear:
         child.wait()
         end = clock()
     else:
-        skip = {str(os.getpid()), str(child.pid)}
         folder = spec.get('watch_dir') or ''
+        if not folder:
+            return None                          # nothing to watch (Battle.net and the other
+                                                 # added launchers): don't scan /proc for 10 min
+        skip = {str(os.getpid()), str(child.pid)}
         seen_at = None
         while seen_at is None and clock() - start_time < appear:
             sleep(poll)
