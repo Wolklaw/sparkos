@@ -7,6 +7,7 @@ EN = {
     'tab.overview': "Overview",
     'tab.fans': "Fans",
     'tab.rgb': "Spark RGB",
+    'tab.pads': "Pads",
     'tab.drivers': "Drivers & firmware",
 
     'status.watching': "WATCHING",
@@ -103,6 +104,72 @@ EN = {
     'speed.normal': "Normal",
     'speed.fast': "Fast",
 
+    'status.pads_in': "CONTROLLER CONNECTED",
+    'status.pads_out': "CONTROLLER GONE",
+    'status.rumble': "RUMBLE",
+
+    'pads.list': "Game controllers",
+    'pads.col_name': "Controller",
+    'pads.col_link': "Connection",
+    'pads.col_battery': "Battery",
+    'pads.col_access': "Access",
+    'pads.usb': "USB",
+    'pads.bluetooth': "Bluetooth",
+    'pads.virtual': "Virtual",
+    'pads.other': "Other",
+    'pads.ready': "Ready",
+    'pads.blocked': "Blocked",
+    'pads.no_battery': "--",
+    'pads.none': "No controller found. Plug one in or switch one on; it shows up here by "
+                 "itself.",
+    'pads.connected': "Connected: {name}",
+    'pads.gone': "Disconnected: {name}",
+    'pads.virtual_note': "A virtual pad is made by a program, usually Steam Input, which copies "
+                         "your real controller for games. Test the real one.",
+    'pads.no_access': "This account can't read this controller, so the tester can't show it. "
+                      "Normally the system lets whoever sits at the PC use a controller (a udev "
+                      "rule with the uaccess tag); there is none for this model. To allow it "
+                      "yourself, add this account to the input group: sudo usermod -aG input "
+                      "$USER, then log out and in. That group can read every keyboard too, so "
+                      "it is a trade.",
+    'pads.press': "Press a button or move a stick.",
+    'pads.tester': "Tester",
+    'pads.left': "Left stick",
+    'pads.right': "Right stick",
+    'pads.stick_n': "Stick {n}",
+    'pads.stick': "x {x}  y {y}  {mag} %  deadzone {flat} %",
+    'pads.axes_note': "Sticks and triggers are told apart by where they rest, and numbered by "
+                      "the kernel's axis order. A pad that numbers them oddly still shows every "
+                      "axis.",
+    'pads.measure': "Measure rest drift",
+    'pads.measuring': "Leave the sticks alone... {n}",
+    'pads.drift': "Drift at rest: {values}. A deadzone just above it hides it in a game.",
+    'pads.drift_item': "{name} {pct} % (deadzone {dz} %)",
+    'pads.rumble_heavy': "Heavy motor",
+    'pads.rumble_light': "Light motor",
+    'pads.rumble_none': "No rumble the system can drive on this controller.",
+    'pads.rumble_blocked': "Rumble needs write access to the controller, and this account has "
+                           "none.",
+    'pads.rumble_failed': "Rumble failed: {error}",
+    'pads.firmware': "Controller firmware",
+    'pads.firmware_note': "Through fwupd, like the other devices, and only what fwupd supports: "
+                          "its 8BitDo plugin knows a short list of USB models. Nothing is "
+                          "flashed unless you press Install on a controller and confirm.",
+    'pads.fw_known': "{name}: fwupd has a plugin for this model ({plugin}).",
+    'pads.fw_unknown': "{name}: fwupd doesn't support this model (USB id {id}), so there is "
+                       "nothing to update from here. Use the maker's own updater.",
+    'pads.fw_bluetooth': "{name}: connected by Bluetooth. fwupd updates controllers over USB "
+                         "only; plug it in with a cable to check.",
+    'pads.fw_listed': "{n} controller(s) in fwupd's list.",
+    'pads.fw_none_listed': "fwupd lists no controller right now.",
+    'pads.fw_install': "Install update",
+    'pads.fw_confirm': "Sure? Install now",
+    'pads.fw_warn': "Keep it plugged in by cable and don't touch it while it updates. A failed "
+                    "update can leave a controller dead until it is flashed again.",
+    'pads.remap': "Remapping buttons isn't part of Spark Controller. Steam Input does it for "
+                  "games started from Steam. A Spark remapper would be a service that sits "
+                  "between the pad and every game, and it isn't built.",
+
     'drivers.firmware': "Device firmware",
     'drivers.firmware_note': "From LVFS, through fwupd. Installing asks for your password, and "
                              "some updates finish at the next restart.",
@@ -144,6 +211,7 @@ FR = {
     'tab.overview': "Aperçu",
     'tab.fans': "Ventilateurs",
     'tab.rgb': "Spark RGB",
+    'tab.pads': "Manettes",
     'tab.drivers': "Pilotes et firmware",
 
     'status.watching': "SURVEILLANCE",
@@ -243,6 +311,76 @@ FR = {
     'speed.slow': "Lent",
     'speed.normal': "Normal",
     'speed.fast': "Rapide",
+
+    'status.pads_in': "MANETTE BRANCHÉE",
+    'status.pads_out': "MANETTE DÉBRANCHÉE",
+    'status.rumble': "VIBRATION",
+
+    'pads.list': "Manettes de jeu",
+    'pads.col_name': "Manette",
+    'pads.col_link': "Connexion",
+    'pads.col_battery': "Pile",
+    'pads.col_access': "Accès",
+    'pads.usb': "USB",
+    'pads.bluetooth': "Bluetooth",
+    'pads.virtual': "Virtuelle",
+    'pads.other': "Autre",
+    'pads.ready': "Prête",
+    'pads.blocked': "Bloqué",
+    'pads.no_battery': "--",
+    'pads.none': "Aucune manette trouvée. Branchez-en une ou allumez-en une; elle apparaît ici "
+                 "toute seule.",
+    'pads.connected': "Branchée : {name}",
+    'pads.gone': "Débranchée : {name}",
+    'pads.virtual_note': "Une manette virtuelle est créée par un programme, souvent Steam "
+                         "Input, qui copie votre vraie manette pour les jeux. Testez la vraie.",
+    'pads.no_access': "Ce compte ne peut pas lire cette manette, donc le testeur ne peut pas "
+                      "l'afficher. Normalement, le système laisse la personne devant le PC "
+                      "utiliser une manette (une règle udev avec l'étiquette uaccess); il n'y "
+                      "en a pas pour ce modèle. Pour l'autoriser vous-même, ajoutez ce compte "
+                      "au groupe input : sudo usermod -aG input $USER, puis fermez et rouvrez "
+                      "la session. Ce groupe peut aussi lire tous les claviers, c'est un "
+                      "compromis.",
+    'pads.press': "Appuyez sur un bouton ou bougez un joystick.",
+    'pads.tester': "Testeur",
+    'pads.left': "Joystick gauche",
+    'pads.right': "Joystick droit",
+    'pads.stick_n': "Joystick {n}",
+    'pads.stick': "x {x}  y {y}  {mag} %  zone morte {flat} %",
+    'pads.axes_note': "Les joysticks et les gâchettes se distinguent par leur position au "
+                      "repos, et sont numérotés selon l'ordre des axes du noyau. Une manette "
+                      "qui les numérote autrement affiche quand même tous ses axes.",
+    'pads.measure': "Mesurer la dérive au repos",
+    'pads.measuring': "Ne touchez pas aux joysticks... {n}",
+    'pads.drift': "Dérive au repos : {values}. Une zone morte juste au-dessus la cache dans "
+                  "un jeu.",
+    'pads.drift_item': "{name} {pct} % (zone morte {dz} %)",
+    'pads.rumble_heavy': "Moteur lourd",
+    'pads.rumble_light': "Moteur léger",
+    'pads.rumble_none': "Cette manette n'a pas de vibration que le système peut piloter.",
+    'pads.rumble_blocked': "La vibration demande l'accès en écriture à la manette, et ce "
+                           "compte ne l'a pas.",
+    'pads.rumble_failed': "La vibration a échoué : {error}",
+    'pads.firmware': "Firmware des manettes",
+    'pads.firmware_note': "Via fwupd, comme les autres appareils, et seulement ce que fwupd "
+                          "prend en charge : son module 8BitDo connaît une courte liste de "
+                          "modèles USB. Rien n'est flashé tant que vous n'appuyez pas sur "
+                          "Installer pour une manette et ne confirmez pas.",
+    'pads.fw_known': "{name} : fwupd a un module pour ce modèle ({plugin}).",
+    'pads.fw_unknown': "{name} : fwupd ne prend pas ce modèle en charge (ID USB {id}), donc "
+                       "rien à mettre à jour d'ici. Utilisez l'outil du fabricant.",
+    'pads.fw_bluetooth': "{name} : connectée en Bluetooth. fwupd met les manettes à jour "
+                         "seulement par USB; branchez-la avec un câble pour vérifier.",
+    'pads.fw_listed': "{n} manette(s) dans la liste de fwupd.",
+    'pads.fw_none_listed': "fwupd ne liste aucune manette pour le moment.",
+    'pads.fw_install': "Installer la mise à jour",
+    'pads.fw_confirm': "Sûr? Installer maintenant",
+    'pads.fw_warn': "Gardez-la branchée par câble et n'y touchez pas pendant la mise à jour. "
+                    "Une mise à jour ratée peut rendre une manette inutilisable jusqu'à un "
+                    "nouveau flash.",
+    'pads.remap': "Remapper les boutons ne fait pas partie de Spark Controller. Steam Input "
+                  "le fait pour les jeux lancés depuis Steam. Un remappeur Spark serait un "
+                  "service entre la manette et chaque jeu, et il n'est pas construit.",
 
     'drivers.firmware': "Firmware des appareils",
     'drivers.firmware_note': "Depuis LVFS, via fwupd. L'installation demande votre mot de "

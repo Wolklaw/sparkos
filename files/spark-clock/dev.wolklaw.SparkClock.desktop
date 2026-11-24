@@ -1,0 +1,15 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Clock
+Name[fr]=Spark Clock
+GenericName=Alarms and timers
+GenericName[fr]=Alarmes et minuteurs
+Comment=Alarms, timers, a stopwatch and world clocks that ring with the window closed
+Comment[fr]=Alarmes, minuteurs, chronomètre et horloges du monde qui sonnent fenêtre fermée
+Exec=spark-clock
+Icon=dev.wolklaw.SparkClock
+Terminal=false
+Categories=Utility;Clock;
+Keywords=alarm;timer;stopwatch;clock;world;time;wake;alarme;minuteur;chronometre;horloge;reveil;
+StartupWMClass=SparkClock
+SingleMainWindow=true

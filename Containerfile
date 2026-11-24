@@ -146,6 +146,8 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-terminal.sh \
         spark-launcher.sh \
         spark-emoji.sh \
+        spark-notes.sh \
+        spark-audio.sh \
         spark-update.sh \
         sparkos-cleanup.sh \
         sparkos-defaults.sh \

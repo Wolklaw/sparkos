@@ -1,0 +1,298 @@
+"""Every sentence Spark Clock shows or sends, in English and in French. The PC's language picks
+the table (lang.py); t('key', name=...) fills in the blanks. The background service uses the same
+table for its notifications."""
+
+from .lang import ui_language
+
+EN = {
+    # header, service
+    'service.on': "SERVICE RUNNING",
+    'service.off': "SERVICE OFF: ALARMS WON'T RING",
+    'service.turn_on': "Turn on",
+    'service.started': "SERVICE STARTED",
+    'service.cant_start': "COULDN'T START THE SERVICE",
+    'service.cant_start_body': "Spark Clock couldn't start its background service: {error}. "
+                               "Alarms and timers only ring while it runs. Look in "
+                               "~/.local/state/spark-clock for the log.",
+    'service.note': "Alarms and timers ring through a small background service, with this "
+                    "window closed. It does not wake the PC from sleep: an alarm that comes up "
+                    "while the PC sleeps rings when it wakes (up to 10 minutes late).",
+    'tab.alarms': "ALARMS",
+    'tab.timers': "TIMERS",
+    'tab.stopwatch': "STOPWATCH",
+    'tab.world': "WORLD",
+
+    # ringing banner
+    'banner.stop': "Stop",
+    'banner.snooze': "Snooze {minutes} min",
+    'banner.plus': "+1 min",
+    'banner.nothing': "Nothing is ringing.",
+
+    # alarms
+    'alarms.heading': "ALARMS",
+    'alarms.sub': "Alarms ring at the time on this PC's clock, on the days you pick.",
+    'alarms.new': "New alarm",
+    'alarms.empty': "No alarms yet. Add one and it rings even when this window is closed.",
+    'alarms.next': "Rings in {when}",
+    'alarms.off': "Off",
+    'alarms.edit': "Edit",
+    'alarms.delete': "Delete",
+    'alarms.delete_title': "Delete this alarm?",
+    'alarms.delete_body': "{time} {label} will be deleted.",
+    'alarms.on': "On",
+    'alarms.sound_volume': "VOLUME",
+    'alarms.ring_for': "RING FOR",
+    'alarms.minutes': "{n} min",
+    'alarms.test': "Test sound",
+    'alarms.test_none': "NO SOUND PLAYER FOUND",
+    'alarms.no_label': "Alarm",
+    'days.every': "Every day",
+    'days.weekdays': "Weekdays",
+    'days.weekend': "Weekend",
+    'days.once': "Once",
+    'day.0': "Mon", 'day.1': "Tue", 'day.2': "Wed", 'day.3': "Thu", 'day.4': "Fri",
+    'day.5': "Sat", 'day.6': "Sun",
+    'until.h': "h", 'until.m': "min", 'until.d': "d",
+
+    # alarm editor
+    'editor.new': "NEW ALARM",
+    'editor.edit': "EDIT ALARM",
+    'editor.time': "TIME (24 H)",
+    'editor.days': "DAYS",
+    'editor.label': "LABEL",
+    'editor.sound': "SOUND",
+    'editor.snooze': "SNOOZE",
+    'editor.preview': "Preview",
+    'editor.file': "File…",
+    'editor.file_title': "Choose a sound file",
+    'editor.file_types': "Sound files",
+    'editor.save': "Save",
+    'editor.cancel': "Cancel",
+    'editor.bad_time': "That isn't a time. Use hours 0 to 23 and minutes 0 to 59.",
+    'editor.once_note': "With no day picked, the alarm rings once, then turns itself off.",
+
+    # sounds
+    'sound.beacon': "Beacon",
+    'sound.pulse': "Pulse",
+    'sound.chime': "Chime",
+    'sound.drift': "Drift",
+    'sound.static': "Static",
+    'sound.file': "File",
+
+    # timers
+    'timers.heading': "TIMERS",
+    'timers.sub': "Start as many as you need. Each rings on its own.",
+    'timers.hours': "H",
+    'timers.minutes': "MIN",
+    'timers.seconds': "S",
+    'timers.label': "LABEL",
+    'timers.start': "Start",
+    'timers.zero': "SET A TIME ABOVE ZERO",
+    'timers.presets': "PRESETS",
+    'timers.save_preset': "Save as preset",
+    'timers.remove_presets': "Remove presets",
+    'timers.empty': "No timers running.",
+    'timers.pause': "Pause",
+    'timers.resume': "Resume",
+    'timers.restart': "Restart",
+    'timers.delete': "Delete",
+    'timers.stop': "Stop",
+    'timers.done': "DONE",
+    'timers.ringing': "RINGING",
+    'timers.paused': "PAUSED",
+    'timers.no_label': "Timer",
+    'timers.too_many': "TOO MANY TIMERS",
+
+    # stopwatch
+    'sw.heading': "STOPWATCH",
+    'sw.sub': "Keeps counting with the window closed.",
+    'sw.start': "Start",
+    'sw.stop': "Stop",
+    'sw.lap': "Lap",
+    'sw.reset': "Reset",
+    'sw.col_lap': "LAP",
+    'sw.col_split': "LAP TIME",
+    'sw.col_total': "TOTAL",
+    'sw.empty': "Laps show here.",
+
+    # world
+    'world.heading': "WORLD CLOCKS",
+    'world.sub': "Montréal first. Times follow each city's own daylight saving rules.",
+    'world.add': "ADD A CITY",
+    'world.search': "Type a city, or a zone like Europe/Paris",
+    'world.add_button': "Add",
+    'world.remove': "Remove",
+    'world.unknown': "UNKNOWN CITY OR ZONE",
+    'world.you': "YOUR TIME",
+    'world.same': "same time as Montréal",
+    'world.ahead': "{n} h ahead of Montréal",
+    'world.behind': "{n} h behind Montréal",
+    'world.yesterday': "yesterday",
+    'world.today': "today",
+    'world.tomorrow': "tomorrow",
+    'world.zone_missing': "zone not in this PC's database",
+
+    # notifications
+    'ring.alarm_title': "Alarm {time}",
+    'ring.timer_title': "Timer done",
+    'ring.alarm_missed': "Missed alarm {time}",
+    'ring.timer_missed': "A timer finished while the PC was off",
+    'ring.missed_why': "The PC was off or asleep at that time.",
+    'ring.late': "(rang {minutes} min late: the PC was asleep or the service was off)",
+    'ring.unanswered': "{title}: no answer after {minutes} min",
+    'ring.snoozed': "Snoozed {minutes} min",
+    'action.stop': "Stop",
+    'action.snooze': "Snooze {minutes} min",
+    'action.plus_one': "+1 min",
+
+    # command line
+    'cli.timer_added': "Timer of {duration} started.",
+    'cli.timer_bad': "Not a duration: {text}. Try 90, 5m, 1h30m or 1:30.",
+}
+
+FR = {
+    'service.on': "SERVICE ACTIF",
+    'service.off': "SERVICE ARRÊTÉ : LES ALARMES NE SONNERONT PAS",
+    'service.turn_on': "Activer",
+    'service.started': "SERVICE DÉMARRÉ",
+    'service.cant_start': "IMPOSSIBLE DE DÉMARRER LE SERVICE",
+    'service.cant_start_body': "Spark Clock n'a pas pu démarrer son service d'arrière-plan : "
+                               "{error}. Les alarmes et les minuteries ne sonnent que pendant "
+                               "qu'il tourne. Le journal est dans ~/.local/state/spark-clock.",
+    'service.note': "Les alarmes et les minuteries sonnent grâce à un petit service "
+                    "d'arrière-plan, même fenêtre fermée. Il ne sort pas l'ordinateur de veille : "
+                    "une alarme qui tombe pendant la veille sonne au réveil (jusqu'à 10 minutes "
+                    "de retard).",
+    'tab.alarms': "ALARMES",
+    'tab.timers': "MINUTERIES",
+    'tab.stopwatch': "CHRONOMÈTRE",
+    'tab.world': "MONDE",
+
+    'banner.stop': "Arrêter",
+    'banner.snooze': "Reporter de {minutes} min",
+    'banner.plus': "+1 min",
+    'banner.nothing': "Rien ne sonne.",
+
+    'alarms.heading': "ALARMES",
+    'alarms.sub': "Les alarmes sonnent à l'heure de l'horloge de cet ordinateur, les jours "
+                  "choisis.",
+    'alarms.new': "Nouvelle alarme",
+    'alarms.empty': "Aucune alarme. Ajoutez-en une : elle sonne même fenêtre fermée.",
+    'alarms.next': "Sonne dans {when}",
+    'alarms.off': "Désactivée",
+    'alarms.edit': "Modifier",
+    'alarms.delete': "Supprimer",
+    'alarms.delete_title': "Supprimer cette alarme ?",
+    'alarms.delete_body': "L'alarme {time} {label} sera supprimée.",
+    'alarms.on': "Activée",
+    'alarms.sound_volume': "VOLUME",
+    'alarms.ring_for': "SONNE PENDANT",
+    'alarms.minutes': "{n} min",
+    'alarms.test': "Tester le son",
+    'alarms.test_none': "AUCUN LECTEUR AUDIO TROUVÉ",
+    'alarms.no_label': "Alarme",
+    'days.every': "Tous les jours",
+    'days.weekdays': "En semaine",
+    'days.weekend': "Fin de semaine",
+    'days.once': "Une fois",
+    'day.0': "lun", 'day.1': "mar", 'day.2': "mer", 'day.3': "jeu", 'day.4': "ven",
+    'day.5': "sam", 'day.6': "dim",
+    'until.h': "h", 'until.m': "min", 'until.d': "j",
+
+    'editor.new': "NOUVELLE ALARME",
+    'editor.edit': "MODIFIER L'ALARME",
+    'editor.time': "HEURE (24 H)",
+    'editor.days': "JOURS",
+    'editor.label': "NOM",
+    'editor.sound': "SON",
+    'editor.snooze': "REPORT",
+    'editor.preview': "Écouter",
+    'editor.file': "Fichier…",
+    'editor.file_title': "Choisir un fichier son",
+    'editor.file_types': "Fichiers son",
+    'editor.save': "Enregistrer",
+    'editor.cancel': "Annuler",
+    'editor.bad_time': "Ce n'est pas une heure. Heures de 0 à 23, minutes de 0 à 59.",
+    'editor.once_note': "Sans jour choisi, l'alarme sonne une fois, puis se désactive.",
+
+    'sound.beacon': "Balise",
+    'sound.pulse': "Pouls",
+    'sound.chime': "Carillon",
+    'sound.drift': "Dérive",
+    'sound.static': "Statique",
+    'sound.file': "Fichier",
+
+    'timers.heading': "MINUTERIES",
+    'timers.sub': "Lancez-en autant qu'il vous en faut. Chacune sonne seule.",
+    'timers.hours': "H",
+    'timers.minutes': "MIN",
+    'timers.seconds': "S",
+    'timers.label': "NOM",
+    'timers.start': "Démarrer",
+    'timers.zero': "CHOISISSEZ UNE DURÉE SUPÉRIEURE À ZÉRO",
+    'timers.presets': "PRÉRÉGLAGES",
+    'timers.save_preset': "Enregistrer comme préréglage",
+    'timers.remove_presets': "Retirer des préréglages",
+    'timers.empty': "Aucune minuterie en cours.",
+    'timers.pause': "Pause",
+    'timers.resume': "Reprendre",
+    'timers.restart': "Recommencer",
+    'timers.delete': "Supprimer",
+    'timers.stop': "Arrêter",
+    'timers.done': "TERMINÉE",
+    'timers.ringing': "SONNE",
+    'timers.paused': "EN PAUSE",
+    'timers.no_label': "Minuterie",
+    'timers.too_many': "TROP DE MINUTERIES",
+
+    'sw.heading': "CHRONOMÈTRE",
+    'sw.sub': "Continue de compter fenêtre fermée.",
+    'sw.start': "Démarrer",
+    'sw.stop': "Arrêter",
+    'sw.lap': "Tour",
+    'sw.reset': "Remettre à zéro",
+    'sw.col_lap': "TOUR",
+    'sw.col_split': "TEMPS DU TOUR",
+    'sw.col_total': "TOTAL",
+    'sw.empty': "Les tours s'affichent ici.",
+
+    'world.heading': "HORLOGES DU MONDE",
+    'world.sub': "Montréal en premier. L'heure suit les règles d'heure d'été de chaque ville.",
+    'world.add': "AJOUTER UNE VILLE",
+    'world.search': "Tapez une ville, ou un fuseau comme Europe/Paris",
+    'world.add_button': "Ajouter",
+    'world.remove': "Retirer",
+    'world.unknown': "VILLE OU FUSEAU INCONNU",
+    'world.you': "VOTRE HEURE",
+    'world.same': "même heure qu'à Montréal",
+    'world.ahead': "{n} h d'avance sur Montréal",
+    'world.behind': "{n} h de retard sur Montréal",
+    'world.yesterday': "hier",
+    'world.today': "aujourd'hui",
+    'world.tomorrow': "demain",
+    'world.zone_missing': "fuseau absent de la base de cet ordinateur",
+
+    'ring.alarm_title': "Alarme {time}",
+    'ring.timer_title': "Minuterie terminée",
+    'ring.alarm_missed': "Alarme {time} manquée",
+    'ring.timer_missed': "Une minuterie s'est terminée pendant que l'ordinateur était éteint",
+    'ring.missed_why': "L'ordinateur était éteint ou en veille à ce moment.",
+    'ring.late': "(a sonné avec {minutes} min de retard : l'ordinateur était en veille ou le service arrêté)",
+    'ring.unanswered': "{title} : sans réponse après {minutes} min",
+    'ring.snoozed': "Reportée de {minutes} min",
+    'action.stop': "Arrêter",
+    'action.snooze': "Reporter de {minutes} min",
+    'action.plus_one': "+1 min",
+
+    'cli.timer_added': "Minuterie de {duration} démarrée.",
+    'cli.timer_bad': "Durée invalide : {text}. Essayez 90, 5m, 1h30m ou 1:30.",
+}
+
+_TABLE = FR if ui_language() == 'fr' else EN
+
+
+def t(key: str, **kw) -> str:
+    text = _TABLE.get(key)
+    if text is None:
+        text = EN.get(key, key)
+    return text.format(**kw) if kw else text

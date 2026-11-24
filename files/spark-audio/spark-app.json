@@ -1,0 +1,31 @@
+{
+  "id": "dev.wolklaw.SparkAudio",
+  "slug": "spark-audio",
+  "name": "Spark Audio",
+  "name_fr": "Spark Audio",
+  "summary": "Sound mixer: outputs, microphones, per-app volume, a simple equalizer and Focusrite Scarlett controls.",
+  "summary_fr": "Mixeur de son : sorties, micros, volume par appli, égaliseur simple et commandes Focusrite Scarlett.",
+  "version": "0.1.0",
+  "installed_size_kb": 400,
+  "icon": "icons/spark-audio-256.png",
+  "categories": ["AudioVideo", "Audio", "Mixer"],
+  "needs": {
+    "root": false,
+    "commands": ["python3", "pw-dump", "wpctl", "pactl", "pw-record", "pw-play"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {
+      "amixer": "the Scarlett page (alsa-utils)",
+      "pipewire": "the equalizer runs a second pipewire process as a user service"
+    },
+    "system": "Linux with PipeWire and WirePlumber"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-audio --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-audio"
+}

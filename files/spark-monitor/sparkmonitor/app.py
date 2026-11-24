@@ -24,7 +24,7 @@ from .text import t
 from .ui import Icons, TabBar, style_tables
 from .widgets import MONO_FAMILIES, T, Glitch, GlitchText, Mark, Strip
 
-TABS = ('apps', 'performance', 'startup', 'details')
+TABS = ('apps', 'performance', 'startup', 'details', 'logs', 'system')
 
 
 # ─── The window ───────────────────────────────────────────────
@@ -217,6 +217,12 @@ class App:
             elif tab == 'startup':
                 from .startupview import StartupView
                 self.views[tab] = StartupView(self)
+            elif tab == 'logs':
+                from .logsview import LogsView
+                self.views[tab] = LogsView(self)
+            elif tab == 'system':
+                from .systemview import SystemView
+                self.views[tab] = SystemView(self)
             else:
                 from .detailsview import DetailsView
                 self.views[tab] = DetailsView(self)
@@ -228,11 +234,15 @@ class App:
         old = self.views.get(self.tab) if self.tab else None
         if old is not None:
             old.pack_forget()
+            if hasattr(old, 'on_hide'):
+                old.on_hide()
         self.tab = tab
         self.settings['tab'] = tab
         self.tabs.select(tab)
         view = self.view(tab)
         view.pack(fill="both", expand=True)
+        if hasattr(view, 'on_show'):
+            view.on_show()
         if tab in ('apps', 'details') and (not self.procs.procs or
                                            time.monotonic() - (self.procs.prev_time or 0) > 1.5):
             self.procs.sample(time.monotonic(), gpu=tab == 'apps')
@@ -390,7 +400,7 @@ class App:
     def _key(self, event):
         k = event.keysym
         ctrl = bool(event.state & 0x4)
-        if ctrl and k in ('1', '2', '3', '4'):
+        if ctrl and k in ('1', '2', '3', '4', '5', '6'):
             self.show(TABS[int(k) - 1])
             return "break"
         if ctrl and k in ('Tab', 'ISO_Left_Tab'):
@@ -401,12 +411,18 @@ class App:
             self.close()
             return "break"
         if k == 'F5':
+            view = self.views.get(self.tab)
+            if hasattr(view, 'reload'):
+                view.reload()
             self.sample()
             self.refresh()
             return "break"
         return None
 
     def close(self):
+        for view in self.views.values():
+            if hasattr(view, 'shutdown'):
+                view.shutdown()
         for job in (self._tick_id, self._status_id, self.glitch._loop):
             if job:
                 try:

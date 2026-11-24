@@ -1,0 +1,20 @@
+[Unit]
+Description=Spark Notes: keeps the clipboard history
+Documentation=https://github.com/Wolklaw/sparkos/tree/main/files/spark-notes
+# Needs the desktop session's clipboard, so it starts and stops with the session.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=@BIN@ --watch
+Restart=on-failure
+RestartSec=3
+Nice=5
+NoNewPrivileges=yes
+LockPersonality=yes
+RestrictRealtime=yes
+SystemCallArchitectures=native
+
+[Install]
+WantedBy=graphical-session.target

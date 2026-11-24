@@ -1,0 +1,4 @@
+ 0 [Generic        ]: HDA-Intel - HD-Audio Generic
+                      HD-Audio Generic at 0xfe00 irq 33
+ 1 [USB            ]: USB-Audio - Scarlett 2i2 USB
+                      Focusrite Scarlett 2i2 USB at usb-0000:0e:00.0-2, high speed

@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Notes clipboard
+Name[fr]=Presse-papiers Spark Notes
+Comment=The clipboard history popup (Meta+V)
+Comment[fr]=La fenêtre de l'historique du presse-papiers (Meta+V)
+Exec=spark-notes --clipboard
+Icon=dev.wolklaw.SparkNotes
+Terminal=false
+NoDisplay=true
+Categories=Utility;
+StartupNotify=false
+X-KDE-Shortcuts=Meta+V

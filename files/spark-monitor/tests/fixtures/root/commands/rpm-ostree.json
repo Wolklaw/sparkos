@@ -1,0 +1,1 @@
+{"deployments": [{"booted": true, "version": "45.20260301.0", "container-image-reference": "ostree-unverified-registry:ghcr.io/example/fixture:latest", "container-image-reference-digest": "sha256:abababababababababababababababababababababababababababababababab", "base-timestamp": 1772300000}, {"booted": false, "staged": true, "version": "45.20260302.0"}]}
