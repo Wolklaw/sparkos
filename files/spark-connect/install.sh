@@ -11,6 +11,9 @@
 # --deps     system-wide only: install what it needs with dnf first (Fedora).
 # --no-test  skip the self-test at the end.
 #
+# On Plasma it also installs the Spark Connect widget (widget/package): add it to a panel or the
+# desktop with right-click, Add Widgets. It runs `spark-connect --status` every minute.
+#
 # The machine list (~/.config/spark-connect/machines.toml) is yours: install.sh never creates
 # it and --uninstall leaves it, with the log (~/.local/state/spark-connect), in place.
 # On Windows there is no installer yet: run `py spark_connect.py` from this folder.
@@ -31,12 +34,30 @@ while [ $# -gt 0 ]; do
     --deps) DEPS=1 ;;
     --no-test) TEST=0 ;;
     --prefix) PREFIX=$2; shift ;;
-    -h|--help) sed -n '2,17p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) echo "install.sh: unknown option $1" >&2; exit 2 ;;
   esac
   shift
 done
 SIZES="16 22 24 32 48 64 128 256 512"
+WIDGET_ID=dev.wolklaw.sparkconnect
+
+# The Plasma widget, for this user: installed or upgraded with kpackagetool6. Skipped without
+# Plasma 6 (the app works the same without it).
+user_widget() {   # install | remove
+  command -v kpackagetool6 >/dev/null || { [ "$1" = install ] && echo "(no kpackagetool6: Plasma widget skipped)"; return 0; }
+  local mine="${XDG_DATA_HOME:-$HOME/.local/share}/plasma/plasmoids/$WIDGET_ID"
+  if [ "$1" = remove ]; then
+    [ -f "$mine/metadata.json" ] && kpackagetool6 -t Plasma/Applet --remove "$WIDGET_ID" >/dev/null
+    return 0
+  fi
+  if [ -f "$mine/metadata.json" ]; then
+    kpackagetool6 -t Plasma/Applet --upgrade "$here/widget/package" >/dev/null
+  else
+    kpackagetool6 -t Plasma/Applet --install "$here/widget/package" >/dev/null
+  fi
+  echo "Plasma widget installed: right-click a panel or the desktop, Add Widgets, Spark Connect."
+}
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
@@ -76,6 +97,7 @@ if [ "$USER_MODE" = 1 ]; then
     done < "$MANIFEST"
     rm -rf -- "$LIB"
     rmdir --ignore-fail-on-non-empty "$HOME/.local/lib" 2>/dev/null || true
+    user_widget remove
     refresh_menus "$DATA/applications"
     echo "Spark Connect removed for $(id -un). Your machine list and the log stay in"
     echo "~/.config/$SLUG and ~/.local/state/$SLUG; delete them too if you don't want them."
@@ -122,6 +144,7 @@ EOF
   install -Dm 0644 "$here/icons/$SLUG.svg" "$target"
   record "$target"
   refresh_menus "$DATA/applications"
+  user_widget install
 
   test -x "$BIN"
   "$BIN" --version
@@ -143,6 +166,7 @@ fi
 
 if [ "$UNINSTALL" = 1 ]; then
   rm -rf -- "$PREFIX"
+  rm -rf -- "/usr/share/plasma/plasmoids/$WIDGET_ID"
   rm -f /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
         "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
   for size in $SIZES; do
@@ -179,6 +203,11 @@ for size in $SIZES; do
     "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
 done
 install -Dm 0644 "$here/icons/$SLUG.svg" "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
+# the Plasma widget, copied (no session for kpackagetool6 -g to talk to in a build)
+rm -rf -- "/usr/share/plasma/plasmoids/$WIDGET_ID"
+install -d "/usr/share/plasma/plasmoids/$WIDGET_ID"
+cp -r "$here/widget/package/." "/usr/share/plasma/plasmoids/$WIDGET_ID/"
+find "/usr/share/plasma/plasmoids/$WIDGET_ID" -type d -exec chmod 0755 {} + -o -type f -exec chmod 0644 {} +
 command -v update-desktop-database >/dev/null && update-desktop-database -q /usr/share/applications || true
 command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
 
