@@ -4,7 +4,7 @@
 # over the image and runs files/scripts/spark-notes.sh (installs the app system-wide with
 # wl-clipboard, gives it Meta+V, takes Klipper out of the tray). Then, as a normal user: the
 # self-test, the unit and window tests on the image's own Python and GTK, and a per-user
-# install and uninstall.
+# install and uninstall (notes, history and settings are kept on purpose, so they don't count).
 set -euo pipefail
 
 cp -r /repo/files /tmp/files
@@ -43,6 +43,6 @@ grep -q '^OK' /tmp/ui.txt
 echo "--- per-user install and uninstall (no root)"
 as "bash ~/spark-notes/install.sh --user --no-test && ~/.local/bin/spark-notes --self-test >/dev/null"
 as "bash ~/spark-notes/install.sh --user --uninstall"
-left=$(as "find ~/.local ~/.config -path ~/.local/state -prune -o \( -iname '*spark*notes*' -o -iname '*SparkNotes*' \) -print" || true)
+left=$(as "find ~/.local ~/.config \( -path ~/.local/state -o -path ~/.local/share/spark-notes -o -path ~/.config/spark-notes \) -prune -o \( -iname '*spark*notes*' -o -iname '*SparkNotes*' \) -print" || true)
 if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi
 echo "Spark Notes built into the image, tested, and installed and removed per user"
