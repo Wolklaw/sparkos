@@ -137,3 +137,36 @@ def kread(file: str, group: str, key: str, default: str = '') -> str:
         groups += ['--group', g]
     rc, text, _ = run(['kreadconfig6', '--file', file, *groups, '--key', key, '--default', default])
     return text.strip() if rc == 0 else default
+
+
+# ── Spark-side settings: ~/.config/spark/<name>.json, which the Spark shell reads too ──
+def spark_file(name: str) -> str:
+    return os.path.join(xdg_config_home(), 'spark', name + '.json')
+
+
+def spark_load(name: str) -> dict:
+    import json
+    try:
+        with open(spark_file(name), encoding='utf-8') as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def spark_save(name: str, **values) -> bool:
+    """Merge values into ~/.config/spark/<name>.json (written whole, then renamed)."""
+    import json
+    data = spark_load(name)
+    data.update(values)
+    path = spark_file(name)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path + '.tmp', 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2, sort_keys=True)
+            f.write('\n')
+        os.replace(path + '.tmp', path)
+        return True
+    except OSError as exc:
+        log.warning("could not save %s: %s", path, exc)
+        return False

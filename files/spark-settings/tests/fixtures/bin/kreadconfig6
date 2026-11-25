@@ -1,4 +1,31 @@
-#!/bin/sh
-D=$(cd "$(dirname "$0")/.." && pwd)
-printf "%s\n" "kreadconfig6 $*" >> "${FAKE_LOG:-/dev/null}"
+#!/usr/bin/env python3
+"""Fake kreadconfig6: reads the ini file the fake kwriteconfig6 wrote; the default when unset."""
+import configparser
+import os
+import sys
 
+with open(os.environ.get('FAKE_LOG', os.devnull), 'a') as f:
+    f.write('kreadconfig6 ' + ' '.join(sys.argv[1:]) + '\n')
+a = sys.argv[1:]
+file, groups, key, default = None, [], None, ''
+i = 0
+while i < len(a):
+    if a[i] == '--file':
+        file = a[i + 1]
+    elif a[i] == '--group':
+        groups.append(a[i + 1])
+    elif a[i] == '--key':
+        key = a[i + 1]
+    elif a[i] == '--default':
+        default = a[i + 1]
+    else:
+        i += 1
+        continue
+    i += 2
+base = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config')
+path = file if os.path.isabs(file) else os.path.join(base, file)
+cp = configparser.RawConfigParser(strict=False, interpolation=None)
+cp.optionxform = str
+cp.read(path)
+sec = ']['.join(groups) or 'General'
+print(cp.get(sec, key, fallback=default))

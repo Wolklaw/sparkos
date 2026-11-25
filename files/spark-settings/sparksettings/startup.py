@@ -5,7 +5,8 @@ reads "off"; switching on removes that copy (or writes one without it if it was 
 import configparser
 import glob
 import os
-from typing import List
+import shutil
+from typing import List, Optional
 
 from .core import xdg_config_home
 
@@ -47,7 +48,7 @@ def items() -> List[Item]:
             hidden = e.get('Hidden', '').lower() == 'true' or \
                 e.get('X-GNOME-Autostart-enabled', '').lower() == 'false'
             shown = e.get('OnlyShowIn')
-            if shown and 'KDE' not in shown.split(';'):
+            if shown and not {'KDE', 'Spark'} & set(shown.split(';')):
                 continue
             found[file] = Item(file, e.get('Name[fr]') if os.environ.get('SPARK_LANG') == 'fr' and
                                e.get('Name[fr]') else e.get('Name', file[:-8]), not hidden,
@@ -73,6 +74,42 @@ def set_enabled(item: Item, on: bool) -> bool:
         with open(mine, 'w', encoding='utf-8') as f:
             f.write('\n'.join(lines) + '\n')
         item.enabled = on
+        return True
+    except OSError:
+        return False
+
+
+def app_file(app_id: str) -> Optional[str]:
+    """The .desktop file of an installed app, by its id (e.g. dev.wolklaw.SparkClock.desktop)."""
+    from .defaults import app_dirs
+    return next((os.path.join(d, app_id) for d in app_dirs()
+                if os.path.isfile(os.path.join(d, app_id))), None)
+
+
+def add_app(app_id: str) -> bool:
+    """Start an installed app at sign-in: its .desktop file, copied into your autostart folder."""
+    source = app_file(app_id)
+    if source is None:
+        return False
+    try:
+        os.makedirs(user_dir(), exist_ok=True)
+        shutil.copyfile(source, os.path.join(user_dir(), app_id))
+        return True
+    except OSError:
+        return False
+
+
+def is_mine(item: Item) -> bool:
+    """True when the entry exists only in your folder (so removing it is safe)."""
+    return os.path.exists(os.path.join(user_dir(), item.file)) and not any(
+        os.path.exists(os.path.join(d, item.file)) for d in system_dirs())
+
+
+def remove(item: Item) -> bool:
+    if not is_mine(item):
+        return False
+    try:
+        os.remove(os.path.join(user_dir(), item.file))
         return True
     except OSError:
         return False

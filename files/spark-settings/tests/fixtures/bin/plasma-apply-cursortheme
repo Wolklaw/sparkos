@@ -1,0 +1,2 @@
+#!/bin/sh
+printf "%s\n" "plasma-apply-cursortheme $*" >> "${FAKE_LOG:-/dev/null}"

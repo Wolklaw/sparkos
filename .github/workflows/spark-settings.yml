@@ -47,19 +47,19 @@ jobs:
           test "$(/usr/libexec/sparkos/kde-settings/kcmshell6 x)" = "real kcmshell6 x"
           grep -q '^NoDisplay=true' /usr/share/applications/systemsettings.desktop
           # a module Spark Settings has no page for reaches the real tool; --kde too
-          test "$(kcmshell6 kcm_colors)" = "real kcmshell6 kcm_colors"
-          test "$(systemsettings kcm_colors)" = "real systemsettings kcm_colors"
+          test "$(kcmshell6 kcm_tablet)" = "real kcmshell6 kcm_tablet"
+          test "$(systemsettings kcm_tablet)" = "real systemsettings kcm_tablet"
           spark-settings --kde | grep -q "^real systemsettings"
           # run again: the build step must not wrap its own stand-in
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-settings.sh
-          test "$(kcmshell6 kcm_colors)" = "real kcmshell6 kcm_colors"
+          test "$(kcmshell6 kcm_tablet)" = "real kcmshell6 kcm_tablet"
 
       - name: Self-test
         run: spark-settings --self-test
 
       - name: Tests (Xvfb, as a normal user)
         run: |
-          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth util-linux
+          dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth util-linux python3-dbusmock python3-dbus dbus-daemon systemd
           useradd -m tester
           cp -r files/spark-settings /home/tester/spark-settings
           chown -R tester: /home/tester/spark-settings

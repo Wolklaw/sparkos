@@ -1,4 +1,5 @@
 #!/bin/sh
+[ -n "$SPARK_TEST_REAL_BUSCTL" ] && exec "$SPARK_TEST_REAL_BUSCTL" "$@"
 D=$(cd "$(dirname "$0")/.." && pwd)
 printf "%s\n" "busctl $*" >> "${FAKE_LOG:-/dev/null}"
 case "$*" in
