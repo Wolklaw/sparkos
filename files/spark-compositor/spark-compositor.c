@@ -222,6 +222,9 @@ struct view {
 	/* compositor-drawn title bar: for xdg windows that asked for server-side decorations and
 	 * X11 windows without a Motif "no decorations" hint. It sits above the content, at y < 0. */
 	bool ssd;
+	/* an X11 window that mapped without a frame draws its own title bar: it never gets ours.
+	 * Wine apps like Battle.net ask for a frame once maximized (their style gains a caption). */
+	bool x11_own_frame;
 	struct wlr_scene_tree *deco;
 	struct wlr_scene_buffer *deco_bar;
 	struct wlr_scene_rect *deco_edge[4];
@@ -1162,7 +1165,7 @@ static void view_place(struct view *v, int x, int y) {
 #define TB_H 30
 static bool view_has_frame(struct view *v) {
 	if (v->unmanaged) return false;
-	if (v->is_x11) return v->xw && v->xw->decorations == WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
+	if (v->is_x11) return v->xw && !v->x11_own_frame && v->xw->decorations == WLR_XWAYLAND_SURFACE_DECORATIONS_ALL;
 	return v->ssd;
 }
 
@@ -1488,6 +1491,7 @@ static void view_map(struct wl_listener *l, void *data) {
 	struct view *v = wl_container_of(l, v, map);
 	struct server *s = v->server;
 	struct wlr_surface *surf = view_surface(v);
+	if (v->is_x11 && v->xw && v->xw->decorations != WLR_XWAYLAND_SURFACE_DECORATIONS_ALL) v->x11_own_frame = true;
 	v->mapped = true;
 	wlr_log(WLR_INFO, "mapped %s window app_id=%s title=%s", v->is_x11 ? (v->unmanaged ? "x11-unmanaged" : "x11") : "xdg",
 		v->is_x11 ? (v->xw->class ? v->xw->class : "") : (v->xdg->app_id ? v->xdg->app_id : ""),
