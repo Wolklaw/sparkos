@@ -15,7 +15,7 @@ import time
 from gi.repository import GLib
 
 from . import VERSION
-from .config import state_dir
+from .config import config_dir, state_dir
 from .dbusutil import DBusFail, emit, export
 
 log = logging.getLogger('spark-shell')
@@ -24,6 +24,37 @@ NAME = 'org.freedesktop.Notifications'
 PATH = '/org/freedesktop/Notifications'
 HISTORY_MAX = 100
 DEFAULT_TIMEOUT_MS = 6000
+POSITIONS = ('TopRight', 'TopLeft', 'BottomRight', 'BottomLeft', 'TopCenter', 'BottomCenter')
+_prefs_cache = [None, {}]      # (mtime, values)
+
+
+def prefs():
+    """~/.config/spark/notifications.json, written by Spark Settings: {"seconds", "position"}.
+    Read again only when the file changes."""
+    path = os.path.join(config_dir(), 'notifications.json')
+    try:
+        mtime = os.stat(path).st_mtime
+    except OSError:
+        return {}
+    if mtime != _prefs_cache[0]:
+        try:
+            with open(path, encoding='utf-8') as f:
+                raw = json.load(f)
+        except (OSError, ValueError):
+            raw = {}
+        raw = raw if isinstance(raw, dict) else {}
+        _prefs_cache[0], _prefs_cache[1] = mtime, raw
+    return _prefs_cache[1]
+
+
+def default_timeout_ms():
+    secs = prefs().get('seconds')
+    return int(secs * 1000) if isinstance(secs, (int, float)) and 1 <= secs <= 600 else DEFAULT_TIMEOUT_MS
+
+
+def position():
+    pos = prefs().get('position')
+    return pos if pos in POSITIONS else 'TopRight'
 
 # closed reasons
 EXPIRED, DISMISSED, CLOSED_BY_CALL, UNDEFINED = 1, 2, 3, 4
@@ -102,7 +133,7 @@ class Notification:
         if self.critical:
             return 0
         if self.timeout_ms < 0:
-            return DEFAULT_TIMEOUT_MS
+            return default_timeout_ms()
         return self.timeout_ms
 
     def to_json(self):
@@ -247,6 +278,25 @@ class NotificationServer:
             self.next_id = max(self.next_id, n.id + 1)
 
     def _save_history(self):
+        """Write the history a second after the last change (bursts write once)."""
+        if getattr(self, '_save_timer', 0):
+            return
+        from gi.repository import GLib
+        def later():
+            self._save_timer = 0
+            self._write_history()
+            return False
+        self._save_timer = GLib.timeout_add(1000, later)
+
+    def flush(self):
+        """Write a pending history save now (at exit, so the last second isn't lost)."""
+        if getattr(self, '_save_timer', 0):
+            from gi.repository import GLib
+            GLib.source_remove(self._save_timer)
+            self._save_timer = 0
+            self._write_history()
+
+    def _write_history(self):
         try:
             os.makedirs(os.path.dirname(self.history_path), exist_ok=True)
             fd, tmp = tempfile.mkstemp(dir=os.path.dirname(self.history_path), prefix='.n-')

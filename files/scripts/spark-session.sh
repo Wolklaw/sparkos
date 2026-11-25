@@ -40,4 +40,17 @@ fi
 /usr/libexec/spark-greeter-ctl status
 /usr/bin/spark-polkit --version
 /usr/bin/spark-greeter --version
+# The experimental compositor session (spark-wl) runs nothing from KDE: these KDE autostarts
+# carry no OnlyShowIn, so they'd start there too.
+for f in org.kde.foreground-booster org.kde.kunifiedpush-distributor org.kde.xwaylandvideobridge; do
+  f=/etc/xdg/autostart/$f.desktop
+  [ -f "$f" ] || continue
+  if grep -q '^NotShowIn=' "$f"; then
+    grep -q '^NotShowIn=.*sparkwl;' "$f" || sed -i 's/^NotShowIn=/NotShowIn=sparkwl;/' "$f"
+  else
+    sed -i '0,/^\[Desktop Entry\]$/s//[Desktop Entry]\nNotShowIn=sparkwl;/' "$f"
+  fi
+  grep -q '^NotShowIn=.*sparkwl;' "$f"
+done
+test -f /etc/pam.d/spark-lock
 echo "Spark session pieces installed; greetd is off."

@@ -260,11 +260,12 @@ if find /etc/systemd/system -path '*.wants/*' \( -name 'virt*.socket' -o -name '
 fi
 
 # The experimental Spark compositor (files/spark-compositor, session "spark-wl", never the
-# default): wlroots 0.19's runtime library (1.3 MB; Fedora keeps the versions side by side),
+# default): wlroots 0.20's runtime library (Fedora keeps the versions side by side),
 # the portal that lets apps capture the screen under it, grim and wlr-randr for scripted capture
 # and output checks. The compositor itself is compiled in the Containerfile's compositor-build stage.
-dnf_install wlroots0.19 xdg-desktop-portal-wlr grim wlr-randr
-rpm -q wlroots0.19 xdg-desktop-portal-wlr
+dnf_install wlroots xdg-desktop-portal-wlr grim wlr-randr
+rpm -q wlroots xdg-desktop-portal-wlr
+test -e /usr/lib64/libwlroots-0.20.so
 
 # The Spark session (files/spark-shell): the shell draws its panel, wallpaper and launcher as
 # layer-shell surfaces (gtk4-layer-shell) from PyGObject. ddcutil sets the brightness of

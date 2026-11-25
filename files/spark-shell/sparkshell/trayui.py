@@ -152,10 +152,12 @@ class TrayView(Gtk.Box):
         button.add_css_class('spark-flat')
         image = Gtk.Image()
         button.set_child(image)
+        # left click: the button's own "clicked". A GestureClick on a Gtk.Button never sees a
+        # left release (the button's internal gesture claims it), so only middle/right go there.
+        button.connect('clicked', lambda b, i=item: self._primary(i, b))
         click = Gtk.GestureClick(button=0)
         click.connect('released', self._clicked, item, button)
         button.add_controller(click)
-        # the button's own "clicked" would fire on the primary button too; the gesture does it all
         button.set_focusable(True)
         scroll = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
         scroll.connect('scroll', lambda _c, _dx, dy: (item.scroll(int(dy * 120)), True)[1])
@@ -182,14 +184,16 @@ class TrayView(Gtk.Box):
         if entry:
             self.remove(entry[0])
 
+    @staticmethod
+    def _primary(item, button):
+        if item.item_is_menu and item.menu():
+            show_menu(button, item.menu())
+        else:
+            item.activate(0, 0)
+
     def _clicked(self, gesture, n_press, x, y, item, button):
         which = gesture.get_current_button()
-        if which == 1:
-            if item.item_is_menu and item.menu():
-                show_menu(button, item.menu())
-            else:
-                item.activate(0, 0)
-        elif which == 2:
+        if which == 2:
             item.secondary_activate(0, 0)
         elif which == 3:
             menu = item.menu()

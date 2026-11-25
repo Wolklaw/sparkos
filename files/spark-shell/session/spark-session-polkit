@@ -2,7 +2,10 @@
 # The polkit agent of the Spark session: Spark's own (spark-polkit, files/spark-session), or KDE's
 # agent if an image has no Spark agent, so password prompts work either way. KDE's autostart entry
 # for its agent has X-systemd-skip=true, so it never starts next to this one.
-for agent in /usr/bin/spark-polkit /usr/libexec/kf6/polkit-kde-authentication-agent-1; do
+# The experimental compositor session runs nothing from KDE: Spark's agent only.
+agents="/usr/bin/spark-polkit /usr/libexec/kf6/polkit-kde-authentication-agent-1"
+case ":$XDG_CURRENT_DESKTOP:" in *:sparkwl:*) agents=/usr/bin/spark-polkit ;; esac
+for agent in $agents; do
     [ -x "$agent" ] && exec "$agent"
 done
 echo "spark-session-polkit: no polkit agent installed" >&2

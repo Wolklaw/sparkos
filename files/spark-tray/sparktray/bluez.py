@@ -34,6 +34,7 @@ class Device:
     battery: Optional[int] = None
     icon: str = ''
     rssi: Optional[int] = None
+    named: bool = True             # False: the device sent no name, BlueZ shows its address
 
 
 @dataclass
@@ -102,7 +103,8 @@ class Bluetooth:
                 address=str(d.get('Address', '')), paired=bool(d.get('Paired', False)),
                 trusted=bool(d.get('Trusted', False)), connected=bool(d.get('Connected', False)),
                 battery=int(bat) if bat is not None else None, icon=str(d.get('Icon', '')),
-                rssi=int(d['RSSI']) if 'RSSI' in d else None))
+                rssi=int(d['RSSI']) if 'RSSI' in d else None,
+                named=bool(d.get('Name'))))
         # connected first, then paired, then what is nearby by signal, then by name
         s.devices.sort(key=lambda x: (not x.connected, not x.paired,
                                       -(x.rssi if x.rssi is not None else -200), x.name.lower()))

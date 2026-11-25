@@ -7,7 +7,7 @@ it takes the name again.
 The icon is an icon-theme name, not pixels, so the tray draws it in the theme's colours."""
 
 from dataclasses import dataclass
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from gi.repository import Gio, GLib
 
@@ -140,6 +140,7 @@ class StatusNotifierItem:
         self.registered_with_watcher = False
         self._registering = False
         self.entries: List[MenuEntry] = []
+        self._sent: Dict[str, Any] = {}           # what the panel was last told
         self.revision = 1
         self._own_id = 0
         self._objects: List[int] = []
@@ -152,6 +153,7 @@ class StatusNotifierItem:
         if self.shown:
             return
         self.shown = True
+        self._sent = {}
         self._objects = [
             self.conn.register_object(SNI_PATH, self._sni_info, self._sni_call, self._sni_get,
                                       None),
@@ -213,13 +215,26 @@ class StatusNotifierItem:
             log.warning("could not emit %s: %s", signal, exc.message)
 
     def refresh(self) -> None:
-        self._emit(SNI_IFACE, SNI_PATH, 'NewIcon')
-        self._emit(SNI_IFACE, SNI_PATH, 'NewToolTip')
-        self._emit(SNI_IFACE, SNI_PATH, 'NewTitle')
+        """Signal only what changed: each signal makes the panel read the properties back,
+        and the tray rechecks every few seconds."""
+        look = self.look
+        icon, title = look.icon(), look.title()
+        tip = (title, look.tooltip())
+        if icon != self._sent.get('icon'):
+            self._emit(SNI_IFACE, SNI_PATH, 'NewIcon')
+        if tip != self._sent.get('tip'):
+            self._emit(SNI_IFACE, SNI_PATH, 'NewToolTip')
+        if title != self._sent.get('title'):
+            self._emit(SNI_IFACE, SNI_PATH, 'NewTitle')
+        self._sent.update(icon=icon, tip=tip, title=title)
         self.rebuild_menu()
 
     def rebuild_menu(self) -> None:
-        self.entries = list(self.look.menu())
+        self.entries = list(self.look.menu())       # always: the callbacks are new
+        shape = [(e.label, e.enabled, e.checked, e.separator) for e in self.entries]
+        if shape == self._sent.get('menu'):
+            return
+        self._sent['menu'] = shape
         self.revision += 1
         self._emit(MENU_IFACE, MENU_PATH, 'LayoutUpdated',
                    GLib.Variant('(ui)', (self.revision, 0)))

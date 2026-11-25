@@ -70,15 +70,20 @@ class AppearancePage(Holder):
         self.now = now
         clear(self.holder)
         h, f10, f9 = self.holder, self.app.font(10), self.app.font(9)
+        wl = appearance.SPARKWL
         box = self.section(h, _("Colours"))
-        if schemes:
+        if wl:       # nothing in the Spark session reads a colour scheme or an accent (KDE's files)
+            label(box, _("Spark apps use the Spark colours. Colour schemes apply in the Plasma session."),
+                  f10, fg=T["dim"], wraplength=640).pack(anchor='w')
+        if schemes and not wl:
             r = self.row(box, _("Colour scheme"))
             Choice(r, schemes, now['scheme'] if now['scheme'] in [i for _n, i in schemes]
                    else schemes[0][1], self.pick_scheme, f10, 28).pack(anchor='w')
-        r = self.row(box, _("Accent colour"))
-        opts = [(_("From the colour scheme"), '')] + [(_(n), c) for n, c in appearance.ACCENTS]
-        Choice(r, opts, now['accent'] if now['accent'] in [c for _n, c in opts] else '',
-               self.pick_accent, f10, 28).pack(anchor='w')
+        if not wl:
+            r = self.row(box, _("Accent colour"))
+            opts = [(_("From the colour scheme"), '')] + [(_(n), c) for n, c in appearance.ACCENTS]
+            Choice(r, opts, now['accent'] if now['accent'] in [c for _n, c in opts] else '',
+                   self.pick_accent, f10, 28).pack(anchor='w')
         box = self.section(h, _("Wallpaper"))
         r = self.row(box, _("Picture"))
         opts = [(n, p) for n, p in papers]
@@ -100,9 +105,11 @@ class AppearancePage(Holder):
         box = self.section(h, _("Windows"))
         Toggle(box, _("Window animations"), bool(now['animations']),
                lambda v: self.effects(animations=v), f9).pack(anchor='w', pady=2)
-        Toggle(box, _("Blur behind windows"), bool(now['blur']),
-               lambda v: self.effects(blur=v), f9).pack(anchor='w', pady=2)
-        label(box, _("These are KWin's effects. They apply at once."), self.app.font(8, False),
+        if not wl:
+            Toggle(box, _("Blur behind windows"), bool(now['blur']),
+                   lambda v: self.effects(blur=v), f9).pack(anchor='w', pady=2)
+        label(box, _("Spark apps skip their animations when this is off.") if wl else
+              _("These are KWin's effects. They apply at once."), self.app.font(8, False),
               fg=T["dim"]).pack(anchor='w', pady=(6, 0))
         box = self.section(h, _("Fonts"))
         self.link_row(box, _("Manage fonts (see, install, remove)"), _("Open Spark Fonts"),
@@ -169,7 +176,11 @@ class InputPage(Holder):
         clear(self.holder)
         h, f10, f9 = self.holder, self.app.font(10), self.app.font(9)
         for dev in devs:
-            box = self.section(h, _("Touchpad") + ': ' + dev.name if dev.touchpad
+            if inputdev.SPARKWL:      # one entry per kind; the settings apply to every device listed
+                box = self.section(h, _("Touchpads") if dev.touchpad else _("Mice"))
+                label(box, dev.name, self.app.font(8, False), fg=T["dim"]).pack(anchor='w', pady=(0, 4))
+            else:
+                box = self.section(h, _("Touchpad") + ': ' + dev.name if dev.touchpad
                                else _("Mouse") + ': ' + dev.name)
             for prop, _key, kind in dev.settings():
                 if prop == 'pointerAcceleration':
@@ -187,7 +198,7 @@ class InputPage(Holder):
                            lambda v, d=dev, p=prop: self.set(d, p, 'b', v), f9).pack(anchor='w', pady=2)
         if not devs:
             box = self.section(h, _("Mouse"))
-            label(box, _("KWin lists no mouse or touchpad here."), f10, fg=T["muted"]).pack(anchor='w')
+            label(box, _("No mouse or touchpad found."), f10, fg=T["muted"]).pack(anchor='w')
         box = self.section(h, _("Keyboard layouts"))
         opts = [(f"{n} ({c})", c) for n, c in layouts] or [(c, c) for c in kb['layouts']]
         for i, code in enumerate(kb['layouts']):
@@ -199,7 +210,8 @@ class InputPage(Holder):
         if len(kb['layouts']) < 4:
             WolkButton(box, _("Add a layout"), lambda: self.layout(len(kb['layouts']), 'us'), f9,
                        'ghost').pack(anchor='w', pady=(6, 0))
-        label(box, _("The first layout is the one in use; switch with the shortcut in Shortcuts."),
+        label(box, _("The first layout is the one in use; switch with Alt+Shift.") if inputdev.SPARKWL
+              else _("The first layout is the one in use; switch with the shortcut in Shortcuts."),
               self.app.font(8, False), fg=T["dim"]).pack(anchor='w', pady=(6, 0))
         box = self.section(h, _("Key repeat"))
         r = self.row(box, _("Delay before repeating"))
@@ -366,8 +378,12 @@ class ShortcutsPage(Holder):
 
     def reset(self):
         a = self.selected()
-        if a is not None:
-            self.set_key(a, a.default_keys[0] if a.default_keys else 0)
+        if a is None:
+            return
+        def done(msg):
+            self.say(msg or _("Saved."), bool(msg))
+            self.fill()
+        self.app.bg(lambda: shortcuts.reset(a), done)
 
     def clear_key(self):
         a = self.selected()

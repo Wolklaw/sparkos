@@ -72,7 +72,7 @@ def set_timers(screen_off: int, sleep: int, power_button: int) -> bool:
     ok = core.spark_save('power', screen_off=screen_off, sleep=sleep, power_button=power_button)
     for profile in plasma.POWER_PROFILES:
         ok &= plasma.powerdevil_set(profile, screen_off * 60, sleep * 60, power_button)
-    return bool(ok)
+    return bool(ok) and _compositor()
 
 
 def lock_get() -> dict:
@@ -83,4 +83,10 @@ def lock_get() -> dict:
 
 def lock_set(autolock: bool, minutes: int, on_resume: bool) -> bool:
     ok = core.spark_save('lock', autolock=autolock, minutes=minutes, on_resume=on_resume)
-    return plasma.lock_set(autolock, minutes, on_resume) and ok
+    return plasma.lock_set(autolock, minutes, on_resume) and ok and _compositor()
+
+
+def _compositor() -> bool:
+    """spark-wl: the compositor runs the idle timers (no PowerDevil, no KScreenLocker)."""
+    from . import inputdev
+    return inputdev._compositor_write() if inputdev.SPARKWL else True

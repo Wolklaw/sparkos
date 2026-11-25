@@ -1,6 +1,8 @@
 """The shell as one Gtk.Application: owns dev.wolklaw.SparkShell on the session bus, builds the
 windows for every monitor and wires the services together."""
 
+import atexit
+import os
 import logging
 
 import gi
@@ -12,6 +14,7 @@ from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 from . import APP_ID, apps, config, theme  # noqa: E402
 from .dbusutil import DBusFail, export  # noqa: E402
 from .launcherui import Launcher  # noqa: E402
+from .lockctl import LockControl  # noqa: E402
 from .notifyd import NotificationServer  # noqa: E402
 from .notifyui import NotificationsUI  # noqa: E402
 from .osd import OSD_SERVICE_XML, Controls, Osd, osd_service_call  # noqa: E402
@@ -28,6 +31,7 @@ SHELL_XML = """
     <method name="Windows"><arg type="s" name="json" direction="in"/></method>
     <method name="Key"><arg type="s" name="name" direction="in"/></method>
     <method name="ToggleLauncher"/>
+    <method name="HideLauncher"><arg type="b" name="was_open" direction="out"/></method>
     <method name="State"><arg type="s" name="json" direction="out"/></method>
     <method name="Screenshot">
       <arg type="s" name="dir" direction="in"/><arg type="s" name="json" direction="out"/>
@@ -71,28 +75,39 @@ class Shell(Gtk.Application):
         self.config = config.load()
         self.catalog = apps.Catalog()
         self.tracker = WindowTracker(conn)
-        self.tracker.on_changed = lambda _w: [p.tasks.refresh() for p in self.panels]
+        self.tracker.on_changed = self._windows_changed
+        self._window_ids = set()
         self.notifyd = NotificationServer(conn)
-        self.notifications_ui = NotificationsUI(self.notifyd)
+        atexit.register(self.notifyd.flush)
+        self.notifications_ui = NotificationsUI(self.notifyd, self.tracker)
         self.tray = TrayHost(conn)
         self.osd = Osd()
         self.controls = Controls(self.osd, conn)
         self.launcher = Launcher(self)
 
         export(conn, '/Shell', SHELL_XML, self._shell_call)
-        export(conn, '/PlasmaShell', PLASMASHELL_XML, self._plasma_call)
-        export(conn, '/org/kde/osdService', OSD_SERVICE_XML,
-               lambda _i, method, args, _s: osd_service_call(self.osd, method, args))
-        Gio.bus_own_name_on_connection(conn, 'org.kde.plasmashell',
-                                       Gio.BusNameOwnerFlags.DO_NOT_QUEUE, None, None)
+        # In the Spark compositor session nothing from KDE runs: the compositor binds the
+        # Super key itself (spark-shell --toggle), so the plasmashell, KDE OSD and
+        # kglobalaccel stand-ins are only for the KWin session.
+        sparkwl = 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
+        if not sparkwl:
+            export(conn, '/PlasmaShell', PLASMASHELL_XML, self._plasma_call)
+            export(conn, '/org/kde/osdService', OSD_SERVICE_XML,
+                   lambda _i, method, args, _s: osd_service_call(self.osd, method, args))
+            Gio.bus_own_name_on_connection(conn, 'org.kde.plasmashell',
+                                           Gio.BusNameOwnerFlags.DO_NOT_QUEUE, None, None)
         Gio.bus_own_name_on_connection(conn, 'org.freedesktop.Notifications',
                                        Gio.BusNameOwnerFlags.REPLACE |
                                        Gio.BusNameOwnerFlags.ALLOW_REPLACEMENT,
                                        lambda c, n: self.notifyd.start(),
                                        lambda c, n: log.warning('lost %s', n))
-        self._grab_launcher_shortcut(conn)
+        if not sparkwl:
+            self._grab_launcher_shortcut(conn)
         self.tray.start()
         self.tracker.start()
+        if sparkwl:     # Plasma's session has KScreenLocker
+            self.lockctl = LockControl()
+            self.lockctl.start()
 
         self._watch_config()
         display.get_monitors().connect('items-changed', lambda *_: self.rebuild())
@@ -153,6 +168,17 @@ class Shell(Gtk.Application):
             p.tasks.refresh()
 
     # actions -----------------------------------------------------------------------------
+    def _windows_changed(self, windows):
+        for p in self.panels:
+            p.tasks.refresh()
+        # A window that opens while the menu is up (Win+Shift+S, a notification's app) closes
+        # the menu: it is a see-through full-screen layer above every window, so left open it
+        # would take the first click and keep the keyboard from the new window.
+        ids = set(self.tracker.all_ids) or {w['id'] for w in windows}
+        if ids - self._window_ids and self.launcher.get_visible():
+            self.launcher.hide_launcher()
+        self._window_ids = ids
+
     def toggle_launcher(self):
         self.launcher.toggle()
 
@@ -192,6 +218,12 @@ class Shell(Gtk.Application):
             self.controls.key(args[0])
         elif method == 'ToggleLauncher':
             self.toggle_launcher()
+        elif method == 'HideLauncher':
+            # Spark Snip asks before its screenshot, so the menu is not in the picture
+            was_open = self.launcher.get_visible()
+            if was_open:
+                self.launcher.hide_launcher()
+            return (was_open,)
         elif method == 'State':
             return (self.state_json(),)
         elif method == 'Screenshot':

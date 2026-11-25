@@ -6,11 +6,49 @@ import gi
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import layer  # noqa: E402
-from .notifyd import DISMISSED  # noqa: E402
+from .notifyd import DISMISSED, position  # noqa: E402
 from .strings import tr  # noqa: E402
+from .windows import match_app  # noqa: E402
+
+_tracker = None     # the shell's window tracker, set by NotificationsUI
+
+
+def _app_info(n):
+    for name in (n.desktop_entry, (n.app or '').lower().replace(' ', '-')):
+        if not name:
+            continue
+        name = name if name.endswith('.desktop') else name + '.desktop'
+        try:
+            info = Gio.DesktopAppInfo.new(name)
+        except TypeError:
+            info = None
+        if info is not None:
+            return info
+    return None
+
+
+def open_notification(n, server):
+    """A click on a notification: let the app act on it, and bring the app to the front.
+    The app's own window is raised if it has one; otherwise the app is started."""
+    invoked = n.id in server.active and any(k == 'default' for k, _ in n.actions)
+    if invoked:
+        server.invoke(n.id, 'default')
+    info = _app_info(n)
+    keys = [k for k in (info.get_id() if info else '', n.desktop_entry, n.app) if k]
+    wm_class = (info.get_startup_wm_class() or '') if info else ''
+    windows = _tracker.windows if _tracker is not None else []
+    for w in windows:
+        if any(match_app(w, k, wm_class) for k in keys):
+            _tracker.act('activate', w['id'])
+            return
+    if not invoked and info is not None:
+        try:
+            info.launch([], None)
+        except GLib.Error:
+            pass
 
 
 def image_widget(n, size=48):
@@ -80,10 +118,10 @@ def card(n, server, on_done):
     close.set_valign(Gtk.Align.START)
     close.connect('clicked', lambda *_: (server.close(n.id), on_done(n.id)))
     box.append(close)
-    if any(k == 'default' for k, _ in n.actions):
-        click = Gtk.GestureClick()
-        click.connect('released', lambda *_: (server.invoke(n.id, 'default'), on_done(n.id)))
-        text.add_controller(click)
+    click = Gtk.GestureClick()
+    click.connect('released', lambda *_: (open_notification(n, server), on_done(n.id)))
+    text.add_controller(click)
+    text.set_cursor_from_name('pointer')
     return box
 
 
@@ -95,15 +133,33 @@ class Toasts(Gtk.Window):
         self.server = server
         self.set_decorated(False)
         self.add_css_class('spark-transparent')
-        layer.setup(self, 'overlay', ('top', 'right'), 'spark-notifications',
-                    margins={'top': 12, 'right': 12})
+        self.where = position()
+        anchors = tuple(e for e in ('top', 'bottom', 'left', 'right')
+                        if e in self.where.lower().replace('center', ''))
+        layer.setup(self, 'overlay', anchors, 'spark-notifications',
+                    margins={e: 12 for e in anchors})
         self.stack = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         self.set_child(self.stack)
         self.cards = {}
         server.on_show = self.show_card
         server.on_close = self.close_card
 
+    def place(self):
+        """Follow the position chosen in Spark Settings (checked when a card shows)."""
+        where = position()
+        if where == self.where:
+            return
+        self.where = where
+        anchors = tuple(e for e in ('top', 'bottom', 'left', 'right')
+                        if e in where.lower().replace('center', ''))
+        for e, edge in (('top', layer.LS.Edge.TOP), ('bottom', layer.LS.Edge.BOTTOM),
+                        ('left', layer.LS.Edge.LEFT), ('right', layer.LS.Edge.RIGHT)):
+            layer.LS.set_anchor(self, edge, e in anchors)
+            layer.LS.set_margin(self, edge, 12 if e in anchors else 0)
+
     def show_card(self, n):
+        if layer.is_available():
+            self.place()
         old = self.cards.pop(n.id, None)
         widget = card(n, self.server, self.close_card_quietly)
         if old is not None:
@@ -192,6 +248,10 @@ class Bell:
                     body = Gtk.Label(label=n.body[:200], xalign=0, wrap=True, max_width_chars=44)
                     body.add_css_class('body')
                     row.append(body)
+                row.set_cursor_from_name('pointer')
+                click = Gtk.GestureClick()
+                click.connect('released', lambda *_, n=n: self._clicked(n, pop))
+                row.add_controller(click)
                 lst.append(row)
             scroll = Gtk.ScrolledWindow(propagate_natural_height=True, max_content_height=420)
             scroll.set_child(lst)
@@ -204,9 +264,16 @@ class Bell:
         pop.connect('closed', lambda p: GLib.idle_add(p.unparent))
         pop.popup()
 
+    def _clicked(self, n, pop):
+        pop.popdown()
+        open_notification(n, self.server)
+        self.server.remove_from_history(n.id)
+
 
 class NotificationsUI:
-    def __init__(self, server):
+    def __init__(self, server, tracker=None):
+        global _tracker
+        _tracker = tracker
         self.toasts = Toasts(server)
         self._bell = Bell(server)
 

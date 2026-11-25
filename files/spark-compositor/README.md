@@ -33,10 +33,22 @@ are placed to the right of the others, at their preferred mode.
     bind Super+Return exec spark-terminal
     bind Super+t exec foot
 
-Actions: `exec CMD`, `close`, `quit`, `focus-next`, `fullscreen`, `maximize`, `output-next`, `reload`.
-Defaults: Super+Return (terminal), Super+q and Alt+F4 (close), Alt+Tab and Super+Tab (focus next),
-Super+f (fullscreen), Super+Up (maximize), Super+o (next output), Super+Shift+r (reload),
-Super+Shift+e (quit). Super+drag moves a window, Super+right-drag resizes it.
+Actions: `exec CMD`, `close`, `quit`, `focus-next`, `fullscreen`, `maximize`, `output-next`, `reload`,
+and `none`, which turns a default off and lets the key reach the app (`bind Super+e none`). A later
+line for the same key wins. Spark Settings > Shortcuts writes its own block in this file.
+
+Defaults:
+- Windows: Super+q and Alt+F4 (close), Alt+Tab and Super+Tab (focus next), Super+f (fullscreen),
+  Super+Up (maximize), Super+o (next output). Super+drag moves a window, Super+right-drag resizes it.
+- Session: Super alone (Spark menu), Super+l (lock), Super+Shift+e (quit), Super+Ctrl+Shift+r
+  (reload this file).
+- Apps: Super+Return and Ctrl+Alt+t (terminal), Ctrl+Shift+Esc, Super+Esc and Ctrl+Esc (Spark
+  Monitor), Super+e (Spark Files), Super+i (Spark Settings), Super+. (Spark Emoji), Super+v
+  (clipboard history), Calculator key (Spark Calc). These are the same keys the apps register
+  in Plasma.
+- Spark Snip: Print and Super+Shift+s (area), Super+Shift+t (text), Super+Shift+r (recording).
+- Volume keys go to the Spark shell's on-screen display.
+
 `wlr-randr` and any wlr-output-management client can change outputs at runtime; those changes are not saved.
 
 ## Protocols

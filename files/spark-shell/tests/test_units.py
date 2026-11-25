@@ -155,6 +155,7 @@ class Notifications(unittest.TestCase):
 
     def test_history_persists(self):
         self.send(summary='keep me')
+        self.srv.flush()
         again = notifyd.NotificationServer(None, self.srv.history_path)
         self.assertEqual([h.summary for h in again.history], ['keep me'])
         self.assertGreater(again.next_id, 1)

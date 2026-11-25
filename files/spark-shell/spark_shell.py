@@ -4,6 +4,7 @@ Spark session.
 
     spark-shell                run the shell (the session script does this)
     spark-shell --toggle       open or close the launcher of the running shell
+    spark-shell --lock         lock the screen now (the shell does this when logind asks)
     spark-shell --version
     spark-shell --self-test    check that the modules load; needs no display
 """
@@ -66,6 +67,10 @@ def main(argv) -> int:
     if '--toggle' in argv:
         return toggle()
     preload_layer_shell()
+    if '--lock' in argv:
+        logging.basicConfig(level=logging.INFO, format='spark-lock: %(message)s')
+        from sparkshell.lockscreen import run
+        return run()
     logging.basicConfig(level=logging.INFO, format='spark-shell: %(message)s')
     from sparkshell.app import Shell
     return Shell().run([])

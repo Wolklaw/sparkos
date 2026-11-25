@@ -5,6 +5,7 @@ agent NM asks when a saved connection needs a password.
 Nothing here knows about windows. The agent asks a `prompter` (ui.Prompter, or a fake in the
 tests) for what the person types."""
 
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
@@ -25,6 +26,7 @@ AGENT_MANAGER = NM + '.AgentManager'
 AGENT_MANAGER_PATH = '/org/freedesktop/NetworkManager/AgentManager'
 AGENT_IFACE = NM + '.SecretAgent'
 AGENT_PATH = '/org/freedesktop/NetworkManager/SecretAgent'
+CACHE_SECONDS = 5           # NetworkManager's signals clear it sooner
 
 DEV_ETHERNET, DEV_WIFI = 1, 2
 STATE_ACTIVATED, STATE_UNAVAILABLE, STATE_PREPARE = 100, 20, 40
@@ -106,6 +108,10 @@ class Network:
         self.on_change = on_change
         self._subs: List[int] = []
         self._bound = False
+        # state() costs a few dozen bus calls and the panel asks for each icon property
+        # separately; keep the answer until NetworkManager says something changed.
+        self._cache: Optional[NetState] = None
+        self._cache_at = 0.0
 
     # — reading —
     def available(self) -> bool:
@@ -128,6 +134,7 @@ class Network:
         self._subs, self._bound = [], False
 
     def _signal(self, *_args) -> None:
+        self._cache = None
         self.on_change()
 
     def _props(self, path: str, iface: str) -> Dict[str, Any]:
@@ -157,6 +164,12 @@ class Network:
                 continue
 
     def state(self) -> NetState:
+        now = time.monotonic()
+        if self._cache is None or now - self._cache_at > CACHE_SECONDS:
+            self._cache, self._cache_at = self._read_state(), now
+        return self._cache
+
+    def _read_state(self) -> NetState:
         s = NetState()
         top = self._props(NM_PATH, NM)
         if not top:
@@ -222,6 +235,7 @@ class Network:
         def finished(_out, err):
             if err:
                 log.warning("NetworkManager: %s", err)
+            self._cache = None
             self.on_change()
             if done:
                 done(err)
@@ -270,6 +284,7 @@ class Network:
 
     def set_wifi(self, on: bool) -> None:
         self.bus.set(NM, NM_PATH, NM, 'WirelessEnabled', GLib.Variant('b', on))
+        self._cache = None
         self.on_change()
 
     def set_airplane(self, on: bool) -> None:
@@ -279,6 +294,7 @@ class Network:
             self.bus.set(NM, NM_PATH, NM, 'WwanEnabled', GLib.Variant('b', not on))
         except BusError:
             pass        # no mobile modem
+        self._cache = None
         self.on_change()
 
 
