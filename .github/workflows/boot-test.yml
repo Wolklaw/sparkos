@@ -492,8 +492,8 @@ jobs:
       - name: Check the other Spark apps
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # Edit, Calc, Fonts, Archive, Scan, Run, Link, Store, Terminal, Emoji, Notes, Boxes and Audio: installed system-wide, each self-test passes
-          for app in spark-edit spark-calc spark-fonts spark-archive spark-scan spark-run spark-link spark-store spark-terminal spark-emoji spark-notes spark-boxes spark-audio; do
+          # Edit, Calc, Fonts, Archive, Scan, Run, Link, Store, Terminal, Emoji, Notes, Boxes, Audio and Tray: installed system-wide, each self-test passes
+          for app in spark-edit spark-calc spark-fonts spark-archive spark-scan spark-run spark-link spark-store spark-terminal spark-emoji spark-notes spark-boxes spark-audio spark-tray; do
             echo "== $app"
             $SSH "set -e; $app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
