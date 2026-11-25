@@ -8,7 +8,7 @@ APP_NAME = "Spark Files"
 APP_SLUG = "spark-files"         # command, folders, log names
 APP_CLASS = "SparkFiles"         # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkFiles"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 BUS_NAME = "dev.wolklaw.SparkFiles"            # one copy per session; others hand over to it
 BUS_PATH = "/dev/wolklaw/SparkFiles"

@@ -28,6 +28,12 @@ grep -q '^MimeType=inode/directory;' /usr/share/applications/dev.wolklaw.SparkFi
 test -f /usr/share/icons/hicolor/scalable/apps/dev.wolklaw.SparkFiles.svg
 grep -qx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service
 grep -qx 'Name=dev.wolklaw.SparkFiles' /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.service
+# the Spark session's Open and Save dialogs (the portal backend); Plasma keeps KDE's
+grep -qx 'Name=org.freedesktop.impl.portal.desktop.spark' \
+  /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.spark.service
+grep -q 'FileChooser' /usr/share/xdg-desktop-portal/portals/spark.portal
+grep -qx 'org.freedesktop.impl.portal.FileChooser=spark;kde;' \
+  /usr/share/xdg-desktop-portal/spark-portals.conf
 
 # ── "Show in folder" goes to Spark Files ──
 # Two activation files for one name is undefined behaviour on the session bus: remove every

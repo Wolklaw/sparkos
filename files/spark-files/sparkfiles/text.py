@@ -333,6 +333,24 @@ EN = {
     'openwith.default': "(default)",
     'openwith.open': "Open",
 
+    # the file chooser other apps open (the portal)
+    'chooser.title_open': "Open a file",
+    'chooser.title_open_many': "Open files",
+    'chooser.title_folder': "Choose a folder",
+    'chooser.title_save': "Save as",
+    'chooser.open': "Open",
+    'chooser.save': "Save",
+    'chooser.choose': "Choose",
+    'chooser.name': "Name",
+    'chooser.type': "Type",
+    'chooser.pick_file': "Pick a file first.",
+    'chooser.no_folder': "The folder {folder} doesn't exist.",
+    'chooser.replace_title': "Replace?",
+    'chooser.replace': "“{name}” is already in {folder}. Replace it?",
+    'chooser.replace_many': "{n} of these files are already in {folder}. Replace them?",
+    'chooser.replace_button': "Replace",
+    'chooser.app_text': "Open “{name}” with:",
+
     # network places and online accounts
     'side.network': "Network",
     'net.connect': "Connect to server…",
@@ -703,6 +721,23 @@ FR = {
     'openwith.always': "Toujours ouvrir les fichiers {kind} avec cette application",
     'openwith.default': "(par défaut)",
     'openwith.open': "Ouvrir",
+
+    'chooser.title_open': "Ouvrir un fichier",
+    'chooser.title_open_many': "Ouvrir des fichiers",
+    'chooser.title_folder': "Choisir un dossier",
+    'chooser.title_save': "Enregistrer sous",
+    'chooser.open': "Ouvrir",
+    'chooser.save': "Enregistrer",
+    'chooser.choose': "Choisir",
+    'chooser.name': "Nom",
+    'chooser.type': "Type",
+    'chooser.pick_file': "Choisissez d'abord un fichier.",
+    'chooser.no_folder': "Le dossier {folder} n'existe pas.",
+    'chooser.replace_title': "Remplacer ?",
+    'chooser.replace': "« {name} » est déjà dans {folder}. Le remplacer ?",
+    'chooser.replace_many': "{n} de ces fichiers sont déjà dans {folder}. Les remplacer ?",
+    'chooser.replace_button': "Remplacer",
+    'chooser.app_text': "Ouvrir « {name} » avec :",
 
     # lieux réseau et comptes en ligne
     'side.network': "Réseau",

@@ -173,7 +173,10 @@ if [ "$UNINSTALL" = 1 ]; then
   rm -f /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
         "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg" \
         "/usr/share/dbus-1/services/$APP_ID.service" \
-        "/usr/share/dbus-1/services/$APP_ID.FileManager1.service"
+        "/usr/share/dbus-1/services/$APP_ID.FileManager1.service" \
+        "/usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.spark.service" \
+        /usr/share/xdg-desktop-portal/portals/spark.portal \
+        /usr/share/xdg-desktop-portal/spark-portals.conf
   for size in $SIZES; do
     rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
   done
@@ -208,6 +211,11 @@ install -Dm 0644 "$here/$APP_ID.service" "/usr/share/dbus-1/services/$APP_ID.ser
 # the file name doesn't matter to D-Bus, only Name= inside; this one says whose it is
 install -Dm 0644 "$here/org.freedesktop.FileManager1.service" \
   "/usr/share/dbus-1/services/$APP_ID.FileManager1.service"
+# the portal backend (file chooser, "Open with"); only the Spark session's portals.conf uses it
+install -Dm 0644 "$here/portal/org.freedesktop.impl.portal.desktop.spark.service" \
+  /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.spark.service
+install -Dm 0644 "$here/portal/spark.portal" /usr/share/xdg-desktop-portal/portals/spark.portal
+install -Dm 0644 "$here/portal/spark-portals.conf" /usr/share/xdg-desktop-portal/spark-portals.conf
 for size in $SIZES; do
   install -Dm 0644 "$here/icons/$SLUG-$size.png" \
     "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
@@ -219,6 +227,7 @@ command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t -f /u
 test -x /usr/bin/$SLUG
 test -f "$PREFIX/sparkfiles/app.py"
 test -f "/usr/share/applications/$APP_ID.desktop"
+test -f /usr/share/xdg-desktop-portal/portals/spark.portal
 /usr/bin/$SLUG --version
 if [ "$TEST" = 1 ]; then
   /usr/bin/$SLUG --self-test
