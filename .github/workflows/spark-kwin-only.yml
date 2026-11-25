@@ -2,7 +2,8 @@ name: spark-kwin-only
 # The Spark apps that used to lean on Plasma (Snip, Files, Emoji, Update, spark-share), checked in
 # a session with KWin and no plasmashell: a headless kwin_wayland on a private D-Bus, started by
 # files/spark-apps/ci/kwin-only.sh, with the smoke checks in kwin_only_smoke.py. Runs inside the
-# published SparkOS image, which has KWin, krdp, the KDE portal and kio-fuse.
+# published SparkOS image (run with SYS_NICE: kwin_wayland carries that file capability and will not
+# exec without it), which has KWin, krdp, the KDE portal and kio-fuse.
 # KWin's virtual backend may need a GL driver the runner's container lacks; if it does not start,
 # the job fails loudly rather than skipping.
 on:
@@ -51,7 +52,7 @@ jobs:
 
       - name: Smoke checks under KWin with no plasmashell
         run: |
-          sudo podman run --rm -v "$PWD:/src:ro" -e KWIN_ONLY_STRICT=1 "$IMAGE" bash -euo pipefail -c '
+          sudo podman run --rm --cap-add=SYS_NICE -v "$PWD:/src:ro" -e KWIN_ONLY_STRICT=1 "$IMAGE" bash -euo pipefail -c '
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)
             cp -r /src "$home/repo"
