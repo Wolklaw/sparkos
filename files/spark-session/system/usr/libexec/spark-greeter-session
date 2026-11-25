@@ -1,0 +1,31 @@
+#!/bin/bash
+# What greetd runs as its greeter (see /usr/share/spark-session/greetd-config.toml): KWin as a
+# bare compositor with spark-greeter as its only window. KWin exits when the greeter does, and
+# greetd then starts the session that was chosen (or the greeter again).
+#
+# Everything here is for the sign-in screen only. It runs as the `greetd` user, never as you.
+set -u
+
+# greetd's PAM stack (pam_systemd) normally gives the greeter a runtime directory. If it did
+# not, make a private one so the compositor can still make its socket.
+if [ -z "${XDG_RUNTIME_DIR:-}" ] || [ ! -w "${XDG_RUNTIME_DIR:-/nonexistent}" ]; then
+  XDG_RUNTIME_DIR=$(mktemp -d /tmp/spark-greeter.XXXXXX) || exit 1
+  chmod 700 "$XDG_RUNTIME_DIR"
+  export XDG_RUNTIME_DIR
+fi
+
+export XDG_SESSION_TYPE=wayland
+export XDG_CURRENT_DESKTOP=SparkGreeter
+export GTK_A11Y=none            # no accessibility bus on the sign-in screen
+export SPARK_GREETER_CACHE=${SPARK_GREETER_CACHE:-/var/cache/spark-greeter}
+
+greeter=${SPARK_GREETER_BIN:-/usr/bin/spark-greeter}
+# SPARK_GREETER_KWIN_ARGS is for the tests (--virtual runs KWin without a screen); greetd never sets it.
+# shellcheck disable=SC2206
+kwin=(kwin_wayland --no-lockscreen --no-global-shortcuts --no-kactivities ${SPARK_GREETER_KWIN_ARGS:-}
+      --exit-with-session "$greeter")
+
+if command -v dbus-run-session >/dev/null 2>&1; then
+  exec dbus-run-session -- "${kwin[@]}"
+fi
+exec "${kwin[@]}"

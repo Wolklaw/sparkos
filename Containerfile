@@ -176,6 +176,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-boxes.sh \
         spark-audio.sh \
         spark-update.sh \
+        spark-session.sh \
         sparkos-security.sh \
         sparkos-cleanup.sh \
         sparkos-defaults.sh \

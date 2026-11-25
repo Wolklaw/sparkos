@@ -44,6 +44,7 @@ restarts) ask "Continue?" first.
 | **Services** | | |
 | `spark service NAME [status\|on\|off\|start\|stop\|restart]` | Any system service | (new) |
 | `spark ssh [status\|on\|off\|once]` | SSH into this PC | `ssh` |
+| `spark greeter [status\|enable\|disable]` | The Spark sign-in screen (greetd with `spark-greeter`). Off by default. `enable` makes it the display manager at the next restart and starts nothing now; `disable` puts Plasma Login Manager back. Needs admin rights. See [files/spark-session](../files/spark-session) | (new) |
 | **Gaming and sound** | | |
 | `spark stop-proton` | Kill your Wine/Proton processes (a game stuck on close) | `fix-proton-hang` |
 | `spark audio-restart` | Restart PipeWire for your session | `restart-pipewire` |
