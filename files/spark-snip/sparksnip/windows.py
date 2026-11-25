@@ -8,8 +8,8 @@ import tkinter as tk
 from PIL import Image, ImageTk
 
 from . import APP_NAME
-from .core import (CONF_WARN, Box, Monitor, OCRResult, clock, human_size, language_label, log,
-                   open_folder, screenshots_dir, short_path)
+from .core import (CONF_WARN, Box, Monitor, OCRResult, clock, human_size, keep_latest,
+                   language_label, log, open_folder, screenshots_dir, short_path)
 from .lang import local_units
 from .text import t
 from .widgets import T, GlitchPanel, GlitchText, Mark, Strip, WolkButton
@@ -40,6 +40,7 @@ class ResultWindow(tk.Toplevel):
         self.resizable(False, False)
         self.protocol("WM_DELETE_WINDOW", self.close)
         self.bind("<Escape>", lambda _e: self.close())
+        self.bind("<e>", lambda _e: self.edit())
         self.bind("<ButtonPress>", self._interacted, add="+")
         self.bind("<Key>", self._interacted, add="+")
         if app.icon is not None:
@@ -60,6 +61,8 @@ class ResultWindow(tk.Toplevel):
         self._photo = None
         self._thumb_box = (0, 0, 0, 0)
         self._scan_lines: List[int] = []
+        self.editor = None
+        self.near = near
 
         self.strip = Strip(self, height=px(2))
         self.strip.pack(side="bottom", fill="x")
@@ -241,7 +244,9 @@ class ResultWindow(tk.Toplevel):
 
     def show_image(self, copy_error: Optional[str]):
         self._show_thumb()
-        self.set_actions(self._image_actions(read_text=True))
+        actions = self._image_actions(read_text=True)
+        actions.insert(1, (t('act.edit'), self.edit, "ghost", True))
+        self.set_actions(actions)
         self.meta.config(text=f"{self.image.width} × {self.image.height} PX  ·  PNG")
         if copy_error:
             self._state(t('dot.not_copied'), T["pink"], t('head.not_copied'),
@@ -313,6 +318,50 @@ class ResultWindow(tk.Toplevel):
         self.say(t('say.image_copied'), T["accent"])
         self.app.glitch.now(self.panel)
 
+    def edit(self):
+        """Open the annotate window on this screenshot; this window hides until it is done."""
+        if self.editor is not None or self.closed or self.image is None or self.app.busy:
+            return
+        from .editor import EditorWindow
+        self.timer = "stopped"
+        self.strip.draw(fraction=0)
+        self.withdraw()
+        try:
+            self.editor = EditorWindow(self.app, self.image, self.near, self._edited,
+                                       self._edit_cancelled)
+        except tk.TclError:
+            log.exception("could not open the annotate window")
+            self.editor = None
+            self.deiconify()
+            self.say(t('fail.editor'), T["pink"])
+            return
+        self.app.editor = self.editor
+
+    def _back_from_editor(self):
+        self.editor = None
+        self.app.editor = None
+        if not self.closed:
+            self.deiconify()
+            self.lift()
+            self.focus_force()
+
+    def _edit_cancelled(self):
+        self._back_from_editor()
+
+    def _edited(self, image: Image.Image, action: str):
+        """The annotated picture becomes this screenshot: the clipboard, Spark Link's latest.png
+        and, for Save, a file."""
+        self.image = image
+        error = keep_latest(image)
+        if error:
+            log.warning("could not keep the annotated screenshot for Spark Link: %s", error)
+        self._back_from_editor()
+        self.show_image(self.app.clipboard.copy_image(image))
+        if action == "save":
+            self.save_image()
+        else:
+            self.say(t('say.edit_done'), T["accent"])
+
     def save_image(self):
         folder = screenshots_dir()
         path = os.path.join(folder, datetime.now().strftime("SparkSnip_%Y-%m-%d_%H-%M-%S.png"))
@@ -379,6 +428,9 @@ class ResultWindow(tk.Toplevel):
             return
         self.closed = True
         self._stop_scan()
+        if self.editor is not None:                 # replaced by a newer screenshot, say
+            editor, self.editor, self.app.editor = self.editor, None, None
+            editor._close()
         try:
             self.destroy()
         except tk.TclError:
