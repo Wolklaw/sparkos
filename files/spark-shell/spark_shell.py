@@ -34,6 +34,14 @@ def preload_layer_shell():
     """gtk4-layer-shell has to be loaded before libwayland-client, which Python's GTK import
     pulls in too early: start again with the library in LD_PRELOAD (its documented way)."""
     if os.environ.get('SPARK_SHELL_PRELOADED'):
+        # loaded now; take it out again or every app started from the shell inherits it, and a
+        # GTK 3 app (Discord) then has GTK 4 in the same process and aborts
+        kept = [p for p in os.environ.get('LD_PRELOAD', '').split()
+                if 'libgtk4-layer-shell' not in p]
+        if kept:
+            os.environ['LD_PRELOAD'] = ' '.join(kept)
+        else:
+            os.environ.pop('LD_PRELOAD', None)
         return
     import glob
     for pattern in ('/usr/lib64/libgtk4-layer-shell.so.0', '/usr/lib/libgtk4-layer-shell.so.0',

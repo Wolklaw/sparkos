@@ -267,5 +267,21 @@ class SessionEndTest(unittest.TestCase):
         self.assertEqual(self.ran, [['poweroff']])
 
 
+class PreloadTest(unittest.TestCase):
+    """Apps started from the shell must not inherit gtk4-layer-shell (GTK 3 apps abort)."""
+    def test_dropped_once_loaded(self):
+        import importlib
+        from unittest import mock
+        spark_shell = importlib.import_module('spark_shell')
+        env = {'SPARK_SHELL_PRELOADED': '1',
+               'LD_PRELOAD': '/usr/lib64/libgtk4-layer-shell.so.0 /opt/other.so'}
+        with mock.patch.dict(os.environ, env):
+            spark_shell.preload_layer_shell()
+            self.assertEqual(os.environ['LD_PRELOAD'], '/opt/other.so')
+        with mock.patch.dict(os.environ, dict(env, LD_PRELOAD='/usr/lib64/libgtk4-layer-shell.so.0')):
+            spark_shell.preload_layer_shell()
+            self.assertNotIn('LD_PRELOAD', os.environ)
+
+
 if __name__ == '__main__':
     unittest.main()

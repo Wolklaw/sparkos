@@ -7,4 +7,16 @@ export XDG_SESSION_TYPE=wayland
 export MOZ_ENABLE_WAYLAND=1
 export QT_QPA_PLATFORM="wayland;xcb"
 export SDL_VIDEODRIVER=wayland,x11
-exec /usr/bin/spark-compositor -s /usr/libexec/spark-wl-startup
+
+# Developer builds: when ~/.local/share/spark-dev/bin exists, a spark-compositor,
+# spark-wl-startup or spark-shell in it is used instead of the image's, so a fix can be tried
+# with a logout instead of a new image. Delete the folder to go back to the image's versions.
+comp=/usr/bin/spark-compositor
+startup=/usr/libexec/spark-wl-startup
+dev="$HOME/.local/share/spark-dev/bin"
+if [ -d "$dev" ]; then
+  export PATH="$dev:$PATH"
+  [ -x "$dev/spark-compositor" ] && comp="$dev/spark-compositor"
+  [ -x "$dev/spark-wl-startup" ] && startup="$dev/spark-wl-startup"
+fi
+exec "$comp" -s "$startup"

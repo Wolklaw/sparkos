@@ -980,8 +980,10 @@ static void view_destroy(struct wl_listener *l, void *data) {
 		UNLISTEN(&v->request_move); UNLISTEN(&v->request_resize); UNLISTEN(&v->request_maximize);
 		UNLISTEN(&v->request_fullscreen); UNLISTEN(&v->set_title); UNLISTEN(&v->set_app_id);
 	} else {
+		/* every listener added in new_xwayland_surface: wlroots asserts the surface's signals
+		 * are empty when it is destroyed, so one left behind aborts the compositor */
 		UNLISTEN(&v->xw_associate); UNLISTEN(&v->xw_dissociate); UNLISTEN(&v->xw_request_configure);
-		UNLISTEN(&v->set_title); UNLISTEN(&v->set_app_id);
+		UNLISTEN(&v->set_title); UNLISTEN(&v->set_app_id); UNLISTEN(&v->xw_override);
 	}
 	if (s->focused_view == v) s->focused_view = NULL;
 	if (s->grab_view == v) { s->grab_view = NULL; s->cursor_mode = CURSOR_PASSTHROUGH; }
@@ -1054,15 +1056,14 @@ static void new_xdg_toplevel(struct wl_listener *l, void *data) {
 }
 
 static void new_xdg_popup(struct wl_listener *l, void *data) {
-	struct server *s = wl_container_of(l, s, new_xdg_popup);
 	struct wlr_xdg_popup *p = data;
+	/* A popup made with a null parent gets one later from zwlr_layer_surface_v1.get_popup, and
+	 * layer_new_popup places it then (into the layer surface's popup tree); the same goes for a
+	 * popup whose parent is a layer surface. Only popups of xdg surfaces are placed here. */
+	if (!p->parent) return;
 	struct wlr_xdg_surface *parent = wlr_xdg_surface_try_from_wlr_surface(p->parent);
-	struct wlr_scene_tree *pt = parent ? parent->data : NULL;
-	if (!pt) {
-		/* parent is a layer surface: popups of those go to the overlay popup tree */
-		pt = s->layers[L_OVERLAY];
-	}
-	make_popup(p, pt);
+	if (!parent || !parent->data) return;
+	make_popup(p, parent->data);
 }
 
 /* XWayland */

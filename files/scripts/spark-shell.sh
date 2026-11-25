@@ -15,6 +15,7 @@ test -x /usr/bin/spark-session
 test -x /usr/libexec/spark-session-run
 test -f /usr/share/wayland-sessions/spark.desktop
 test -f /usr/lib/systemd/user/spark-workspace.target
+test -f /usr/lib/systemd/user/spark-wl-workspace.target
 test -f /usr/lib/spark-shell/launcher_logic.py
 # the default session must still be Plasma
 if [ -f /usr/share/wayland-sessions/plasma.desktop ]; then

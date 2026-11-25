@@ -50,7 +50,7 @@ if [ "$UNINSTALL" = 1 ]; then
     rm -rf "$lib" "$bin/spark-shell"
   else
     rm -rf "$lib" "$bin/spark-shell" "$bin/spark-session" "$libexec/spark-session-run" \
-           "$libexec/spark-session-polkit" "$units/spark-workspace.target" \
+           "$libexec/spark-session-polkit" "$units/spark-workspace.target" "$units/spark-wl-workspace.target" \
            "$units/spark-polkit-agent.service" "$sessions/spark.desktop"
   fi
   echo "Spark Shell removed"
@@ -75,7 +75,8 @@ if [ "$USER_MODE" = 0 ]; then
   install -m 0755 "$here/session/spark-session-run" "$libexec/spark-session-run"
   install -m 0755 "$here/session/spark-session-polkit" "$libexec/spark-session-polkit"
   install -d "$units" "$sessions"
-  install -m 0644 "$here/session/spark-workspace.target" "$here/session/spark-polkit-agent.service" "$units/"
+  install -m 0644 "$here/session/spark-workspace.target" "$here/session/spark-wl-workspace.target" \
+    "$here/session/spark-polkit-agent.service" "$units/"
   install -m 0644 "$here/session/spark.desktop" "$sessions/spark.desktop"
 fi
 
