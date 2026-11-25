@@ -68,7 +68,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Discord, Spotify | **Works** | Both install from the Store. |
 | OBS Studio | **Works** | From the Store. |
 | Blender, GIMP, Audacity | **Works** | From the Store. Blender renders on the RX 6800 XT through HIP. |
-| Photos, Media Player | **Replaced** | **Spark Media** (in the image) opens photos, videos and music by default: double-click a file, or open it from the menu to browse Pictures, Videos and Music. H.264, H.265, AAC and MP3 play out of the box. It doesn't edit photos or sort music by artist; for that, **GIMP**, **digiKam** or **Elisa** are in the Store. |
+| Photos, Media Player | **Replaced** | **Spark Media** (in the image) opens photos, videos and music by default: double-click a file, or open it from the menu to browse Pictures, Videos and Music. H.264, H.265, AAC and MP3 play out of the box. Photos get rotate, crop and auto-enhance (saved as a copy), and the music library browses by artist, album and song, with covers, playlists and media keys, so Elisa isn't needed. For heavier photo work and photo catalogues, **GIMP** and **digiKam** are in the Store. |
 | Clipchamp | **Replaced** | **Kdenlive** (from the Store). |
 | Snipping Tool, QuickOCR | **Replaced** | **Spark Snip** (in the image): Print or Meta+Shift+S for a screenshot, Meta+Shift+T to copy text off the screen (OCR, English and French), Meta+Shift+R to start and stop a recording. The keys match Snipping Tool and PowerToys Text Extractor, with Meta for the Windows key. |
 | ShareX | **Replaced** | **Spark Snip** for quick snips, text and recordings, or **Flameshot** (from the Store) to annotate and upload. |
