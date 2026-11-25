@@ -21,6 +21,10 @@ try:
     except greetd.GreetdError as exc:
         result['wrong'] = exc.kind
         result['cancel_error'] = getattr(client, 'cancel_error', None)
+    # a fresh connection for the second try: on the CI host greetd kept the cancelled attempt
+    # on the old one ("a session is already being configured") although cancel answered success
+    client.close()
+    client = greetd.Client()
     seen = []
 
     def answer(kind, text):
