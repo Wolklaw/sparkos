@@ -31,7 +31,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$DEPS" = 1 ]; then
-  dnf -y install python3 python3-gobject python3-cairo gtk4 polkit polkit-libs greetd kwin
+  dnf -y install python3 python3-gobject python3-cairo gobject-introspection gtk4 polkit polkit-libs greetd kwin
 fi
 
 PREFIX=$ROOT/usr/lib/spark-session
