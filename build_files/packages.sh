@@ -224,13 +224,16 @@ dnf_install \
 # because layering ties the PC to one exact base image, makes every update slower and can fail
 # when Fedora's repositories and the image drift apart; in the image the build tests it once.
 # Nothing runs by default: the sockets are turned off below, so an idle PC pays only the disk
-# (on plain Kinoite this is 109 packages, a 59 MiB download). The management window, Virtual
-# Machine Manager, is not installed: it comes from Flathub (org.virt_manager.virt-manager) and
-# talks to this libvirt at qemu:///system.
+# (on plain Kinoite this is 109 packages, a 59 MiB download). The management window is Spark
+# Boxes (files/spark-boxes, installed by files/scripts/spark-boxes.sh); it talks to this libvirt
+# at qemu:///system through python3-libvirt and shows a machine's screen with spice-gtk3. Those
+# two add 8 packages: 4 MiB installed, a 1 MiB download (measured on Fedora 45 with GTK and
+# libvirt-client already there). Virtual Machine Manager is no longer suggested.
 dnf_install \
   libvirt-daemon-driver-qemu libvirt-daemon-driver-network libvirt-daemon-driver-storage-core \
   libvirt-daemon-driver-nodedev libvirt-daemon-driver-secret libvirt-daemon-config-network \
-  libvirt-client qemu-kvm edk2-ovmf swtpm swtpm-tools
+  libvirt-client qemu-kvm edk2-ovmf swtpm swtpm-tools \
+  python3-libvirt spice-gtk3
 # Fedora's preset may turn some of these on at install; they stay off until `spark virt setup`.
 for unit in /usr/lib/systemd/system/virt*.socket /usr/lib/systemd/system/libvirt*.socket \
             /usr/lib/systemd/system/libvirt-guests.service; do
@@ -244,7 +247,7 @@ test -f /usr/lib/firewalld/zones/libvirt.xml
 test -f /usr/lib/firewalld/policies/libvirt-to-host.xml
 test -f /usr/share/libvirt/networks/default.xml
 test -f /usr/share/polkit-1/rules.d/50-libvirt.rules
-rpm -q libvirt-daemon-driver-qemu qemu-kvm edk2-ovmf swtpm
+rpm -q libvirt-daemon-driver-qemu qemu-kvm edk2-ovmf swtpm python3-libvirt spice-gtk3
 if find /etc/systemd/system -path '*.wants/*' \( -name 'virt*.socket' -o -name 'libvirt*' \) | grep -q .; then
   echo "a libvirt unit is still enabled"; exit 1
 fi

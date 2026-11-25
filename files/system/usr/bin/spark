@@ -145,7 +145,7 @@ COMMANDS=(
   "brew;;Set up Homebrew if it isn't there"
   "box;[list|new NAME [IMAGE]|enter NAME|rm NAME];Make and use Linux containers (Toolbox or Distrobox)"
   "Virtual machines;"
-  "virt;[status|setup|undo];Set up KVM virtual machines (libvirt) for Virtual Machine Manager, or turn them off"
+  "virt;[status|setup|undo];Set up KVM virtual machines (libvirt) for Spark Boxes, or turn them off"
   "Problems;"
   "logs;[this|last|errors];Show the system log of this boot or the one before"
   "report;[FOLDER];Gather logs and system details into one file for a bug report"
@@ -734,7 +734,7 @@ cmd_box() {
 # ---- virt ----
 # The libvirt/QEMU packages are in the image with their sockets off (build_files/packages.sh).
 # `spark virt setup` turns them on, joins you to the libvirt group and starts the default NAT
-# network; the app to manage machines (Virtual Machine Manager) comes from the Store.
+# network; the app to manage machines is Spark Boxes, which is in the image.
 VIRT_SOCKETS=(virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket
   virtnetworkd.socket virtnetworkd-ro.socket virtnetworkd-admin.socket
   virtstoraged.socket virtstoraged-ro.socket virtstoraged-admin.socket
@@ -746,8 +746,7 @@ HELP[virt]="  status   what is ready and what is missing (the default)
            group and start the default NAT network. Safe to run again.
   undo     stop libvirt's sockets and the default network and take you out of the group.
            Your virtual machines and disk images are not touched.
-Virtual Machine Manager (the window for making machines) is not in the image: install
-'Virtual Machine Manager' from the Store (Flathub: org.virt_manager.virt-manager).
+Spark Boxes (in the app menu) is the window for making and running machines.
 The default network sits in firewalld's 'libvirt' zone, which lets machines reach the PC's
 DHCP and DNS and the internet. The closed 'sparkos' zone isn't changed."
 
@@ -830,10 +829,11 @@ virt_status() {
     zone=$(firewall-cmd --get-zone-of-interface=virbr0 2>/dev/null || true)
     if [ -n "$zone" ]; then say "Firewall:    virbr0 is in the '$zone' zone"; fi
   fi
-  if have flatpak && flatpak info org.virt_manager.virt-manager >/dev/null 2>&1; then
-    say "App:         Virtual Machine Manager is installed"
+  if have spark-boxes; then
+    say "App:         Spark Boxes is installed"
   else
-    say "App:         Virtual Machine Manager isn't installed: get it from the Store"
+    say "App:         Spark Boxes isn't installed: run spark update, restart, and try again"
+    rc=1
   fi
   return $rc
 }
@@ -897,10 +897,9 @@ virt_setup() {
   say ""
   say "Done. Next:"
   say "  1. Log out and back in (or restart) so the new libvirt group counts for $u."
-  say "  2. Open the Store and install 'Virtual Machine Manager'."
-  say "     Or in a terminal: flatpak install flathub org.virt_manager.virt-manager"
-  say "  3. In it, connect to QEMU/KVM (qemu:///system). The image has the UEFI firmware and"
-  say "     the TPM (swtpm) that Windows 11 machines ask for."
+  say "  2. Open Spark Boxes from the app menu. It connects to QEMU/KVM (qemu:///system)"
+  say "     by itself. The image has the UEFI firmware and the TPM (swtpm) that Windows 11"
+  say "     machines ask for."
   say "Check any time with: spark virt"
 }
 

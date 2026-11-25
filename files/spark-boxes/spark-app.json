@@ -1,0 +1,35 @@
+{
+  "id": "dev.wolklaw.SparkBoxes",
+  "slug": "spark-boxes",
+  "name": "Spark Boxes",
+  "name_fr": "Spark Boxes",
+  "summary": "Virtual machines: make one from an ISO, start it, see its screen, take snapshots, hand it a USB device. Windows 11 gets its UEFI, Secure Boot and TPM set up for it. Runs on libvirt and QEMU/KVM; nothing leaves this PC.",
+  "summary_fr": "Machines virtuelles : en créer une depuis un ISO, la démarrer, voir son écran, prendre des instantanés, lui confier un appareil USB. Windows 11 reçoit son UEFI, Secure Boot et TPM. Fonctionne avec libvirt et QEMU/KVM; rien ne quitte ce PC.",
+  "version": "0.1.0",
+  "live_update": true,
+  "system_api": 1,
+  "installed_size_kb": 0,
+  "icon": "icons/spark-boxes-256.png",
+  "categories": ["System"],
+  "command": "spark-boxes",
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["gi", "libvirt"],
+    "gi_namespaces": {"Gtk": "3.0"},
+    "packages_fedora": ["python3-gobject", "gtk3", "python3-libvirt", "spice-gtk3"],
+    "optional": {
+      "spice-gtk3": "the machine's screen inside the window; without it Spark Boxes can still make, start and stop machines"
+    },
+    "system": "Linux with libvirt and QEMU/KVM, set up with: spark virt setup (SparkOS). Windows 11 also needs edk2-ovmf and swtpm, which the image has"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-boxes --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-boxes"
+}

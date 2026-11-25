@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Boxes
+Name[fr]=Spark Boxes
+GenericName=Virtual machines
+GenericName[fr]=Machines virtuelles
+Comment=Run Windows or another system in a window on this PC
+Comment[fr]=Faire tourner Windows ou un autre système dans une fenêtre sur ce PC
+Exec=spark-boxes
+Icon=dev.wolklaw.SparkBoxes
+Terminal=false
+Categories=System;Emulator;
+Keywords=virtual;machine;vm;windows;kvm;qemu;libvirt;virt-manager;iso;box;
+Keywords[fr]=machine;virtuelle;vm;windows;kvm;qemu;iso;boîte;
+StartupNotify=false
+StartupWMClass=dev.wolklaw.SparkBoxes

@@ -116,4 +116,4 @@ row, [docs/spark-cli.md](../docs/spark-cli.md), and the row in [README.md](READM
 
 ## Status
 
-Brief written 2026-11-24. Not built yet.
+Built 2026-11-24, PR open ([#99](https://github.com/Wolklaw/sparkos/pull/99)), in [files/spark-boxes](../files/spark-boxes). Tried on libvirt's test driver and a real session libvirt (XML); not yet a real Windows 11 install or a booted SparkOS.
