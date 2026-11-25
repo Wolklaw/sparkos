@@ -3,3 +3,8 @@
 
 # Fedora's usage counting: rpm-ostree reports this machine to Fedora's servers once a week
 disable rpm-ostree-countme.timer
+
+# Virtual machines (libvirt): in the image, off until `spark virt setup` turns them on
+disable virt*.socket
+disable libvirt*.socket
+disable libvirt-guests.service

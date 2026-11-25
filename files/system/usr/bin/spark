@@ -143,6 +143,8 @@ COMMANDS=(
   "Developer tools;"
   "brew;;Set up Homebrew if it isn't there"
   "box;[list|new NAME [IMAGE]|enter NAME|rm NAME];Make and use Linux containers (Toolbox or Distrobox)"
+  "Virtual machines;"
+  "virt;[status|setup|undo];Set up KVM virtual machines (libvirt) for Virtual Machine Manager, or turn them off"
   "Problems;"
   "logs;[this|last|errors];Show the system log of this boot or the one before"
   "report;[FOLDER];Gather logs and system details into one file for a bug report"
@@ -638,6 +640,212 @@ cmd_box() {
       confirm "Delete the container $2 and everything installed in it?"
       if [ "$tool" = distrobox ]; then run distrobox rm --force "$2"; else run toolbox rm --force "$2"; fi ;;
     *) die "box takes list, new, enter or rm" ;;
+  esac
+}
+
+# ---- virt ----
+# The libvirt/QEMU packages are in the image with their sockets off (build_files/packages.sh).
+# `spark virt setup` turns them on, joins you to the libvirt group and starts the default NAT
+# network; the app to manage machines (Virtual Machine Manager) comes from the Store.
+VIRT_SOCKETS=(virtqemud.socket virtqemud-ro.socket virtqemud-admin.socket
+  virtnetworkd.socket virtnetworkd-ro.socket virtnetworkd-admin.socket
+  virtstoraged.socket virtstoraged-ro.socket virtstoraged-admin.socket
+  virtnodedevd.socket virtnodedevd-ro.socket virtnodedevd-admin.socket
+  virtsecretd.socket virtsecretd-ro.socket virtsecretd-admin.socket
+  virtlogd.socket virtlogd-admin.socket virtlockd.socket virtlockd-admin.socket)
+HELP[virt]="  status   what is ready and what is missing (the default)
+  setup    turn on libvirt (KVM and QEMU, already in the image), add you to the libvirt
+           group and start the default NAT network. Safe to run again.
+  undo     stop libvirt's sockets and the default network and take you out of the group.
+           Your virtual machines and disk images are not touched.
+Virtual Machine Manager (the window for making machines) is not in the image: install
+'Virtual Machine Manager' from the Store (Flathub: org.virt_manager.virt-manager).
+The default network sits in firewalld's 'libvirt' zone, which lets machines reach the PC's
+DHCP and DNS and the internet. The closed 'sparkos' zone isn't changed."
+
+virt_user() {
+  local u=${SUDO_USER:-$(id -un)}
+  [ "$u" != root ] || die "run this as your own user, not as root: it adds you to the libvirt group."
+  printf '%s' "$u"
+}
+
+# Is the unit in the image?
+virt_unit_exists() { systemctl list-unit-files --no-legend --no-pager "$1" 2>/dev/null | grep -q .; }
+
+# Is the user listed as a member of the libvirt group in /etc/group?
+virt_in_group() {
+  local members
+  members=$(sed -n 's/^libvirt:[^:]*:[^:]*://p' /etc/group 2>/dev/null | head -1)
+  [[ ",$members," == *",$1,"* ]]
+}
+
+# virsh against the system libvirt as the user, quietly; fails when not allowed or not running.
+virt_virsh() { timeout 15 virsh -c qemu:///system "$@" 2>/dev/null; }
+
+# virsh against the system libvirt as admin, for reading (works before you're in the group).
+# Prints nothing and fails in a dry run, so it never opens a password window then.
+virt_admin_virsh() {
+  [ "$DRY_RUN" = 1 ] && return 1
+  as_root virsh -c qemu:///system "$@" 2>/dev/null | sed '/^Needs admin rights/d'
+}
+
+virt_cpu_check() {
+  local flag="" vendor=""
+  grep -qE '^flags.*\bsvm\b' /proc/cpuinfo 2>/dev/null && { flag=svm; vendor="SVM Mode (AMD)"; }
+  grep -qE '^flags.*\bvmx\b' /proc/cpuinfo 2>/dev/null && { flag=vmx; vendor="Intel VT-x"; }
+  if [ -e /dev/kvm ]; then
+    say "CPU:         virtualization is on (${flag:-given by the host}), /dev/kvm is there"
+    return 0
+  fi
+  if [ -n "$flag" ]; then
+    say "CPU:         the CPU has $flag but /dev/kvm is missing: the kvm module didn't load."
+    say "             Look for 'kvm' lines in: sudo dmesg"
+  else
+    say "CPU:         no svm or vmx flag: virtualization is off in the BIOS, or this is itself a"
+    say "             virtual machine without nested virtualization. On a PC, run spark bios,"
+    say "             then turn on ${vendor:-SVM Mode (AMD) or Intel VT-x} (often under Advanced > CPU)."
+  fi
+  return 1
+}
+
+virt_status() {
+  local u rc=0 s on=0 total=0 pkgs_ok=1
+  u=$(id -un)
+  virt_cpu_check || rc=1
+  for s in libvirt-daemon-driver-qemu libvirt-daemon-driver-network libvirt-daemon-config-network qemu-kvm edk2-ovmf swtpm; do
+    rpm -q "$s" >/dev/null 2>&1 || pkgs_ok=0
+  done
+  if [ "$pkgs_ok" = 1 ]; then say "Packages:    libvirt, QEMU/KVM, OVMF and swtpm are in this image"
+  else say "Packages:    missing from this image: run spark update first"; rc=1; fi
+  for s in "${VIRT_SOCKETS[@]}"; do
+    virt_unit_exists "$s" || continue
+    total=$((total + 1))
+    if systemctl is-enabled "$s" >/dev/null 2>&1; then on=$((on + 1)); fi
+  done
+  if [ "$total" -gt 0 ] && [ "$on" = "$total" ]; then say "Services:    libvirt's sockets are on"
+  elif [ "$total" = 0 ]; then say "Services:    libvirt's services aren't in this system"; rc=1
+  else say "Services:    libvirt is off ($on of $total sockets on): run spark virt setup"; rc=1; fi
+  if virt_in_group "$u"; then
+    if id -nG | tr ' ' '\n' | grep -qx libvirt; then say "Group:       $u is in the libvirt group"
+    else say "Group:       $u was added to the libvirt group, but this session started before: log out and in"; rc=1; fi
+  else
+    say "Group:       $u is not in the libvirt group: run spark virt setup"; rc=1
+  fi
+  if [ "$on" -gt 0 ] && have virsh; then
+    local net
+    net=$(virt_virsh net-list --all | awk '$1 == "default" {print $2 ", autostart " $3}') || true
+    if [ -n "$net" ]; then say "Network:     default NAT network: $net"
+    else say "Network:     default NAT network: missing, or you can't read it yet"; rc=1; fi
+  fi
+  if have firewall-cmd; then
+    local zone
+    zone=$(firewall-cmd --get-zone-of-interface=virbr0 2>/dev/null || true)
+    if [ -n "$zone" ]; then say "Firewall:    virbr0 is in the '$zone' zone"; fi
+  fi
+  if have flatpak && flatpak info org.virt_manager.virt-manager >/dev/null 2>&1; then
+    say "App:         Virtual Machine Manager is installed"
+  else
+    say "App:         Virtual Machine Manager isn't installed: get it from the Store"
+  fi
+  return $rc
+}
+
+virt_setup() {
+  require_ostree
+  local u s units=() missing=0
+  u=$(virt_user)
+  if ! virt_cpu_check; then
+    say ""
+    say "Virtual machines can't use KVM here. Fix that first, then run spark virt setup again."
+    [ "$DRY_RUN" = 1 ] || exit 1
+  fi
+  for s in "${VIRT_SOCKETS[@]}"; do if virt_unit_exists "$s"; then units+=("$s"); fi; done
+  if [ "${#units[@]}" -eq 0 ] || ! rpm -q libvirt-daemon-driver-qemu >/dev/null 2>&1; then
+    missing=1
+    [ "$DRY_RUN" = 1 ] || die "libvirt isn't in this version of SparkOS. Run spark update, restart, and try again."
+    say "(libvirt isn't in this system. Dry run, so carrying on.)"
+    units=("${VIRT_SOCKETS[@]}")
+  fi
+  say ""
+  say "This will turn on libvirt's sockets (a service starts only when something connects),"
+  say "add $u to the libvirt group, and start the default NAT network (virbr0)."
+  confirm "Continue?"
+
+  # 1. The libvirt group. On an image the group can be only in /usr/lib/group (the image's
+  # list) and missing from /etc/group: copy the image's line, or make the group, then add the user.
+  if ! grep -q '^libvirt:' /etc/group 2>/dev/null; then
+    run_root bash -c 'set -e
+      if grep -q "^libvirt:" /usr/lib/group 2>/dev/null; then grep "^libvirt:" /usr/lib/group >> /etc/group
+      else groupadd -r libvirt; fi
+      grep -q "^libvirt:" /etc/gshadow 2>/dev/null || echo "libvirt:!::" >> /etc/gshadow'
+  else
+    say "The libvirt group is already in /etc/group."
+  fi
+  if virt_in_group "$u"; then say "$u is already in the libvirt group."
+  else run_root usermod -aG libvirt "$u"; fi
+
+  # 2. The sockets
+  run_root systemctl enable --now "${units[@]}"
+
+  # 3. The default NAT network: libvirt-daemon-config-network ships its definition and an
+  # autostart link; define it from the shipped file if it's gone.
+  local info
+  info=$(virt_admin_virsh net-info default) || info=""
+  if [ "$DRY_RUN" != 1 ] && [ -z "$info" ]; then
+    [ -f /usr/share/libvirt/networks/default.xml ] || die "the default network's definition is missing (/usr/share/libvirt/networks/default.xml)."
+    run_root virsh -c qemu:///system net-define /usr/share/libvirt/networks/default.xml
+  fi
+  run_root virsh -c qemu:///system net-autostart default
+  if grep -Eq '^Active: +yes' <<<"$info"; then
+    say "The default network is already running."
+  else
+    run_root virsh -c qemu:///system net-start default
+  fi
+  [ "$missing" = 1 ] && return 0
+
+  if have firewall-cmd; then
+    say "Firewall: virbr0 is in the '$(firewall-cmd --get-zone-of-interface=virbr0 2>/dev/null || echo '?')' zone (libvirt's own; the closed sparkos zone is unchanged)."
+  fi
+  say ""
+  say "Done. Next:"
+  say "  1. Log out and back in (or restart) so the new libvirt group counts for $u."
+  say "  2. Open the Store and install 'Virtual Machine Manager'."
+  say "     Or in a terminal: flatpak install flathub org.virt_manager.virt-manager"
+  say "  3. In it, connect to QEMU/KVM (qemu:///system). The image has the UEFI firmware and"
+  say "     the TPM (swtpm) that Windows 11 machines ask for."
+  say "Check any time with: spark virt"
+}
+
+virt_undo() {
+  require_ostree
+  local u s units=() running
+  u=$(virt_user)
+  for s in "${VIRT_SOCKETS[@]}"; do if virt_unit_exists "$s"; then units+=("$s"); fi; done
+  running=$(virt_admin_virsh list --name | grep -v '^$' || true)
+  if [ -n "$running" ]; then
+    die "these machines are running: $(tr '\n' ' ' <<<"$running")Shut them down first."
+  fi
+  say "This will stop the default network and libvirt's sockets and keep them off, and take"
+  say "$u out of the libvirt group. Virtual machines and disk images stay where they are."
+  confirm "Continue?"
+  if [ "$DRY_RUN" = 1 ] || virt_admin_virsh net-info default | grep -Eq '^Active: +yes'; then
+    run_root virsh -c qemu:///system net-destroy default
+  fi
+  if [ "${#units[@]}" -gt 0 ]; then
+    run_root systemctl disable --now "${units[@]}"
+    run_root systemctl stop virtqemud.service virtnetworkd.service virtstoraged.service virtnodedevd.service virtsecretd.service virtlogd.service virtlockd.service
+  fi
+  if virt_in_group "$u"; then run_root gpasswd -d "$u" libvirt; fi
+  say "Done. Log out and in for the group change. spark virt setup turns it all back on."
+}
+
+cmd_virt() {
+  local action=${1:-status}
+  case "$action" in
+    status) virt_status || true ;;
+    setup) virt_setup ;;
+    undo) virt_undo ;;
+    *) die "virt takes status, setup or undo" ;;
   esac
 }
 

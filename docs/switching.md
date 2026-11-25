@@ -85,7 +85,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | PuTTY | **Replaced** | `ssh` in **Spark Terminal** (in the image), or **Spark Connect**, an optional Spark app, for your own servers. |
 | Phone Link | **Replaced** | **Spark Link** (in the image): links, files, notifications and the clipboard between your phone and this PC. |
 | Calculator | **Replaced** | **Spark Calc** (in the image): standard, scientific and programmer. |
-| VirtualBox | **Partly** | **virt-manager** with KVM is the replacement and runs VMs faster than VirtualBox, but SparkOS doesn't set it up yet (Bazzite's `ujust setup-virtualization` went with Bazzite, and `spark` has no replacement yet). |
+| VirtualBox | **Partly** | **Virtual Machine Manager** (virt-manager) with KVM is the replacement and runs VMs faster than VirtualBox. libvirt, QEMU, UEFI firmware and a TPM are in the image but off: run `spark virt setup` (password once, then log out and in), and install *Virtual Machine Manager* from the Store. It replaces Bazzite's `ujust setup-virtualization`. `spark virt` shows what is ready, `spark virt undo` turns it off again. Needs SVM Mode on in the BIOS (`spark virt` says if it isn't). Not tried on a booted SparkOS yet, and VirtualBox's own `.vdi` disks need converting (`qemu-img convert`). |
 | MuseHub | **No** | Windows and Mac only. |
 
 ## Development

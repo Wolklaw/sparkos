@@ -213,3 +213,34 @@ dnf_install \
   python3.13 SDL2 xcb-util-cursor libxkbcommon-x11 libxkbfile \
   mesa-libGL mesa-libEGL mesa-libgbm alsa-lib pulseaudio-libs nss \
   libXcomposite libXcursor libXdamage libXi libXrandr libXtst
+
+# Virtual machines (`spark virt setup` turns them on): libvirt's modular daemons for QEMU/KVM,
+# the default NAT network's definition, QEMU, UEFI firmware (OVMF) and a software TPM (Windows
+# 11 guests ask for both). They are in the image rather than layered with rpm-ostree on the PC
+# because layering ties the PC to one exact base image, makes every update slower and can fail
+# when Fedora's repositories and the image drift apart; in the image the build tests it once.
+# Nothing runs by default: the sockets are turned off below, so an idle PC pays only the disk
+# (on plain Kinoite this is 109 packages, a 59 MiB download). The management window, Virtual
+# Machine Manager, is not installed: it comes from Flathub (org.virt_manager.virt-manager) and
+# talks to this libvirt at qemu:///system.
+dnf_install \
+  libvirt-daemon-driver-qemu libvirt-daemon-driver-network libvirt-daemon-driver-storage-core \
+  libvirt-daemon-driver-nodedev libvirt-daemon-driver-secret libvirt-daemon-config-network \
+  libvirt-client qemu-kvm edk2-ovmf swtpm swtpm-tools
+# Fedora's preset may turn some of these on at install; they stay off until `spark virt setup`.
+for unit in /usr/lib/systemd/system/virt*.socket /usr/lib/systemd/system/libvirt*.socket \
+            /usr/lib/systemd/system/libvirt-guests.service; do
+  [ -e "$unit" ] || continue
+  systemctl disable "${unit##*/}" 2>/dev/null || true
+done
+# The firewall side: libvirt ships its own firewalld "libvirt" zone (accepts forwarding, lets
+# guests reach the PC's DHCP and DNS) and puts virbr0 in it when the network starts, so the
+# closed "sparkos" default zone needs no change.
+test -f /usr/lib/firewalld/zones/libvirt.xml
+test -f /usr/lib/firewalld/policies/libvirt-to-host.xml
+test -f /usr/share/libvirt/networks/default.xml
+test -f /usr/share/polkit-1/rules.d/50-libvirt.rules
+rpm -q libvirt-daemon-driver-qemu qemu-kvm edk2-ovmf swtpm
+if find /etc/systemd/system -path '*.wants/*' \( -name 'virt*.socket' -o -name 'libvirt*' \) | grep -q .; then
+  echo "a libvirt unit is still enabled"; exit 1
+fi

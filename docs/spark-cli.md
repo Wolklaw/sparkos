@@ -3,7 +3,7 @@
 `spark` is SparkOS's own command for system jobs: updates, rollbacks, kernel arguments, services,
 logs for a bug report. It replaces Universal Blue's `ujust` (Bazzite's `just` recipes), which plain
 Fedora doesn't have (SparkOS was built on Bazzite until 2026-11-23). It's one bash script, [files/system/usr/bin/spark](../files/system/usr/bin/spark),
-with no `just` and no other new package, built for Fedora Kinoite, SparkOS's base.
+with no `just`, built for Fedora Kinoite, SparkOS's base.
 Tab completion: [files/system/usr/share/bash-completion/completions/spark](../files/system/usr/share/bash-completion/completions/spark).
 
 ```
@@ -50,6 +50,8 @@ restarts) ask "Continue?" first.
 | **Developer tools** | | |
 | `spark brew` | Set up Homebrew if it isn't there (Homebrew's installer, pinned to one commit and checked by SHA-256) | Bazzite's `brew-setup` |
 | `spark box [list\|new\|enter\|rm]` | Linux containers with Distrobox, or Toolbox when Distrobox isn't installed (plain Fedora) | `distrobox-new` |
+| **Virtual machines** | | |
+| `spark virt [status\|setup\|undo]` | KVM virtual machines: `setup` turns on libvirt's sockets (the packages are in the image, off), joins you to the `libvirt` group (also from `/usr/lib/group` when `/etc/group` lacks it) and starts the default NAT network; `undo` reverses it and keeps your machines and disks. The window, Virtual Machine Manager, comes from the Store (Flathub `org.virt_manager.virt-manager`) | `setup-virtualization` |
 | **Problems** | | |
 | `spark logs [this\|last\|errors]` | The system log of this boot or the one before | `logs-this-boot`, `logs-last-boot` |
 | `spark report [FOLDER]` | One `.tar.gz` with `spark info`, deployments, devices, Vulkan, failed services, crashes, Flatpak apps and both boots' logs. **Nothing is uploaded.** | `get-logs`, `device-info` (those upload to a pastebin) |
@@ -80,8 +82,7 @@ Once it's set up, `/etc/profile.d/brew.sh` puts Homebrew at the end of `PATH` (S
   dual-boot case without touching GRUB, and `spark grub-menu` the menu.
 - **Needs a package the image doesn't have:** `benchmark` (stress-ng), `configure-snapshots`
   (snapper), `configure-beesd` (bees).
-- **Too much to get right in a script, owner's call:** `setup-virtualization` (virt-manager,
-  IOMMU, groups), `setup-luks-tpm-unlock` (Universal Blue's helpers; a mistake can lock you out
+- **Too much to get right in a script, owner's call:** `setup-luks-tpm-unlock` (Universal Blue's helpers; a mistake can lock you out
   of the disk).
 - **Small, possible later if wanted:** `password-feedback` (asterisks in sudo), `wol` (Wake-on-LAN;
   NetworkManager does it), `add-user-to-input-group`, `toggle-gigabyte-wake-fix` (one board
@@ -90,6 +91,30 @@ Once it's set up, `/etc/profile.d/brew.sh` puts Homebrew at the end of `PATH` (S
   Steam folder), `configure-us-intl-dead-keys` (System Settings has it), the automount recipes
   (SparkOS mounts Windows drives itself, see [windows-drives.md](windows-drives.md)),
   `setup-virtual-surround`, `toggle-bt-mic`.
+
+`spark virt` replaces `setup-virtualization` without its IOMMU and GPU passthrough part (kernel
+arguments for passing a graphics card to a machine): `spark kargs` and `ls-iommu` cover that by hand.
+
+### Virtual machines: how it is built
+
+- **In the image, off.** libvirt's modular daemons (`virtqemud`, `virtnetworkd`, `virtstoraged`,
+  `virtnodedevd`, `virtsecretd`), QEMU/KVM, `edk2-ovmf` and `swtpm` are installed by
+  `build_files/packages.sh`, and a preset (`10-sparkos.preset`) keeps their sockets off. Layering
+  them with rpm-ostree on the PC was the other choice; it makes updates slower and can break when
+  the image and Fedora's repositories drift apart, so the image carries them. The cost is disk
+  space only (109 packages, a 59 MiB download on plain Kinoite).
+- **Virtual Machine Manager is not in the image.** The Flathub app has the client only; it
+  reaches the host's libvirt through `/run/libvirt` (its `--filesystem=/run/libvirt` permission)
+  at `qemu:///system`. That is why the daemon is on the host.
+- **The group.** libvirt's polkit rule (`50-libvirt.rules`) lets the `libvirt` group manage
+  machines without a password. The image's group list is `/usr/lib/group`; a PC whose `/etc/group`
+  was changed doesn't pick up new groups from an update, so `setup` copies the `libvirt` line from
+  `/usr/lib/group` into `/etc/group` when it is missing (making the group if neither has it).
+- **Firewall.** libvirt ships its own firewalld zone `libvirt` and policy `libvirt-to-host`; the
+  default network's bridge `virbr0` goes into that zone when the network starts. It lets machines
+  get DHCP and DNS from the PC and forwards their traffic; NAT to the internet is libvirt's own
+  nftables table. The closed `sparkos` zone stays the default and isn't edited.
+  `spark virt` prints the zone `virbr0` is in.
 
 SparkOS has no `ujust`; `spark` is the only one.
 
@@ -104,3 +129,9 @@ normal user (Homebrew installed and `brew --version` ran); the Windows boot entr
 `efibootmgr` listing. Not tried on a booted SparkOS: `update`, `rollback`, `pin`, `boot-default`,
 `kargs add/remove`, `initramfs`, `grub-menu`, `verify`'s rebase, `bios`, `windows`, `clean`'s
 rpm-ostree step, `box` (rootless containers don't run inside a container).
+
+`spark virt` (added 2026-11-24): `bash -n`, `status` on a PC without the packages, and
+`--dry-run` of `setup` and `undo` only. **Not tried:** `setup` and `undo` for real, the group step on
+an image, starting the default network, a virtual machine's network through the `sparkos` zone, and
+Virtual Machine Manager from Flathub connecting. The first boot test with the packages will show
+whether the build step passes.
