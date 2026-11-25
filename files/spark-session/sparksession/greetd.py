@@ -73,13 +73,13 @@ def login(client, username, answer, cmd, env=()):
     (kind is visible, secret, info or error). Returns after start_session succeeds (greetd then
     ends the greeter). Raises GreetdError; the pending session is cancelled first."""
     reply = None
-    for attempt in range(10):
+    for attempt in range(50):
         try:
             reply = client.create_session(username)
             break
         except GreetdError as exc:
             # greetd can still be tearing down the cancelled attempt a moment after it answered
-            if 'already being configured' not in str(exc) or attempt == 9:
+            if 'already being configured' not in str(exc) or attempt == 49:
                 raise
             time.sleep(0.3)
     try:
