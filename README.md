@@ -71,6 +71,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 | **Spark Space** | 1.0.0 | What takes the space on your drives: a map of every folder, the largest files, and safe moves to the Trash. | [source](files/spark-space) |
 | **Spark Connect** | 0.2.0 | Home servers on one screen, fixed over SSH: services, health, tunnel, failover and websites. Also a desktop widget. | [source](files/spark-connect) |
 | **Spark Clock** | 0.1.0 (new) | Alarms, timers, a stopwatch and world clocks. They ring with the window closed and after a restart. | [source](files/spark-clock) |
+| **Spark Clips** | 0.1.0 (new) | Instant replay for games: keeps the last seconds on the GPU, Meta+Alt+G saves them as a clip, with a library and a lossless trim. Optional, from Spark Store. | [source](files/spark-clips) |
 | **Spark Camera** | 0.1.0 (new) | Your webcam: preview, photos with a countdown, video with sound, and a voice recorder. | [source](files/spark-camera) |
 
 ## Every feature

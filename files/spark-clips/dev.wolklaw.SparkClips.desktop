@@ -1,0 +1,23 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Clips
+Name[fr]=Spark Clips
+GenericName=Instant replay for games
+GenericName[fr]=Relecture instantanée pour les jeux
+Comment=Keep the last seconds of your game and save them as a clip with one key
+Comment[fr]=Gardez les dernières secondes de votre jeu et enregistrez-les en clip d'une touche
+Exec=spark-clips
+Icon=dev.wolklaw.SparkClips
+Terminal=false
+Categories=AudioVideo;Video;Recorder;Game;
+Keywords=clip;replay;instant replay;record;game;gaming;shadowplay;highlight;screen;capture;
+Keywords[fr]=clip;relecture;enregistrer;jeu;jeux;capture;moment fort;
+StartupWMClass=SparkClips
+SingleMainWindow=true
+Actions=save;
+
+[Desktop Action save]
+Name=Save a clip
+Name[fr]=Enregistrer un clip
+Exec=spark-clips --save
+X-KDE-Shortcuts=Meta+Alt+G

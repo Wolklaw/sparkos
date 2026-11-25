@@ -1,0 +1,34 @@
+{
+  "id": "dev.wolklaw.SparkClips",
+  "slug": "spark-clips",
+  "name": "Spark Clips",
+  "name_fr": "Spark Clips",
+  "summary": "Instant replay for games: keeps the last seconds on the GPU, and Meta+Alt+G saves them as a clip you can trim.",
+  "summary_fr": "Relecture instantanée pour les jeux : garde les dernières secondes sur le GPU, et Meta+Alt+G les enregistre en clip que vous pouvez couper.",
+  "version": "0.1.0",
+  "installed_size_kb": 500,
+  "icon": "icons/spark-clips-256.png",
+  "optional": true,
+  "live_update": true,
+  "system_api": 1,
+  "categories": ["AudioVideo", "Video", "Recorder", "Game"],
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter", "PIL.ImageTk", "gi"],
+    "optional": {
+      "spark-media": "Plays the clips (xdg-open uses the default player otherwise)",
+      "xdg-open": "Open clips and folders"
+    },
+    "system": "Linux"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-clips --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-clips"
+}

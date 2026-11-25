@@ -110,4 +110,7 @@ icons from `make_icons.py` in the house style, `tests/`, README.md, and
 
 ## Status
 
-Brief written 2026-11-24. Not built yet.
+PR open. Brief written 2026-11-24; version 0.1.0 built the same day in [files/spark-clips](../files/spark-clips).
+Everything was tried on fake sources (a test pattern and tone) with the real GPU and software encoders, the
+real KGlobalAccel and notification services and a real MPEG-TS to MP4 join, trim and thumbnails. Not yet tried:
+the real portal dialog (needs the owner's click once), a real game, the frame-rate cost, the live key press.
