@@ -77,7 +77,8 @@ jobs:
           GSK_RENDERER=cairo GTK_A11Y=none xvfb-run -a -s "-screen 0 1280x800x24" python3 -m unittest -v tests.test_greeter
 
       - name: Which PAM libraries are missing (for the next step)
-        run: ldd /usr/lib64/security/pam_unix.so | grep -i "not found" || echo "none missing"; rpm -q pam libxcrypt
+        run: |
+          ls -l /etc/pam.d/ /usr/lib/pam.d/ | head -40; cat /etc/pam.d/system-auth /usr/lib/pam.d/system-auth 2>&1 | head -30; ls -l /usr/lib64/security/pam_unix.so; id greetd; getent shadow greetd
 
       - name: Real greetd
         run: cd files/spark-session && SPARK_ALLOW_REAL_GREETD=1 python3 -m unittest -v tests.test_greetd_real
