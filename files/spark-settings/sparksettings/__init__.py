@@ -8,4 +8,4 @@ APP_NAME = "Spark Settings"
 APP_SLUG = "spark-settings"      # command, folders, log names
 APP_CLASS = "SparkSettings"      # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkSettings"
-VERSION = "1.0.0"
+VERSION = "1.0.1"

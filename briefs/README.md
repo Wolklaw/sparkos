@@ -132,4 +132,4 @@ one place so a French translation can be added (the owner is in Quebec).
 | [spark-camera.md](spark-camera.md) | Spark Camera: webcam preview, photos with a countdown, video with sound, and a voice recorder | PR open, optional app, in [files/spark-camera](../files/spark-camera). Version 0.1.0: tried with a C920 and a QuadCast for the engine; the window mostly on a test pattern and tone. |
 | [spark-clips.md](spark-clips.md) | Spark Clips: instant replay for games, the last 30 s saved on Meta+Alt+G, a clip library with trim (optional app) | Brief written 2026-11-24, not built |
 | [spark-boxes.md](spark-boxes.md) | Spark Boxes: virtual machines on libvirt, Windows 11 in one screen, SPICE console, snapshots, USB (replaces virt-manager and VirtualBox) | Brief written 2026-11-24, not built |
-| [spark-fonts.md](spark-fonts.md) | Spark Fonts: see, install and remove fonts, import from Windows (replaces KDE's font page and viewer) | Brief written 2026-11-24, not built |
+| [spark-fonts.md](spark-fonts.md) | Spark Fonts: see, install and remove fonts, import from Windows (replaces KDE's font page and viewer) | PR open |

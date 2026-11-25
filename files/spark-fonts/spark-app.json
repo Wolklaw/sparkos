@@ -1,0 +1,30 @@
+{
+  "id": "dev.wolklaw.SparkFonts",
+  "slug": "spark-fonts",
+  "name": "Spark Fonts",
+  "name_fr": "Spark Fonts",
+  "summary": "See the fonts on your computer, install new ones and remove the ones you added.",
+  "summary_fr": "Voyez les polices de votre ordinateur, installez-en de nouvelles et retirez celles que vous avez ajoutées.",
+  "version": "0.1.0",
+  "live_update": true,
+  "system_api": 1,
+  "installed_size_kb": 420,
+  "icon": "icons/spark-fonts-256.png",
+  "categories": ["Utility", "Graphics"],
+  "needs": {
+    "root": false,
+    "commands": ["python3", "fc-list", "fc-cache", "fc-query"],
+    "python": ">=3.9",
+    "python_modules": ["tkinter"],
+    "optional": {"PIL": "previews (python3-pillow)", "udisksctl": "Windows fonts from another drive"},
+    "system": "Any Linux desktop with fontconfig"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-fonts --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-fonts"
+}

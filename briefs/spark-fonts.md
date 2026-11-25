@@ -96,4 +96,4 @@ wiring the other built-in apps use, the cleanup script, Spark Settings' button, 
 
 ## Status
 
-Brief written 2026-11-24. Not built yet.
+PR open (2026-11-24): Spark Fonts 0.1.0, source in files/spark-fonts.

@@ -114,6 +114,8 @@ FR = {
     'Now: {zone}': "Actuellement : {zone}",
     'On': "Activé",
     'Open': "Ouvrir",
+    'Open Spark Fonts': "Ouvrir Spark Fonts",
+    'Manage fonts (see, install, remove)': "Gérer les polices (voir, installer, retirer)",
     'Open Spark Update': "Ouvrir Spark Update",
     'Open at sign-in': "Ouvert à la connexion",
     'Open the timers (KDE)': "Ouvrir les minuteries (KDE)",

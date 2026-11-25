@@ -144,6 +144,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-disks.sh \
         spark-edit.sh \
         spark-calc.sh \
+        spark-fonts.sh \
         spark-clock-wake.sh \
         spark-archive.sh \
         spark-scan.sh \
