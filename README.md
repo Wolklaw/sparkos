@@ -28,7 +28,7 @@ Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, an
 ## What's in it
 
 SparkOS ships only its own apps:
-- **Preinstalled**: Soot, FreeSuite and 28 Spark apps and desktop parts. They come with the system and update with it.
+- **Preinstalled**: Soot, FreeSuite and 30 Spark apps and desktop parts. They come with the system and update with it.
 - **Optional**: 6 more Spark apps, which Spark Store installs for your account in one click.
 
 Everything else, Steam included, installs from Spark Store, or by double-clicking a downloaded `.exe`, `.msi`, `.AppImage` or `.rpm`. The versions below are the current ones.
