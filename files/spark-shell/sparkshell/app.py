@@ -19,6 +19,7 @@ from .notifyd import NotificationServer  # noqa: E402
 from .notifyui import NotificationsUI  # noqa: E402
 from .osd import OSD_SERVICE_XML, Controls, Osd, osd_service_call  # noqa: E402
 from .panel import Panel  # noqa: E402
+from .screensaver import ScreenSaverService  # noqa: E402
 from .tray import TrayHost  # noqa: E402
 from .wallpaper import Wallpaper  # noqa: E402
 from .windows import WindowTracker  # noqa: E402
@@ -105,9 +106,12 @@ class Shell(Gtk.Application):
             self._grab_launcher_shortcut(conn)
         self.tray.start()
         self.tracker.start()
-        if sparkwl:     # Plasma's session has KScreenLocker
+        if sparkwl:     # Plasma's session has KScreenLocker and its own ScreenSaver service
             self.lockctl = LockControl()
             self.lockctl.start()
+            self.screensaver = ScreenSaverService(conn)
+            self.screensaver.start()
+            atexit.register(self.screensaver.stop)
 
         self._watch_config()
         display.get_monitors().connect('items-changed', lambda *_: self.rebuild())

@@ -157,6 +157,27 @@ try:
     blk = open(os.path.join(work, "bind-ran")).read().split()[-1] if os.path.exists(os.path.join(work, "bind-ran")) else "?"
     check(blk.strip("0") == "", f"started programs have no blocked signals (SigBlk {blk})")
 
+    # 7b. Windows 7 window keys: Super+Left/Right snap, Super+D hides and brings back
+    def windows_json():
+        if not helper:
+            return ""
+        try:
+            return subprocess.run([helper], input="", env=cenv, capture_output=True, text=True, timeout=10).stdout
+        except subprocess.TimeoutExpired as e:
+            return (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+    run(["wtype", "-M", "logo", "-k", "Left", "-m", "logo"])
+    check(wait_log(r"window app_id=\S+ snapped left", 5), "Super+Left snaps the focused window to the left half")
+    run(["wtype", "-M", "logo", "-k", "Right", "-m", "logo"])
+    time.sleep(0.5)
+    check(log().count("snapped") == 1, "Super+Right on a left-snapped window brings it back (no new snap)")
+    if helper:
+        run(["wtype", "-M", "logo", "d", "-m", "logo"]); time.sleep(1)
+        out = windows_json()
+        check('"minimized":false' not in out and '"minimized":true' in out, f"Super+D minimizes every window ({out.strip()[:300]!r})")
+        run(["wtype", "-M", "logo", "d", "-m", "logo"]); time.sleep(1)
+        out = windows_json()
+        check('"minimized":true' not in out, "Super+D again brings them back")
+
     # 8. screenshots through screencopy
     time.sleep(1)
     shots = {}
@@ -213,6 +234,16 @@ try:
     run(["wtype", "-k", "Escape"])
     check(wait_log(r"screens on", 10), "idle: a key press turns the screens back on")
     check("Enabled: no" not in run(["wlr-randr"]).stdout, "idle: every output is on again")
+
+    # 11b. an app holding org.freedesktop.ScreenSaver (the shell keeps this file) keeps them on
+    flag = os.path.join(rt, "spark-wl", "idle-inhibit")
+    os.makedirs(os.path.dirname(flag), exist_ok=True)
+    open(flag, "w").write("1\n")
+    off_before = log().count("screens off (idle)")
+    time.sleep(40)
+    check(log().count("screens off (idle)") == off_before, "idle: the D-Bus inhibit file keeps the screens on")
+    os.remove(flag)
+    check(wait_log(r"screens off \(idle\)[\s\S]*screens off \(idle\)", 45), "idle: screens go off once it is gone")
 finally:
     for p in procs:
         if p.poll() is None:

@@ -97,7 +97,8 @@
 
 enum scene_layer { L_BG, L_BOTTOM, L_WINDOWS, L_TOP, L_FULLSCREEN, L_OVERLAY, L_LOCK, L_COUNT };
 enum cursor_mode { CURSOR_PASSTHROUGH, CURSOR_MOVE, CURSOR_RESIZE };
-enum action { A_EXEC, A_CLOSE, A_QUIT, A_FOCUS_NEXT, A_FULLSCREEN, A_MAXIMIZE, A_OUTPUT_NEXT, A_RELOAD, A_NONE };
+enum action { A_EXEC, A_CLOSE, A_QUIT, A_FOCUS_NEXT, A_FULLSCREEN, A_MAXIMIZE, A_OUTPUT_NEXT, A_RELOAD,
+	A_SNAP_LEFT, A_SNAP_RIGHT, A_RESTORE_DOWN, A_SHOW_DESKTOP, A_NONE };
 
 struct bind { struct wl_list link; uint32_t mods; xkb_keysym_t sym; enum action action; char *arg; };
 /* mouse / touchpad / keyboard lines of compositor.conf; -1 (or NAN for accel) = leave as is */
@@ -219,6 +220,8 @@ struct view {
 	struct server *server;
 	bool is_x11, mapped, unmanaged, fullscreen, maximized, minimized;
 	bool tiled;               /* snapped to half a screen; saved holds the size to go back to */
+	int tile_zone;            /* which half, while tiled */
+	bool desktop_hidden;      /* minimized by Super+D; the next Super+D brings it back */
 	/* compositor-drawn title bar: for xdg windows that asked for server-side decorations and
 	 * X11 windows without a Motif "no decorations" hint. It sits above the content, at y < 0. */
 	bool ssd;
@@ -354,7 +357,8 @@ static bool parse_action(const char *name, enum action *a) {
 	static const struct { const char *n; enum action a; } t[] = {
 		{"exec", A_EXEC}, {"close", A_CLOSE}, {"quit", A_QUIT}, {"focus-next", A_FOCUS_NEXT},
 		{"fullscreen", A_FULLSCREEN}, {"maximize", A_MAXIMIZE}, {"output-next", A_OUTPUT_NEXT},
-		{"reload", A_RELOAD}, {"none", A_NONE},
+		{"reload", A_RELOAD}, {"snap-left", A_SNAP_LEFT}, {"snap-right", A_SNAP_RIGHT},
+		{"restore-down", A_RESTORE_DOWN}, {"show-desktop", A_SHOW_DESKTOP}, {"none", A_NONE},
 	};
 	for (size_t i = 0; i < sizeof t / sizeof *t; i++) if (!strcmp(name, t[i].n)) { *a = t[i].a; return true; }
 	return false;
@@ -388,6 +392,12 @@ static void set_default_binds(struct server *s) {
 	add_bind(s, "Super+Tab", A_FOCUS_NEXT, NULL, false);
 	add_bind(s, "Super+f", A_FULLSCREEN, NULL, false);
 	add_bind(s, "Super+Up", A_MAXIMIZE, NULL, false);
+	/* Windows 7: Super+Left/Right snap to half a screen, Super+Down restores then minimizes,
+	 * Super+D shows the desktop and brings the windows back */
+	add_bind(s, "Super+Left", A_SNAP_LEFT, NULL, false);
+	add_bind(s, "Super+Right", A_SNAP_RIGHT, NULL, false);
+	add_bind(s, "Super+Down", A_RESTORE_DOWN, NULL, false);
+	add_bind(s, "Super+d", A_SHOW_DESKTOP, NULL, false);
 	add_bind(s, "Super+o", A_OUTPUT_NEXT, NULL, false);
 	add_bind(s, "Super+Ctrl+Shift+r", A_RELOAD, NULL, false);
 	add_bind(s, "Super+Shift+e", A_QUIT, NULL, false);
@@ -402,6 +412,11 @@ static void set_default_binds(struct server *s) {
 	add_bind(s, "XF86AudioRaiseVolume", A_EXEC, SHELL_KEY "volume-up", false);
 	add_bind(s, "XF86AudioLowerVolume", A_EXEC, SHELL_KEY "volume-down", false);
 	add_bind(s, "XF86AudioMute", A_EXEC, SHELL_KEY "mute", false);
+	add_bind(s, "XF86AudioPlay", A_EXEC, SHELL_KEY "play-pause", false);
+	add_bind(s, "XF86AudioPause", A_EXEC, SHELL_KEY "play-pause", false);
+	add_bind(s, "XF86AudioNext", A_EXEC, SHELL_KEY "next", false);
+	add_bind(s, "XF86AudioPrev", A_EXEC, SHELL_KEY "previous", false);
+	add_bind(s, "XF86AudioStop", A_EXEC, SHELL_KEY "stop", false);
 #undef SHELL_KEY
 }
 
@@ -1662,7 +1677,10 @@ static void view_tile(struct view *v, struct output *o, int zone) {
 		v->saved = (struct wlr_box){ v->x, v->y, b.width, b.height };
 	}
 	v->tiled = true;
+	v->tile_zone = zone;
 	struct wlr_box b = snap_box(o, zone);
+	wlr_log(WLR_INFO, "window app_id=%s snapped %s on %s", view_app_id(v),
+		zone == SNAP_LEFT ? "left" : "right", o->wlr_output->name);
 	int dh = view_has_frame(v) ? TB_H : 0;
 	view_place(v, b.x, b.y + dh);
 	view_resize(v, b.width, b.height - dh);
@@ -2126,6 +2144,16 @@ static int idle_tick(void *data) {
 	if (now - s->idle_tick_at > 4 * IDLE_TICK_MS) { s->idle_since = now; s->idle_suspend_done = false; }
 	s->idle_tick_at = now;
 	if (s->inhibitors > 0) s->idle_since = now;       /* a video or a game holds the screen on */
+	/* apps that ask over D-Bus (org.freedesktop.ScreenSaver: Steam, Chrome, Discord): the
+	 * shell answers them and keeps this file while any inhibit is held */
+	{
+		static char flag[512];
+		if (!flag[0]) {
+			const char *rt = getenv("XDG_RUNTIME_DIR");
+			snprintf(flag, sizeof flag, "%s/spark-wl/idle-inhibit", rt ? rt : "/tmp");
+		}
+		if (access(flag, F_OK) == 0) s->idle_since = now;
+	}
 	/* so does any fullscreen window: a game played with a controller sends no input here */
 	struct view *fv;
 	wl_list_for_each(fv, &s->views, link)
@@ -2594,6 +2622,36 @@ static void new_vptr(struct wl_listener *l, void *data) {
 
 /* ---------- actions ---------- */
 
+/* Super+Left/Right, as in Windows 7: snap the focused window to that half; pressed again on a
+ * window already snapped there, it moves on to the next screen's far half, or comes back from the
+ * other half to its own size */
+static bool snap_key(struct server *s, int zone) {
+	struct view *v = s->focused_view;
+	if (!v || v->fullscreen || v->unmanaged) return false;
+	struct output *o = output_of(s, view_output(v));
+	if (!o) return false;
+	if (v->maximized) {
+		view_set_maximized(v, false);
+		view_tile(v, o, zone);
+		return true;
+	}
+	if (v->tiled && v->tile_zone != zone) {
+		view_untile(v);
+		view_place(v, v->saved.x, v->saved.y);
+		return true;
+	}
+	if (v->tiled) {
+		struct wlr_output *nx = wlr_output_layout_adjacent_output(s->output_layout,
+			zone == SNAP_LEFT ? WLR_DIRECTION_LEFT : WLR_DIRECTION_RIGHT, o->wlr_output, 0, 0);
+		struct output *no = nx ? output_of(s, nx) : NULL;
+		if (!no) return false;
+		view_tile(v, no, zone == SNAP_LEFT ? SNAP_RIGHT : SNAP_LEFT);
+		return true;
+	}
+	view_tile(v, o, zone);
+	return true;
+}
+
 static bool run_action(struct server *s, struct bind *b) {
 	switch (b->action) {
 	case A_EXEC: if (b->arg) spawn(b->arg); return true;
@@ -2613,6 +2671,37 @@ static bool run_action(struct server *s, struct bind *b) {
 		return true;
 	}
 	case A_RELOAD: free_config(s); set_default_binds(s); load_config(s); apply_input_cfg(s); return true;
+	case A_SNAP_LEFT: case A_SNAP_RIGHT: return snap_key(s, b->action == A_SNAP_LEFT ? SNAP_LEFT : SNAP_RIGHT);
+	case A_RESTORE_DOWN: {
+		struct view *v = s->focused_view;
+		if (!v || v->fullscreen) return false;
+		if (v->maximized) view_set_maximized(v, false);
+		else if (v->tiled) { view_untile(v); view_place(v, v->saved.x, v->saved.y); }
+		else view_set_minimized(v, true);
+		return true;
+	}
+	case A_SHOW_DESKTOP: {
+		/* (un)minimizing moves the focus, which reorders s->views: start the walk again after
+		 * each change */
+		bool any = false, again = true;
+		struct view *v;
+		while (again) {
+			again = false;
+			wl_list_for_each(v, &s->views, link) if (v->desktop_hidden) {
+				v->desktop_hidden = false;
+				if (v->mapped && v->minimized) { view_set_minimized(v, false); any = again = true; break; }
+			}
+		}
+		if (any) return true;
+		wl_list_for_each(v, &s->views, link)
+			if (v->mapped && !v->minimized && !v->unmanaged) v->desktop_hidden = true;
+		for (again = true; again; ) {
+			again = false;
+			wl_list_for_each(v, &s->views, link)
+				if (v->desktop_hidden && !v->minimized) { view_set_minimized(v, true); again = true; break; }
+		}
+		return true;
+	}
 	case A_NONE: return false;
 	}
 	return false;

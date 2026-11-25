@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from sparkshell import config, ending, notifyd, osd, tray, windows, xembed  # noqa: E402
+from sparkshell import config, ending, notifyd, osd, screensaver, tray, windows, xembed  # noqa: E402
 
 
 class Config(unittest.TestCase):
@@ -314,3 +314,35 @@ class PreloadTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ScreenSaverTest(unittest.TestCase):
+    def test_flag_follows_first_and_last_inhibit(self):
+        changes = []
+        inh = screensaver.Inhibitors(changes.append)
+        a = inh.add(':1.5', 'Steam', 'game')
+        b = inh.add(':1.6', 'mpv', 'video')
+        self.assertNotEqual(a, b)
+        self.assertFalse(inh.remove(a, sender=':1.6'))     # not yours
+        self.assertTrue(inh.remove(a, sender=':1.5'))
+        self.assertEqual(changes, [True])
+        inh.drop_sender(':1.6')                             # mpv left the bus
+        self.assertEqual(changes, [True, False])
+        self.assertFalse(inh.active)
+
+    def test_write_flag(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'spark-wl', 'idle-inhibit')
+            screensaver.write_flag(True, path)
+            self.assertTrue(os.path.exists(path))
+            screensaver.write_flag(False, path)
+            self.assertFalse(os.path.exists(path))
+            screensaver.write_flag(False, path)             # already gone is fine
+
+
+class MediaKeysTest(unittest.TestCase):
+    def test_playing_player_wins(self):
+        self.assertEqual(osd.choose_player([('a', 'Paused'), ('b', 'Playing'), ('c', 'Stopped')]), 'b')
+        self.assertEqual(osd.choose_player([('a', 'Stopped'), ('b', 'Paused')]), 'b')
+        self.assertEqual(osd.choose_player([('a', 'Stopped')]), 'a')
+        self.assertIsNone(osd.choose_player([]))
