@@ -12,4 +12,3 @@ Wants=plasma-powerdevil.service
 Wants=plasma-xembedsniproxy.service
 Wants=plasma-kwallet-pam.service
 Wants=xdg-desktop-autostart.target
-StopWhenUnneeded=true

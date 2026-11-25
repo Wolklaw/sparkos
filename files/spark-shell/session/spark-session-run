@@ -19,10 +19,13 @@ elif [ -z "$SPARK_SESSION_NO_SYSTEMD" ] && [ "$(systemctl --user is-system-runni
     use_systemd=1
 fi
 
+# the experimental compositor session (spark-wl-startup) brings up its own target, without KDE
+target=${SPARK_SESSION_TARGET:-spark-workspace.target}
+
 pids=""
 if [ "$use_systemd" = 1 ]; then
     systemctl --user import-environment $VARS 2>/dev/null
-    systemctl --user start spark-workspace.target
+    systemctl --user start "$target"
 else
     # no user systemd (a test container): start the helpers ourselves
     for helper in /usr/bin/kded6 /usr/libexec/spark-session-polkit; do
@@ -60,7 +63,7 @@ while :; do
 done
 
 if [ "$use_systemd" = 1 ]; then
-    systemctl --user stop spark-workspace.target
+    systemctl --user stop "$target"
 else
     for p in $pids; do kill "$p" 2>/dev/null; done
 fi

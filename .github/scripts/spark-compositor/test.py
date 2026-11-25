@@ -102,8 +102,14 @@ try:
 
     # 5. XWayland client
     if "DISPLAY" in cenv:
-        start(["xterm", "-T", "x11-test", "-e", "sleep", "60"])
+        xt = start(["xterm", "-T", "x11-test", "-e", "sleep", "60"])
         check(wait_log(r"mapped x11 window app_id=XTerm", 40), "XWayland client mapped (xterm)")
+        # closing an X11 window must not take the compositor down (wlroots asserts on listeners
+        # left on a destroyed xwayland surface)
+        xt.terminate()
+        xt.wait(10)
+        time.sleep(2)
+        check(comp.poll() is None, "compositor survives an X11 window closing")
     else:
         check(False, "XWayland started")
 

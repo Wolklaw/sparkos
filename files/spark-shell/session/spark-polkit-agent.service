@@ -1,7 +1,7 @@
 [Unit]
 Description=Spark polkit agent
 PartOf=graphical-session.target
-After=spark-workspace.target
+After=spark-workspace.target spark-wl-workspace.target
 
 [Service]
 ExecStart=/usr/libexec/spark-session-polkit

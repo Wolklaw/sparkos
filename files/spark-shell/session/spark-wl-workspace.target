@@ -1,0 +1,13 @@
+[Unit]
+Description=Spark session on the experimental Spark compositor
+Documentation=file:///usr/share/doc/spark-shell/README.md
+# What spark-workspace.target does for the KWin session, without the KDE helpers: starting
+# graphical-session.target is what lets xdg-desktop-portal (and every PartOf=graphical-session
+# service, like Spark Link and the Notes clipboard) run, and xdg-desktop-autostart starts the
+# apps that start with the session.
+Requires=graphical-session.target
+BindsTo=graphical-session.target
+Before=graphical-session.target
+Before=xdg-desktop-autostart.target
+Wants=spark-polkit-agent.service
+Wants=xdg-desktop-autostart.target
