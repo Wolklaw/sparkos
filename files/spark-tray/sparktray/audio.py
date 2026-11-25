@@ -59,6 +59,9 @@ class Volume:
         self.on_change, self.fake_dir = on_change, fake_dir
         self.backend = None
         self._watch = 0
+        # (node id, level) last asked for: Spark Audio sets the volume on a worker thread, so
+        # quick scroll notches must count from what was asked, not from the level not yet set
+        self._asked = None
 
     def start(self) -> bool:
         mod = load_backend_module()
@@ -81,6 +84,10 @@ class Volume:
 
     def _wake(self, _fd, _cond) -> bool:
         changed = self.backend.drain() if self.backend else False
+        if changed and self._asked:
+            n = self.output()
+            if not n or n.id != self._asked[0] or n.volume is None or abs(n.volume - self._asked[1]) < 0.005:
+                self._asked = None
         if changed:
             self.on_change()
         return True
@@ -98,6 +105,8 @@ class Volume:
 
     def level(self) -> Optional[float]:
         n = self.output()
+        if n and self._asked and self._asked[0] == n.id:
+            return self._asked[1]
         return n.volume if n else None
 
     def muted(self) -> bool:
@@ -107,7 +116,9 @@ class Volume:
     def set_level(self, value: float) -> None:
         n = self.output()
         if n:
-            self.backend.set_volume(n, max(0.0, min(MAX, value)))
+            value = max(0.0, min(MAX, value))
+            self._asked = (n.id, value)
+            self.backend.set_volume(n, value)
 
     def nudge(self, notches: int) -> None:
         """Scroll: up is louder. Moving the volume up from muted turns the sound on."""
@@ -116,7 +127,7 @@ class Volume:
             return
         if notches > 0 and n.mute:
             self.backend.set_mute(n, False)
-        self.set_level(round(n.volume + notches * STEP, 3))
+        self.set_level(round(self.level() + notches * STEP, 3))
 
     def toggle_mute(self) -> None:
         n = self.output()
