@@ -5,6 +5,7 @@ import json
 import os
 import socket
 import struct
+import time
 
 
 class GreetdError(Exception):
@@ -71,7 +72,16 @@ def login(client, username, answer, cmd, env=()):
     """Run a whole login. answer(kind, text) -> str|None is asked for every auth_message
     (kind is visible, secret, info or error). Returns after start_session succeeds (greetd then
     ends the greeter). Raises GreetdError; the pending session is cancelled first."""
-    reply = client.create_session(username)
+    reply = None
+    for attempt in range(10):
+        try:
+            reply = client.create_session(username)
+            break
+        except GreetdError as exc:
+            # greetd can still be tearing down the cancelled attempt a moment after it answered
+            if 'already being configured' not in str(exc) or attempt == 9:
+                raise
+            time.sleep(0.3)
     try:
         while reply['type'] == 'auth_message':
             kind = reply.get('auth_message_type', 'secret')
