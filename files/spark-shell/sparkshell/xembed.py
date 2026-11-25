@@ -172,13 +172,11 @@ class Icon:
             pass
         return False
 
-    def click(self, button: int, x: int = 0, y: int = 0):
-        """A press and release in the middle of the icon window, sent to it directly. x, y: where
-        the tray was clicked (0, 0 when unknown). Over the panel, a Wayland surface, XWayland
-        doesn't know where the pointer is, so X11's pointer goes there first (the real cursor
-        doesn't move)."""
-        from Xlib import X
-        from Xlib.protocol import event
+    def click(self, button: int, x: int = 0, y: int = 0, times: int = 1):
+        """A press and release (times=2: a double-click) in the middle of the icon window, sent
+        to it directly. x, y: where the tray was clicked (0, 0 when unknown). Over the panel, a
+        Wayland surface, XWayland doesn't know where the pointer is, so X11's pointer goes there
+        first (the real cursor doesn't move)."""
         t = self.tray
         if x or y:
             try:
@@ -198,15 +196,29 @@ class Icon:
             if self._back:
                 GLib.source_remove(self._back)
             self._back = GLib.timeout_add(1500, self._hide)
+        self._press(button, rx, ry)
+        if times > 1:
+            # Wine needs the second click as a separate one, a moment later; sent back to
+            # back, the pair reads as one click
+            GLib.timeout_add(80, lambda: self._press(button, rx, ry) and False)
+
+    def _press(self, button: int, rx: int, ry: int) -> bool:
+        from Xlib import X
+        from Xlib.protocol import event
+        t = self.tray
         ex = ey = SIZE // 2
         mask = {1: X.Button1Mask, 2: X.Button2Mask, 3: X.Button3Mask}.get(button, 0)
-        for cls, state in ((event.ButtonPress, 0), (event.ButtonRelease, mask)):
-            ev = cls(time=X.CurrentTime, root=t.root, window=self.win, same_screen=1, child=X.NONE,
-                     root_x=rx, root_y=ry, event_x=ex, event_y=ey, state=state,
-                     detail=button)
-            self.win.send_event(ev, event_mask=X.ButtonPressMask if cls is event.ButtonPress
-                                else X.ButtonReleaseMask)
-        t.d.flush()
+        try:
+            for cls, state in ((event.ButtonPress, 0), (event.ButtonRelease, mask)):
+                ev = cls(time=X.CurrentTime, root=t.root, window=self.win, same_screen=1,
+                         child=X.NONE, root_x=rx, root_y=ry, event_x=ex, event_y=ey, state=state,
+                         detail=button)
+                self.win.send_event(ev, event_mask=X.ButtonPressMask if cls is event.ButtonPress
+                                    else X.ButtonReleaseMask)
+            t.d.flush()
+        except Exception:                                # noqa: BLE001 - it went away
+            pass
+        return False
 
     # D-Bus side
     def _export(self):
@@ -243,7 +255,9 @@ class Icon:
         button = {'Activate': 1, 'SecondaryActivate': 2, 'ContextMenu': 3}.get(method)
         if button:
             x, y = params.unpack()
-            self.click(button, x, y)
+            # Windows tray icons open their app on a double-click (one click does nothing or
+            # shows a tooltip); the Spark tray opens apps on one.
+            self.click(button, x, y, times=2 if button == 1 else 1)
         inv.return_value(None)
 
     def changed(self):
