@@ -37,6 +37,7 @@ STRINGS = {
         'volume': 'VOLUME',
         'muted': 'MUTED',
         'brightness': 'BRIGHTNESS',
+        'keyboard': 'KEYBOARD LIGHT',
         'activate': 'Open',
     },
     'fr': {
@@ -73,6 +74,7 @@ STRINGS = {
         'volume': 'VOLUME',
         'muted': 'SOURDINE',
         'brightness': 'LUMINOSITÉ',
+        'keyboard': 'ÉCLAIRAGE DU CLAVIER',
         'activate': 'Ouvrir',
     },
 }

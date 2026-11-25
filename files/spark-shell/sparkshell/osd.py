@@ -1,14 +1,12 @@
-"""Volume and brightness: the keys' actions and the on-screen display.
+"""Volume and brightness: the volume keys' actions and the on-screen display.
 
-Volume goes through PipeWire's wpctl (the same server Spark Audio drives). Brightness goes
-through logind's SetBrightness for a laptop panel (no root needed), or ddcutil for a monitor
-when it is installed."""
+Volume goes through PipeWire's wpctl (the same server Spark Audio drives). Brightness belongs to
+powerdevil, which the Spark session runs for the screen-off and sleep timers and the power
+button: it takes the brightness keys, drives every monitor (backlight or DDC) and reports each
+change to org.kde.plasmashell /org/kde/osdService, which the shell answers with this display."""
 
-import glob
 import logging
-import os
 import re
-import shutil
 
 import gi
 
@@ -30,14 +28,6 @@ def parse_wpctl_volume(text: str):
     return float(m.group(1)), '[MUTED]' in text
 
 
-def parse_ddcutil(text: str):
-    """'VCP code 0x10 (Brightness): current value = 40, max value = 100' -> 0.4."""
-    m = re.search(r'current value\s*=\s*(\d+),\s*max value\s*=\s*(\d+)', text or '')
-    if not m or int(m.group(2)) <= 0:
-        return None
-    return int(m.group(1)) / int(m.group(2))
-
-
 def _run(argv, callback):
     try:
         proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE |
@@ -56,17 +46,31 @@ def _run(argv, callback):
     proc.communicate_utf8_async(None, None, done)
 
 
-def backlight():
-    """(name, brightness path, max) of the first laptop backlight, or None."""
-    for path in sorted(glob.glob('/sys/class/backlight/*')):
-        try:
-            with open(os.path.join(path, 'max_brightness')) as f:
-                maximum = int(f.read())
-            if maximum > 0:
-                return os.path.basename(path), os.path.join(path, 'brightness'), maximum
-        except (OSError, ValueError):
-            continue
-    return None
+# What powerdevil calls on org.kde.plasmashell (Plasma's osdService). Only the brightness calls
+# are answered; plasma-pa's and KWin's calls never come, since the shell does volume itself.
+OSD_SERVICE_XML = """
+<node>
+  <interface name="org.kde.osdService">
+    <method name="brightnessChanged"><arg type="i" name="percent" direction="in"/></method>
+    <method name="screenBrightnessChanged">
+      <arg type="i" name="percent" direction="in"/>
+      <arg type="(iiii)" name="screenRect" direction="in"/>
+    </method>
+    <method name="keyboardBrightnessChanged"><arg type="i" name="percent" direction="in"/></method>
+    <method name="hide"/>
+  </interface>
+</node>
+"""
+
+
+def osd_service_call(osd, method, args):
+    """One org.kde.osdService call -> the Spark display. Percent is 0-100."""
+    if method in ('brightnessChanged', 'screenBrightnessChanged'):
+        osd.show_level('brightness', max(0, min(100, int(args[0]))) / 100)
+    elif method == 'keyboardBrightnessChanged':
+        osd.show_level('keyboard', max(0, min(100, int(args[0]))) / 100)
+    elif method == 'hide':
+        osd.hide_now()
 
 
 class Osd(Gtk.Window):
@@ -86,9 +90,12 @@ class Osd(Gtk.Window):
         self.box = box
         self.set_child(box)
         self._timer = 0
+        self.last = None           # [kind, level] last shown, for the state call (tests)
 
     def show_level(self, kind, fraction, muted=False):
-        names = {'volume': tr('volume'), 'brightness': tr('brightness')}
+        self.last = [kind, round(fraction, 2)]
+        names = {'volume': tr('volume'), 'brightness': tr('brightness'),
+                 'keyboard': tr('keyboard')}
         text = names.get(kind, kind)
         if muted:
             text += '  ' + tr('muted')
@@ -102,6 +109,11 @@ class Osd(Gtk.Window):
         if self._timer:
             GLib.source_remove(self._timer)
         self._timer = GLib.timeout_add(1600, self._hide)
+
+    def hide_now(self):
+        if self._timer:
+            GLib.source_remove(self._timer)
+        self._hide()
 
     def _hide(self):
         self._timer = 0
@@ -122,8 +134,6 @@ class Controls:
             return
         if name.startswith('volume') or name == 'mute':
             self._volume(name)
-        elif name.startswith('brightness'):
-            self._brightness(1 if name.endswith('up') else -1)
 
     # volume ------------------------------------------------------------------------------
     def _volume(self, name):
@@ -140,34 +150,3 @@ class Controls:
         parsed = parse_wpctl_volume(out)
         if parsed:
             self.osd.show_level('volume', parsed[0], parsed[1])
-
-    # brightness --------------------------------------------------------------------------
-    def _brightness(self, direction):
-        light = backlight()
-        if light is not None:
-            name, path, maximum = light
-            try:
-                with open(path) as f:
-                    now = int(f.read())
-            except (OSError, ValueError):
-                return
-            value = max(1, min(maximum, now + direction * max(1, maximum * STEP // 100)))
-            self.conn.call(
-                'org.freedesktop.login1', '/org/freedesktop/login1/session/auto',
-                'org.freedesktop.login1.Session', 'SetBrightness',
-                GLib.Variant('(ssu)', ('backlight', name, value)), None,
-                Gio.DBusCallFlags.NONE, 2000, None, None)
-            self.osd.show_level('brightness', value / maximum)
-            return
-        if shutil.which('ddcutil'):
-            sign = '+' if direction > 0 else '-'
-            _run(['ddcutil', 'setvcp', '10', sign, str(STEP)], lambda _o: _run(
-                ['ddcutil', 'getvcp', '10'],
-                self._ddc_shown))
-        else:
-            log.info('no backlight and no ddcutil: brightness keys do nothing')
-
-    def _ddc_shown(self, out):
-        fraction = parse_ddcutil(out)
-        if fraction is not None:
-            self.osd.show_level('brightness', fraction)

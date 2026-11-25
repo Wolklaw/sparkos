@@ -189,11 +189,23 @@ class OsdParsers(unittest.TestCase):
         self.assertIsNone(osd.parse_wpctl_volume('nothing'))
         self.assertIsNone(osd.parse_wpctl_volume(None))
 
-    def test_ddcutil(self):
-        text = 'VCP code 0x10 (Brightness): current value =    40, max value =   100'
-        self.assertAlmostEqual(osd.parse_ddcutil(text), 0.4)
-        self.assertIsNone(osd.parse_ddcutil('current value = 4, max value = 0'))
-        self.assertIsNone(osd.parse_ddcutil(''))
+    def test_osd_service_brightness(self):
+        class FakeOsd:
+            def __init__(self):
+                self.shown, self.hidden = [], 0
+
+            def show_level(self, kind, fraction, muted=False):
+                self.shown.append((kind, fraction))
+
+            def hide_now(self):
+                self.hidden += 1
+        fake = FakeOsd()
+        osd.osd_service_call(fake, 'brightnessChanged', (40,))
+        osd.osd_service_call(fake, 'screenBrightnessChanged', (130, (0, 0, 2560, 1440)))
+        osd.osd_service_call(fake, 'keyboardBrightnessChanged', (-5,))
+        osd.osd_service_call(fake, 'hide', ())
+        self.assertEqual(fake.shown, [('brightness', 0.4), ('brightness', 1.0), ('keyboard', 0.0)])
+        self.assertEqual(fake.hidden, 1)
 
 
 if __name__ == '__main__':
