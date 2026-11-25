@@ -146,6 +146,31 @@ class Sessions(unittest.TestCase):
 
 
 @unittest.skipUnless(LINUX and shutil.which('sh'), "needs Linux and sh")
+class XDisplay(unittest.TestCase):
+    """A session with KWin and no plasma-workspace may leave DISPLAY out of the user manager's
+    environment; the prompt and the banner (Tk) still need it."""
+
+    def test_lowest_socket_of_that_user(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for name in ('X1', 'X0', 'X11', 'notasocket', 'X'):
+                open(os.path.join(folder, name), 'w').close()
+            self.assertEqual(share_mod.find_x_display(folder), ':0')
+            self.assertEqual(share_mod.find_x_display(folder, os.getuid()), ':0')
+            self.assertIsNone(share_mod.find_x_display(folder, os.getuid() + 1))
+
+    def test_no_folder_no_display(self):
+        self.assertIsNone(share_mod.find_x_display('/nonexistent-x11-folder'))
+
+    def test_session_env_fills_in_a_missing_display(self):
+        with mock.patch.object(share_mod, 'find_x_display', return_value=':7'), \
+                mock.patch.object(share_mod, 'run_as', return_value=''):
+            env = share_mod.session_env(os.getuid())
+        self.assertEqual(env['DISPLAY'], ':7')
+        with mock.patch.object(share_mod, 'find_x_display', return_value=':7'), \
+                mock.patch.object(share_mod, 'run_as', return_value='DISPLAY=:3\n'):
+            self.assertEqual(share_mod.session_env(os.getuid())['DISPLAY'], ':3')
+
+
 class ProbeDesktop(unittest.TestCase):
     """The probe's desktop block, run with a fake loginctl."""
 

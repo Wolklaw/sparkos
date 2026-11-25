@@ -36,7 +36,7 @@ import tempfile
 import threading
 import time
 
-VERSION = "0.1.0"
+VERSION = "0.1.1"
 KRDP = "/usr/bin/krdpserver"
 KRDP_DESKTOP = "/usr/share/applications/org.kde.krdpserver.desktop"
 NEEDED_INTERFACES = ("org_kde_kwin_fake_input", "zkde_screencast_unstable_v1")
@@ -163,6 +163,28 @@ def test_hook():
         return None
 
 
+def find_x_display(folder='/tmp/.X11-unix', want_uid=None):
+    """':0' for the lowest X socket in the folder (owned by want_uid when given), or None. A
+    session that starts KWin without plasma-workspace may not put DISPLAY in the user
+    manager's environment, and the prompt and banner (Tk) need it."""
+    try:
+        names = os.listdir(folder)
+    except OSError:
+        return None
+    found = []
+    for name in names:
+        m = re.match(r'^X(\d+)$', name)
+        if not m:
+            continue
+        try:
+            owner = os.stat(os.path.join(folder, name)).st_uid
+        except OSError:
+            continue
+        if want_uid is None or owner == want_uid:
+            found.append(int(m.group(1)))
+    return f":{min(found)}" if found else None
+
+
 def session_env(uid):
     """The graphical session's environment for a process we start in it: the runtime folder,
     the Wayland socket and the X display Tk and krdp need."""
@@ -188,6 +210,10 @@ def session_env(uid):
                 env['WAYLAND_DISPLAY'] = socks[0]
         except OSError:
             pass
+    if 'DISPLAY' not in env:
+        display = find_x_display(want_uid=uid)
+        if display:
+            env['DISPLAY'] = display
     if 'XAUTHORITY' not in env:
         try:
             auth = sorted(n for n in os.listdir(runtime) if n.startswith('xauth_'))

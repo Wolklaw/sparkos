@@ -16,6 +16,8 @@ dnf -y makecache
 # GameMode), vulkaninfo/vainfo to check the drivers, and xdg-terminal-exec (how Plasma and apps
 # open the default terminal, Spark Terminal). Kinoite's other projects' apps are
 # removed by sparkos-apps.sh (step 5).
+# fuse-sshfs: Spark Files' sftp places when kio-fuse is not on the session bus (a session
+# without Plasma); a user mount through fusermount3, no root.
 dnf_install \
   ImageMagick \
   kio-gdrive \
@@ -23,6 +25,7 @@ dnf_install \
   sane-airscan sane-backends-drivers-scanners \
   libratbag-ratbagd \
   fastfetch jq xdg-terminal-exec \
+  fuse-sshfs \
   gamescope mangohud gamemode \
   vulkan-tools libva-utils
 

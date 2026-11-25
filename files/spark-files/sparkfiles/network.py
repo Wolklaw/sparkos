@@ -329,6 +329,109 @@ class KioFuse:
         return path
 
 
+def kio_fuse_offered() -> bool:
+    """Is kio-fuse running, or startable by D-Bus activation? That needs KIO and kio-fuse, not
+    plasmashell, so it holds in a Plasma session and in a session with KWin alone."""
+    try:
+        import gi
+        gi.require_version('Gio', '2.0')
+        from gi.repository import Gio, GLib
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+
+        def ask(method, args, reply):
+            return bus.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
+                                 'org.freedesktop.DBus', method, args, GLib.VariantType(reply),
+                                 Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+        return (ask('NameHasOwner', GLib.Variant('(s)', (KioFuse.NAME,)), '(b)')
+                or KioFuse.NAME in ask('ListActivatableNames', None, '(as)'))
+    except Exception as exc:        # noqa: BLE001 - no PyGObject, no bus: KIO can't be reached
+        log.info("could not ask the bus about kio-fuse: %s", exc)
+        return False
+
+
+# ─── mounting through sshfs (sftp without KIO) ───────────────
+
+SSHFS_DIR = 'kio-fuse-sshfs'      # the same "kio-fuse-" prefix, so split_remote() and
+                                  # is_remote() treat these mounts like KIO's own
+
+
+class SshFs:
+    """sftp:// through sshfs, for a session where kio-fuse can't be started. Mounts the
+    server's root at $XDG_RUNTIME_DIR/kio-fuse-sshfs/sftp/<user@host[:port]> and returns that
+    folder plus the address's path. A password goes to sshfs on its standard input
+    (password_stdin), never on a command line; without one it uses keys and the agent and
+    never asks (BatchMode). The ssh host key rules are ssh's own."""
+
+    def __init__(self, runner: Optional[Callable] = None):
+        self.runner = runner or subprocess.run
+
+    @staticmethod
+    def available() -> bool:
+        return bool(shutil.which('sshfs'))
+
+    def mountpoint(self, server) -> str:
+        return os.path.join(runtime_dir(), SSHFS_DIR, 'sftp', server.netloc())
+
+    def argv(self, server, mountpoint: str, password: Optional[str]) -> List[str]:
+        cmd = ['sshfs', f"{server.user + '@' if server.user else ''}"
+                        f"{'[' + server.host + ']' if ':' in server.host else server.host}:/",
+               mountpoint, '-o', 'reconnect,ServerAliveInterval=15,ServerAliveCountMax=3,'
+               'follow_symlinks,idmap=user']
+        if server.port:
+            cmd += ['-p', str(server.port)]
+        cmd += ['-o', 'password_stdin,NumberOfPasswordPrompts=1' if password
+                else 'BatchMode=yes']
+        return cmd
+
+    def mount(self, url: str, timeout: float = CONNECT_TIMEOUT) -> str:
+        raise NetworkError('failed', 'sshfs needs a server, not a bare URL')
+
+    def mount_server(self, server, password: Optional[str],
+                     timeout: float = CONNECT_TIMEOUT) -> str:
+        if server.scheme != 'sftp':
+            raise NetworkError('no_kio', server.scheme)
+        point = self.mountpoint(server)
+        os.makedirs(point, mode=0o700, exist_ok=True)
+        if not os.path.ismount(point):
+            try:
+                done = self.runner(self.argv(server, point, password),
+                                   input=(password + '\n') if password else None,
+                                   capture_output=True, text=True, timeout=timeout)
+            except subprocess.TimeoutExpired:
+                raise NetworkError('timeout')
+            except OSError as exc:
+                raise NetworkError('no_kio', str(exc))
+            if done.returncode != 0:
+                text = (done.stderr or '').strip().splitlines()
+                raise NetworkError('failed', _scrub(text[-1] if text else '', server.url(password)))
+        return point + (server.path if server.path != '/' else '')
+
+    def unmount_all(self) -> None:
+        """At exit: let go of the mounts this app made."""
+        base = os.path.join(runtime_dir(), SSHFS_DIR, 'sftp')
+        try:
+            names = os.listdir(base)
+        except OSError:
+            return
+        tool = shutil.which('fusermount3') or shutil.which('fusermount')
+        for name in names:
+            point = os.path.join(base, name)
+            if tool and os.path.ismount(point):
+                subprocess.run([tool, '-u', '-z', point], capture_output=True, timeout=10)
+
+
+def choose_backend(target, kio_offered: Optional[bool] = None, sshfs_there: Optional[bool] = None):
+    """KIO's kio-fuse when it can be reached (the same on Plasma as before); sshfs for sftp
+    when it can't; otherwise kio-fuse, whose error says what is missing."""
+    kio = kio_fuse_offered() if kio_offered is None else kio_offered
+    if kio:
+        return KioFuse()
+    if getattr(target, 'scheme', '') == 'sftp' and (
+            SshFs.available() if sshfs_there is None else sshfs_there):
+        return SshFs()
+    return KioFuse()
+
+
 def _scrub(text: str, url: str) -> str:
     """Error text without the password (it was in the URL we sent)."""
     try:
@@ -363,8 +466,12 @@ def connect_blocking(server: Server, password: Optional[str], backend=None,
                      timeout: float = CONNECT_TIMEOUT) -> str:
     """Mount the server and check it answers a listing. Returns the local path. Raises
     NetworkError. Takes up to `timeout` seconds in total; call from a thread."""
-    backend = backend or KioFuse()
-    done, value = _within(timeout, lambda: backend.mount(server.url(password), timeout))
+    backend = backend or choose_backend(server)
+    if isinstance(backend, SshFs):
+        mount = lambda: backend.mount_server(server, password, timeout)    # noqa: E731
+    else:
+        mount = lambda: backend.mount(server.url(password), timeout)       # noqa: E731
+    done, value = _within(timeout, mount)
     if done is None:
         raise NetworkError('timeout')
     if not done:

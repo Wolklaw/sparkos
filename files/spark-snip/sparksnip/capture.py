@@ -328,6 +328,36 @@ def _remove_quietly(path: str):
         pass
 
 
+def kwin_screenshot_offered(bus=None) -> bool:
+    """Is org.kde.KWin.ScreenShot2 on the session bus (running) or startable from a service
+    file? That is true in a Plasma session and in a session that runs KWin alone."""
+    Gio, GLib = _gio()
+    own = bus is None
+    bus = bus or session_bus()
+    try:
+        def ask(method: str, args, reply: str):
+            return bus.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
+                                 'org.freedesktop.DBus', method, args, GLib.VariantType(reply),
+                                 Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
+        try:
+            if ask('NameHasOwner', GLib.Variant('(s)', (KWIN_BUS,)), '(b)'):
+                return True
+            return KWIN_BUS in ask('ListActivatableNames', None, '(as)')
+        except GLib.Error as exc:
+            log.info("asking the bus about KWin failed: %s", _dbus_message(exc))
+            return False
+    finally:
+        if own:
+            _close_quietly_bus(bus)
+
+
+def _close_quietly_bus(bus):
+    try:
+        bus.close_sync(None)
+    except Exception:                               # noqa: BLE001
+        pass
+
+
 def gio_ready() -> Tuple[bool, str]:
     """For --self-test: can this Python talk D-Bus and pass file descriptors?"""
     try:
@@ -350,13 +380,16 @@ DESKTOPS = {      # what capture_order() sees on each kind of desktop
     'wlroots': {'XDG_SESSION_TYPE': 'wayland', 'WAYLAND_DISPLAY': 'wayland-0',
                 'XDG_CURRENT_DESKTOP': 'sway'},
     'x11': {'XDG_SESSION_TYPE': 'x11', 'DISPLAY': ':0', 'XDG_CURRENT_DESKTOP': 'KDE'},
+    # KWin alone, no plasmashell, and not called KDE: the order depends on the bus
+    'spark': {'XDG_SESSION_TYPE': 'wayland', 'WAYLAND_DISPLAY': 'wayland-0',
+              'XDG_CURRENT_DESKTOP': 'Spark', 'SPARK_SNIP_KWIN': '1'},
 }
 
 
 def orders_by_desktop() -> Dict[str, list]:
     from .core import capture_order
     keys = {'XDG_SESSION_TYPE', 'WAYLAND_DISPLAY', 'DISPLAY', 'XDG_CURRENT_DESKTOP',
-            'SPARK_SNIP_CAPTURE'}
+            'SPARK_SNIP_CAPTURE', 'SPARK_SNIP_KWIN'}
     saved = {key: os.environ.get(key) for key in keys}
     orders = {}
     try:
@@ -432,11 +465,14 @@ def self_check() -> Dict[str, Any]:
         'spectacle' in order and not set(order[:order.index('spectacle')]) & {'kwin', 'portal'}
         for order in orders.values())
     report['plasma_uses_kwin'] = orders['plasma'][:1] == ['kwin']
+    # a session with KWin and no plasmashell, named something else, still reads through KWin
+    report['spark_uses_kwin'] = orders['spark'][:1] == ['kwin']
     report['spectacle_installed'] = bool(shutil.which('spectacle'))     # just for the record
     entries = [check_desktop_entry(path) for path in desktop_entry_paths()]
     report['desktop_entries'] = entries
     report['passed'] = (ok and report['raw_decode'] is True and not report['spectacle_required']
-                        and report['plasma_uses_kwin'] and all(e['passed'] for e in entries))
+                        and report['plasma_uses_kwin'] and report['spark_uses_kwin']
+                        and all(e['passed'] for e in entries))
     return report
 
 

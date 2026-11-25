@@ -268,6 +268,10 @@ class App:
         except Exception:                        # noqa: BLE001
             pass
         self.bridge.close()
+        try:
+            network.SshFs().unmount_all()        # only mounts this app made without KIO
+        except Exception:                        # noqa: BLE001
+            pass
         # cancel every timer in Tcl only: the callbacks belong to the widgets that made them,
         # which delete them as they're destroyed (deleting them here too makes destroy fail)
         try:
