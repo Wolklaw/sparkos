@@ -52,7 +52,7 @@ jobs:
 
       - name: Smoke checks under KWin with no plasmashell
         run: |
-          sudo podman run --rm --cap-add=SYS_NICE -v "$PWD:/src:ro" -e KWIN_ONLY_STRICT=1 "$IMAGE" bash -euo pipefail -c '
+          sudo podman run --rm --cap-add=SYS_NICE --device /dev/fuse -v "$PWD:/src:ro" -e KWIN_ONLY_STRICT=1 "$IMAGE" bash -euo pipefail -c '
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)
             cp -r /src "$home/repo"
@@ -60,5 +60,5 @@ jobs:
             # setpriv, not su: a PAM session fails in a container
             setpriv --reuid=tester --regid=tester --init-groups \
               env -i HOME="$home" USER=tester LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin \
-              LANG=C.UTF-8 KWIN_ONLY_STRICT=1 bash -c "cd ~/repo && files/spark-apps/ci/kwin-only.sh python3 files/spark-apps/ci/kwin_only_smoke.py"
+              LANG=C.UTF-8 KWIN_ONLY_STRICT=1 LIBGL_ALWAYS_SOFTWARE=1 bash -c "cd ~/repo && files/spark-apps/ci/kwin-only.sh python3 files/spark-apps/ci/kwin_only_smoke.py"
           '

@@ -108,8 +108,8 @@ export KWIN_ONLY_WORK="$WORK"
 "$@"
 rc=$?
 if [ "$rc" -ne 0 ]; then
-  for log in kwin portal portal-kde; do
-    [ -s "$WORK/$log.log" ] && { echo "--- $log.log (tail)" >&2; tail -n 15 "$WORK/$log.log" >&2; }
+  for log in kwin portal-kde portal; do
+    [ -s "$WORK/$log.log" ] && { echo "--- $log.log (tail)" >&2; tail -n 25 "$WORK/$log.log" >&2; }
   done
 fi
 exit "$rc"
