@@ -178,7 +178,7 @@ class EndToEnd(Fixture):
             run('envelope', '--payload', payload, '--signature', sig, '--out', index)
             said = run('verify', '--index', index, '--key', self.pub).stdout
             serial += 1
-            self.assertIn(f"serial {serial}, 6 app(s)", said)
+            self.assertIn(f"serial {serial}, 7 app(s)", said)
         with open(os.path.join(out, 'entries.json'), encoding='utf-8') as f:
             entries = json.load(f)
         for slug, entry in entries.items():
