@@ -40,6 +40,7 @@ restarts) ask "Continue?" first.
 | `spark windows` | Restart into Windows once (UEFI `BootNext`) | `setup-boot-windows-steam` |
 | `spark watchdog [status\|on\|off]` | Hardware watchdog (AMD `sp5100_tco`, Intel `iTCO_wdt`) | `configure-watchdog` |
 | `spark sysrq [status\|on\|off]` | Alt+SysRq emergency keys (REISUB) | `reisub` |
+| `spark secureboot [status\|enroll]` | Secure Boot state, whether SparkOS's module key is enrolled, which SparkOS kernel modules are loaded and who signed them; `enroll` runs `mokutil --import` with a one-time password you choose, finished at the blue MOK screen on the next restart | `enroll-secure-boot-key` (SparkOS's own key) |
 | **Services** | | |
 | `spark service NAME [status\|on\|off\|start\|stop\|restart]` | Any system service | (new) |
 | `spark ssh [status\|on\|off\|once]` | SSH into this PC | `ssh` |
@@ -64,8 +65,7 @@ Once it's set up, `/etc/profile.d/brew.sh` puts Homebrew at the end of `PATH` (S
   `setup-decky` and the Decky plugins, `get-framegen`, `get-lsfg`, `steamos-automount`,
   `cec-mode`, `cec-sleep`, `configure-htpc-auto-hdr`, `steam-icons`, the Framework recipes,
   `toggle-i915-sleep-fix`, `check-idle-power-draw`. SparkOS targets a desktop PC.
-- **Nvidia and Intel:** `toggle-nvk`, `enroll-secure-boot-key` (Universal Blue's akmods key; Fedora's
-  kernel is signed by Fedora), `global-dlss`, `manage-intel-ethernet`.
+- **Nvidia and Intel:** `toggle-nvk`, `global-dlss`, `manage-intel-ethernet`. (`enroll-secure-boot-key` became `spark secureboot enroll`, with SparkOS's own key.)
 - **Installing other people's apps:** `install-jetbrains-toolbox`, `install-resolve`, `openrgb`,
   `install-coolercontrol`, `install-openrazer`, `asus`, `install-displaylink`, `resilio-sync`,
   `get-emudeck`, `get-steamcmd`, `get-protonplus`, `install-boxtron`, `setup-sunshine`,

@@ -30,8 +30,9 @@ Two things seen on Fedora that weren't on Bazzite, neither a regression:
   on powersave when run from a terminal. Bazzite had no GameMode at all. Not yet looked into.
 - **Secure Boot.** Fedora's kernel is signed by Fedora, so Secure Boot needs no key enrollment and
   the installer no longer asks for one. The kernel modules SparkOS builds aren't signed yet: with
-  Secure Boot on they don't load (the system still boots). See [Secure Boot](#kernel-modules) under
-  Kernel modules.
+  Secure Boot on they don't load until their key is enrolled (the system still boots). The image
+  build signs them when it has the key; `spark secureboot enroll` does the enrollment. See
+  [Secure Boot](#kernel-modules) under Kernel modules.
 
 The rest of this page is the prototype record from before the switch, kept as it was written; file
 names in it are the old ones.
@@ -197,7 +198,7 @@ fixes, template files), `uupd` (updates, daily at 04:00), `brew-setup` (Homebrew
 | Piece | On SparkOS today (Bazzite) | On the prototype (Fedora) | What it costs to own | Whose packages it still needs |
 |---|---|---|---|---|
 | **Kernel** | OGC kernel 7.3.4, signed with Universal Blue's key (Secure Boot needs the key enrolled once) | Fedora's 7.3.4, signed by Fedora: Secure Boot works with no enrollment | Nothing. Same upstream version. The RX 6800 XT and 7800X3D are fully supported by stock kernels. | Fedora |
-| **Out-of-tree kernel modules** | 20 from Universal Blue's akmods, prebuilt for the OGC kernel (xone, zenergy, ryzen_smu, v4l2loopback, the wheel drivers, vhba, kvmfr, openrazer, ...) | Built by SparkOS while the image builds: zenergy, ryzen_smu, v4l2loopback, xone, hid-fanatecff, new-lg4ff, hid-tmff2 and vhba (see [Kernel modules](#kernel-modules)). xpad, hid-playstation, hid-nintendo and hid-steam are in Fedora's kernel. | About 1 to 2 minutes per build, and 254 MB of kernel-devel in a build stage that isn't kept. A source pin to bump when a module breaks on a new kernel. Signing, if Secure Boot is ever turned on. | The modules' own projects (pinned sources), RPM Fusion's akmod-v4l2loopback, Microsoft's xone firmware |
+| **Out-of-tree kernel modules** | 20 from Universal Blue's akmods, prebuilt for the OGC kernel (xone, zenergy, ryzen_smu, v4l2loopback, the wheel drivers, vhba, kvmfr, openrazer, ...) | Built by SparkOS while the image builds: zenergy, ryzen_smu, v4l2loopback, xone, hid-fanatecff, new-lg4ff, hid-tmff2 and vhba (see [Kernel modules](#kernel-modules)). xpad, hid-playstation, hid-nintendo and hid-steam are in Fedora's kernel. | About 1 to 2 minutes per build, and 254 MB of kernel-devel in a build stage that isn't kept. A source pin to bump when a module breaks on a new kernel. Signing for Secure Boot (a key in a GitHub secret, one enrollment per PC). | The modules' own projects (pinned sources), RPM Fusion's akmod-v4l2loopback, Microsoft's xone firmware |
 | **Mesa (OpenGL, Vulkan)** | Terra's build of Mesa 26.2.7 | Fedora's Mesa 26.2.7, same version | Nothing for games: RADV and RadeonSI are the same code. | Fedora |
 | **Hardware video decode (VA-API)** | Terra's Mesa decodes H.264 and H.265 on the GPU | Fedora builds Mesa with Mesa's default, patent-free codecs only: no H.264/H.265 on the GPU. Software decoding of H.264 still works (OpenH264). | Not measurable in the VM (no AMD GPU). RPM Fusion has a `mesa-va-drivers-freeworld` package that adds them; see the RPM Fusion results below. | RPM Fusion (or Terra) |
 | **FFmpeg and codecs** | negativo17's full FFmpeg | Fedora's `ffmpeg-free` + Cisco's OpenH264 (from Fedora's `fedora-cisco-openh264` repo, swapped in for Kinoite's empty `noopenh264`). Measured by encoding and decoding: **H.264, AAC and MP3 decode; H.265 does not.** | One swap: `dnf swap ffmpeg-free ffmpeg` from RPM Fusion. Measured below. | RPM Fusion (or negativo17) |
@@ -327,19 +328,27 @@ temperature (k10temp) and GPU power, and Spark Bench reads only frame times. Wha
 the stage, including the kernel-devel download, 254 MB installed, which isn't kept). The image
 grows by under 1 MB of modules and firmware, plus `linuxconsoletools`.
 
-**Secure Boot.** It is off on the owner's PC, so the modules aren't signed. With Secure Boot on,
-Fedora's kernel locks down and refuses any module not signed by a key it trusts: these modules
-would fail to load (the system still boots). To turn it on later:
+**Secure Boot.** With it on, Fedora's kernel locks down and refuses any module not signed by a
+key it trusts: unsigned modules fail to load (the system still boots). SparkOS signs them:
 
-1. Make a key pair once (`openssl req -new -x509 -newkey rsa:2048 -nodes -days 36500
-   -outform DER -keyout MOK.priv -out MOK.der -subj "/CN=SparkOS kernel modules/"`) and store
-   the private key as a GitHub Actions secret, never in the repository.
-2. In the build stage, mount the secret and sign each `.ko` before it's compressed:
-   `/usr/src/kernels/<kernel>/scripts/sign-file sha256 MOK.priv MOK.der module.ko`. For
-   v4l2loopback, akmods signs with the key in `/etc/pki/akmods/` when one is there.
-3. Ship `MOK.der` in the image and enroll it once per PC: `sudo mokutil --import MOK.der`,
-   choose a password, reboot, and confirm in the blue MOK manager screen. Bazzite asks for the
-   same step with Universal Blue's key.
+- The image build signs every module `kmods.sh` produces (the ones built from source and
+  v4l2loopback's) with the kernel's `sign-file` (sha256), in the install step (4b), using a private
+  key passed as the `kmod_signing_key` build secret (the `KMOD_SIGNING_KEY` GitHub Actions
+  secret). The secret is mounted for that one step and isn't in any layer. It then checks every
+  module with `modinfo -F signer`, and that the key matches the certificate.
+- Without the secret (pull requests from forks, Dependabot, local builds) the build still
+  succeeds, logs `NOT SIGNING`, and leaves the modules unsigned.
+- The public certificate is `secureboot/sparkos-kmods.der` in the repo, shipped as
+  `/usr/share/sparkos/secureboot/sparkos-kmods.der`. If the file isn't committed yet, the image has
+  no certificate and `spark secureboot enroll` says so.
+- Each PC enrolls it once: `spark secureboot enroll` runs `mokutil --import` with a one-time
+  password, and the blue MOK manager at the next restart finishes it. `spark secureboot` shows
+  the Secure Boot state, whether the key is enrolled, and each module's loaded state and signer.
+- Making the key and adding the secret: [building.md](building.md#module-signing-secure-boot).
+
+Not tested: no signed build has been made yet and no PC has enrolled the key. Which of these
+works first time on real firmware (the signature on `.ko.xz` modules, the certificate's key usage
+fields being accepted by shim's MOK list) is unknown until it's tried with Secure Boot on.
 
 ## Performance and tuning
 
