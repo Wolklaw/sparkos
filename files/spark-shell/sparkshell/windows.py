@@ -6,8 +6,8 @@ KWin's scripting D-Bus API. A small script, loaded through org.kde.KWin /Scripti
 windows and calls dev.wolklaw.SparkShell /Shell Windows(json) on every change. Actions (raise,
 minimise, close) go back the same way: a one-line script per action, loaded and run once.
 
-The same script registers the volume, mute and brightness keys (KWin hosts kglobalacceld), so
-they work with no plasmashell and no powerdevil."""
+The same script registers the volume and mute keys (KWin hosts kglobalacceld), so they work with
+no plasmashell. The brightness keys are powerdevil's (see osd.py)."""
 
 import json
 import logging
@@ -81,10 +81,6 @@ function key(name) {
 registerShortcut("Spark: Volume up", "Spark shell", "Volume Up", key("volume-up"));
 registerShortcut("Spark: Volume down", "Spark shell", "Volume Down", key("volume-down"));
 registerShortcut("Spark: Mute", "Spark shell", "Volume Mute", key("mute"));
-registerShortcut("Spark: Brightness up", "Spark shell", "Monitor Brightness Up",
-                 key("brightness-up"));
-registerShortcut("Spark: Brightness down", "Spark shell", "Monitor Brightness Down",
-                 key("brightness-down"));
 """
 
 # One-shot actions. %s is the window id (a UUID in braces; never anything else, see _safe_id).

@@ -227,6 +227,13 @@ def main():
             check('window carries its app id', found[0]['app'] == 'dev.wolklaw.SparkTestWindow',
                   str(found[0]))
         pump(1.0)
+        # powerdevil's brightness report, the way it sends it to plasmashell
+        conn.call_sync('org.kde.plasmashell', '/org/kde/osdService', 'org.kde.osdService',
+                       'screenBrightnessChanged', GLib.Variant('(i(iiii))', (40, (0, 0, 1920, 1080))),
+                       None, Gio.DBusCallFlags.NONE, 3000, None)
+        check('powerdevil brightness shows on the OSD',
+              bool(wait_for(lambda: shell_state(conn)['osd'] == ['brightness', 0.4], 5)),
+              str(shell_state(conn)['osd']))
         conn.call_sync(SHELL, '/Shell', SHELL, 'Key', GLib.Variant('(s)', ('osd-test',)), None,
                        Gio.DBusCallFlags.NONE, 3000, None)
         pump(1.0)

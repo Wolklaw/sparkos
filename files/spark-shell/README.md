@@ -11,7 +11,7 @@ Stage 3 of replacing KDE (see [PLAN.md](../../PLAN.md), "Replacing KDE"). The de
 | Notifications | `org.freedesktop.Notifications` 1.2: actions, urgency, replace-id, images, do not disturb, a history list that survives restarts. Only in this session. |
 | Launcher | Full-screen search card: apps ranked by the same logic as the Spark Launcher widget (`launcher_logic.py`), sums answered by Spark Calc, power buttons with a second click to confirm. The Meta key opens it. |
 | Wallpaper | One background surface per monitor. No desktop icons. |
-| OSD | Volume (wpctl) and brightness (the backlight through logind, or ddcutil) with a bar on screen. |
+| OSD | Volume (wpctl) with a bar on screen. Brightness is powerdevil's: it takes the keys, drives every monitor and reports to `org.kde.plasmashell /org/kde/osdService`, which the shell answers with the same bar. |
 | Session | `spark-session` starts KWin, then `spark-session-run` brings up what Plasma's startup does (activation environment, the `spark-workspace.target` user target, KDE daemon, portal, polkit agent) and runs the shell, restarting it if it crashes. |
 
 ## Settings
@@ -27,7 +27,7 @@ Stage 3 of replacing KDE (see [PLAN.md](../../PLAN.md), "Replacing KDE"). The de
 
 ## How the pieces talk to KWin
 
-KWin only gives its window list to plasmashell, so the shell loads a small KWin script through `org.kde.KWin /Scripting`. The script reports windows to the shell and carries the shell's actions (activate, minimize, close) and the volume and brightness keys back. The shell also owns the name `org.kde.plasmashell` so that the Meta key (`activateLauncherMenu`) reaches it.
+KWin only gives its window list to plasmashell, so the shell loads a small KWin script through `org.kde.KWin /Scripting`. The script reports windows to the shell and carries the shell's actions (activate, minimize, close) and the volume keys back. The shell also owns the name `org.kde.plasmashell` so that the Meta key (`activateLauncherMenu`) reaches it.
 
 ## Install
 

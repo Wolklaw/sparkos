@@ -1,7 +1,8 @@
 #!/bin/sh
 # Runs inside the compositor (KWin starts it and ends the session when it exits). Brings up
 # what Plasma's startup would: the environment for D-Bus activation and systemd, the helper
-# services (KDE daemon, portal, polkit agent, xembed tray proxy) and then the Spark shell.
+# services (KDE daemon, portal, polkit agent, powerdevil, xembed tray proxy) and then the Spark
+# shell.
 # The shell is restarted if it crashes; leaving it on purpose (Quit) ends the session.
 
 VARS="WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
@@ -33,7 +34,9 @@ else
 fi
 
 here=$(dirname "$0")
-if [ -x /usr/bin/spark-shell ]; then
+# tests/headless.sh sets SPARK_SHELL_FROM_SOURCE: in the SparkOS image the installed shell would
+# otherwise be tested instead of the checkout's
+if [ -x /usr/bin/spark-shell ] && [ -z "$SPARK_SHELL_FROM_SOURCE" ]; then
     run_shell() { /usr/bin/spark-shell; }
 else
     run_shell() { python3 "$here/../spark_shell.py"; }      # a source checkout (tests)

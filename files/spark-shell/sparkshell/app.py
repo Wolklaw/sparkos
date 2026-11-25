@@ -14,7 +14,7 @@ from .dbusutil import DBusFail, export  # noqa: E402
 from .launcherui import Launcher  # noqa: E402
 from .notifyd import NotificationServer  # noqa: E402
 from .notifyui import NotificationsUI  # noqa: E402
-from .osd import Controls, Osd  # noqa: E402
+from .osd import OSD_SERVICE_XML, Controls, Osd, osd_service_call  # noqa: E402
 from .panel import Panel  # noqa: E402
 from .tray import TrayHost  # noqa: E402
 from .wallpaper import Wallpaper  # noqa: E402
@@ -81,6 +81,8 @@ class Shell(Gtk.Application):
 
         export(conn, '/Shell', SHELL_XML, self._shell_call)
         export(conn, '/PlasmaShell', PLASMASHELL_XML, self._plasma_call)
+        export(conn, '/org/kde/osdService', OSD_SERVICE_XML,
+               lambda _i, method, args, _s: osd_service_call(self.osd, method, args))
         Gio.bus_own_name_on_connection(conn, 'org.kde.plasmashell',
                                        Gio.BusNameOwnerFlags.DO_NOT_QUEUE, None, None)
         Gio.bus_own_name_on_connection(conn, 'org.freedesktop.Notifications',
@@ -224,6 +226,7 @@ class Shell(Gtk.Application):
                               'history': len(self.notifyd.history),
                               'dnd': self.notifyd.dnd},
             'launcher_open': self.launcher.get_visible(),
+            'osd': self.osd.last,
         })
 
     def _plasma_call(self, interface, method, args, sender):
