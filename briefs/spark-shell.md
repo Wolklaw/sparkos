@@ -26,7 +26,7 @@ Keys, all optional: `wallpaper` (path), `wallpaper_mode` (`fill` `fit` `stretch`
 - **Window list through a KWin script**, because KWin only gives the plasma window management protocol to plasmashell. It was checked on a headless KWin.
 - **Panel and toast screenshots are missing** from the CI artifact: the headless capture renders the shell's own windows, and container widgets (the panel, the toasts) came back empty. KWin's ScreenShot2 crashed the software-rendered KWin, so it is not used. The wallpaper, launcher and OSD are in the artifact.
 - No pinned-apps editor beyond the task list's right-click menu (pin, unpin).
-- The polkit agent is a placeholder that starts `spark-polkit-agent` when it exists and KDE's agent otherwise; the lock screen, polkit and greeter belong to another session.
+- The polkit agent is `spark-polkit` (from files/spark-session), with KDE's agent as the fallback when an image has none.
 
 ## Tried, and not
 

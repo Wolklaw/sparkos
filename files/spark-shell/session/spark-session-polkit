@@ -1,8 +1,8 @@
 #!/bin/sh
-# The polkit agent of the Spark session. Placeholder: runs Spark's own agent when the image has
-# one (/usr/bin/spark-polkit-agent), otherwise the KDE agent Plasma uses, so password prompts
-# work either way. The lock screen / polkit work replaces the KDE fallback.
-for agent in /usr/bin/spark-polkit-agent /usr/libexec/kf6/polkit-kde-authentication-agent-1; do
+# The polkit agent of the Spark session: Spark's own (spark-polkit, files/spark-session), or KDE's
+# agent if an image has no Spark agent, so password prompts work either way. KDE's autostart entry
+# for its agent has X-systemd-skip=true, so it never starts next to this one.
+for agent in /usr/bin/spark-polkit /usr/libexec/kf6/polkit-kde-authentication-agent-1; do
     [ -x "$agent" ] && exec "$agent"
 done
 echo "spark-session-polkit: no polkit agent installed" >&2
