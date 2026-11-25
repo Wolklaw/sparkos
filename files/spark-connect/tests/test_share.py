@@ -171,6 +171,7 @@ class XDisplay(unittest.TestCase):
             self.assertEqual(share_mod.session_env(os.getuid())['DISPLAY'], ':3')
 
 
+@unittest.skipUnless(LINUX and shutil.which('sh'), "needs Linux and sh")
 class ProbeDesktop(unittest.TestCase):
     """The probe's desktop block, run with a fake loginctl."""
 
