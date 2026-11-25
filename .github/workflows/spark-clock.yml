@@ -33,7 +33,7 @@ jobs:
       - name: Self-test
         run: spark-clock --self-test
 
-      - name: Wake helper (the image half): installs and refuses bad input
+      - name: "Wake helper (the image half): installs and refuses bad input"
         run: CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-clock-wake.sh
 
       - name: Tests (Xvfb)
