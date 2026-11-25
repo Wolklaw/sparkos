@@ -510,7 +510,7 @@ jobs:
           grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.compress.desktop' "$WORK/servicemenus.txt"
           # Spark Terminal is the default terminal; Konsole is gone
-          $SSH 'kreadconfig6 --group General --key TerminalApplication; xdg-terminal-exec --print-id; ! rpm -q konsole; test ! -e /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
+          $SSH 'kreadconfig6 --group General --key TerminalApplication; xdg-terminal-exec --print-id; ! rpm -q konsole >/dev/null; test ! -e /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
           diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n') "$WORK/terminal.txt"
           # Spark Emoji has Meta+. and Plasma's Emoji Selector is hidden and gave the key up
           $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.plasma.emojier.desktop; grep -c "^X-KDE-Shortcuts=" /usr/share/applications/org.kde.plasma.emojier.desktop || true' | tee "$WORK/emoji.txt"
