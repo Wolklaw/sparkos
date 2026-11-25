@@ -46,8 +46,10 @@ class Ring:
 
 
 class Engine:
-    def __init__(self, notifier, loop, clock: Callable[[], float] = time.time):
+    def __init__(self, notifier, loop, clock: Callable[[], float] = time.time, wake=None):
         self.notifier, self.loop, self.clock = notifier, loop, clock
+        self.wake = wake                  # a wake.WakeScheduler, or None for no wake from sleep
+        self.wake_note: Dict[str, Any] = {}
         self.rings: Dict[str, Ring] = {}
         service = store.load_service()
         self.snoozes: List[Dict[str, Any]] = service['snoozes']
@@ -71,6 +73,7 @@ class Engine:
         self._snoozes(now)
         self._timers(now)
         self._expire(config, now)
+        self._wake(config, now)
         self.loop.tick()
         self.last_tick = now
         if self.changed or now - self.saved_at >= SAVE_EVERY:
@@ -148,6 +151,19 @@ class Engine:
                 log.info("%s rang %d s with no answer", ring.key, limit)
                 self._end(ring, now, answered=False,
                           minutes=config['settings']['ring_minutes'])
+
+    def _wake(self, config: Dict[str, Any], now: float) -> None:
+        """Keep the PC's wake time at the next ring (a failure here never stops the ringing)."""
+        if self.wake is None:
+            return
+        try:
+            note = self.wake.update(config, self.snoozes, now)
+        except Exception:
+            log.exception("wake update failed")
+            return
+        if note != self.wake_note:
+            self.wake_note = note
+            self.changed = True
 
     # ─── rings ───
 
@@ -239,6 +255,7 @@ class Engine:
         import os
         store.save_service({
             'pid': os.getpid() if pid == 0 else pid, 'beat': now, 'last_tick': self.last_tick,
-            'snoozes': self.snoozes, 'ringing': [r.as_dict() for r in self.rings.values()]})
+            'snoozes': self.snoozes, 'ringing': [r.as_dict() for r in self.rings.values()],
+            'wake': self.wake_note})
         self.saved_at = now
         self.changed = False

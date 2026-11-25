@@ -104,7 +104,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 
 ### Phase 5: Real hardware and your games (ongoing)
 - Uninstall the Windows games on E:, back up `Personal Projects`, shrink E:, and install SparkOS into the freed space (see decision 3). At startup, choose SparkOS or Windows from the boot menu.
-- Reinstall the games inside SparkOS, onto its own partition. Secure Boot needs no key (Fedora's signed kernel), but SparkOS's extra kernel modules don't load with it on until they're signed.
+- Reinstall the games inside SparkOS, onto its own partition. Secure Boot needs no key for the system (Fedora's signed kernel). SparkOS's extra kernel modules are signed in the image build once the `KMOD_SIGNING_KEY` secret and `secureboot/sparkos-kmods.der` are in place; then run `spark secureboot enroll` once per PC. Until then they don't load with Secure Boot on. **Status (2026-11-24):** signing, the cert path and `spark secureboot` are written but untested: no key made yet, no signed build, no enrollment tried on real firmware.
 - Work through [docs/switching.md](docs/switching.md): every app and device on this PC, with its SparkOS answer. Settle the **Check** items first.
 - Day-one hardware checks:
   - Print and scan a page on the Canon TR4700.
@@ -154,7 +154,7 @@ Rely on other people's products as little as possible by Release 2 or 3. Replace
 | Backups: Timeshift, Pika Backup, Deja Dup (none installed) | **Spark Backup**: Btrfs snapshots of /home on a schedule, a copy on another drive (btrfs send, or rsync to NTFS), browse and restore a file, keep the last N. Version 0.1.2: tested with fakes, a throwaway loop image and a temp folder; on 2026-11-24 the real /home was found as a Btrfs subvolume and the real drives listed without root (D: is refused, being read-only). A real snapshot, copy and restore are not tried yet (they need a polkit click). Owner picks the drive, schedule and how many to keep | Brief: [spark-backup](briefs/spark-backup.md) (2026-11-23) |
 | Heroic and Lutris | **Spark Games** signs in to Epic, GOG and Amazon itself (on legendary, gogdl and nile, the clients Heroic runs) and installs Battle.net, EA and Ubisoft with umu-run | Brief: [spark-games-stores](briefs/spark-games-stores.md) (2026-11-22) |
 | GNOME Disks | **Spark Disks**: drives and partitions, mount, format, resize, SMART health, USB image writer, on udisks2; D: is look-only | Brief: [spark-disks](briefs/spark-disks.md) (2026-11-23) |
-| (no clock app) | **Spark Clock** (optional): alarms, timers, stopwatch, world clocks, rung by a systemd user service with the window closed | Brief: [spark-clock](briefs/spark-clock.md) (2026-11-24). No wake from suspend |
+| (no clock app) | **Spark Clock** (optional): alarms, timers, stopwatch, world clocks, rung by a systemd user service with the window closed | Brief: [spark-clock](briefs/spark-clock.md) (2026-11-24). Wake from suspend (0.2.0, opt in) through a small root helper in the image; not yet tried on a booted SparkOS |
 | Ark | Spark Archive | Brief: [spark-archive](briefs/spark-archive.md) |
 | KDE Connect | Spark Link: the PC side in SparkOS, the phone side in Soot's Android app, no outside service | Briefs: [spark-link](briefs/spark-link.md), [protocol](docs/spark-link-protocol.md) |
 

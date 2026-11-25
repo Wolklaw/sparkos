@@ -63,10 +63,13 @@ space on a drive. 200 GB or more leaves room for games.
 6. **Create Account:** your name, user name and password.
 7. **Review and install:** check that the destination is the one drive you picked, then
    **Install**. When it's done, restart and take the stick out.
-8. **Secure Boot** can stay on or off: SparkOS runs Fedora's kernel, signed by Fedora, so there's
-   no key to enroll. With it on, the extra kernel modules SparkOS adds (Xbox wireless adapters,
-   racing wheels, CPU power sensors) don't load yet, because they aren't signed; turn Secure Boot
-   off in the firmware if you need those.
+8. **Secure Boot** can stay on or off: SparkOS runs Fedora's kernel, signed by Fedora, so the
+   system starts with no key. The extra kernel modules SparkOS adds (Xbox wireless adapters,
+   racing wheels, CPU power sensors, virtual webcam, virtual disc drive) are signed with SparkOS's
+   own key, and with Secure Boot on they load only after you enroll it once: after the first start,
+   run `spark secureboot enroll`, choose a one-time password, restart, and confirm in the blue
+   MOK screen (Enroll MOK, Continue, Yes, the password, Reboot). `spark secureboot` shows what
+   loaded. Not tested on real hardware yet; with Secure Boot off none of this is needed.
 
 ## First start
 

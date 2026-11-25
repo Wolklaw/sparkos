@@ -133,6 +133,7 @@ COMMANDS=(
   "windows;;Restart into Windows once"
   "watchdog;[status|on|off];Turn the hardware watchdog on or off"
   "sysrq;[status|on|off];Turn the Alt+SysRq emergency keys (REISUB) on or off"
+  "secureboot;[status|enroll];Show Secure Boot and the SparkOS kernel modules, or enroll their key"
   "Services;"
   "service;NAME [status|on|off|start|stop|restart];Turn a system service on or off"
   "ssh;[status|on|off|once];Allow or stop SSH connections to this PC"
@@ -460,6 +461,93 @@ cmd_sysrq() {
       run_root systemctl restart systemd-sysctl.service ;;
     *) die "sysrq takes status, on or off" ;;
   esac
+}
+
+# ---- secureboot ----
+SB_CERT=/usr/share/sparkos/secureboot/sparkos-kmods.der
+# The out-of-tree modules SparkOS builds (build_files/kmods.sh)
+SB_MODULES=(zenergy ryzen_smu v4l2loopback vhba xone_dongle xone_gip xone_gip_gamepad
+  hid-fanatec hid-logitech-new hid-tmff-new hid-tminit-new usb-tminit-new)
+HELP[secureboot]="  status   (default) Secure Boot on or off, whether SparkOS's module key is enrolled, and each
+           SparkOS kernel module: loaded or not, and who signed it
+  enroll   asks the firmware to trust the key that signs SparkOS's kernel modules (mokutil --import)
+
+Fedora's kernel is signed by Fedora, so SparkOS starts with Secure Boot on without any of this. The
+extra modules (Xbox wireless adapter, racing wheels, CPU power sensors, virtual webcam, virtual
+disc drive) are signed with SparkOS's own key, which the firmware doesn't know until you enroll it.
+Until then, with Secure Boot on, the kernel refuses them and the system still starts.
+
+enroll: you choose a one-time password now. At the next restart a blue screen (MOK manager) opens:
+pick 'Enroll MOK', 'Continue', 'Yes', type that password (some keyboards ask for only certain
+characters of it), then 'Reboot'. If you miss the screen, run enroll again. It is needed once per PC."
+cmd_secureboot() {
+  local action=${1:-status} state
+  case "$action" in
+    status|enroll) ;;
+    *) die "secureboot takes status or enroll" ;;
+  esac
+  have mokutil || die "mokutil isn't installed."
+  state=$(mokutil --sb-state 2>&1 | head -1 || true)
+
+  if [ "$action" = enroll ]; then
+    need_uefi "Enrolling the key"
+    [ -f "$SB_CERT" ] || die "this image has no SparkOS module certificate ($SB_CERT), so its modules aren't signed. Nothing to enroll."
+    if mokutil --test-key "$SB_CERT" 2>&1 | grep -qi 'already enrolled'; then
+      say "The SparkOS module key is already enrolled. Nothing to do."
+      return 0
+    fi
+    case "$state" in
+      *disabled*|*"not enabled"*) say "Secure Boot is off, so the modules load without the key. Enrolling it now only helps if you turn Secure Boot on later." ;;
+    esac
+    say "This asks for a one-time password. You type it again at the blue screen on the next restart."
+    need_terminal "secureboot enroll"
+    confirm "Enroll the SparkOS module key?"
+    run_root mokutil --import "$SB_CERT"
+    say ""
+    say "Done. Now restart. A blue screen (MOK manager) appears before SparkOS starts:"
+    say "  Enroll MOK > Continue > Yes > type the password you just chose > Reboot"
+    say "If you don't do it at that restart, the request is dropped; run 'spark secureboot enroll' again."
+    return 0
+  fi
+
+  say "Secure Boot: ${state:-unknown}"
+  local enrolled="unknown"
+  if [ -f "$SB_CERT" ]; then
+    if mokutil --test-key "$SB_CERT" 2>&1 | grep -qi 'already enrolled'; then enrolled="yes"
+    elif mokutil --test-key "$SB_CERT" 2>&1 | grep -qi 'not enrolled'; then enrolled="no"; fi
+    say "Module key:  $SB_CERT"
+    say "Enrolled:    $enrolled"
+    if [ "$enrolled" = no ] && mokutil --list-new 2>/dev/null | grep -qi 'SparkOS'; then
+      say "             waiting: restart and finish the blue MOK screen"
+    fi
+  else
+    say "Module key:  none in this image (its modules are unsigned)"
+  fi
+  say ""
+  say "SparkOS kernel modules (loaded: in use now; refused: the kernel rejected it):"
+  local m path signer loaded
+  local kver; kver=$(uname -r)
+  local refused; refused=$(journalctl -k -b --no-pager 2>/dev/null | grep -iE 'Loading of (un)?signed module is rejected|Key was rejected by service|rejected by service' || true)
+  for m in "${SB_MODULES[@]}"; do
+    path=$(modinfo -k "$kver" -F filename "$m" 2>/dev/null || true)
+    [ -n "$path" ] || { printf '  %-18s %s\n' "$m" "not in this image"; continue; }
+    signer=$(modinfo -k "$kver" -F signer "$m" 2>/dev/null || true)
+    if [ -d "/sys/module/${m//-/_}" ]; then loaded=loaded; else loaded="not loaded"; fi
+    if [ -n "$signer" ]; then signer="signed by $signer"; else signer=unsigned; fi
+    printf '  %-18s %-11s %s\n' "$m" "$loaded" "$signer"
+  done
+  if [ -n "$refused" ]; then
+    say ""
+    say "The kernel log of this start has module rejections:"
+    say "$refused" | head -5
+  fi
+  case "$state" in
+    *enabled*) [ "$enrolled" = yes ] || say "
+With Secure Boot on, modules signed by a key the firmware doesn't know are refused. To fix:
+spark secureboot enroll" ;;
+  esac
+  say ""
+  say "'not loaded' isn't always a refusal: zenergy and xone load when the CPU or device is there."
 }
 
 # ---- service / ssh ----

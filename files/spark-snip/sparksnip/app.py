@@ -118,6 +118,7 @@ class App:
         self.ocr_target = None
         self.popup = None
         self.overlay = None
+        self.editor = None
         self.window_built = False
         self._replaced = False
         if os.name != 'nt':   # a newer screenshot asks this one to close its result window and quit
@@ -332,7 +333,7 @@ class App:
 
     def _quit_if_done(self):
         if (self.snip_only and self.popup is None and self.overlay is None
-                and self.recording is None):
+                and self.editor is None and self.recording is None):
             self.root.destroy()
 
     # capture

@@ -33,7 +33,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Spark Snip** | - | Screenshots on Print, copying text off the screen (English and French) and screen recording. | [source](files/spark-snip) |
+| **Spark Snip** | - | Screenshots on Print with an annotate step (arrows, text, pixelate, crop), copying text off the screen (English and French) and screen recording. | [source](files/spark-snip) |
 | **Spark Media** | - | Photos (camera RAW and HEIC too), videos with subtitles, and a music library with playlists and media keys. | [source](files/spark-media) |
 | **Spark Edit** | 1.0.1 | Text and code: tabs, find and replace, syntax colours, files kept in their own encoding. Unsaved tabs come back. | [source](files/spark-edit) |
 | **Spark Calc** | 1.0.1 | Exact sums (0.1 + 0.2 is 0.3), with scientific and programmer modes and a history. | [source](files/spark-calc) |

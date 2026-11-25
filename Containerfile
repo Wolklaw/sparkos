@@ -81,9 +81,13 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 
 # 4b. The kernel modules from step 0b into /usr/lib/modules/<kernel>/extra, with their firmware,
 #     udev rules and boot-time loading, then depmod. Stops the build if the image's kernel isn't
-#     the one they were built for.
+#     the one they were built for. With the kmod_signing_key build secret (never written to a
+#     layer) it signs them for Secure Boot and ships secureboot/sparkos-kmods.der; without it
+#     the modules stay unsigned.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=bind,from=kmods-build,source=/kmods,target=/tmp/kmods \
+    --mount=type=bind,source=secureboot,target=/tmp/secureboot \
+    --mount=type=secret,id=kmod_signing_key,required=false \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     /tmp/build_files/kmods.sh install
 
@@ -140,6 +144,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-disks.sh \
         spark-edit.sh \
         spark-calc.sh \
+        spark-clock-wake.sh \
         spark-archive.sh \
         spark-scan.sh \
         spark-run.sh \

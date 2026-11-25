@@ -32,6 +32,10 @@ dnf_install \
 # through busctl to tuned-ppd; power-profiles-daemon would conflict with it.)
 dnf_install cups-client pipewire-utils pulseaudio-utils pciutils dbus-tools
 
+# mokutil: "spark secureboot" reads Secure Boot state and enrolls the module-signing certificate
+# with it (Kinoite usually has it; named here so that stays true).
+dnf_install mokutil
+
 # Device access rules Bazzite ships that Fedora packages itself (all tiny, no dependencies):
 # - steam-devices: Valve's controller and VR rules, so Steam (also from Flathub) can use them
 # - openrgb-udev-rules: RGB controllers (ASUS AURA, NZXT, ...) for OpenRGB without root
