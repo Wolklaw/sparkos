@@ -27,9 +27,14 @@ The window only edits files. `spark-clock --daemon` runs as a systemd user servi
 
 The service writes down the last moment it was awake. When it starts again, an alarm or timer that came due while it was off still rings if it is **less than 10 minutes late**, and says how late. Anything older shows a "missed" notice instead of ringing hours later.
 
-### What it does not do
+### Waking the PC from sleep (version 0.2.0)
 
-**It does not wake the PC from sleep.** That needs root (an RTC wake alarm). If the PC is asleep at 07:00, the alarm rings when the PC wakes, if that is within 10 minutes, and is shown as missed after that. Leave the PC on for an alarm you cannot miss.
+Turn on **Wake the PC from sleep** under the alarm list. The service then keeps one wake time, a minute before the next enabled alarm (or waiting snooze), and moves it whenever alarms change and after each ring. Once the PC has woken it moves the wake time to the alarm itself, in case the PC dozes off again.
+
+- It wakes a **sleeping (suspended)** PC. It cannot turn on a PC that is shut down, and some PCs do not wake from hibernate. Whether your firmware honours the RTC alarm is not something the app can check.
+- Setting a wake time needs root, so the image ships a small helper, `/usr/libexec/spark-clock-wake`, and a polkit action (`dev.wolklaw.SparkClock.wake`). The helper can only set or clear one systemd timer with `WakeSystem=true` named after the caller (`spark-clock-wake-<uid>`), for a plain epoch between 10 seconds and 8 days away. It runs nothing else, takes the user from pkexec, not from its arguments, and the person at the PC needs no password. The helper is not in the live-update bundle (root code only comes from the image), which is why this version raises `system_api` to 2.
+- On an image without the helper the option says it is not available and alarms behave as before: if the PC is asleep at 07:00 the alarm rings when the PC wakes, if that is within 10 minutes, and is shown as missed after that.
+- Only alarms and snoozes wake the PC. Timers do not.
 
 ## Sounds
 

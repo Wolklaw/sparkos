@@ -29,7 +29,8 @@ DEFAULT_CONFIG: Dict[str, Any] = {
     'alarms': [],
     'presets': DEFAULT_PRESETS,
     'world': ['America/Toronto'],
-    'settings': {'sound': 'beacon', 'snooze': 9, 'ring_minutes': 5, 'volume': 80},
+    'settings': {'sound': 'beacon', 'snooze': 9, 'ring_minutes': 5, 'volume': 80,
+                 'wake': False},
 }
 MAX_ALARMS = 100
 MAX_TIMERS = 50
@@ -213,7 +214,8 @@ def load_service() -> Dict[str, Any]:
     raw = raw if isinstance(raw, dict) else {}
     return {'pid': raw.get('pid'), 'beat': raw.get('beat', 0), 'last_tick': raw.get('last_tick'),
             'snoozes': [s for s in raw.get('snoozes', []) if isinstance(s, dict)],
-            'ringing': [r for r in raw.get('ringing', []) if isinstance(r, dict)]}
+            'ringing': [r for r in raw.get('ringing', []) if isinstance(r, dict)],
+            'wake': raw.get('wake') if isinstance(raw.get('wake'), dict) else {}}
 
 
 def save_service(data: Dict[str, Any]) -> None:

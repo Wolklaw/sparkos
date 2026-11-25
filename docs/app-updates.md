@@ -16,6 +16,8 @@ bundle can at worst break the app, and the built-in copy is one click away.
 
 An app opts in with `"live_update": true` and `"system_api": N` in its `spark-app.json`.
 
+Spark Clock 0.2.0 is the first pilot app with a root part: its wake-from-sleep helper and polkit action ship in the image (`files/scripts/spark-clock-wake.sh`), outside its bundle, and it raised `system_api` to 2 for that.
+
 ## How it works
 
 1. A push to main that raises an opted-in app's `version` runs `.github/workflows/app-updates.yml`.

@@ -15,8 +15,16 @@ EN = {
                                "Alarms and timers only ring while it runs. Look in "
                                "~/.local/state/spark-clock for the log.",
     'service.note': "Alarms and timers ring through a small background service, with this "
-                    "window closed. It does not wake the PC from sleep: an alarm that comes up "
-                    "while the PC sleeps rings when it wakes (up to 10 minutes late).",
+                    "window closed. If the PC is asleep when an alarm comes up and wake is off or "
+                    "unavailable, it rings when the PC wakes (up to 10 minutes late).",
+    'wake.label': "Wake the PC from sleep",
+    'wake.note': "Wakes a sleeping (suspended) PC about a minute before the next alarm. It "
+                 "can't turn on a PC that is shut down, and some PCs don't wake from hibernate.",
+    'wake.unavailable': "Not available yet: it needs a SparkOS update that adds the wake helper.",
+    'wake.armed': "Next wake: {when}.",
+    'wake.none': "No alarm is waiting, so no wake time is set.",
+    'wake.failed': "Couldn't set the wake time: {error}",
+    'wake.pending': "Waiting for the service to set the wake time.",
     'tab.alarms': "ALARMS",
     'tab.timers': "TIMERS",
     'tab.stopwatch': "STOPWATCH",
@@ -160,9 +168,19 @@ FR = {
                                "{error}. Les alarmes et les minuteries ne sonnent que pendant "
                                "qu'il tourne. Le journal est dans ~/.local/state/spark-clock.",
     'service.note': "Les alarmes et les minuteries sonnent grâce à un petit service "
-                    "d'arrière-plan, même fenêtre fermée. Il ne sort pas l'ordinateur de veille : "
-                    "une alarme qui tombe pendant la veille sonne au réveil (jusqu'à 10 minutes "
-                    "de retard).",
+                    "d'arrière-plan, même fenêtre fermée. Si l'ordinateur est en veille quand une "
+                    "alarme tombe et que le réveil est désactivé ou indisponible, elle sonne au "
+                    "réveil (jusqu'à 10 minutes de retard).",
+    'wake.label': "Réveiller l'ordinateur en veille",
+    'wake.note': "Réveille un ordinateur en veille (suspendu) environ une minute avant la "
+                 "prochaine alarme. Il ne peut pas allumer un ordinateur éteint, et certains "
+                 "ne se réveillent pas de l'hibernation.",
+    'wake.unavailable': "Pas encore disponible : il faut une mise à jour de SparkOS qui ajoute "
+                        "l'assistant de réveil.",
+    'wake.armed': "Prochain réveil : {when}.",
+    'wake.none': "Aucune alarme en attente, donc aucune heure de réveil n'est réglée.",
+    'wake.failed': "Impossible de régler l'heure de réveil : {error}",
+    'wake.pending': "En attente du service pour régler l'heure de réveil.",
     'tab.alarms': "ALARMES",
     'tab.timers': "MINUTERIES",
     'tab.stopwatch': "CHRONOMÈTRE",

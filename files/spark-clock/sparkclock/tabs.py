@@ -2,10 +2,11 @@
 changed) and tick(now) (update the numbers that move)."""
 
 import datetime as dt
+import time
 import tkinter as tk
 from typing import Any, Dict, List, Optional
 
-from . import cities, core, sound, store
+from . import cities, core, sound, store, wake
 from .schedule import days_words, next_alarm_time, until_words
 from .text import t
 from .widgets import GlitchPanel, GlitchText, Segmented, Strip, T, Toggle, WolkButton, make_table
@@ -88,6 +89,14 @@ class AlarmsTab(Tab):
         footer = tk.Frame(self, bg=T["bg"])
         footer.pack(side="bottom", fill="x", padx=px(18), pady=(0, px(6)))
         self.footer = footer
+        wake_row = tk.Frame(self, bg=T["bg"])
+        wake_row.pack(side="bottom", fill="x", padx=px(18), pady=(0, px(4)))
+        self.wake = Toggle(wake_row, t('wake.label'), bool(app.config['settings']['wake']),
+                           self.set_wake, app.f_label)
+        self.wake.pack(side="left", anchor="n")
+        self.wake_text = tk.Label(wake_row, text="", bg=T["bg"], fg=T["muted"], font=app.f_small,
+                                  anchor="w", justify="left", wraplength=px(640))
+        self.wake_text.pack(side="left", fill="x", expand=True, padx=(px(10), 0))
         tk.Label(footer, text=t('alarms.sound_volume'), bg=T["bg"], fg=T["muted"],
                  font=app.f_label).pack(side="left")
         self.volume = Segmented(footer, [(f"{v}", v) for v in (25, 50, 80, 100)],
@@ -139,6 +148,30 @@ class AlarmsTab(Tab):
         store.update_config(lambda c: c['settings'].update(volume=value))
         self.app.refresh_data(force=True)
 
+    def set_wake(self, value: bool):
+        store.update_config(lambda c: c['settings'].update(wake=value))
+        self.app.refresh_data(force=True)
+        self.app.event()
+
+    def wake_words(self) -> str:
+        """The honest state of the wake option, from what the service last wrote."""
+        app = self.app
+        if not wake.available():
+            return t('wake.unavailable')
+        text = t('wake.note')
+        if not app.config['settings']['wake']:
+            return text
+        note = app.service.get('wake') or {}
+        state = note.get('state')
+        if not store.service_alive(app.clock(), app.service) or state is None:
+            return text + "  " + t('wake.pending')
+        if state == 'failed':
+            return text + "  " + t('wake.failed', error=note.get('error', ''))
+        if state == 'armed' and isinstance(note.get('at'), (int, float)):
+            when = time.strftime('%a %H:%M', time.localtime(note['at']))
+            return text + "  " + t('wake.armed', when=when)
+        return text + "  " + t('wake.none')
+
     def set_ring_for(self, value: int):
         store.update_config(lambda c: c['settings'].update(ring_minutes=value))
         self.app.refresh_data(force=True)
@@ -155,6 +188,8 @@ class AlarmsTab(Tab):
         app, px = self.app, self.app.px
         self.volume.set(app.config['settings']['volume'])
         self.ring_for.set(app.config['settings']['ring_minutes'])
+        self.wake.set(bool(app.config['settings']['wake']))
+        self.wake_text.config(text=self.wake_words())
         self.list.clear()
         self.rows = []
         alarms = sorted(app.config['alarms'], key=lambda a: a['time'])
