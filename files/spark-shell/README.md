@@ -1,6 +1,13 @@
 # Spark Shell and the Spark session
 
-Stage 3 of replacing KDE (see [PLAN.md](../../PLAN.md), "Replacing KDE"). The desktop part of Plasma, redone as a GTK 4 program in the house style, and a login session that starts it on KWin. **Plasma stays the default session.** Spark is a second entry on the login screen, for trying.
+Stage 3 of replacing KDE (see [PLAN.md](../../PLAN.md), "Replacing KDE"). The desktop part of Plasma, redone as a GTK 4 program in the house style.
+
+It runs in two sessions on the login screen:
+
+- **Spark (experimental compositor)**, `spark-wl`: on the [Spark compositor](../spark-compositor), with no KDE, Plasma or KWin. This is the one in daily use since 25 Nov 2026. The window list comes from `spark-wl-windows` (foreign-toplevel), and `spark-wl-startup` starts the session services.
+- **Spark**: the same shell on KWin, as described in the rest of this file (the KWin script, powerdevil, the KDE daemon).
+
+**Plasma is still the login screen's default.**
 
 ## What is in it
 
@@ -9,8 +16,9 @@ Stage 3 of replacing KDE (see [PLAN.md](../../PLAN.md), "Replacing KDE"). The de
 | Panel | One per monitor, with the launcher button, a task list (pinned apps first), a clock and, on the first monitor, the tray and the notification bell. The clock opens a calendar and the next alarm; Spark Clock does the alarms. |
 | Tray | A StatusNotifierWatcher and host: icons, left, right and middle click, scroll, and dbusmenu menus (checks, radios, submenus). If KDE's daemon already owns the watcher name, the shell uses that one. In the Spark compositor session, `spark-xembed.service` (`spark-shell --xembed`) also owns the old X11 tray, so Wine and Proton apps (Battle.net) show their icon here instead of opening a small window of their own; their menus open where the icon was clicked. |
 | Notifications | `org.freedesktop.Notifications` 1.2: actions, urgency, replace-id, images, do not disturb, a history list that survives restarts. Only in this session. |
-| Launcher | Full-screen search card: apps ranked by the same logic as the Spark Launcher widget (`launcher_logic.py`), sums answered by Spark Calc, power buttons with a second click to confirm. The Meta key opens it. |
+| Launcher | A Windows 7 style menu that opens above the SPARK button: apps ranked by the same logic as the Spark Launcher widget (`launcher_logic.py`), sums answered by Spark Calc, power buttons with a second click to confirm. The Meta key opens it. |
 | Wallpaper | One background surface per monitor. No desktop icons. |
+| Lock screen | ext-session-lock, with the password checked through PAM. In spark-wl, Super+L and the idle timer lock. |
 | OSD | Volume (wpctl) with a bar on screen. Brightness is powerdevil's: it takes the keys, drives every monitor and reports to `org.kde.plasmashell /org/kde/osdService`, which the shell answers with the same bar. |
 | Session | `spark-session` starts KWin, then `spark-session-run` brings up what Plasma's startup does (activation environment, the `spark-workspace.target` user target, KDE daemon, portal, polkit agent) and runs the shell, restarting it if it crashes. |
 
