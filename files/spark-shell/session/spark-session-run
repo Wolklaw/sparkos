@@ -34,7 +34,9 @@ else
 fi
 
 here=$(dirname "$0")
-if [ -x /usr/bin/spark-shell ]; then
+# tests/headless.sh sets SPARK_SHELL_FROM_SOURCE: in the SparkOS image the installed shell would
+# otherwise be tested instead of the checkout's
+if [ -x /usr/bin/spark-shell ] && [ -z "$SPARK_SHELL_FROM_SOURCE" ]; then
     run_shell() { /usr/bin/spark-shell; }
 else
     run_shell() { python3 "$here/../spark_shell.py"; }      # a source checkout (tests)

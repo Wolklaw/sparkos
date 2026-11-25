@@ -32,7 +32,7 @@ fi
 
 here=$(dirname "$0")
 run=/usr/libexec/spark-session-run
-[ -x "$run" ] || run="$here/spark-session-run"
+{ [ -x "$run" ] && [ -z "$SPARK_SHELL_FROM_SOURCE" ]; } || run="$here/spark-session-run"
 
 if [ -n "$SPARK_SESSION_VIRTUAL" ]; then
     exec kwin_wayland --virtual --no-lockscreen \
