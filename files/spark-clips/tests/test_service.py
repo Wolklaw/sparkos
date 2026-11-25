@@ -12,6 +12,7 @@ import unittest
 import testenv
 from sparkclips import buffer, cli, clipfile, core, games, ipc, library, pipeline
 from sparkclips.daemon import Service
+from sparkclips.text import t
 
 HAVE = clipfile.init() is None and pipeline.pick_encoder('h264') is not None \
     and not pipeline.missing_elements()
@@ -171,8 +172,9 @@ class Without(unittest.TestCase):
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
             self.assertEqual(cli.main(['--status']), cli.EXIT_NO_SERVICE)
             self.assertEqual(cli.main(['--save']), cli.EXIT_NO_SERVICE)
-        self.assertIn('not running', out.getvalue())
-        self.assertIn('not running', err.getvalue())
+        said = t('cli.service_off').split('.')[0]
+        self.assertIn(said, out.getvalue())
+        self.assertIn(said, err.getvalue())
 
     def test_status_json(self):
         testenv.reset()

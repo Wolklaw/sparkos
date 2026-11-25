@@ -102,7 +102,7 @@ class Settings(unittest.TestCase):
 
     def test_numbers_for_people(self):
         self.assertEqual(core.duration_text(65), '1:05')
-        self.assertIn('MB', core.human_size(5_000_000))
+        self.assertRegex(core.human_size(5_000_000), r'4[.,]8 (MB|Mo)')
 
 
 class Socket(unittest.TestCase):

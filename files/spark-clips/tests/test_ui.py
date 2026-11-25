@@ -10,6 +10,7 @@ import unittest
 
 import testenv
 from sparkclips import clipfile, core, games, library, pipeline
+from sparkclips.text import t
 
 HAVE_GST = clipfile.init() is None and pipeline.pick_encoder('h264') is not None \
     and not pipeline.missing_elements()
@@ -91,7 +92,7 @@ class Window(unittest.TestCase):
         self.assertTrue(app.setup_button.winfo_ismapped())
         app.apply_status(dict(STATUS, state='error', problem='no_encoder'))
         self.pump(0.2)
-        self.assertIn('encoder', app.problem_label.cget('text'))
+        self.assertIn(t('problem.no_encoder'), app.problem_label.cget('text'))
         app.apply_status(dict(STATUS, state='waiting', game=None))
         self.pump(0.2)
         self.assertFalse(app.save_button.enabled)
