@@ -4,8 +4,8 @@ name: spark-kwin-only
 # files/spark-apps/ci/kwin-only.sh, with the smoke checks in kwin_only_smoke.py. Runs inside the
 # published SparkOS image (run with SYS_NICE: kwin_wayland carries that file capability and will not
 # exec without it), which has KWin, krdp, the KDE portal and kio-fuse.
-# KWin's virtual backend may need a GL driver the runner's container lacks; if it does not start,
-# the job fails loudly rather than skipping.
+# A GitHub runner has no GPU and KWin segfaults when asked to render (the first screen capture), so
+# the Snip capture check is waived here (KWIN_ONLY_NO_RENDER=1) and runs last; it is tried on a PC.
 on:
   push:
     paths:
@@ -60,5 +60,5 @@ jobs:
             # setpriv, not su: a PAM session fails in a container
             setpriv --reuid=tester --regid=tester --init-groups \
               env -i HOME="$home" USER=tester LOGNAME=tester PATH=/usr/local/bin:/usr/bin:/bin \
-              LANG=C.UTF-8 KWIN_ONLY_STRICT=1 LIBGL_ALWAYS_SOFTWARE=1 bash -c "cd ~/repo && files/spark-apps/ci/kwin-only.sh python3 files/spark-apps/ci/kwin_only_smoke.py"
+              LANG=C.UTF-8 KWIN_ONLY_STRICT=1 LIBGL_ALWAYS_SOFTWARE=1 KWIN_ONLY_NO_RENDER=1 bash -c "cd ~/repo && files/spark-apps/ci/kwin-only.sh python3 files/spark-apps/ci/kwin_only_smoke.py"
           '

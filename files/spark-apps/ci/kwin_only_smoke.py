@@ -34,6 +34,8 @@ def check(name):
             results.append(('PASS', name, note or ''))
         except Skip as why:
             results.append(('FAIL' if STRICT else 'SKIP', name, str(why)))
+        except Waived as why:
+            results.append(('WAIVED', name, str(why)))
         except Exception as exc:                    # noqa: BLE001 - reported, not raised
             results.append(('FAIL', name, f"{type(exc).__name__}: {exc}"))
         print(*results[-1], flush=True)
@@ -43,6 +45,10 @@ def check(name):
 
 class Skip(Exception):
     pass
+
+
+class Waived(Exception):
+    """Not run on purpose here (KWIN_ONLY_NO_RENDER=1); never counts as a failure."""
 
 
 def need(path_or_cmd):
@@ -83,15 +89,6 @@ def _():
     order = core.capture_order()
     assert order == ['kwin', 'portal'], order
     return str(order)
-
-
-@check("spark-snip: KWin ScreenShot2 captures the workspace")
-def _():
-    from sparksnip import capture
-    with capture.KWinScreenShot() as kwin:
-        size = kwin.workspace().size
-    assert size[0] > 0 and size[1] > 0, size
-    return f"{size[0]}x{size[1]} (an empty headless screen is one flat colour; pixels not judged)"
 
 
 @check("spark-snip: --self-test passes")
@@ -226,6 +223,19 @@ def _():
     done = subprocess.run([sys.executable, path, '--self-test'], capture_output=True, text=True,
                           timeout=60)
     assert done.returncode == 0, (done.stdout + done.stderr)[-400:]
+
+
+# last: on a GPU-less machine KWin may die when it renders, which would take the rest with it
+@check("spark-snip: KWin ScreenShot2 captures the workspace")
+def _():
+    if os.environ.get('KWIN_ONLY_NO_RENDER') == '1':
+        raise Waived("this machine has no GPU: KWin crashes when asked to render, so the "
+                     "capture is tried on a PC only")
+    from sparksnip import capture
+    with capture.KWinScreenShot() as kwin:
+        size = kwin.workspace().size
+    assert size[0] > 0 and size[1] > 0, size
+    return f"{size[0]}x{size[1]} (an empty headless screen is one flat colour; pixels not judged)"
 
 
 failed = [r for r in results if r[0] == 'FAIL']
