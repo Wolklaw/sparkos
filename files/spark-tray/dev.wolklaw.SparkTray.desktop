@@ -12,3 +12,5 @@ Terminal=false
 Categories=Settings;HardwareSettings;
 Keywords=tray;network;wifi;bluetooth;battery;power;printer;volume;réseau;imprimante;batterie;
 StartupNotify=false
+# Tray icons only, no window: started by the Spark session's autostart, not from the menu
+NoDisplay=true
