@@ -163,9 +163,12 @@ finally:
             p.terminate()
     comp.terminate()
     try:
-        comp.wait(10)
+        code = comp.wait(10)
+        # a logout ends it the same way; a crash here leaves a core dump on every logout
+        check(code == 0, f"compositor exits cleanly when told to stop (exit code {code})")
     except subprocess.TimeoutExpired:
         comp.kill()
+        check(False, "compositor exits when told to stop")
     shutil.rmtree(work, ignore_errors=True)
 
 if failed:

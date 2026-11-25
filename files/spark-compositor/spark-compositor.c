@@ -1707,7 +1707,23 @@ int main(int argc, char **argv) {
 	wl_display_run(s->display);
 
 	wl_display_destroy_clients(s->display);
-	if (s->xwayland) wlr_xwayland_destroy(s->xwayland);
+	/* wlroots asserts that nothing still listens to an object's signals when it is destroyed:
+	 * take every server-wide listener off first (a crash here is one core dump per logout) */
+	struct wl_listener *server_listeners[] = {
+		&s->new_xdg_toplevel, &s->new_xdg_popup, &s->new_layer_surface, &s->new_lock,
+		&s->new_inhibitor, &s->activate, &s->output_apply, &s->output_test, &s->layout_change,
+		&s->tearing_new, &s->new_constraint, &s->cursor_motion, &s->cursor_motion_abs,
+		&s->cursor_button, &s->cursor_axis, &s->cursor_frame, &s->request_set_cursor,
+		&s->request_set_selection, &s->request_set_primary, &s->new_input, &s->new_output,
+		&s->new_deco, &s->new_vkb, &s->new_vptr, &s->cursor_shape,
+	};
+	for (size_t i = 0; i < sizeof server_listeners / sizeof *server_listeners; i++)
+		UNLISTEN(server_listeners[i]);
+	if (s->xwayland) {
+		UNLISTEN(&s->new_xwayland_surface);
+		UNLISTEN(&s->xwayland_ready);
+		wlr_xwayland_destroy(s->xwayland);
+	}
 	wlr_scene_node_destroy(&s->scene->tree.node);
 	wlr_xcursor_manager_destroy(s->xcursor);
 	wlr_output_layout_destroy(s->output_layout);
