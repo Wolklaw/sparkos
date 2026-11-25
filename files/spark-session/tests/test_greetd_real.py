@@ -21,6 +21,8 @@ USER, PASSWORD = 'sparkgd', 'tiny-umbrella-5'
                      or os.environ.get('SPARK_ALLOW_REAL_GREETD'),
                      'needs root, greetd and a container (runs in CI)')
 class RealGreetd(unittest.TestCase):
+    MODE = 'right'
+
     def setUp(self):
         # Fedora's greetd PAM stack opens an SELinux context, sets the login uid and a namespace.
         # A container on a CI host cannot do those (pam_open_session: MODULE_UNKNOWN), so in a
@@ -55,7 +57,7 @@ class RealGreetd(unittest.TestCase):
         with open(self.config, 'w') as handle:
             handle.write(f'[terminal]\nvt = "none"\n[default_session]\n'
                          f'command = "{sys.executable} -I {HERE}/greeter_probe.py {self.out} {USER} {PASSWORD} '
-                         f'{self.session}"\nuser = "greetd"\n')
+                         f'{self.session} {self.MODE}"\nuser = "greetd"\n')
         # the greetd user must be able to read the sources
         subprocess.run(['chmod', '-R', 'a+rX', os.path.dirname(HERE)], check=True)
         self.greetd = subprocess.Popen(['greetd', '--config', self.config],
@@ -92,17 +94,30 @@ class RealGreetd(unittest.TestCase):
         except subprocess.TimeoutExpired:
             return '(greetd did not stop)'
 
-    def test_wrong_password_then_right_one_starts_the_session_as_the_user(self):
+    def test_right_password_starts_the_session_as_the_user(self):
         self.wait_for(self.out)
         with open(self.out) as handle:
             result = json.load(handle)
         self.assertNotIn('error', result, result)
-        self.assertEqual(result['wrong'], 'auth_error')
         self.assertEqual(result['right'], 'started')
         self.assertEqual(result['prompts'], ['secret'])
         self.wait_for(self.marker)
         with open(self.marker) as handle:
             self.assertEqual(handle.read().split(), [USER, 'spark-test'])
+
+
+class RealGreetdWrongPassword(RealGreetd):
+    MODE = 'wrong'
+
+    def test_right_password_starts_the_session_as_the_user(self):
+        pass
+
+    def test_wrong_password_is_refused(self):
+        self.wait_for(self.out)
+        with open(self.out) as handle:
+            result = json.load(handle)
+        self.assertEqual(result, {'wrong': 'auth_error'})
+        self.assertFalse(os.path.exists(self.marker))
 
 
 if __name__ == '__main__':
