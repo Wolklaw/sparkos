@@ -91,6 +91,6 @@ def login(client, username, answer, cmd, env=()):
     except BaseException:
         try:
             client.cancel_session()
-        except Exception:
-            pass
+        except Exception as exc:           # noqa: BLE001
+            client.cancel_error = f'{type(exc).__name__}: {exc}'
         raise

@@ -20,6 +20,7 @@ try:
         result['wrong'] = 'accepted'
     except greetd.GreetdError as exc:
         result['wrong'] = exc.kind
+        result['cancel_error'] = getattr(client, 'cancel_error', None)
     seen = []
 
     def answer(kind, text):

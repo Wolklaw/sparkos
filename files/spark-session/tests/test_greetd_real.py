@@ -96,7 +96,7 @@ class RealGreetd(unittest.TestCase):
         self.wait_for(self.out)
         with open(self.out) as handle:
             result = json.load(handle)
-        self.assertNotIn('error', result)
+        self.assertNotIn('error', result, result)
         self.assertEqual(result['wrong'], 'auth_error')
         self.assertEqual(result['right'], 'started')
         self.assertEqual(result['prompts'], ['secret'])
