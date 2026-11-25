@@ -14,6 +14,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 from test_spark_files import DISPLAY, TempDir   # also points the XDG folders at temp ones
 
@@ -189,6 +190,94 @@ class FakeBackend:
         if self.error:
             raise self.error
         return self.path
+
+
+class FakeSshfsRun:
+    """Stands in for subprocess.run: records the call, fails or answers as told."""
+    def __init__(self, code=0, err='', raises=None):
+        self.code, self.err, self.raises, self.calls = code, err, raises, []
+
+    def __call__(self, argv, **kw):
+        self.calls.append((argv, kw))
+        if self.raises:
+            raise self.raises
+        return subprocess.CompletedProcess(argv, self.code, '', self.err)
+
+
+class SshFsBackend(TempDir):
+    def setUp(self):
+        super().setUp()
+        old = os.environ.get('XDG_RUNTIME_DIR')
+        os.environ['XDG_RUNTIME_DIR'] = self.dir
+        self.addCleanup(lambda: os.environ.__setitem__('XDG_RUNTIME_DIR', old)
+                        if old is not None else os.environ.pop('XDG_RUNTIME_DIR'))
+        self.server = Server('sftp', 'nas.lan', None, 'me', '/home/me')
+
+    def test_mount_point_looks_like_a_kio_fuse_one(self):
+        be = network.SshFs(FakeSshfsRun())
+        path = be.mount_server(self.server, None)
+        self.assertTrue(network.is_remote(path))
+        self.assertEqual(network.split_remote(path), (os.path.dirname(os.path.dirname(path)), 'sftp://me@nas.lan'))
+        self.assertTrue(path.endswith('/sftp/me@nas.lan/home/me'))
+
+    def test_key_login_never_asks_and_a_password_goes_on_stdin(self):
+        run = FakeSshfsRun()
+        network.SshFs(run).mount_server(self.server, None)
+        argv, kw = run.calls[0]
+        self.assertIn('BatchMode=yes', argv)
+        self.assertEqual(argv[1], 'me@nas.lan:/')
+        self.assertIsNone(kw['input'])
+        run = FakeSshfsRun()
+        network.SshFs(run).mount_server(Server('sftp', 'nas.lan', 2222, 'me'), 'hunter2')
+        argv, kw = run.calls[0]
+        self.assertNotIn('hunter2', ' '.join(argv))
+        self.assertEqual(kw['input'], 'hunter2\n')
+        self.assertIn('password_stdin,NumberOfPasswordPrompts=1', argv)
+        self.assertEqual(argv[argv.index('-p') + 1], '2222')
+
+    def test_failures_are_named_and_scrubbed(self):
+        with self.assertRaises(NetworkError) as c:
+            network.SshFs(FakeSshfsRun(1, 'Permission denied (publickey).\n')).mount_server(
+                self.server, None)
+        self.assertEqual((c.exception.code, c.exception.detail), ('failed',
+                                                                   'Permission denied (publickey).'))
+        with self.assertRaises(NetworkError) as c:
+            network.SshFs(FakeSshfsRun(raises=subprocess.TimeoutExpired('sshfs', 1))).mount_server(
+                self.server, None)
+        self.assertEqual(c.exception.code, 'timeout')
+        with self.assertRaises(NetworkError) as c:
+            network.SshFs(FakeSshfsRun(raises=FileNotFoundError('sshfs'))).mount_server(
+                self.server, None)
+        self.assertEqual(c.exception.code, 'no_kio')
+
+    def test_smb_is_not_an_sshfs_job(self):
+        with self.assertRaises(NetworkError) as c:
+            network.SshFs(FakeSshfsRun()).mount_server(Server('smb', 'nas', None, '', '/share'), None)
+        self.assertEqual(c.exception.code, 'no_kio')
+
+    def test_choice_follows_what_is_reachable_not_the_desktop(self):
+        sftp, smb = self.server, Server('smb', 'nas', None, '', '/share')
+        pick = network.choose_backend
+        self.assertIsInstance(pick(sftp, kio_offered=True, sshfs_there=True), network.KioFuse)
+        self.assertIsInstance(pick(sftp, kio_offered=False, sshfs_there=True), network.SshFs)
+        self.assertIsInstance(pick(sftp, kio_offered=False, sshfs_there=False), network.KioFuse)
+        self.assertIsInstance(pick(smb, kio_offered=False, sshfs_there=True), network.KioFuse)
+        self.assertIsInstance(pick(network.RawUrl('gdrive:///'), kio_offered=False,
+                                   sshfs_there=True), network.KioFuse)
+
+    def test_connect_blocking_uses_the_sshfs_backend_for_servers(self):
+        os.makedirs(self.path('mnt/home/me'))
+        be = network.SshFs(FakeSshfsRun())
+        be.mountpoint = lambda server: self.path('mnt')      # a plain folder stands in
+        self.assertEqual(network.connect_blocking(self.server, None, backend=be),
+                         self.path('mnt/home/me'))
+
+    def test_unmount_all_only_touches_real_mounts(self):
+        base = os.path.join(self.dir, 'kio-fuse-sshfs', 'sftp', 'me@h')
+        os.makedirs(base)
+        with mock.patch.object(network.subprocess, 'run') as run:
+            network.SshFs().unmount_all()
+        run.assert_not_called()
 
 
 class Connecting(TempDir):

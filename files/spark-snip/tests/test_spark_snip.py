@@ -211,6 +211,33 @@ class CaptureLogicTests(unittest.TestCase):
             if 'spectacle' in order:
                 self.assertIn(order[0], ('kwin', 'pil'), desktop)
 
+    @unittest.skipIf(os.name == 'nt', "Windows always uses Pillow")
+    def test_session_without_plasma_picks_by_the_bus_not_the_name(self):
+        env = {'XDG_SESSION_TYPE': 'wayland', 'WAYLAND_DISPLAY': 'wayland-0',
+               'XDG_CURRENT_DESKTOP': 'Spark'}
+        with mock.patch.dict(os.environ, env):
+            os.environ.pop('SPARK_SNIP_CAPTURE', None)
+            with mock.patch.dict(os.environ, {'SPARK_SNIP_KWIN': '1'}):
+                self.assertEqual(core.capture_order(), ['kwin', 'portal'])
+            with mock.patch.dict(os.environ, {'SPARK_SNIP_KWIN': '0'}):
+                self.assertEqual(core.capture_order(), ['grim', 'portal'])
+            with mock.patch.object(capture, 'kwin_screenshot_offered', return_value=True):
+                os.environ.pop('SPARK_SNIP_KWIN', None)
+                self.assertEqual(core.capture_order(), ['kwin', 'portal'])
+            with mock.patch.object(capture, 'kwin_screenshot_offered',
+                                   side_effect=capture.ScreenReadError("no bus")):
+                self.assertEqual(core.capture_order(), ['grim', 'portal'])
+
+    def test_plasma_and_gnome_orders_do_not_ask_the_bus(self):
+        with mock.patch.object(capture, 'kwin_screenshot_offered',
+                               side_effect=AssertionError("asked")):
+            for desktop, first in (('KDE', 'kwin'), ('GNOME', 'gnome-screenshot')):
+                with mock.patch.dict(os.environ, {'XDG_SESSION_TYPE': 'wayland',
+                                                  'WAYLAND_DISPLAY': 'w',
+                                                  'XDG_CURRENT_DESKTOP': desktop}):
+                    os.environ.pop('SPARK_SNIP_CAPTURE', None)
+                    self.assertEqual(core.capture_order()[0], first)
+
     def test_unknown_capture_method_is_refused(self):
         with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'nosuchtool'}):
             with self.assertRaises(core.CaptureError) as caught:
@@ -303,6 +330,14 @@ class DBusCaptureTests(unittest.TestCase):
     def calls(self):
         with open(os.path.join(self.folder, 'calls.txt'), encoding='utf-8') as f:
             return f.read()
+
+    def test_kwin_offered_only_while_something_owns_the_name(self):
+        self.assertFalse(capture.kwin_screenshot_offered())
+        self.start_fake()
+        self.assertTrue(capture.kwin_screenshot_offered())
+        with mock.patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'Spark'}):
+            os.environ.pop('SPARK_SNIP_CAPTURE', None)
+            self.assertEqual(core.capture_order(), ['kwin', 'portal'])
 
     def test_kwin_workspace_pixels(self):
         self.start_fake()

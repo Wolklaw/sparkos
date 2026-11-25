@@ -522,7 +522,25 @@ def capture_order() -> List[str]:
     if 'kde' in desktop or not desktop:
         # Spectacle before the portal: the portal may show a dialog, Spectacle never does
         return ['kwin', 'spectacle', 'portal']
+    # Any other name (the Spark session runs KWin without plasmashell and calls itself
+    # something else): go by what is on the bus, not by the name.
+    if kwin_offers_screenshots():
+        return ['kwin', 'portal']
     return ['grim', 'portal']
+
+
+def kwin_offers_screenshots() -> bool:
+    """True when KWin's ScreenShot2 interface is on the session bus. SPARK_SNIP_KWIN=1|0
+    forces the answer (tests, --self-test)."""
+    forced = os.environ.get('SPARK_SNIP_KWIN')
+    if forced in ('0', '1'):
+        return forced == '1'
+    try:
+        from . import capture
+        return capture.kwin_screenshot_offered()
+    except Exception as exc:            # noqa: BLE001 - no bus, no PyGObject: not KWin
+        log.info("could not ask the bus about KWin: %s", exc)
+        return False
 
 
 def _tool_screenshot(name: str) -> Image.Image:

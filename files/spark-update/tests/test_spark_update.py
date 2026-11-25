@@ -486,6 +486,47 @@ class NotifyTests(unittest.TestCase):
         self.assertTrue(notify.should_notify(now + 72 * 3600, 'v2', rec, remind_hours=72))
         self.assertFalse(notify.should_notify(now + 3 * 3600, 'v2', rec, remind_hours=1))
 
+    def restart_with(self, ksmserver, ksm_works=True):
+        """restart_pc with a stand-in for gdbus and systemctl; returns (result, commands)."""
+        from unittest import mock
+        seen = []
+
+        def fake_run(cmd, timeout=None):
+            seen.append(cmd)
+            if 'org.freedesktop.DBus.NameHasOwner' in cmd:
+                return 0, f"({'true' if ksmserver else 'false'},)\n", ''
+            if 'org.kde.Shutdown.logoutAndReboot' in cmd:
+                return (0 if ksm_works else 1), '', ''
+            return 0, '', ''
+        env = {'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/nowhere'}
+        with mock.patch.object(notify, 'run', fake_run), \
+                mock.patch.object(notify, 'which', lambda name: '/usr/bin/' + name), \
+                mock.patch.dict(os.environ, env):
+            return notify.restart_pc(), seen
+
+    def test_restart_under_plasma_goes_through_ksmserver(self):
+        ok, seen = self.restart_with(ksmserver=True)
+        self.assertTrue(ok)
+        self.assertTrue(any('org.kde.Shutdown.logoutAndReboot' in c for c in seen))
+        self.assertFalse(any(c[0] == 'systemctl' for c in seen))
+
+    def test_restart_without_ksmserver_asks_systemd_and_never_calls_kde(self):
+        ok, seen = self.restart_with(ksmserver=False)
+        self.assertTrue(ok)
+        self.assertFalse(any('org.kde.Shutdown.logoutAndReboot' in c for c in seen))
+        self.assertEqual(seen[-1], ['systemctl', 'reboot'])
+
+    def test_restart_falls_back_when_ksmserver_refuses(self):
+        ok, seen = self.restart_with(ksmserver=True, ksm_works=False)
+        self.assertTrue(ok)
+        self.assertEqual(seen[-1], ['systemctl', 'reboot'])
+
+    def test_no_session_bus_means_no_ksmserver(self):
+        from unittest import mock
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop('DBUS_SESSION_BUS_ADDRESS', None)
+            self.assertFalse(notify.session_has_ksmserver())
+
     def test_message_is_the_mockup(self):
         title, body, actions = notify.message('ready', B_VER, True)
         self.assertEqual(title, t('notify.ready.title'))      # "SparkOS updated"
