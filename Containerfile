@@ -33,6 +33,17 @@ RUN --mount=type=bind,source=files/sparkos-capslock,target=/src \
     gcc -O2 -Wall -Wextra -Werror -std=gnu11 -D_FORTIFY_SOURCE=3 -fstack-protector-strong \
         -o /sparkos-capslock /src/sparkos-capslock.c $(pkg-config --cflags --libs libevdev)
 
+# 0a. spark-compositor (files/spark-compositor), the experimental wlroots compositor, compiled on
+#     the same base so it links against the image's own libraries. Only the program is copied
+#     into the image (step 3c).
+FROM ${BASE_IMAGE} AS compositor-build
+RUN --mount=type=bind,source=files/spark-compositor,target=/src \
+    --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
+    dnf -y --setopt=install_weak_deps=False install gcc make pkgconf-pkg-config wlroots0.19-devel \
+        wayland-devel wayland-protocols-devel wlr-protocols-devel libxkbcommon-devel libinput-devel \
+        pixman-devel libdrm-devel && \
+    cp -r /src /build && make -C /build && install -Dm755 /build/spark-compositor /spark-compositor
+
 # 0b. The out-of-tree kernel modules Fedora's kernel doesn't have (zenergy, ryzen_smu,
 #     v4l2loopback, xone, the racing wheel drivers, vhba), compiled here against kernel-devel of
 #     the exact kernel in the base, from pinned, checksummed sources (build_files/kmods.sh).
@@ -67,6 +78,10 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 # 3b. Caps Lock turns on and off when pressed, like Windows (files/sparkos-capslock). udev starts
 #     sparkos-capslock@<device>.service for each physical keyboard (80-sparkos-capslock.rules).
 COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
+
+# 3c. The experimental Spark compositor (session "spark-wl", never the default). Its runtime
+#     library and portal come from packages.sh in step 4.
+COPY --from=compositor-build /spark-compositor /usr/bin/spark-compositor
 
 # 4. Packages (build_files/packages.sh lists each one and why): what Bazzite
 #    brought (printing, scanning, ImageMagick, the gaming layer, distrobox, btop, tmux and other

@@ -1,0 +1,6 @@
+# xdg-desktop-portal-wlr for the Spark compositor session. "none" shares the output named in
+# output_name without a picker (the shell has no picker yet); copy this file to
+# ~/.config/xdg-desktop-portal-wlr/sparkwl and set output_name to share another monitor.
+[screencast]
+chooser_type=none
+max_fps=60

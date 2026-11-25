@@ -1,0 +1,48 @@
+name: spark-compositor
+# Builds the experimental Spark compositor on Fedora 45 (the image's own base) and tests it
+# headless: three virtual outputs, no GPU, real clients (layer-shell, xdg-shell, XWayland, a lock
+# screen, clipboard, a virtual keyboard), screenshots through screencopy kept as an artifact.
+# .github/scripts/spark-compositor/test.py has the checks. The image build (build.yml) compiles
+# the same source in its compositor-build stage.
+on:
+  push:
+    paths:
+      - "files/spark-compositor/**"
+      - ".github/scripts/spark-compositor/**"
+      - ".github/workflows/spark-compositor.yml"
+  pull_request:
+    paths:
+      - "files/spark-compositor/**"
+      - ".github/scripts/spark-compositor/**"
+      - ".github/workflows/spark-compositor.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    container:
+      image: registry.fedoraproject.org/fedora:45
+      options: --shm-size=512m
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install build and test tools
+        run: |
+          dnf -y --setopt=install_weak_deps=False install gcc make pkgconf-pkg-config wlroots0.19-devel \
+            wayland-devel wayland-protocols-devel wlr-protocols-devel libxkbcommon-devel libinput-devel \
+            pixman-devel libdrm-devel xorg-x11-server-Xwayland xterm foot grim wlr-randr swaybg swaylock \
+            wl-clipboard wayland-utils wtype ImageMagick python3 procps-ng fontconfig dejavu-sans-mono-fonts
+
+      - name: Build it
+        run: make -C files/spark-compositor
+
+      - name: Run it headless with test clients
+        run: python3 .github/scripts/spark-compositor/test.py files/spark-compositor/spark-compositor "$RUNNER_TEMP/out"
+
+      - name: Keep the screenshots and the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: spark-compositor-screenshots
+          path: ${{ runner.temp }}/out

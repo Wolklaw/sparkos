@@ -1,0 +1,10 @@
+#!/bin/sh
+# Session for the experimental Spark compositor (spark-wl). Never the default; picked on the
+# login screen. Runs spark-compositor, which runs spark-wl-startup once it is up.
+export XDG_CURRENT_DESKTOP=sparkwl
+export XDG_SESSION_DESKTOP=spark-wl
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM="wayland;xcb"
+export SDL_VIDEODRIVER=wayland,x11
+exec /usr/bin/spark-compositor -s /usr/libexec/spark-wl-startup
