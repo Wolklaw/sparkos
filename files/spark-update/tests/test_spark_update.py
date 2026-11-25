@@ -653,6 +653,76 @@ class SystemRunTests(unittest.TestCase):
         self.assertEqual(phases, ['downloading'])
         self.assertEqual(self.state()['result'], 'staged')
 
+    def _registry(self, digest, version=B_VER, code=0, **kw):
+        class Registry(FakeRunner):
+            def __call__(self, cmd, timeout=0, quiet=False, env=None):
+                if cmd[:2] == ['skopeo', 'inspect']:
+                    self.calls.append(list(cmd))
+                    if code:
+                        return code, '', 'error: no route to host'
+                    return 0, json.dumps({'Digest': digest, 'Labels': {
+                        'org.opencontainers.image.version': version}}), ''
+                return super().__call__(cmd, timeout, quiet, env)
+        return Registry(self.root, check_out=("No updates available.\n", 77), **kw)
+
+    def test_registry_finds_the_image_rpm_ostree_check_misses(self):
+        # Layered packages: `rpm-ostree upgrade --check` said "No updates available" while a
+        # new image waited, and the window said CHECKING through the whole download.
+        phases = []
+        run = self._registry('sha256:' + '9' * 64, stage_to='rpm-ostree-staged.json')
+        inner = run.__call__
+
+        def watch(cmd, timeout=0, quiet=False, env=None):
+            if cmd[1:2] == ['upgrade'] and '--check' not in cmd:
+                phases.append(updater.load_state(self.env).get('phase'))
+            return inner(cmd, timeout, quiet, env)
+        updater.system_run(self.env, now_mode='stage', runner=watch, clock=self.clock)
+        self.assertEqual(phases, ['downloading'])
+        self.assertEqual(run.ran('skopeo inspect --no-tags')[0][-1],
+                         'docker://ghcr.io/wolklaw/sparkos:latest')
+        self.assertEqual(self.state()['result'], 'staged')
+
+    def test_registry_check_only_reports_available(self):
+        run = self._registry('sha256:' + '9' * 64)
+        updater.system_run(self.env, now_mode='check', runner=run, clock=self.clock)
+        st = self.state()
+        self.assertEqual((st['result'], st['available_version']), ('available', B_VER))
+
+    def test_registry_same_as_booted_is_up_to_date(self):
+        host = status.read_host(self.env)
+        run = self._registry(host.booted.digest)
+        updater.system_run(self.env, now_mode='check', runner=run, clock=self.clock)
+        self.assertEqual(self.state()['result'], 'up_to_date')
+
+    def test_registry_same_as_staged_is_not_new(self):
+        root = make_root('rpm-ostree-staged.json')
+        host = status.read_host(Env(root))
+        self.assertTrue(host.staged.digest)
+        self.assertIsNone(updater.registry_newer(host, lambda cmd, timeout=0: (
+            0, json.dumps({'Digest': host.staged.digest}), '')))
+
+    def test_registry_unreachable_keeps_rpm_ostree_answer(self):
+        run = self._registry('', code=1)
+        updater.system_run(self.env, now_mode='check', runner=run, clock=self.clock)
+        self.assertEqual(self.state()['result'], 'up_to_date')
+        for bad in ('not json', json.dumps({'Digest': 'sha256:short'}), json.dumps([])):
+            host = status.read_host(self.env)
+            self.assertIsNone(updater.registry_newer(host, lambda cmd, timeout=0, b=bad: (0, b, '')))
+
+    def test_phase_since_is_recorded(self):
+        updater.system_run(self.env, now_mode='stage', clock=self.clock,
+                           runner=FakeRunner(self.root, stage_to='rpm-ostree-staged.json',
+                                             check_out=(f"AvailableUpdate:\n  Version: {B_VER}\n", 0)))
+        self.assertEqual(self.state()['phase_since'], self.clock.t)
+
+    def test_elapsed_clock(self):
+        from sparkupdate.app import elapsed
+        self.assertEqual(elapsed(100, now=107), '0:07')
+        self.assertEqual(elapsed(0, now=12 * 60 + 45), '12:45')
+        self.assertEqual(elapsed(0, now=3729), '1:02:09')
+        self.assertEqual(elapsed(None, now=50), '0:00')
+        self.assertEqual(elapsed(200, now=100), '0:00')
+
     def test_notify_mode_respects_the_hold(self):
         settings.write_system(self.env, settings.SystemSettings(True, 'notify', 6, False))
         held = 'sha256:' + '2' * 64

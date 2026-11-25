@@ -34,6 +34,18 @@ NOW_UNIT = '/usr/lib/systemd/system/spark-update-now@.service'
 
 # ─── What the window shows, gathered in a thread ─────────────
 
+
+def elapsed(since, now: Optional[float] = None) -> str:
+    """'0:07', '12:45', '1:02:09' since a timestamp; '0:00' when there is none."""
+    try:
+        secs = max(0, int((time.time() if now is None else now) - float(since)))
+    except (TypeError, ValueError):
+        secs = 0
+    h, rest = divmod(secs, 3600)
+    m, s = divmod(rest, 60)
+    return f"{h}:{m:02d}:{s:02d}" if h else f"{m}:{s:02d}"
+
+
 @dataclass
 class Snapshot:
     host: Host
@@ -500,6 +512,8 @@ class App:
         elif running:
             status = t({'downloading': 'status.downloading', 'flatpak': 'status.flatpak'}
                        .get(state.get('phase'), 'status.checking'))
+            # A clock that moves, so a long download doesn't look frozen.
+            status += " · " + elapsed(state.get('phase_since') or state.get('last_run'))
             colour = T["gold"]
         elif host.booted is None:
             status, colour = t('status.no_image'), T["pink"]
