@@ -170,6 +170,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-settings.sh \
         spark-terminal.sh \
         spark-launcher.sh \
+        spark-shell.sh \
         spark-emoji.sh \
         spark-notes.sh \
         spark-boxes.sh \

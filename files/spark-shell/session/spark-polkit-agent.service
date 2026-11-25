@@ -1,0 +1,9 @@
+[Unit]
+Description=Spark polkit agent
+PartOf=graphical-session.target
+After=spark-workspace.target
+
+[Service]
+ExecStart=/usr/libexec/spark-session-polkit
+Restart=on-failure
+Slice=background.slice

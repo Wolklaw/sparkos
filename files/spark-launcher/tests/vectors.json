@@ -1,0 +1,530 @@
+{
+ "apps": [
+  {
+   "name": "Firefox",
+   "description": "Web Browser",
+   "id": "org.mozilla.firefox.desktop"
+  },
+  {
+   "name": "Spark Calc",
+   "description": "Calculator",
+   "id": "dev.wolklaw.SparkCalc.desktop"
+  },
+  {
+   "name": "Spark Monitor",
+   "description": "Task manager",
+   "id": "dev.wolklaw.SparkMonitor.desktop"
+  },
+  {
+   "name": "Paramètres système",
+   "description": "Réglages",
+   "id": "systemsettings.desktop"
+  },
+  {
+   "name": "Calendar",
+   "description": "Agenda",
+   "id": "org.kde.merkuro.calendar.desktop"
+  },
+  {
+   "name": "Soot",
+   "description": "Browser",
+   "id": "soot.desktop"
+  },
+  {
+   "name": "Spark Files",
+   "description": "File manager",
+   "id": "dev.wolklaw.SparkFiles.desktop"
+  }
+ ],
+ "filter": [
+  {
+   "q": "cal",
+   "names": [
+    "Calendar",
+    "Spark Calc"
+   ]
+  },
+  {
+   "q": "spark",
+   "names": [
+    "Spark Calc",
+    "Spark Files",
+    "Spark Monitor"
+   ]
+  },
+  {
+   "q": "browser",
+   "names": [
+    "Firefox",
+    "Soot"
+   ]
+  },
+  {
+   "q": "sm",
+   "names": [
+    "Spark Monitor"
+   ]
+  },
+  {
+   "q": "PARAMETRES",
+   "names": [
+    "Paramètres système"
+   ]
+  },
+  {
+   "q": "   ",
+   "names": []
+  },
+  {
+   "q": "zzz",
+   "names": []
+  },
+  {
+   "q": "a",
+   "names": [
+    "Calendar",
+    "Paramètres système",
+    "Spark Calc",
+    "Spark Files",
+    "Spark Monitor",
+    "Firefox"
+   ]
+  },
+  {
+   "q": "f",
+   "names": [
+    "Firefox",
+    "Spark Files"
+   ]
+  },
+  {
+   "q": "files",
+   "names": [
+    "Spark Files"
+   ]
+  },
+  {
+   "q": "manager",
+   "names": [
+    "Spark Files",
+    "Spark Monitor"
+   ]
+  },
+  {
+   "q": "dev.wolklaw",
+   "names": [
+    "Spark Calc",
+    "Spark Files",
+    "Spark Monitor"
+   ]
+  },
+  {
+   "q": "éclair",
+   "names": []
+  },
+  {
+   "q": "s",
+   "names": [
+    "Soot",
+    "Spark Calc",
+    "Spark Files",
+    "Spark Monitor",
+    "Paramètres système",
+    "Calendar",
+    "Firefox"
+   ]
+  }
+ ],
+ "sums": [
+  {
+   "text": "2+2",
+   "sum": "2+2"
+  },
+  {
+   "text": " = 12 * 3 ",
+   "sum": "12 * 3"
+  },
+  {
+   "text": "sqrt(2)",
+   "sum": "sqrt(2)"
+  },
+  {
+   "text": "sin(30) + cos(60)",
+   "sum": "sin(30) + cos(60)"
+  },
+  {
+   "text": "200 + 10%",
+   "sum": "200 + 10%"
+  },
+  {
+   "text": "5!",
+   "sum": "5!"
+  },
+  {
+   "text": "2π",
+   "sum": "2π"
+  },
+  {
+   "text": "10 - 3",
+   "sum": "10 - 3"
+  },
+  {
+   "text": "-5",
+   "sum": ""
+  },
+  {
+   "text": "42",
+   "sum": ""
+  },
+  {
+   "text": "firefox",
+   "sum": ""
+  },
+  {
+   "text": "spark 2",
+   "sum": ""
+  },
+  {
+   "text": "calc",
+   "sum": ""
+  },
+  {
+   "text": "2+2'; rm -rf ~; '",
+   "sum": ""
+  },
+  {
+   "text": "$(reboot)+1",
+   "sum": ""
+  },
+  {
+   "text": "1+1 && reboot",
+   "sum": ""
+  },
+  {
+   "text": "1,5 + 2",
+   "sum": "1,5 + 2"
+  },
+  {
+   "text": "log10(100)",
+   "sum": "log10(100)"
+  },
+  {
+   "text": "2^8",
+   "sum": "2^8"
+  },
+  {
+   "text": "e",
+   "sum": ""
+  },
+  {
+   "text": "pi*2",
+   "sum": "pi*2"
+  },
+  {
+   "text": "(3)",
+   "sum": ""
+  },
+  {
+   "text": "3 (4)",
+   "sum": ""
+  },
+  {
+   "text": "x+1",
+   "sum": ""
+  },
+  {
+   "text": "",
+   "sum": ""
+  },
+  {
+   "text": "=",
+   "sum": ""
+  },
+  {
+   "text": "1.5",
+   "sum": ""
+  },
+  {
+   "text": "−3+4",
+   "sum": "−3+4"
+  },
+  {
+   "text": "10 mod 3",
+   "sum": "10 mod 3"
+  },
+  {
+   "text": "atan2(1)",
+   "sum": "atan2(1)"
+  }
+ ],
+ "sumsFr": [
+  {
+   "text": "2+2",
+   "sum": "2+2"
+  },
+  {
+   "text": " = 12 * 3 ",
+   "sum": "12 * 3"
+  },
+  {
+   "text": "sqrt(2)",
+   "sum": "sqrt(2)"
+  },
+  {
+   "text": "sin(30) + cos(60)",
+   "sum": "sin(30) + cos(60)"
+  },
+  {
+   "text": "200 + 10%",
+   "sum": "200 + 10%"
+  },
+  {
+   "text": "5!",
+   "sum": "5!"
+  },
+  {
+   "text": "2π",
+   "sum": "2π"
+  },
+  {
+   "text": "10 - 3",
+   "sum": "10 - 3"
+  },
+  {
+   "text": "-5",
+   "sum": ""
+  },
+  {
+   "text": "42",
+   "sum": ""
+  },
+  {
+   "text": "firefox",
+   "sum": ""
+  },
+  {
+   "text": "spark 2",
+   "sum": ""
+  },
+  {
+   "text": "calc",
+   "sum": ""
+  },
+  {
+   "text": "2+2'; rm -rf ~; '",
+   "sum": ""
+  },
+  {
+   "text": "$(reboot)+1",
+   "sum": ""
+  },
+  {
+   "text": "1+1 && reboot",
+   "sum": ""
+  },
+  {
+   "text": "1,5 + 2",
+   "sum": "1.5 + 2"
+  },
+  {
+   "text": "log10(100)",
+   "sum": "log10(100)"
+  },
+  {
+   "text": "2^8",
+   "sum": "2^8"
+  },
+  {
+   "text": "e",
+   "sum": ""
+  },
+  {
+   "text": "pi*2",
+   "sum": "pi*2"
+  },
+  {
+   "text": "(3)",
+   "sum": ""
+  },
+  {
+   "text": "3 (4)",
+   "sum": ""
+  },
+  {
+   "text": "x+1",
+   "sum": ""
+  },
+  {
+   "text": "",
+   "sum": ""
+  },
+  {
+   "text": "=",
+   "sum": ""
+  },
+  {
+   "text": "1.5",
+   "sum": ""
+  },
+  {
+   "text": "−3+4",
+   "sum": "−3+4"
+  },
+  {
+   "text": "10 mod 3",
+   "sum": "10 mod 3"
+  },
+  {
+   "text": "atan2(1)",
+   "sum": "atan2(1)"
+  }
+ ],
+ "commands": [
+  {
+   "sum": "2+2",
+   "cmd": "timeout 2 spark-calc --eval '2+2'"
+  },
+  {
+   "sum": "12 * 3",
+   "cmd": "timeout 2 spark-calc --eval '12 * 3'"
+  },
+  {
+   "sum": "sqrt(2)",
+   "cmd": "timeout 2 spark-calc --eval 'sqrt(2)'"
+  },
+  {
+   "sum": "sin(30) + cos(60)",
+   "cmd": "timeout 2 spark-calc --eval 'sin(30) + cos(60)'"
+  },
+  {
+   "sum": "200 + 10%",
+   "cmd": "timeout 2 spark-calc --eval '200 + 10%'"
+  },
+  {
+   "sum": "5!",
+   "cmd": "timeout 2 spark-calc --eval '5!'"
+  },
+  {
+   "sum": "2π",
+   "cmd": "timeout 2 spark-calc --eval '2π'"
+  },
+  {
+   "sum": "10 - 3",
+   "cmd": "timeout 2 spark-calc --eval '10 - 3'"
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "1,5 + 2",
+   "cmd": "timeout 2 spark-calc --eval '1,5 + 2'"
+  },
+  {
+   "sum": "log10(100)",
+   "cmd": "timeout 2 spark-calc --eval 'log10(100)'"
+  },
+  {
+   "sum": "2^8",
+   "cmd": "timeout 2 spark-calc --eval '2^8'"
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "pi*2",
+   "cmd": "timeout 2 spark-calc --eval 'pi*2'"
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "",
+   "cmd": ""
+  },
+  {
+   "sum": "−3+4",
+   "cmd": "timeout 2 spark-calc --eval '−3+4'"
+  },
+  {
+   "sum": "10 mod 3",
+   "cmd": "timeout 2 spark-calc --eval '10 mod 3'"
+  },
+  {
+   "sum": "atan2(1)",
+   "cmd": "timeout 2 spark-calc --eval 'atan2(1)'"
+  }
+ ],
+ "answers": [
+  {
+   "answer": "1.5",
+   "fr": true,
+   "shown": "1,5"
+  },
+  {
+   "answer": "1.5",
+   "fr": false,
+   "shown": "1.5"
+  },
+  {
+   "answer": " 3 ",
+   "fr": true,
+   "shown": "3"
+  },
+  {
+   "answer": "",
+   "fr": true,
+   "shown": ""
+  }
+ ],
+ "limit2": [
+  "Soot",
+  "Spark Calc"
+ ]
+}

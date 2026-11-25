@@ -1,0 +1,64 @@
+#!/bin/sh
+# Runs inside the compositor (KWin starts it and ends the session when it exits). Brings up
+# what Plasma's startup would: the environment for D-Bus activation and systemd, the helper
+# services (KDE daemon, portal, polkit agent, xembed tray proxy) and then the Spark shell.
+# The shell is restarted if it crashes; leaving it on purpose (Quit) ends the session.
+
+VARS="WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
+KDE_FULL_SESSION KDE_SESSION_VERSION XDG_MENU_PREFIX QT_WAYLAND_RECONNECT \
+KDE_APPLICATIONS_AS_SCOPE XCURSOR_THEME XCURSOR_SIZE"
+
+dbus-update-activation-environment --systemd $VARS 2>/dev/null \
+    || dbus-update-activation-environment $VARS 2>/dev/null
+
+use_systemd=0
+if [ -z "$SPARK_SESSION_NO_SYSTEMD" ] && systemctl --user --no-pager is-system-running >/dev/null 2>&1; then
+    use_systemd=1
+elif [ -z "$SPARK_SESSION_NO_SYSTEMD" ] && [ "$(systemctl --user is-system-running 2>/dev/null)" = degraded ]; then
+    use_systemd=1
+fi
+
+pids=""
+if [ "$use_systemd" = 1 ]; then
+    systemctl --user import-environment $VARS 2>/dev/null
+    systemctl --user start spark-workspace.target
+else
+    # no user systemd (a test container): start the helpers ourselves
+    for helper in /usr/bin/kded6 /usr/libexec/spark-session-polkit; do
+        if [ -x "$helper" ]; then
+            "$helper" >/dev/null 2>&1 &
+            pids="$pids $!"
+        fi
+    done
+fi
+
+here=$(dirname "$0")
+if [ -x /usr/bin/spark-shell ]; then
+    run_shell() { /usr/bin/spark-shell; }
+else
+    run_shell() { python3 "$here/../spark_shell.py"; }      # a source checkout (tests)
+fi
+
+started=0
+tries=0
+status=0
+while :; do
+    began=$(date +%s)
+    run_shell
+    status=$?
+    [ "$status" = 0 ] && break
+    now=$(date +%s)
+    if [ $((now - began)) -gt 60 ]; then tries=0; fi
+    tries=$((tries + 1))
+    started=$((started + 1))
+    echo "spark-session: the shell stopped ($status), restart $tries of 5" >&2
+    [ "$tries" -ge 5 ] && break
+    sleep 1
+done
+
+if [ "$use_systemd" = 1 ]; then
+    systemctl --user stop spark-workspace.target
+else
+    for p in $pids; do kill "$p" 2>/dev/null; done
+fi
+exit "$status"

@@ -262,3 +262,10 @@ fi
 # and output checks. The compositor itself is compiled in the Containerfile's compositor-build stage.
 dnf_install wlroots0.19 xdg-desktop-portal-wlr grim wlr-randr
 rpm -q wlroots0.19 xdg-desktop-portal-wlr
+
+# The Spark session (files/spark-shell): the shell draws its panel, wallpaper and launcher as
+# layer-shell surfaces (gtk4-layer-shell) from PyGObject. ddcutil sets the brightness of
+# monitors that have no backlight device (the OSD keys).
+dnf_install gtk4-layer-shell python3-gobject gtk4 ddcutil
+rpm -q gtk4-layer-shell python3-gobject
+test -e /usr/lib64/libgtk4-layer-shell.so.0

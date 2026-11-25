@@ -1,0 +1,233 @@
+"""The shell as one Gtk.Application: owns dev.wolklaw.SparkShell on the session bus, builds the
+windows for every monitor and wires the services together."""
+
+import logging
+
+import gi
+
+gi.require_version('Gtk', '4.0')
+gi.require_version('Gdk', '4.0')
+from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
+
+from . import APP_ID, apps, config, theme  # noqa: E402
+from .dbusutil import DBusFail, export  # noqa: E402
+from .launcherui import Launcher  # noqa: E402
+from .notifyd import NotificationServer  # noqa: E402
+from .notifyui import NotificationsUI  # noqa: E402
+from .osd import Controls, Osd  # noqa: E402
+from .panel import Panel  # noqa: E402
+from .tray import TrayHost  # noqa: E402
+from .wallpaper import Wallpaper  # noqa: E402
+from .windows import WindowTracker  # noqa: E402
+
+log = logging.getLogger('spark-shell')
+
+SHELL_XML = """
+<node>
+  <interface name="dev.wolklaw.SparkShell">
+    <method name="Windows"><arg type="s" name="json" direction="in"/></method>
+    <method name="Key"><arg type="s" name="name" direction="in"/></method>
+    <method name="ToggleLauncher"/>
+    <method name="State"><arg type="s" name="json" direction="out"/></method>
+    <method name="Screenshot">
+      <arg type="s" name="dir" direction="in"/><arg type="s" name="json" direction="out"/>
+    </method>
+    <method name="Quit"/>
+  </interface>
+</node>
+"""
+PLASMASHELL_XML = """
+<node>
+  <interface name="org.kde.PlasmaShell">
+    <method name="activateLauncherMenu"/>
+    <method name="toggleDashboard"/>
+  </interface>
+</node>
+"""
+
+
+class Shell(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
+        self.config = config.clean({})
+        self.panels = []
+        self.wallpapers = []
+        self.started = False
+
+    # lifecycle ---------------------------------------------------------------------------
+    def do_activate(self):
+        if self.started:
+            return
+        self.started = True
+        self.hold()
+        display = Gdk.Display.get_default()
+        provider = Gtk.CssProvider()
+        provider.load_from_string(theme.CSS)
+        Gtk.StyleContext.add_provider_for_display(
+            display, provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        conn = self.get_dbus_connection() or Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        self.conn = conn
+
+        self.config = config.load()
+        self.catalog = apps.Catalog()
+        self.tracker = WindowTracker(conn)
+        self.tracker.on_changed = lambda _w: [p.tasks.refresh() for p in self.panels]
+        self.notifyd = NotificationServer(conn)
+        self.notifications_ui = NotificationsUI(self.notifyd)
+        self.tray = TrayHost(conn)
+        self.osd = Osd()
+        self.controls = Controls(self.osd, conn)
+        self.launcher = Launcher(self)
+
+        export(conn, '/Shell', SHELL_XML, self._shell_call)
+        export(conn, '/PlasmaShell', PLASMASHELL_XML, self._plasma_call)
+        Gio.bus_own_name_on_connection(conn, 'org.kde.plasmashell',
+                                       Gio.BusNameOwnerFlags.DO_NOT_QUEUE, None, None)
+        Gio.bus_own_name_on_connection(conn, 'org.freedesktop.Notifications',
+                                       Gio.BusNameOwnerFlags.REPLACE |
+                                       Gio.BusNameOwnerFlags.ALLOW_REPLACEMENT,
+                                       lambda c, n: self.notifyd.start(),
+                                       lambda c, n: log.warning('lost %s', n))
+        self.tray.start()
+        self.tracker.start()
+
+        self._watch_config()
+        display.get_monitors().connect('items-changed', lambda *_: self.rebuild())
+        self.rebuild()
+        self.catalog_monitor = Gio.AppInfoMonitor.get()
+        self.catalog_monitor.connect('changed', lambda *_: self.catalog.reload())
+        log.info('spark shell %s is up', APP_ID)
+
+    def rebuild(self):
+        """Windows for the current monitors."""
+        for w in self.panels + self.wallpapers:
+            w.destroy()
+        self.panels, self.wallpapers = [], []
+        monitors = Gdk.Display.get_default().get_monitors()
+        for i in range(monitors.get_n_items()):
+            monitor = monitors.get_item(i)
+            self.wallpapers.append(Wallpaper(monitor, self.config))
+            self.panels.append(Panel(self, monitor, with_tray=(i == 0)))
+        for w in self.wallpapers + self.panels:
+            w.present()
+
+    # config ------------------------------------------------------------------------------
+    def _watch_config(self):
+        path = config.config_path()
+        try:
+            import os
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+        except OSError:
+            pass
+        self._config_monitor = Gio.File.new_for_path(path).monitor_file(
+            Gio.FileMonitorFlags.NONE, None)
+        self._config_monitor.connect('changed', self._config_changed)
+
+    def _config_changed(self, *_):
+        new = config.load()
+        if new == self.config:
+            return
+        position = new['panel_position'] != self.config['panel_position']
+        self.config = new
+        if position:
+            self.rebuild()
+        else:
+            for w in self.wallpapers:
+                w.apply(new)
+            for p in self.panels:
+                p.tasks.refresh()
+
+    def set_pinned(self, ident, on):
+        pinned = [p for p in self.config['pinned'] if p != ident]
+        if on:
+            pinned.append(ident)
+        self.config['pinned'] = pinned
+        try:
+            config.save_pinned(pinned)
+        except OSError as e:
+            log.warning('could not save pinned apps: %s', e)
+        for p in self.panels:
+            p.tasks.refresh()
+
+    # actions -----------------------------------------------------------------------------
+    def toggle_launcher(self):
+        self.launcher.toggle()
+
+    def _shell_call(self, interface, method, args, sender):
+        if method == 'Windows':
+            self.tracker.update(args[0])
+        elif method == 'Key':
+            self.controls.key(args[0])
+        elif method == 'ToggleLauncher':
+            self.toggle_launcher()
+        elif method == 'State':
+            return (self.state_json(),)
+        elif method == 'Screenshot':
+            return (self.screenshot(args[0]),)
+        elif method == 'Quit':
+            self.quit()
+        else:
+            raise DBusFail('unknown method ' + method,
+                           'org.freedesktop.DBus.Error.UnknownMethod')
+
+    def screenshot(self, directory):
+        """Render each of the shell's own windows to a PNG (works with no screen to capture)."""
+        import json
+        import os
+        os.makedirs(directory, exist_ok=True)
+        named = [('panel-%s' % p.connector, p) for p in self.panels]
+        named += [('wallpaper-%d' % i, w) for i, w in enumerate(self.wallpapers)]
+        named += [('notifications', self.notifications_ui.toasts), ('launcher', self.launcher),
+                  ('osd', self.osd)]
+        written = []
+        for name, window in named:
+            width, height = window.get_width(), window.get_height()
+            renderer = window.get_native().get_renderer() if window.get_native() else None
+            if not window.get_visible() or renderer is None or width <= 0 or height <= 0:
+                log.info('screenshot: skipped %s (visible %s, %sx%s, renderer %s)', name,
+                         window.get_visible(), width, height, renderer is not None)
+                continue
+            snapshot = Gtk.Snapshot()
+            Gtk.WidgetPaintable.new(window).snapshot(snapshot, width, height)
+            node = snapshot.to_node()
+            if node is None and window.get_child() is not None:     # the window's own box
+                snapshot = Gtk.Snapshot()
+                child = window.get_child()
+                Gtk.WidgetPaintable.new(child).snapshot(snapshot, child.get_width(),
+                                                        child.get_height())
+                node = snapshot.to_node()
+                width, height = child.get_width(), child.get_height()
+            if node is None:
+                log.info('screenshot: %s drew nothing (%sx%s)', name, width, height)
+                continue
+            texture = renderer.render_texture(node, None)
+            path = os.path.join(directory, name + '.png')
+            ok = texture.save_to_png(path)
+            log.info('screenshot: %s %sx%s saved=%s', name, width, height, ok)
+            if ok:
+                written.append(path)
+        return json.dumps(written)
+
+    def state_json(self):
+        """What the shell is showing, for tests and bug reports."""
+        import json
+        from . import layer
+        return json.dumps({
+            'layer_shell': layer.is_available(),
+            'panels': [p.connector for p in self.panels],
+            'wallpapers': len(self.wallpapers),
+            'windows': self.tracker.windows,
+            'tracker_loaded': self.tracker.loaded,
+            'tray': [i.id for i in self.tray.visible_items()],
+            'tray_owns_watcher': self.tray.owns_watcher,
+            'notifications': {'active': len(self.notifyd.active),
+                              'history': len(self.notifyd.history),
+                              'dnd': self.notifyd.dnd},
+            'launcher_open': self.launcher.get_visible(),
+        })
+
+    def _plasma_call(self, interface, method, args, sender):
+        # KWin's Meta key calls this on plasmashell; the Spark shell answers it
+        if method in ('activateLauncherMenu', 'toggleDashboard'):
+            GLib.idle_add(lambda: self.toggle_launcher() and False)
+        return None
