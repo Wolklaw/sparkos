@@ -79,8 +79,7 @@ def install() -> bool:
         if h is None:
             return False
         old = h['source']
-        libvirt.virEventInvokeHandleCallback(hid, h['fd'], _from_glib(cond, GLib),
-                                             h['cb'], h['opaque'])
+        h['cb'](hid, h['fd'], _from_glib(cond, GLib), h['opaque'])
         keep = hid in _handles and h['source'] == old and bool(h['events'])
         if not keep and h['source'] == old:
             h['source'] = 0                      # GLib drops it when we return False
@@ -133,7 +132,7 @@ def install() -> bool:
         if t is None:
             return False
         old = t['source']
-        libvirt.virEventInvokeTimeoutCallback(tid, t['cb'], t['opaque'])
+        t['cb'](tid, t['opaque'])
         # the callback may have updated or removed the timer; update re-arms a new source
         keep = tid in _timers and t['source'] == old and t['ms'] >= 0
         if not keep and t['source'] == old:
@@ -195,3 +194,4 @@ def _on_main(GLib) -> bool:
 def _kill(GLib, source):
     if GLib.MainContext.default().find_source_by_id(source) is not None:
         GLib.source_remove(source)
+

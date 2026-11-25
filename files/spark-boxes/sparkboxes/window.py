@@ -48,11 +48,46 @@ def button(text: str, handler: Callable, *classes: str, tip: str = '') -> Gtk.Bu
     return widget
 
 
-def spin(low: int, high: int, value: int, step: int = 1) -> Gtk.SpinButton:
-    widget = Gtk.SpinButton.new_with_range(low, high, step)
-    widget.set_value(value)
-    widget.set_numeric(True)
-    return widget
+class Stepper(Gtk.Box):
+    """A number with minus and plus buttons. Gtk.SpinButton and Gtk.Switch draw themselves with the
+    theme's symbolic icons, which GTK 3 loads through glycin's sandbox (bwrap); where that
+    sandbox can't start (a container, say) GTK 3 aborts on the first one. Text buttons need none."""
+
+    def __init__(self, low: int, high: int, value: int, step: int = 1):
+        super().__init__(spacing=0)
+        self.low, self.high, self.step = low, high, step
+        self.entry = Gtk.Entry()
+        self.entry.set_width_chars(8)
+        self.entry.set_alignment(1.0)
+        self.entry.set_input_purpose(Gtk.InputPurpose.DIGITS)
+        self.minus = Gtk.Button(label='\u2212')
+        self.plus = Gtk.Button(label='+')
+        for widget in (self.minus, self.plus):
+            widget.get_style_context().add_class('step')
+        self.pack_start(self.entry, True, True, 0)
+        self.pack_start(self.minus, False, False, 0)
+        self.pack_start(self.plus, False, False, 0)
+        self.minus.connect('clicked', lambda *_: self.set_value(self.get_value_as_int() - self.step))
+        self.plus.connect('clicked', lambda *_: self.set_value(self.get_value_as_int() + self.step))
+        self.entry.connect('activate', lambda *_: self.set_value(self.get_value_as_int()))
+        self.entry.connect('focus-out-event', lambda *_: self.set_value(self.get_value_as_int()) or False)
+        self.value = low
+        self.set_value(value)
+
+    def get_value_as_int(self) -> int:
+        try:
+            return max(self.low, min(self.high, int(self.entry.get_text().strip())))
+        except ValueError:
+            return self.value
+
+    def set_value(self, value) -> None:
+        self.value = max(self.low, min(self.high, int(value)))
+        if self.entry.get_text() != str(self.value):
+            self.entry.set_text(str(self.value))
+
+
+def spin(low: int, high: int, value: int, step: int = 1) -> Stepper:
+    return Stepper(low, high, value, step)
 
 
 def iso_dialog(parent: Gtk.Window) -> Optional[str]:
@@ -227,7 +262,7 @@ class BoxesWindow(Gtk.ApplicationWindow):
         self.s_mem = spin(xmlgen.MIN_MEMORY_MB, 1048576, 4096, 256)
         self.s_boot_disk = Gtk.RadioButton.new_with_label(None, t('set.boot_disk'))
         self.s_boot_cd = Gtk.RadioButton.new_with_label_from_widget(self.s_boot_disk, t('set.boot_cd'))
-        self.s_net = Gtk.Switch()
+        self.s_net = Gtk.CheckButton(label=t('set.net_on'))
         self.s_net.set_halign(Gtk.Align.START)
         boot = Gtk.Box(spacing=12)
         boot.pack_start(self.s_boot_disk, False, False, 0)

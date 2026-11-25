@@ -52,12 +52,12 @@ window.{NAME}, .{NAME} {{
 .{NAME} list.rows > row:selected {{
   background: {C['panel2']}; border-color: {C['accent']}; box-shadow: {SPLIT};
 }}
-.{NAME} entry, .{NAME} spinbutton, .{NAME} spinbutton entry {{
+.{NAME} entry {{
   background: {C['panel']}; color: {C['text']}; caret-color: {C['accent']};
   border: 1px solid {C['line2']}; border-radius: 3px; box-shadow: none; min-height: 28px;
 }}
-.{NAME} entry:focus, .{NAME} spinbutton:focus {{ border-color: {C['accent']}; box-shadow: {SPLIT}; }}
-.{NAME} spinbutton button {{ background: {C['panel2']}; border: none; border-radius: 0; box-shadow: none; }}
+.{NAME} entry:focus {{ border-color: {C['accent']}; box-shadow: {SPLIT}; }}
+.{NAME} button.step {{ min-width: 28px; padding: 2px 6px; border-radius: 0; }}
 .{NAME} button {{
   min-height: 24px; padding: 2px 10px; border-radius: 3px; box-shadow: none;
   border: 1px solid {C['line2']}; background: transparent; color: {C['text']};
@@ -93,10 +93,7 @@ window.{NAME}, .{NAME} {{
   border: 1px dashed {C['line2']}; border-radius: 3px; background: {C['panel']}; padding: 12px;
 }}
 .{NAME} .dropzone.hot {{ border-color: {C['accent']}; box-shadow: {SPLIT}; }}
-.{NAME} combobox button, .{NAME} switch {{ min-height: 24px; }}
-.{NAME} switch {{ background: {C['panel2']}; border: 1px solid {C['line2']}; border-radius: 3px; }}
-.{NAME} switch:checked {{ background: {C['accent']}; }}
-.{NAME} switch slider {{ background: {C['text']}; border-radius: 3px; }}
+.{NAME} combobox button {{ min-height: 24px; }}
 .{NAME} checkbutton, .{NAME} radiobutton {{ color: {C['text']}; }}
 .{NAME} .consolebar {{ background: {C['panel']}; border-bottom: 1px solid {C['line']}; padding: 4px 8px; }}
 
