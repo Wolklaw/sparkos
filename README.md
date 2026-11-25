@@ -22,6 +22,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 | App | Version | What it does | |
 |---|---|---|---|
 | **Spark Launcher** | - | The app menu, on the Meta key: search as you type, sums answered on the first line, pinned apps, recent files and power. | [source](files/spark-launcher) |
+| **Spark Shell** | - | The Spark session: a second entry on the login screen with its own panel, tray, notifications, launcher, wallpaper and volume/brightness display, on KWin. Plasma stays the default. Built, not yet tried on a real screen. | [source](files/spark-shell) |
 | **Spark Files** | 1.0.0 | The file manager: tabs and a split view, copies in the background, search, thumbnails, the Trash and your Windows drives. | [source](files/spark-files) |
 | **Spark Terminal** | 1.1.0 | Tabs, split panes, search in the scrollback and clickable links, on Ctrl+Alt+T. | [source](files/spark-terminal) |
 | **Spark Settings** | 1.0.0 | Displays, sound, network, Bluetooth, power, default apps, date and language, printers and startup, with KDE's pages for the rest. | [source](files/spark-settings) |

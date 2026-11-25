@@ -1,0 +1,47 @@
+#!/bin/sh
+# Spark session: the compositor, then spark-session-run inside it (the login screen runs this
+# through /usr/share/wayland-sessions/spark.desktop). Plasma stays the default session; this
+# one is chosen by hand on the login screen.
+#
+# Test switches (never set by the login screen):
+#   SPARK_SESSION_VIRTUAL=1   render to a virtual framebuffer instead of the real outputs
+#   SPARK_SESSION_OUTPUTS=3   how many virtual outputs (with VIRTUAL)
+#   SPARK_SESSION_SOCKET=x    wayland socket name (with VIRTUAL; default wayland-spark)
+#   SPARK_SESSION_NO_SYSTEMD=1  start the helpers directly, not as systemd user units
+
+export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Spark:KDE}"
+case "$XDG_CURRENT_DESKTOP" in *KDE*) ;; *) XDG_CURRENT_DESKTOP="Spark:KDE" ;; esac
+export XDG_SESSION_TYPE=wayland
+export XDG_SESSION_DESKTOP=Spark
+export KDE_FULL_SESSION=true
+export KDE_SESSION_VERSION=6
+export XDG_MENU_PREFIX="${XDG_MENU_PREFIX:-plasma-}"
+export QT_WAYLAND_RECONNECT=1
+export KDE_APPLICATIONS_AS_SCOPE=1
+
+# the same environment scripts Plasma sources (ssh-agent, gtk settings, ...)
+for f in /etc/xdg/plasma-workspace/env/*.sh; do
+    [ -r "$f" ] && . "$f"
+done
+
+# needs a session bus; the login screen gives one, a test may not
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ] && [ -z "$SPARK_SESSION_REEXEC" ]; then
+    export SPARK_SESSION_REEXEC=1
+    exec dbus-run-session -- "$0" "$@"
+fi
+
+here=$(dirname "$0")
+run=/usr/libexec/spark-session-run
+[ -x "$run" ] || run="$here/spark-session-run"
+
+if [ -n "$SPARK_SESSION_VIRTUAL" ]; then
+    exec kwin_wayland --virtual --no-lockscreen \
+        --socket "${SPARK_SESSION_SOCKET:-wayland-spark}" \
+        --output-count "${SPARK_SESSION_OUTPUTS:-1}" --width 1920 --height 1080 \
+        --exit-with-session "$run"
+fi
+
+if [ -x /usr/bin/kwin_wayland_wrapper ]; then
+    exec /usr/bin/kwin_wayland_wrapper --xwayland --exit-with-session "$run"
+fi
+exec kwin_wayland --xwayland --exit-with-session "$run"
