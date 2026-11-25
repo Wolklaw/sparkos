@@ -22,6 +22,20 @@ USER, PASSWORD = 'sparkgd', 'tiny-umbrella-5'
                      'needs root, greetd and a container (runs in CI)')
 class RealGreetd(unittest.TestCase):
     def setUp(self):
+        # Fedora's greetd PAM stack opens an SELinux context, sets the login uid and a namespace.
+        # A container on a CI host cannot do those (pam_open_session: MODULE_UNKNOWN), so in a
+        # container only, use a plain stack for the user's session: the password check is still
+        # real pam_unix. /etc/pam.d/greetd is ours to remove afterwards (the package keeps its
+        # own copy in /usr/lib/pam.d).
+        self.pam_override = None
+        if os.path.exists('/run/.containerenv') or os.path.exists('/.dockerenv'):
+            self.pam_override = '/etc/pam.d/greetd'
+            if not os.path.exists(self.pam_override):
+                with open(self.pam_override, 'w') as handle:
+                    handle.write('auth required pam_unix.so\naccount required pam_unix.so\n'
+                                 'session required pam_permit.so\n')
+            else:
+                self.pam_override = None
         subprocess.run(['useradd', '-m', USER], check=True)
         subprocess.run(['chpasswd'], input=f'{USER}:{PASSWORD}\n', text=True, check=True)
         self.dir = tempfile.mkdtemp()
@@ -53,6 +67,8 @@ class RealGreetd(unittest.TestCase):
                 self.greetd.kill()
                 self.greetd.wait()
         subprocess.run(['userdel', '-r', USER], check=False, capture_output=True)
+        if self.pam_override:
+            os.unlink(self.pam_override)
         shutil.rmtree(self.dir, ignore_errors=True)
 
     def wait_for(self, path, timeout=40):
