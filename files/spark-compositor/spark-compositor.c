@@ -1091,11 +1091,25 @@ static void focus_layer_or_view(struct server *s) {
 	else send_keyboard_focus(s, NULL);
 }
 
+/* an X11 override-redirect surface (menu, popup) that is still up */
+static bool unmanaged_has(struct server *s, struct wlr_surface *surf) {
+	(void)s;
+	struct wlr_xwayland_surface *x = surf ? wlr_xwayland_surface_try_from_wlr_surface(surf) : NULL;
+	return x && x->override_redirect;
+}
+
 static void focus_view(struct view *v, struct wlr_surface *prefer) {
 	struct server *s = &S;
 	if (!v) return;
 	if (v->minimized) { view_set_minimized(v, false); return; }
-	if (s->focused_view == v && !s->focused_layer) return;
+	if (s->focused_view == v && !s->focused_layer) {
+		/* already the active window: still make sure the keyboard is on it (a popup may have had it) */
+		struct wlr_surface *surf = view_surface(v);
+		if (surf && s->seat->keyboard_state.focused_surface != surf && !s->locked &&
+				!(s->seat->keyboard_state.focused_surface && unmanaged_has(s, s->seat->keyboard_state.focused_surface)))
+			focus_layer_or_view(s);
+		return;
+	}
 	if (s->focused_view && s->focused_view != v && s->focused_view->mapped) view_activate(s->focused_view, false);
 	s->focused_view = v;
 	s->focused_layer = NULL;
@@ -1533,7 +1547,17 @@ static void view_unmap(struct wl_listener *l, void *data) {
 	struct server *s = v->server;
 	v->mapped = false;
 	refocus_soon(s);
-	if (v->unmanaged) return;
+	if (v->unmanaged) {
+		/* a menu or popup that took the keyboard (Wine, Battle.net) gives it back to the window
+		 * under it; without this typing went nowhere until Alt+Tab */
+		struct wlr_surface *surf = view_surface(v);
+		if (surf && s->seat->keyboard_state.focused_surface == surf) {
+			send_keyboard_focus(s, NULL);
+			if (s->focused_view && s->focused_view->mapped && !s->locked) view_activate(s->focused_view, true);
+			focus_layer_or_view(s);
+		}
+		return;
+	}
 	if (s->cursor_mode != CURSOR_PASSTHROUGH && s->grab_view == v) { s->cursor_mode = CURSOR_PASSTHROUGH; s->grab_view = NULL; }
 	if (v->ftl) {
 		UNLISTEN(&v->ftl_activate); UNLISTEN(&v->ftl_close); UNLISTEN(&v->ftl_fullscreen); UNLISTEN(&v->ftl_maximize);

@@ -131,8 +131,29 @@ def watch() -> int:
     return 1
 
 
+def _drain_stdin() -> None:
+    """wl-paste --watch pipes the new clipboard into this process. Read it to the end first:
+    left unread, anything over the pipe buffer (64 KB, so every screenshot) blocks the program
+    that copied it, and every paste waits until this capture gives up (Qt apps get 0 bytes)."""
+    def drain():
+        try:
+            while os.read(0, 1 << 20):
+                pass
+        except OSError:
+            pass
+    try:
+        if os.isatty(0):
+            return
+    except OSError:
+        return
+    # in the background: a stdin that never ends (a test run) must not hold the capture up
+    import threading
+    threading.Thread(target=drain, daemon=True).start()
+
+
 def capture_main() -> int:
     core.setup_logging()
+    _drain_stdin()
     try:
         what = capture()
     except Exception as exc:    # never let one bad copy stop the watcher

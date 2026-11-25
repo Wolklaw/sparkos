@@ -135,6 +135,13 @@ try:
     # 6. clipboard and primary selection through data-control
     start(["wl-copy", "--foreground", "spark-clip"]); time.sleep(1)
     check(run(["wl-paste", "-n"]).stdout == "spark-clip", "clipboard round trip (wl-copy / wl-paste)")
+    # X11 apps (Electron chat apps, Wine) paste what a Wayland app copied, through XWayland
+    if "DISPLAY" in cenv and shutil.which("xclip"):
+        r = run(["xclip", "-selection", "clipboard", "-o"])
+        check(r.stdout == "spark-clip", f"an X11 app reads the Wayland clipboard ({r.stdout!r} {r.stderr.strip()!r})")
+        subprocess.run(["xclip", "-selection", "clipboard", "-i"], input="from-x11", text=True, env=cenv,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10); time.sleep(1)
+        check(run(["wl-paste", "-n"]).stdout == "from-x11", "a Wayland app reads the X11 clipboard")
     start(["wl-copy", "--foreground", "-p", "spark-primary"]); time.sleep(1)
     check(run(["wl-paste", "-p", "-n"]).stdout == "spark-primary", "primary selection round trip")
 
