@@ -38,7 +38,7 @@ dnf_install cups-client pipewire-utils pulseaudio-utils pciutils dbus-tools
 # What Spark Tray runs (files/spark-tray): GTK 3 with PyGObject for the popups, and
 # gtk-layer-shell so a popup sits in a screen corner on Wayland. It talks to NetworkManager,
 # BlueZ, UPower, logind and tuned-ppd over D-Bus, and to CUPS through cups-client (above).
-dnf_install python3-gobject gtk3 gtk-layer-shell
+dnf_install python3-gobject gobject-introspection gtk3 gtk-layer-shell
 
 # mokutil: "spark secureboot" reads Secure Boot state and enrolls the module-signing certificate
 # with it (Kinoite usually has it; named here so that stays true).

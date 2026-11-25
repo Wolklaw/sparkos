@@ -94,8 +94,8 @@ jobs:
             as "test -x ~/.local/bin/spark-tray"
             as "grep -q \"^Exec=$home/.local/bin/spark-tray$\" ~/.local/share/applications/dev.wolklaw.SparkTray.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkTray.png"
-            # the image ships this app system-wide, in Spark-only autostart
-            grep -q "^OnlyShowIn=Spark;$" /etc/xdg/autostart/dev.wolklaw.SparkTray.desktop
+            # the system autostart file (the published image does not have this app until it merges)
+            grep -q "^OnlyShowIn=Spark;$" "$home/files/spark-tray/system/autostart.desktop"
 
             echo "--- self-test, items and autostart"
             as "~/.local/bin/spark-tray --version"

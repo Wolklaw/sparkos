@@ -69,7 +69,7 @@ bash install.sh --user            # to ~/.local
 bash install.sh --user --uninstall
 ```
 
-System-wide (root, image build): `bash install.sh --deps` installs python3, python3-gobject, gtk3
+System-wide (root, image build): `bash install.sh --deps` installs python3, python3-gobject, gobject-introspection, gtk3
 and cups-client with dnf, then the app. Do not install `power-profiles-daemon`: SparkOS uses
 `tuned-ppd`, which provides the same `net.hadess.PowerProfiles` D-Bus name.
 

@@ -103,7 +103,7 @@ if [ "$USER_MODE" = 1 ]; then
   fi
   if ! python3 -c 'import gi; gi.require_version("Gtk", "3.0"); from gi.repository import Gtk' 2>/dev/null; then
     echo "Spark Tray needs Python 3 with PyGObject and GTK 3, which this system doesn't have." >&2
-    echo "On SparkOS they come with the image; on Fedora: sudo dnf install python3-gobject gtk3" >&2
+    echo "On SparkOS they come with the image; on Fedora: sudo dnf install python3-gobject gobject-introspection gtk3" >&2
     exit 1
   fi
 
@@ -169,7 +169,7 @@ fi
 
 if [ "$DEPS" = 1 ]; then
   missing=()
-  for pkg in python3 python3-gobject gtk3 cups-client; do
+  for pkg in python3 python3-gobject gobject-introspection gtk3 cups-client; do
     rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
   done
   if [ ${#missing[@]} -gt 0 ]; then
