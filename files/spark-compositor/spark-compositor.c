@@ -1220,6 +1220,15 @@ static void view_set_maximized(struct view *v, bool on) {
 		view_resize(v, o->usable.width, o->usable.height - dh);
 	} else {
 		v->maximized = false;
+		/* mapped maximized (Wine restoring its last state): the saved size is the whole screen,
+		   so un-maximizing would change nothing. Fall back to two thirds of the screen, centred. */
+		struct output *o = output_of(v->server, view_output(v));
+		if (o && (v->saved.width <= 0 || v->saved.height <= 0 ||
+		          (v->saved.width >= o->usable.width - 8 && v->saved.height >= o->usable.height - TB_H - 8))) {
+			v->saved.width = o->usable.width * 2 / 3; v->saved.height = o->usable.height * 2 / 3;
+			v->saved.x = o->usable.x + (o->usable.width - v->saved.width) / 2;
+			v->saved.y = o->usable.y + (o->usable.height - v->saved.height) / 2;
+		}
 		view_place(v, v->saved.x, v->saved.y);
 		view_resize(v, v->saved.width, v->saved.height);
 	}
@@ -1696,6 +1705,9 @@ static void snap_preview_set(struct server *s, int zone, struct output *o) {
 	wlr_scene_node_raise_to_top(&s->snap_preview->node);
 	wlr_scene_node_set_enabled(&s->snap_preview->node, true);
 }
+
+#define OWN_BAR_H 40
+#define OWN_BAR_BUTTONS_W 160
 
 static void begin_grab(struct server *s, struct view *v, enum cursor_mode mode, uint32_t edges) {
 	if (!v || v->fullscreen) return;
@@ -2320,8 +2332,18 @@ static void cursor_button(struct wl_listener *l, void *data) {
 			}
 			return; /* the frame is the compositor's: no client sees this click */
 		}
-		if (v) focus_view(v, surf);
-		else if (surf) {
+		if (v) {
+			focus_view(v, surf);
+			/* an X11 app that draws its own title bar (Battle.net): Wine does not move a maximized
+			   window, so a drag from its top strip restores and moves it, like a Spark title bar.
+			   The click still reaches the app; the move starts only after 8 px of motion. The
+			   right end is left alone (its own minimize/maximize/close buttons). */
+			struct wlr_box vb; view_box(v, &vb);
+			if (e->button == BTN_LEFT && v->is_x11 && v->x11_own_frame && v->maximized &&
+			    s->cursor->y - v->y < OWN_BAR_H && s->cursor->x < v->x + vb.width - OWN_BAR_BUTTONS_W) {
+				s->press_view = v; s->press_x = s->cursor->x; s->press_y = s->cursor->y;
+			}
+		} else if (surf) {
 			/* a layer surface that takes keyboard focus on click (on-demand) */
 			struct layer_surface *ls;
 			wl_list_for_each(ls, &s->layer_surfaces, link)
