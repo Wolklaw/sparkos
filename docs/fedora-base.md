@@ -386,6 +386,15 @@ packages. Nothing changes on the Bazzite base.
 | NetworkManager | Nothing to add | Bazzite adds no NetworkManager config for this PC (only broadcom-wl's); Wi-Fi uses NetworkManager with wpa_supplicant on both. |
 | Other Bazzite files (`mt7921` ASPM, Framework charge control, Valve LEDs, CEC, coredump 5 days, journald persistent, incus/libvirt) | **Skipped** | Hardware the PC doesn't have (the Wi-Fi is a Realtek RTL8852BE), not performance, or already Fedora's default (journald keeps logs because `/var/log/journal` exists). |
 
+**Boot: the sign-in screen doesn't wait for the network** (added 2026-11-24, not a Bazzite item).
+Fedora enables `nfs-client.target`. Its `rpc-statd-notify.service` waits for
+`network-online.target`, which holds back `remote-fs.target`, `systemd-user-sessions` and the
+sign-in screen until NetworkManager has a connection. A benchmark on the owner's PC found the
+sign-in screen starting at 10.5 s of userspace time, 6.0 s of it in `NetworkManager-wait-online`;
+`rpc-statd-notify` started 24 ms after the network came up. SparkOS has no NFS mounts, so
+`fedora-tuning.sh` disables the target (and `10-sparkos.preset` keeps it off). Mounting an NFS share
+by hand still works: `mount.nfs` starts `rpc-statd` when it needs it.
+
 `/usr/share/sparkos/fedora-base/tuning-layer.txt` in the image records the packages and values,
 and the build stops if a package, file, kernel option or enabled service is missing.
 
