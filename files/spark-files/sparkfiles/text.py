@@ -705,7 +705,7 @@ FR = {
 
     # lieux réseau et comptes en ligne
     'side.network': "Réseau",
-    'net.connect': "Se connecter à un serveur…",
+    'net.connect': "Connecter un serveur…",
     'net.gdrive': "Google Drive",
     'net.gdrive_add': "Ajouter un compte Google…",
     'net.gdrive_setup_failed': "Impossible d'ouvrir Comptes en ligne. Lancez : spark-settings --kde kcm_kaccounts",
