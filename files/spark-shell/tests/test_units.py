@@ -291,6 +291,10 @@ class SignOutTest(unittest.TestCase):
         out = ending.leftovers([20, 21, 22, 40], 22, 0, parent=lambda p: self.TREE.get(p, 0))
         self.assertEqual(out, [40])
 
+    def test_the_compositor_binary_is_found_not_its_wrapper(self):
+        exes = {10: 'plasmalogin-helper', 11: 'spark-compositor.bin', 12: 'tee', 13: 'bash'}
+        self.assertEqual(ending.compositors(sorted(exes), exe=exes.get), [11])
+
 
 class PreloadTest(unittest.TestCase):
     """Apps started from the shell must not inherit gtk4-layer-shell (GTK 3 apps abort)."""

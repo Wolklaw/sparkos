@@ -324,9 +324,19 @@ class Tray:
                     return v.visual_id, self.root.create_colormap(v.visual_id, X.AllocNone)
         return None, None
 
+    def _pending(self):
+        from Xlib.error import ConnectionClosedError
+        try:
+            return self.d.pending_events()
+        except ConnectionClosedError:
+            # the session is ending (Xwayland went with the compositor): leave quietly, so
+            # systemd does not restart a tray with nothing left to dock into
+            log.info('X display closed, leaving')
+            os._exit(0)             # a SystemExit inside a GLib callback is only printed
+
     def on_x(self, *_):
         from Xlib import X
-        while self.d.pending_events():
+        while self._pending():
             ev = self.d.next_event()
             try:
                 if ev.type == X.ClientMessage and ev.client_type == self.atom('_NET_SYSTEM_TRAY_OPCODE'):
