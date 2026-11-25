@@ -12,6 +12,8 @@ It follows the PC's language: French when the system language is French (`LANG=f
 
 The screen freezes, you drag a box (or click once for the whole monitor), and the chip at the top switches between TEXT, IMAGE and VIDEO (T, I and V also work). Esc or a right-click cancels. Recordings go to `~/Videos/Screencasts` and saved screenshots to `~/Pictures/Screenshots`. The last screenshot is also kept as `~/.cache/spark-snip/latest.png`, replaced by the next one, for Spark Link's Send screenshot. Settings are in `~/.config/spark-snip/config.json` and the log in `~/.local/state/spark-snip/`.
 
+After a screenshot, the result window has an **Annotate** button (or press E). The annotate window has an arrow, box, ellipse, pen, highlighter, text, numbered step markers, pixelate (hides what is under it, such as a password or a face) and crop. Pick a colour from the presets or the `…` picker, set the size with the slider, undo and redo with Ctrl+Z and Ctrl+Y, and finish with **Copy** (Ctrl+C) or **Save** (Ctrl+S, same file name and folder as the plain Save image). Esc throws the marks away (it asks first if you drew something). Either button puts the annotated picture on the clipboard and makes it the last screenshot (`latest.png`), so Spark Link's Send screenshot sends the annotated one, and returns to the result window. Text is one line per click: type, then Enter.
+
 Everything runs on the computer. Nothing is uploaded.
 
 ## How it works
@@ -19,6 +21,7 @@ Everything runs on the computer. Nothing is uploaded.
 - **Screenshots:** on Plasma, Spark Snip asks KWin for the whole desktop over D-Bus (`org.kde.KWin.ScreenShot2`, `CaptureWorkspace`, at the screens' native resolution). KWin writes the pixels into a pipe; there is no helper program and no file on disk. If KWin refuses or isn't there, it uses Spectacle while Spectacle is still installed, then asks the XDG Desktop Portal for a screenshot. grim and gnome-screenshot are used on other Wayland desktops, and Pillow on X11. Spark Snip then shows that frozen frame full screen, so what you pick is exactly what you saw. Spark Snip never needs Spectacle.
 - **Text:** Tesseract, with the same preprocessing as QuickOCR: three variants, and the most confident read wins.
 - **Recording:** the desktop's ScreenCast portal shares one monitor as a PipeWire stream, and GStreamer crops it to the area and encodes it. It tries the GPU (VA-API H.264) first, then x264, OpenH264, and finally VP8 in WebM. The first recording on each monitor shows Plasma's share dialog. The answer is remembered after that. System sound is on by default and the microphone is off. Switch them in the main window, or with M and S in the overlay.
+- **Annotation:** `sparksnip/annotate.py` holds the marks (frozen items, so undo is cheap) and draws them with Pillow, anti-aliased, at the screenshot's own resolution; `sparksnip/editor.py` is the Tk window, which scales the picture to fit the screen and converts mouse positions back to picture pixels, so a 4K shot on a scaled desktop is annotated at 4K. Crop moves the marks with the pixels.
 - **Interface:** Tk, in the Wolklaw app style: BotWatch palette, mono type, sharp corners, and the magenta/cyan channel slip.
 
 ## Run, install, test
@@ -42,4 +45,5 @@ The tests that open windows need a display. The D-Bus capture tests need `dbus-d
 - KWin's screenshot interface answers any program from Plasma 6.8 on (SparkOS has 6.8). Older Plasma only answers programs whose desktop entry declares it, matched by the running executable, which for Spark Snip is Python, so there it will likely fall back to the portal.
 - A selection stays on one monitor. Mixed scaling across monitors may misplace the recorded area.
 - On an existing install, Plasma keeps the shortcuts it already has saved. If Print does nothing or opens something else, set it in System Settings > Shortcuts > Spark Snip.
-- No annotation or upload. For those, install Flameshot from the Store (it isn't in the image).
+- Annotation has not been tried by hand on a SparkOS desktop (CI drives it under Xvfb and the tests draw onto generated images). Text is a single line per click and uses DejaVu Sans Bold (or Pillow's built-in font if it's missing). Pixelate is the only blur: it can't be undone from the saved file, which is the point. Annotating is for screenshots only, not for a picture opened from disk.
+- No upload. Spark Snip never sends anything; for sharing to a site, use Flameshot from the Store (it isn't in the image).

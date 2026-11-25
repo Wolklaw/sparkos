@@ -8,7 +8,7 @@ APP_NAME = "Spark Snip"
 APP_SLUG = "spark-snip"          # command, folders, log and lock names
 APP_CLASS = "SparkSnip"          # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkSnip"
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 
 MODES = ("text", "image", "video")
 SHORTCUTS = {"text": "Meta+Shift+T", "image": "Print", "video": "Meta+Shift+R"}
