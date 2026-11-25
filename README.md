@@ -45,6 +45,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 | **Spark Emoji** | 0.1.0 (new) | Emoji and symbols on Meta+. (full stop): search in English or French, recents, skin tones, arrows, maths and accented letters. | [source](files/spark-emoji) |
 | **Spark Boxes** | 0.1.0 (new) | Virtual machines: make one from an ISO, start it, see its screen, snapshots, USB. Sets up UEFI, Secure Boot and a TPM for Windows 11. On libvirt and KVM (`spark virt setup` first). Replaces Virtual Machine Manager. | [source](files/spark-boxes) |
 | **Spark Audio** | 0.1.0 (new) | The sound mixer: outputs, microphones with a test, volume per app, a simple equalizer and Focusrite Scarlett controls. | [source](files/spark-audio) |
+| **Spark Tray** | 0.1.0 (new) | Tray icons for network, Bluetooth, power, printers and volume, with small popups. Starts in the Spark session; `spark-tray --enable` turns it on in Plasma. | [source](files/spark-tray) |
 
 ### Looking after the PC
 

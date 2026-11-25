@@ -1,0 +1,38 @@
+{
+  "id": "dev.wolklaw.SparkTray",
+  "slug": "spark-tray",
+  "name": "Spark Tray",
+  "name_fr": "Spark Tray",
+  "summary": "Tray icons for network, Bluetooth, power, printers and volume. Each one can be turned off.",
+  "summary_fr": "Icônes de la zone de notification pour le réseau, le Bluetooth, l'alimentation, les imprimantes et le volume. Chacune peut être désactivée.",
+  "version": "0.1.0",
+  "live_update": true,
+  "system_api": 1,
+  "installed_size_kb": 500,
+  "icon": "icons/spark-tray-256.png",
+  "categories": ["Settings", "HardwareSettings"],
+  "needs": {
+    "root": false,
+    "commands": ["python3"],
+    "python": ">=3.9",
+    "python_modules": ["gi"],
+    "optional": {
+      "NetworkManager": "the network icon",
+      "BlueZ": "the Bluetooth icon",
+      "UPower": "the battery in the power icon",
+      "power-profiles-daemon or tuned-ppd": "power profiles",
+      "lpstat": "the printers icon (cups-client)",
+      "Spark Audio": "the volume icon",
+      "gtk-layer-shell": "popups in a screen corner on Wayland"
+    },
+    "system": "Linux with GTK 3 and PyGObject"
+  },
+  "install": {
+    "user": "bash install.sh --user",
+    "uninstall": "bash install.sh --user --uninstall",
+    "system": "sudo bash install.sh --deps",
+    "self_test": "spark-tray --self-test"
+  },
+  "license": "LicenseRef-proprietary",
+  "source": "https://github.com/Wolklaw/sparkos/tree/main/files/spark-tray"
+}

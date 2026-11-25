@@ -144,7 +144,7 @@ class EndToEnd(Fixture):
         self.assertNotIn(self.slug, changed, "its version is released: spark-calc isn't changed")
         self.assertTrue(set(changed) <= {'spark-calc', 'spark-edit', 'spark-emoji', 'spark-space',
                                          'spark-notes', 'spark-clock', 'spark-fonts', 'spark-boxes',
-                                         'spark-clips'})
+                                         'spark-clips', 'spark-tray'})
         none = subprocess.run([sys.executable, tool, 'changed', '--apps-dir',
                                os.path.join(REPO, 'files'), '--index', 'none'],
                               capture_output=True, text=True, check=True).stdout
@@ -163,7 +163,7 @@ class EndToEnd(Fixture):
         slugs = json.loads(run('changed', '--apps-dir', files, '--index', 'none').stdout)
         self.assertEqual(sorted(slugs), ['spark-boxes', 'spark-calc', 'spark-clips', 'spark-clock', 'spark-edit',
                                          'spark-emoji', 'spark-fonts', 'spark-notes',
-                                         'spark-space'])
+                                         'spark-space', 'spark-tray'])
         run('build', '--apps-dir', files, '--out', out, *slugs)
         index = os.path.join(self.tmp, 'index.json')
         serial = 0
@@ -179,7 +179,7 @@ class EndToEnd(Fixture):
             run('envelope', '--payload', payload, '--signature', sig, '--out', index)
             said = run('verify', '--index', index, '--key', self.pub).stdout
             serial += 1
-            self.assertIn(f"serial {serial}, 9 app(s)", said)
+            self.assertIn(f"serial {serial}, 10 app(s)", said)
         with open(os.path.join(out, 'entries.json'), encoding='utf-8') as f:
             entries = json.load(f)
         for slug, entry in entries.items():

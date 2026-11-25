@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Tray
+Name[fr]=Spark Tray
+GenericName=Tray icons
+GenericName[fr]=Icônes de la zone de notification
+Comment=Network, Bluetooth, power, printers and volume icons for the tray
+Comment[fr]=Icônes réseau, Bluetooth, alimentation, imprimantes et volume
+Exec=spark-tray
+Icon=dev.wolklaw.SparkTray
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=tray;network;wifi;bluetooth;battery;power;printer;volume;réseau;imprimante;batterie;
+StartupNotify=false

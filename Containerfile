@@ -175,6 +175,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-notes.sh \
         spark-boxes.sh \
         spark-audio.sh \
+        spark-tray.sh \
         spark-update.sh \
         spark-session.sh \
         sparkos-security.sh \

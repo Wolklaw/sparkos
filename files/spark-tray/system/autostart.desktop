@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Tray
+Name[fr]=Spark Tray
+Comment=Network, Bluetooth, power, printer and volume icons for the tray
+Comment[fr]=Icônes réseau, Bluetooth, alimentation, imprimantes et volume
+Exec=spark-tray
+Icon=dev.wolklaw.SparkTray
+Terminal=false
+NoDisplay=true
+OnlyShowIn=Spark;
+X-GNOME-Autostart-Delay=2
