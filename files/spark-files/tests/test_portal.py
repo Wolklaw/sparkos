@@ -218,13 +218,28 @@ class OnTheBus(unittest.TestCase):
         self.bridge.in_glib(lambda: ids.append(self.service.start()))
         self.bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
         deadline = time.monotonic() + 5
-        while not self.service.owns and time.monotonic() < deadline:
+        while not (self.service.owns and len(self.bridge._exported) == 2) and \
+                time.monotonic() < deadline:
             time.sleep(0.05)
         self.assertTrue(self.service.owns)
-        self.addCleanup(lambda: self.bridge.in_glib(
-            lambda: ([Gio.bus_unown_name(i) for i in ids],
-                     [c.unregister_object(r) for c, r in self.bridge._exported],
-                     self.bridge.loop.quit())))
+        self.assertEqual(len(self.bridge._exported), 2)
+        self.addCleanup(self._stop, ids)
+
+    def _stop(self, ids):
+        # Every test shares one session bus connection: wait until the object is gone, or the
+        # next test's register_object finds the path taken and this cleanup then removes it.
+        done = threading.Event()
+
+        def stop():
+            for i in ids:
+                self.Gio.bus_unown_name(i)
+            for c, r in self.bridge._exported:
+                c.unregister_object(r)
+            self.bridge.loop.quit()
+            done.set()
+        self.bridge.in_glib(stop)
+        done.wait(5)
+        self.bridge.thread.join(5)
 
     def call(self, iface, method, args, sig, timeout=5000):
         return self.bus.call_sync(portal.PORTAL_NAME, portal.PORTAL_PATH, iface, method,

@@ -55,6 +55,31 @@ portal = subprocess.Popen([PORTAL, '--replace'], env=env, stdout=subprocess.DEVN
 failed = []
 
 
+def wait_for_our_portal():
+    """Ask only once the portal started above owns the name: a call before that makes the bus
+    start another xdg-desktop-portal from its .service file, without our config."""
+    bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    deadline = time.monotonic() + 10
+    while time.monotonic() < deadline:
+        try:
+            pid = bus.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
+                                'org.freedesktop.DBus', 'GetConnectionUnixProcessID',
+                                GLib.Variant('(s)', ('org.freedesktop.portal.Desktop',)),
+                                None, Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+            if pid == portal.pid:
+                return True
+        except GLib.Error:
+            pass                                        # not owned yet
+        time.sleep(0.1)
+    return False
+
+
+if not wait_for_our_portal():
+    print('FAIL  xdg-desktop-portal did not take its bus name', flush=True)
+    portal.terminate()
+    sys.exit(1)
+
+
 def check(ok, what):
     print(('ok    ' if ok else 'FAIL  ') + what, flush=True)
     if not ok:
