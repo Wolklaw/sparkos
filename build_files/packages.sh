@@ -269,3 +269,19 @@ rpm -q wlroots0.19 xdg-desktop-portal-wlr
 dnf_install gtk4-layer-shell python3-gobject gtk4 ddcutil
 rpm -q gtk4-layer-shell python3-gobject
 test -e /usr/lib64/libgtk4-layer-shell.so.0
+
+# The Spark session's sign-in screen (files/spark-session): greetd, a small login daemon that
+# Spark's greeter talks to. It is installed OFF: Plasma Login Manager stays the display manager
+# until the owner runs `spark greeter enable` (`spark greeter disable` puts it back). Fedora's
+# presets leave the unit disabled; this checks that, and that greetd did not take over
+# display-manager.service (its unit declares that alias).
+dnf_install greetd
+rpm -q greetd
+test -x /usr/bin/greetd
+if find /etc/systemd/system -path '*.wants/*' -name 'greetd.service' | grep -q .; then
+  echo "greetd was enabled by its package; it must stay off"; exit 1
+fi
+if [ -L /etc/systemd/system/display-manager.service ] \
+   && [ "$(basename "$(readlink /etc/systemd/system/display-manager.service)")" = greetd.service ]; then
+  echo "greetd took over display-manager.service"; exit 1
+fi

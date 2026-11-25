@@ -3,7 +3,7 @@ _spark() {
   local cur cmd i
   cur=${COMP_WORDS[COMP_CWORD]}
   local commands="help info status update rollback pin unpin boot-default clean verify overrides
-    kargs initramfs grub-menu bios windows watchdog sysrq secureboot service ssh stop-proton audio-restart
+    kargs initramfs grub-menu bios windows watchdog sysrq secureboot service ssh greeter stop-proton audio-restart
     audio-channels brew box virt logs report"
 
   # The command is the first word that isn't a --flag
@@ -33,6 +33,7 @@ _spark() {
     grub-menu) [ "$n" = 1 ] && words="status always auto hide" ;;
     watchdog|sysrq|audio-channels) [ "$n" = 1 ] && words="status on off" ;;
     ssh) [ "$n" = 1 ] && words="status on off once" ;;
+    greeter) [ "$n" = 1 ] && words="status enable disable" ;;
     virt) [ "$n" = 1 ] && words="status setup undo" ;;
     secureboot) [ "$n" = 1 ] && words="status enroll" ;;
     logs) [ "$n" = 1 ] && words="this last errors" ;;

@@ -1,0 +1,5 @@
+#!/bin/sh
+# The Spark sign-in screen. greetd starts it (through spark-greeter-session) when
+# `spark greeter enable` has been run; running it by hand does nothing without GREETD_SOCK.
+export PYTHONPATH=/usr/lib/spark-session${PYTHONPATH:+:$PYTHONPATH}
+exec /usr/bin/python3 -s -m sparksession.greeter "$@"

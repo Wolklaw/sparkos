@@ -1,0 +1,7 @@
+[Unit]
+Description=Put Plasma Login Manager back after the Spark greeter failed
+# Only ever started by greetd.service's OnFailure=. Never enabled.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/libexec/spark-greeter-ctl auto-rollback
