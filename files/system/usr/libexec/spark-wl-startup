@@ -1,0 +1,13 @@
+#!/bin/sh
+# Started by spark-compositor once WAYLAND_DISPLAY and DISPLAY exist.
+# Tells D-Bus activation and systemd --user where the session is (portals need it), then starts
+# the Spark shell. Until the shell from the spark-shell branch is in the image, it opens a
+# terminal so the session is usable.
+dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP \
+  XDG_SESSION_TYPE XDG_SESSION_DESKTOP 2>/dev/null
+if command -v spark-shell >/dev/null 2>&1; then
+  exec spark-shell
+fi
+for t in spark-terminal foot xterm; do
+  command -v "$t" >/dev/null 2>&1 && exec "$t"
+done

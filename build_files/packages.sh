@@ -252,3 +252,10 @@ rpm -q libvirt-daemon-driver-qemu qemu-kvm edk2-ovmf swtpm python3-libvirt spice
 if find /etc/systemd/system -path '*.wants/*' \( -name 'virt*.socket' -o -name 'libvirt*' \) | grep -q .; then
   echo "a libvirt unit is still enabled"; exit 1
 fi
+
+# The experimental Spark compositor (files/spark-compositor, session "spark-wl", never the
+# default): wlroots 0.19's runtime library (1.3 MB; Fedora keeps the versions side by side),
+# the portal that lets apps capture the screen under it, grim and wlr-randr for scripted capture
+# and output checks. The compositor itself is compiled in the Containerfile's compositor-build stage.
+dnf_install wlroots0.19 xdg-desktop-portal-wlr grim wlr-randr
+rpm -q wlroots0.19 xdg-desktop-portal-wlr
