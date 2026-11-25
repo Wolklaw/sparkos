@@ -90,6 +90,7 @@ class Shell(Gtk.Application):
                                        Gio.BusNameOwnerFlags.ALLOW_REPLACEMENT,
                                        lambda c, n: self.notifyd.start(),
                                        lambda c, n: log.warning('lost %s', n))
+        self._grab_launcher_shortcut(conn)
         self.tray.start()
         self.tracker.start()
 
@@ -154,6 +155,35 @@ class Shell(Gtk.Application):
     # actions -----------------------------------------------------------------------------
     def toggle_launcher(self):
         self.launcher.toggle()
+
+    # Plasma 6 binds the Meta key (and Alt+F1) as plasmashell's kglobalaccel shortcut
+    # "activate application launcher"; kglobalaccel only sends it to a client that registered
+    # that shortcut as present, which plasmashell does through KGlobalAccel. The shell does the
+    # same over D-Bus, keeping the keys saved in kglobalshortcutsrc.
+    LAUNCHER_ACTION = ['plasmashell', 'activate application launcher', 'plasmashell',
+                       'Activate Application Launcher']
+
+    def _grab_launcher_shortcut(self, conn):
+        def done(c, res, what):
+            try:
+                c.call_finish(res)
+            except GLib.Error as e:
+                log.warning('kglobalaccel %s: %s', what, e.message)
+
+        def call(method, args, what):
+            conn.call('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel', method,
+                      args, None, Gio.DBusCallFlags.NONE, 3000, None, done, what)
+        call('doRegister', GLib.Variant('(as)', (self.LAUNCHER_ACTION,)), 'register')
+        # flags 2 = SetPresent; the keys are loaded from the saved config (autoloading)
+        call('setShortcutKeys', GLib.Variant('(asa(ai)u)', (self.LAUNCHER_ACTION, [], 2)),
+             'set present')
+
+        def pressed(_c, _sender, _path, _iface, _signal, params):
+            if params.unpack()[1] == self.LAUNCHER_ACTION[1]:
+                self.toggle_launcher()
+        conn.signal_subscribe('org.kde.kglobalaccel', 'org.kde.kglobalaccel.Component',
+                              'globalShortcutPressed', '/component/plasmashell', None,
+                              Gio.DBusSignalFlags.NONE, pressed)
 
     def _shell_call(self, interface, method, args, sender):
         if method == 'Windows':

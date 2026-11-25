@@ -10,6 +10,10 @@
 #   SPARK_SESSION_NO_SYSTEMD=1  start the helpers directly, not as systemd user units
 
 export XDG_CURRENT_DESKTOP="${XDG_CURRENT_DESKTOP:-Spark:KDE}"
+# Plasma Login passes DesktopNames as written in the .desktop file ("Spark;KDE"); the list is
+# colon-separated, and with a semicolon nothing matches "Spark" (autostart's OnlyShowIn=Spark
+# skipped Spark Tray, the icons and the startup sound; portals.conf was not found)
+XDG_CURRENT_DESKTOP=$(printf %s "$XDG_CURRENT_DESKTOP" | tr ';' ':')
 case "$XDG_CURRENT_DESKTOP" in *KDE*) ;; *) XDG_CURRENT_DESKTOP="Spark:KDE" ;; esac
 export XDG_SESSION_TYPE=wayland
 export XDG_SESSION_DESKTOP=Spark
