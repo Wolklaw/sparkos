@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from sparkshell import config, notifyd, osd, tray, windows  # noqa: E402
+from sparkshell import config, ending, notifyd, osd, tray, windows  # noqa: E402
 
 
 class Config(unittest.TestCase):
@@ -206,6 +206,65 @@ class OsdParsers(unittest.TestCase):
         osd.osd_service_call(fake, 'hide', ())
         self.assertEqual(fake.shown, [('brightness', 0.4), ('brightness', 1.0), ('keyboard', 0.0)])
         self.assertEqual(fake.hidden, 1)
+
+
+class FakeTracker:
+    def __init__(self, titles, closes=True):
+        self.loaded = True
+        self.windows = [{'id': '{%d}' % n, 'title': t} for n, t in enumerate(titles)]
+        self.closes = closes
+        self.closed = []
+
+    def act(self, action, wid):
+        self.closed.append((action, wid))
+        if self.closes:
+            self.windows = [w for w in self.windows if w['id'] != wid]
+
+
+class SessionEndTest(unittest.TestCase):
+    def setUp(self):
+        self.ran, self.stuck, self.ticks = [], [], []
+
+    def make(self, tracker):
+        return ending.SessionEnd(tracker, self.ran.append,
+                                 lambda c, t, label: self.stuck.append((c, t, label)),
+                                 wait_s=1.0, timeout_add=lambda ms, f: self.ticks.append(f))
+
+    def pump(self):
+        while self.ticks:
+            f = self.ticks.pop()
+            if f():
+                self.ticks.append(f)
+
+    def test_no_windows_runs_at_once(self):
+        self.make(FakeTracker([])).start(['poweroff'])
+        self.assertEqual(self.ran, [['poweroff']])
+
+    def test_windows_are_closed_first_then_it_runs(self):
+        t = FakeTracker(['Spark Edit', 'Firefox'])
+        end = self.make(t)
+        end.start(['reboot'], label='restart')
+        self.assertEqual([a for a, _ in t.closed], ['close', 'close'])
+        self.pump()
+        self.assertEqual(self.ran, [['reboot']])
+        self.assertEqual(self.stuck, [])
+
+    def test_a_window_that_stays_stops_it_and_says_which(self):
+        t = FakeTracker(['Unsaved - Spark Edit'], closes=False)
+        end = self.make(t)
+        end.start(['reboot'], label='restart')
+        self.pump()
+        self.assertEqual(self.ran, [])
+        self.assertEqual(self.stuck, [(['reboot'], ['Unsaved - Spark Edit'], 'restart')])
+        self.assertFalse(end.busy)
+        end.start(['reboot'], force=True)
+        self.assertEqual(self.ran, [['reboot']])
+
+    def test_tracker_not_loaded_runs_at_once(self):
+        t = FakeTracker(['x'], closes=False)
+        t.loaded = False
+        self.make(t).start(['poweroff'])
+        self.assertEqual(self.ran, [['poweroff']])
 
 
 if __name__ == '__main__':

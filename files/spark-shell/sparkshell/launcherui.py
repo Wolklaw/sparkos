@@ -9,6 +9,7 @@ gi.require_version('Gdk', '4.0')
 from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 
 from . import apps, layer  # noqa: E402
+from .ending import SessionEnd  # noqa: E402
 from .lang import ui_language  # noqa: E402
 from .strings import tr  # noqa: E402
 
@@ -33,6 +34,8 @@ class Launcher(Gtk.Window):
     def __init__(self, shell):
         super().__init__()
         self.shell = shell
+        self.ending = SessionEnd(shell.tracker, apps.run, self._still_open)
+        self._forcing = None
         self.set_decorated(False)
         self.add_css_class('spark-scrim')
         layer.setup(self, 'overlay', ('top', 'bottom', 'left', 'right'), 'spark-launcher',
@@ -260,4 +263,17 @@ class Launcher(Gtk.Window):
         if key == 'sign_out':
             import os
             command = ['loginctl', 'terminate-session', os.environ.get('XDG_SESSION_ID', '')]
-        apps.run(command)
+        if not ask:
+            apps.run(command)
+            return
+        # open apps are asked to close first; a second click after "still open" goes anyway
+        force, self._forcing = self._forcing == key, None
+        self.ending.start(command, force=force, label=key)
+
+    def _still_open(self, _command, titles, key):
+        self.show_launcher()
+        shown = ', '.join(titles[:4]) + (' …' if len(titles) > 4 else '')
+        self.confirm.set_text(tr('still_open') % shown + '  (' + tr(key) + ')')
+        self.confirm.set_visible(True)
+        self._confirming = key
+        self._forcing = key
