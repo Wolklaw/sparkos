@@ -28,6 +28,21 @@ def parse_wpctl_volume(text: str):
     return float(m.group(1)), '[MUTED]' in text
 
 
+MPRIS_PREFIX = 'org.mpris.MediaPlayer2.'
+MPRIS_PATH = '/org/mpris/MediaPlayer2'
+MEDIA_METHODS = {'play-pause': 'PlayPause', 'next': 'Next', 'previous': 'Previous',
+                 'stop': 'Stop'}
+
+
+def choose_player(players):
+    """[(bus name, PlaybackStatus)] -> the bus name a media key goes to."""
+    for wanted in ('Playing', 'Paused'):
+        for name, status in players:
+            if status == wanted:
+                return name
+    return players[0][0] if players else None
+
+
 def _run(argv, callback):
     try:
         proc = Gio.Subprocess.new(argv, Gio.SubprocessFlags.STDOUT_PIPE |
@@ -134,6 +149,34 @@ class Controls:
             return
         if name.startswith('volume') or name == 'mute':
             self._volume(name)
+        elif name in MEDIA_METHODS:
+            self._media(MEDIA_METHODS[name])
+
+    # media keys: the MPRIS player that is playing, else the one paused, else the first ---------
+    def _media(self, method):
+        try:
+            names = self.conn.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
+                                        'org.freedesktop.DBus', 'ListNames', None, None,
+                                        Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+        except GLib.Error as e:
+            log.warning('media key: %s', e.message)
+            return
+        players = []
+        for n in sorted(x for x in names if x.startswith(MPRIS_PREFIX)):
+            try:
+                status = self.conn.call_sync(
+                    n, MPRIS_PATH, 'org.freedesktop.DBus.Properties', 'Get',
+                    GLib.Variant('(ss)', (MPRIS_PREFIX.rstrip('.') + '.Player', 'PlaybackStatus')),
+                    None, Gio.DBusCallFlags.NONE, 500, None).unpack()[0]
+            except GLib.Error:
+                status = ''
+            players.append((n, status))
+        target = choose_player(players)
+        if not target:
+            log.info('media key %s: no player', method)
+            return
+        self.conn.call(target, MPRIS_PATH, MPRIS_PREFIX.rstrip('.') + '.Player', method, None,
+                       None, Gio.DBusCallFlags.NONE, 2000, None, None)
 
     # volume ------------------------------------------------------------------------------
     def _volume(self, name):

@@ -157,6 +157,10 @@ DEFAULTS = [
     ("Full screen", 'fullscreen', '', ['Super+f']),
     ("Maximize the window", 'maximize', '', ['Super+Up']),
     ("Move the window to the next screen", 'output-next', '', ['Super+o']),
+    ("Snap the window to the left half", 'snap-left', '', ['Super+Left']),
+    ("Snap the window to the right half", 'snap-right', '', ['Super+Right']),
+    ("Restore, then minimize the window", 'restore-down', '', ['Super+Down']),
+    ("Show the desktop", 'show-desktop', '', ['Super+d']),
     ("Lock the screen", 'exec', 'loginctl lock-session', ['Super+l']),
     ("Screenshot", 'exec', 'spark-snip image', ['Print', 'Super+Shift+s']),
     ("Copy text from the screen", 'exec', 'spark-snip text', ['Super+Shift+t']),
@@ -164,6 +168,10 @@ DEFAULTS = [
     ("Volume up", 'exec', _SHELL_KEY + 'volume-up', ['XF86AudioRaiseVolume']),
     ("Volume down", 'exec', _SHELL_KEY + 'volume-down', ['XF86AudioLowerVolume']),
     ("Mute", 'exec', _SHELL_KEY + 'mute', ['XF86AudioMute']),
+    ("Play or pause", 'exec', _SHELL_KEY + 'play-pause', ['XF86AudioPlay', 'XF86AudioPause']),
+    ("Next track", 'exec', _SHELL_KEY + 'next', ['XF86AudioNext']),
+    ("Previous track", 'exec', _SHELL_KEY + 'previous', ['XF86AudioPrev']),
+    ("Stop playback", 'exec', _SHELL_KEY + 'stop', ['XF86AudioStop']),
     ("Reload the compositor settings", 'reload', '', ['Super+Ctrl+Shift+r']),
     ("Sign out at once", 'quit', '', ['Super+Shift+e']),
 ]
@@ -173,7 +181,7 @@ _MOD_ALIAS = {'logo': 'super', 'mod4': 'super', 'mod1': 'alt', 'control': 'ctrl'
 _PRETTY = {'Super_L': 'Super (left)', 'Super_R': 'Super (right)', 'Return': 'Enter',
            'Escape': 'Esc', 'Prior': 'PgUp', 'Next': 'PgDown', 'XF86AudioRaiseVolume': 'Volume Up',
            'XF86AudioLowerVolume': 'Volume Down', 'XF86AudioMute': 'Mute',
-           'XF86AudioPlay': 'Play', 'XF86AudioNext': 'Next track', 'XF86AudioPrev': 'Previous track',
+           'XF86AudioPlay': 'Play', 'XF86AudioPause': 'Pause', 'XF86AudioNext': 'Next track', 'XF86AudioPrev': 'Previous track',
            'XF86AudioStop': 'Stop', 'space': 'Space', 'BackSpace': 'Backspace', 'Delete': 'Del',
            'period': '.', 'comma': ',', 'XF86Calculator': 'Calculator'}
 
