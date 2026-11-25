@@ -1,0 +1,16 @@
+[Desktop Entry]
+Type=Application
+Name=Spark Fonts
+Name[fr]=Spark Fonts
+GenericName=Font manager
+GenericName[fr]=Gestionnaire de polices
+Comment=See, install and remove fonts
+Comment[fr]=Voir, installer et retirer des polices
+Exec=spark-fonts %F
+Icon=dev.wolklaw.SparkFonts
+Terminal=false
+Categories=Utility;Graphics;
+MimeType=font/ttf;font/otf;font/collection;font/woff;font/woff2;application/x-font-ttf;application/x-font-otf;application/x-font-ttc;application/font-sfnt;application/x-font-woff;application/font-woff;application/font-woff2;
+Keywords=font;fonts;typeface;install;ttf;otf;woff;police;polices;typographie;installer;
+Keywords[fr]=police;polices;typographie;installer;ttf;otf;woff;
+StartupWMClass=SparkFonts

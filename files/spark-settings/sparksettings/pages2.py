@@ -351,6 +351,12 @@ class KdePage(Page):
             r.pack(fill='x', pady=3)
             label(r, known[m], self.app.font(10), width=36).pack(side='left')
             WolkButton(r, _("Open"), lambda m=m: kcms.open_module(m), self.app.font(9), 'ghost').pack(side='left')
+            if m == 'kcm_fonts' and core.have('spark-fonts'):
+                r2 = tk.Frame(box, bg=T["panel"])
+                r2.pack(fill='x', pady=3)
+                label(r2, _("Manage fonts (see, install, remove)"), self.app.font(10), width=36).pack(side='left')
+                WolkButton(r2, _("Open Spark Fonts"), lambda: core.spawn(['spark-fonts']), self.app.font(9),
+                           'ghost').pack(side='left')
 
 
 class MorePage(Page):

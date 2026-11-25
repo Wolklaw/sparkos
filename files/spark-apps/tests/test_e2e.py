@@ -143,7 +143,7 @@ class EndToEnd(Fixture):
         changed = json.loads(out)
         self.assertNotIn(self.slug, changed, "its version is released: spark-calc isn't changed")
         self.assertTrue(set(changed) <= {'spark-calc', 'spark-edit', 'spark-emoji', 'spark-space',
-                                         'spark-notes', 'spark-clock'})
+                                         'spark-notes', 'spark-clock', 'spark-fonts'})
         none = subprocess.run([sys.executable, tool, 'changed', '--apps-dir',
                                os.path.join(REPO, 'files'), '--index', 'none'],
                               capture_output=True, text=True, check=True).stdout
@@ -161,7 +161,8 @@ class EndToEnd(Fixture):
 
         slugs = json.loads(run('changed', '--apps-dir', files, '--index', 'none').stdout)
         self.assertEqual(sorted(slugs), ['spark-calc', 'spark-clock', 'spark-edit',
-                                         'spark-emoji', 'spark-notes', 'spark-space'])
+                                         'spark-emoji', 'spark-fonts', 'spark-notes',
+                                         'spark-space'])
         run('build', '--apps-dir', files, '--out', out, *slugs)
         index = os.path.join(self.tmp, 'index.json')
         serial = 0

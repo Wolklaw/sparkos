@@ -66,7 +66,8 @@ HIDE=(org.kde.kdeconnect.app org.kde.kdeconnect.sms org.kde.kdeconnect.nonplasma
       org.gnome.DiskUtility gnome-disk-image-mounter gnome-disk-image-writer
       btop nvtop com.microsoft.edit yad-icon-browser
       org.kde.kinfocenter org.kde.kjournaldbrowser btrfs-assistant org.kde.foreground-booster
-      org.kde.kmenuedit firewall-config)
+      org.kde.kmenuedit firewall-config
+      org.kde.kfontview org.kde.kfontinst)
 for id in "${HIDE[@]}"; do
   entry=/usr/share/applications/$id.desktop
   [ -f "$entry" ] || { echo "--- $id.desktop is not installed, nothing to hide"; continue; }

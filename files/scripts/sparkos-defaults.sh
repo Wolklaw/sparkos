@@ -88,5 +88,11 @@ add dev.wolklaw.SparkFiles.desktop   inode/directory x-scheme-handler/trash
 test -f /usr/share/applications/dev.wolklaw.SparkArchive.desktop || { echo "Spark Archive is not installed (spark-archive.sh runs first)"; exit 1; }
 add dev.wolklaw.SparkArchive.desktop   application/zip application/x-zip-compressed   application/x-tar application/x-compressed-tar application/x-bzip-compressed-tar   application/x-bzip2-compressed-tar application/x-xz-compressed-tar application/x-zstd-compressed-tar   application/x-lzma-compressed-tar application/x-lz4-compressed-tar application/x-lzip-compressed-tar application/x-tarz   application/x-7z-compressed application/vnd.rar application/x-rar   application/gzip application/x-bzip application/x-bzip2 application/x-xz application/zstd   application/x-cd-image application/x-iso9660-image
 
+# Fonts: Spark Fonts, for every font type it declares
+FONTS=/usr/share/applications/dev.wolklaw.SparkFonts.desktop
+test -f "$FONTS" || { echo "Spark Fonts is not installed (spark-fonts.sh runs first)"; exit 1; }
+# shellcheck disable=SC2046
+add dev.wolklaw.SparkFonts.desktop $(sed -n 's/^MimeType=//p' "$FONTS" | tr ';' ' ')
+
 echo "--- $LIST"
 cat "$LIST"

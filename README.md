@@ -37,6 +37,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 | **Spark Media** | - | Photos (camera RAW and HEIC too), videos with subtitles, and a music library with playlists and media keys. | [source](files/spark-media) |
 | **Spark Edit** | 1.0.1 | Text and code: tabs, find and replace, syntax colours, files kept in their own encoding. Unsaved tabs come back. | [source](files/spark-edit) |
 | **Spark Calc** | 1.0.1 | Exact sums (0.1 + 0.2 is 0.3), with scientific and programmer modes and a history. | [source](files/spark-calc) |
+| **Spark Fonts** | 0.1.0 | See, install and remove fonts, with previews, characters and licence details. Finds the fonts on a Windows drive. Opens font files. | [source](files/spark-fonts) |
 | **Spark Archive** | 1.2.0 | Opens and makes zip, 7z, tar, rar and iso, in several parts and with passwords. Extract and Compress on right-click. | [source](files/spark-archive) |
 | **Spark Scan** | 1.1.0 | Scans from the glass or the feeder, straightens pages, and saves one PDF (searchable if you want) or an image per page. | [source](files/spark-scan) |
 | **Spark Notes** | 0.1.0 (new) | Quick notes as plain files, and clipboard history on Meta+V with search, pins and a pause. No account. Replaces Klipper. | [source](files/spark-notes) |

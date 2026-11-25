@@ -5,7 +5,7 @@
   "name_fr": "Spark Settings",
   "summary": "SparkOS's own settings: displays, sound, network, Bluetooth, power, default apps, date and language, printers and startup, with KDE's modules for the rest.",
   "summary_fr": "Les réglages de SparkOS : écrans, son, réseau, Bluetooth, alimentation, applications par défaut, date et langue, imprimantes et démarrage, avec les modules de KDE pour le reste.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "installed_size_kb": 300,
   "icon": "icons/spark-settings-256.png",
   "categories": [
