@@ -305,7 +305,7 @@ class Pane(Timers, tk.Frame):
                                not self._at_server_root()))
 
     def _at_server_root(self) -> bool:
-        """The top of a server's mount: above it is kio-fuse's own folder, not a place."""
+        """The top of a server's mount: above it is spark-net's own folder, not a place."""
         remote = network.split_remote(self.path)
         return bool(remote) and self.path.rstrip('/') == remote[0]
 

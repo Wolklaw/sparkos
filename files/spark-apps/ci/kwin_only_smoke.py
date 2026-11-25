@@ -107,42 +107,35 @@ def _():
 app_path('spark-files')
 
 
-@check("spark-files: kio-fuse can be reached without plasmashell and mounts a folder")
+@check("spark-files: FUSE mount with rclone works without plasmashell")
 def _():
-    need('/usr/libexec/kio-fuse')
+    need('rclone')
+    need('fusermount3')
     from sparkfiles import network
-    assert network.kio_fuse_offered(), "kio-fuse is neither running nor startable"
     folder = tempfile.mkdtemp(prefix='kwin-only-share-')
+    point = tempfile.mkdtemp(prefix='kwin-only-mount-')
     try:
         with open(os.path.join(folder, 'a.txt'), 'w') as f:
             f.write('hi')
-        backend = network.choose_backend(network.Server('sftp', 'h'))
-        assert isinstance(backend, network.KioFuse), backend
-        mount = backend.mount('file://' + folder, 20)
-        assert os.path.isfile(os.path.join(mount, 'a.txt')) or \
-            os.path.isfile(os.path.join(mount, folder.lstrip('/'), 'a.txt')) or \
-            os.path.isdir(mount), mount
-        return "kio-fuse mounted file:// (sftp and smb use the same workers)"
+        rc = network.Rclone(conf=os.path.join(folder, 'rclone.conf'))
+        done = subprocess.run(rc.argv(':local:' + folder, point, 20), capture_output=True,
+                              text=True, timeout=30, stdin=subprocess.DEVNULL)
+        assert done.returncode == 0, done.stderr[-300:]
+        assert os.path.isfile(os.path.join(point, 'a.txt')), os.listdir(point)
+        return "rclone mounted a folder (smb and Google Drive use the same mount)"
     finally:
+        subprocess.run(['fusermount3', '-u', '-z', point], capture_output=True)
         shutil.rmtree(folder, ignore_errors=True)
+        os.rmdir(point) if os.path.isdir(point) and not os.listdir(point) else None
 
 
-@check("spark-files: with kio-fuse out of reach, sftp falls to sshfs")
+@check("spark-files: sftp goes to sshfs, smb and Google Drive to rclone (no KIO)")
 def _():
     from sparkfiles import network
-    server = network.Server('sftp', 'h')
-    assert isinstance(network.choose_backend(server, kio_offered=False, sshfs_there=True),
-                      network.SshFs)
-
-
-@check("spark-files: kded6 (accounts for Google Drive) can start without plasmashell")
-def _():
-    need('/usr/bin/kded6')
-    out = subprocess.run(['gdbus', 'call', '--session', '--dest', 'org.kde.kded6', '--object-path',
-                          '/kded', '--method', 'org.kde.kded6.loadedModules'],
-                         capture_output=True, text=True, timeout=30)
-    assert out.returncode == 0, out.stderr[-300:]
-    return "loaded: " + out.stdout.strip()[:120]
+    assert isinstance(network.choose_backend(network.Server('sftp', 'h')), network.SshFs)
+    assert isinstance(network.choose_backend(network.Server('smb', 'h')), network.Rclone)
+    assert isinstance(network.choose_backend(network.RawUrl(network.GDRIVE_URL)), network.Rclone)
+    assert not hasattr(network, 'KioFuse')
 
 
 @check("spark-files: --self-test passes")

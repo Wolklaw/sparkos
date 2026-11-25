@@ -1,6 +1,6 @@
 """Network places and Google Drive: addresses, bookmarks, the keyring, host keys, connecting
-with a fake kio-fuse, timeouts, and the sidebar rows. No server and no account is needed;
-the real thing (kio-fuse, a KIO worker, sshd) is in sftp_check.sh.
+with fake sshfs and rclone runs, timeouts, and the sidebar rows. No server and no account is
+needed; the real thing (sshfs and sshd) is in sftp_check.py.
 
     python -m unittest discover -s files/spark-files/tests -v
 """
@@ -8,7 +8,6 @@ the real thing (kio-fuse, a KIO worker, sshd) is in sftp_check.sh.
 import json
 import os
 import shutil
-import sqlite3
 import subprocess
 import tempfile
 import threading
@@ -160,48 +159,46 @@ class Mounts(unittest.TestCase):
                         if self.old is not None else os.environ.pop('XDG_RUNTIME_DIR'))
 
     def test_remote_paths(self):
-        p = '/run/user/1000/kio-fuse-AbC123/sftp/me@host:2222/home/me/x'
+        p = '/run/user/1000/spark-net/sftp/me@host:2222/home/me/x'
         self.assertTrue(network.is_remote(p))
         self.assertEqual(network.split_remote(p),
-                         ('/run/user/1000/kio-fuse-AbC123/sftp/me@host:2222',
-                          'sftp://me@host:2222'))
-        self.assertEqual(network.split_remote('/run/user/1000/kio-fuse-AbC123/smb/nas/share'),
-                         ('/run/user/1000/kio-fuse-AbC123/smb/nas', 'smb://nas'))
-        self.assertEqual(network.split_remote(
-            '/run/user/1000/kio-fuse-AbC123/gdrive/me@gmail.com/x'),
-            ('/run/user/1000/kio-fuse-AbC123/gdrive', 'Google Drive'))
+                         ('/run/user/1000/spark-net/sftp/me@host:2222', 'sftp://me@host:2222'))
+        self.assertEqual(network.split_remote('/run/user/1000/spark-net/smb/nas/share'),
+                         ('/run/user/1000/spark-net/smb/nas', 'smb://nas'))
+        self.assertEqual(network.split_remote('/run/user/1000/spark-net/gdrive/Photos/x'),
+                         ('/run/user/1000/spark-net/gdrive', 'Google Drive'))
 
     def test_local_paths_are_not(self):
-        for p in ('/home/me', '/run/user/1000/bus', '/var/mnt/c', '', '/run/user/1000/kio-fusee'):
+        for p in ('/home/me', '/run/user/1000/bus', '/var/mnt/c', '', '/run/user/1000/spark-nett', '/run/user/1000/spark-net'):
             self.assertFalse(network.is_remote(p), p)
             self.assertIsNone(network.split_remote(p), p)
 
     def test_free_space_never_asks_a_server(self):
-        self.assertIsNone(free_space('/run/user/1000/kio-fuse-AbC123/sftp/h/x'))
+        self.assertIsNone(free_space('/run/user/1000/spark-net/sftp/h/x'))
 
 
 class FakeBackend:
     def __init__(self, path=None, delay=0.0, error=None):
         self.path, self.delay, self.error, self.urls = path, delay, error, []
 
-    def mount(self, url, timeout=30):
-        self.urls.append(url)
+    def mount(self, target, password=None, timeout=30):
+        self.urls.append(target.url(password))
         time.sleep(self.delay)
         if self.error:
             raise self.error
         return self.path
 
 
-class FakeSshfsRun:
+class FakeRunner:
     """Stands in for subprocess.run: records the call, fails or answers as told."""
-    def __init__(self, code=0, err='', raises=None):
-        self.code, self.err, self.raises, self.calls = code, err, raises, []
+    def __init__(self, code=0, err='', raises=None, out=''):
+        self.code, self.err, self.raises, self.out, self.calls = code, err, raises, out, []
 
     def __call__(self, argv, **kw):
         self.calls.append((argv, kw))
         if self.raises:
             raise self.raises
-        return subprocess.CompletedProcess(argv, self.code, '', self.err)
+        return subprocess.CompletedProcess(argv, self.code, self.out, self.err)
 
 
 class SshFsBackend(TempDir):
@@ -213,22 +210,22 @@ class SshFsBackend(TempDir):
                         if old is not None else os.environ.pop('XDG_RUNTIME_DIR'))
         self.server = Server('sftp', 'nas.lan', None, 'me', '/home/me')
 
-    def test_mount_point_looks_like_a_kio_fuse_one(self):
-        be = network.SshFs(FakeSshfsRun())
-        path = be.mount_server(self.server, None)
+    def test_mount_point_is_under_spark_net(self):
+        be = network.SshFs(FakeRunner())
+        path = be.mount(self.server, None)
         self.assertTrue(network.is_remote(path))
         self.assertEqual(network.split_remote(path), (os.path.dirname(os.path.dirname(path)), 'sftp://me@nas.lan'))
         self.assertTrue(path.endswith('/sftp/me@nas.lan/home/me'))
 
     def test_key_login_never_asks_and_a_password_goes_on_stdin(self):
-        run = FakeSshfsRun()
-        network.SshFs(run).mount_server(self.server, None)
+        run = FakeRunner()
+        network.SshFs(run).mount(self.server, None)
         argv, kw = run.calls[0]
         self.assertIn('BatchMode=yes', argv)
         self.assertEqual(argv[1], 'me@nas.lan:/')
         self.assertIsNone(kw['input'])
-        run = FakeSshfsRun()
-        network.SshFs(run).mount_server(Server('sftp', 'nas.lan', 2222, 'me'), 'hunter2')
+        run = FakeRunner()
+        network.SshFs(run).mount(Server('sftp', 'nas.lan', 2222, 'me'), 'hunter2')
         argv, kw = run.calls[0]
         self.assertNotIn('hunter2', ' '.join(argv))
         self.assertEqual(kw['input'], 'hunter2\n')
@@ -237,47 +234,130 @@ class SshFsBackend(TempDir):
 
     def test_failures_are_named_and_scrubbed(self):
         with self.assertRaises(NetworkError) as c:
-            network.SshFs(FakeSshfsRun(1, 'Permission denied (publickey).\n')).mount_server(
+            network.SshFs(FakeRunner(1, 'Permission denied (publickey).\n')).mount(
                 self.server, None)
         self.assertEqual((c.exception.code, c.exception.detail), ('failed',
                                                                    'Permission denied (publickey).'))
         with self.assertRaises(NetworkError) as c:
-            network.SshFs(FakeSshfsRun(raises=subprocess.TimeoutExpired('sshfs', 1))).mount_server(
+            network.SshFs(FakeRunner(raises=subprocess.TimeoutExpired('sshfs', 1))).mount(
                 self.server, None)
         self.assertEqual(c.exception.code, 'timeout')
         with self.assertRaises(NetworkError) as c:
-            network.SshFs(FakeSshfsRun(raises=FileNotFoundError('sshfs'))).mount_server(
+            network.SshFs(FakeRunner(raises=FileNotFoundError('sshfs'))).mount(
                 self.server, None)
-        self.assertEqual(c.exception.code, 'no_kio')
+        self.assertEqual((c.exception.code, c.exception.detail), ('missing', 'sshfs'))
 
     def test_smb_is_not_an_sshfs_job(self):
         with self.assertRaises(NetworkError) as c:
-            network.SshFs(FakeSshfsRun()).mount_server(Server('smb', 'nas', None, '', '/share'), None)
-        self.assertEqual(c.exception.code, 'no_kio')
+            network.SshFs(FakeRunner()).mount(Server('smb', 'nas', None, '', '/share'), None)
+        self.assertEqual(c.exception.code, 'failed')
 
-    def test_choice_follows_what_is_reachable_not_the_desktop(self):
-        sftp, smb = self.server, Server('smb', 'nas', None, '', '/share')
-        pick = network.choose_backend
-        self.assertIsInstance(pick(sftp, kio_offered=True, sshfs_there=True), network.KioFuse)
-        self.assertIsInstance(pick(sftp, kio_offered=False, sshfs_there=True), network.SshFs)
-        self.assertIsInstance(pick(sftp, kio_offered=False, sshfs_there=False), network.KioFuse)
-        self.assertIsInstance(pick(smb, kio_offered=False, sshfs_there=True), network.KioFuse)
-        self.assertIsInstance(pick(network.RawUrl('gdrive:///'), kio_offered=False,
-                                   sshfs_there=True), network.KioFuse)
+    def test_choice_by_scheme(self):
+        smb = Server('smb', 'nas', None, '', '/share')
+        self.assertIsInstance(network.choose_backend(self.server), network.SshFs)
+        self.assertIsInstance(network.choose_backend(smb), network.Rclone)
+        self.assertIsInstance(network.choose_backend(network.RawUrl('gdrive:///')), network.Rclone)
 
     def test_connect_blocking_uses_the_sshfs_backend_for_servers(self):
         os.makedirs(self.path('mnt/home/me'))
-        be = network.SshFs(FakeSshfsRun())
+        be = network.SshFs(FakeRunner())
         be.mountpoint = lambda server: self.path('mnt')      # a plain folder stands in
         self.assertEqual(network.connect_blocking(self.server, None, backend=be),
                          self.path('mnt/home/me'))
 
     def test_unmount_all_only_touches_real_mounts(self):
-        base = os.path.join(self.dir, 'kio-fuse-sshfs', 'sftp', 'me@h')
-        os.makedirs(base)
+        for sub in ('sftp/me@h', 'smb/nas', 'gdrive'):
+            os.makedirs(os.path.join(self.dir, 'spark-net', sub))
         with mock.patch.object(network.subprocess, 'run') as run:
-            network.SshFs().unmount_all()
+            network.unmount_all()
         run.assert_not_called()
+
+
+class RcloneBackend(TempDir):
+    def setUp(self):
+        super().setUp()
+        old = os.environ.get('XDG_RUNTIME_DIR')
+        os.environ['XDG_RUNTIME_DIR'] = self.dir
+        self.addCleanup(lambda: os.environ.__setitem__('XDG_RUNTIME_DIR', old)
+                        if old is not None else os.environ.pop('XDG_RUNTIME_DIR'))
+        self.conf = self.path('rclone.conf')
+
+    def runner(self, mount_code=0, err=''):
+        """obscure answers 'OBSCURED'; mount answers mount_code."""
+        calls = []
+
+        def run(argv, **kw):
+            calls.append((argv, kw))
+            if argv[1] == 'obscure':
+                return subprocess.CompletedProcess(argv, 0, 'OBSCURED\n', '')
+            return subprocess.CompletedProcess(argv, mount_code, '', err)
+        run.calls = calls
+        return run
+
+    def test_smb_mounts_the_server_root_and_returns_the_share(self):
+        run = self.runner()
+        server, _ = parse_address('smb://me@nas.lan/photos/2024')
+        path = network.Rclone(run, self.conf).mount(server, None)
+        self.assertTrue(path.endswith('/spark-net/smb/me@nas.lan/photos/2024'), path)
+        self.assertEqual(network.split_remote(path)[1], 'smb://me@nas.lan')
+        argv, kw = run.calls[0]
+        self.assertEqual(argv[:4], ['rclone', 'mount', ':smb:', os.path.dirname(
+            os.path.dirname(path))])
+        self.assertIn('--daemon', argv)
+        self.assertEqual(kw['env']['RCLONE_SMB_HOST'], 'nas.lan')
+        self.assertEqual(kw['env']['RCLONE_SMB_USER'], 'me')
+        self.assertNotIn('RCLONE_SMB_PASS', kw['env'])
+
+    def test_password_is_obscured_through_stdin_and_never_on_a_command_line(self):
+        run = self.runner()
+        server, _ = parse_address('smb://WORK;me@nas:4450/share')
+        network.Rclone(run, self.conf).mount(server, 'hunter2')
+        (ob_argv, ob_kw), (argv, kw) = run.calls
+        self.assertEqual(ob_argv, ['rclone', 'obscure', '-'])
+        self.assertEqual(ob_kw['input'], 'hunter2')
+        for a in (ob_argv, argv):
+            self.assertNotIn('hunter2', ' '.join(a))
+        env = kw['env']
+        self.assertEqual((env['RCLONE_SMB_PASS'], env['RCLONE_SMB_DOMAIN'],
+                          env['RCLONE_SMB_USER'], env['RCLONE_SMB_PORT']),
+                         ('OBSCURED', 'WORK', 'me', '4450'))
+        self.assertNotIn('hunter2', ''.join(env.values()))
+
+    def test_no_user_is_guest(self):
+        run = self.runner()
+        network.Rclone(run, self.conf).mount(parse_address('smb://nas/')[0], None)
+        self.assertEqual(run.calls[0][1]['env']['RCLONE_SMB_USER'], 'guest')
+
+    def test_failures(self):
+        server, _ = parse_address('smb://me@nas/share')
+        with self.assertRaises(NetworkError) as c:
+            network.Rclone(self.runner(1, 'NOTICE: x\nCRITICAL: login for hunter2 failed\n'),
+                           self.conf).mount(server, None)
+        self.assertEqual(c.exception.code, 'failed')
+        self.assertIn('login', c.exception.detail)
+        with self.assertRaises(NetworkError) as c:
+            network.Rclone(FakeRunner(raises=FileNotFoundError('rclone')), self.conf).mount(
+                server, None)
+        self.assertEqual((c.exception.code, c.exception.detail), ('missing', 'rclone'))
+        with self.assertRaises(NetworkError) as c:
+            network.Rclone(FakeRunner(raises=subprocess.TimeoutExpired('rclone', 1)),
+                           self.conf).mount(server, None)
+        self.assertEqual(c.exception.code, 'timeout')
+
+    def test_google_drive_needs_the_account_first(self):
+        run = self.runner()
+        with self.assertRaises(NetworkError) as c:
+            network.Rclone(run, self.conf).mount(network.RawUrl(network.GDRIVE_URL))
+        self.assertEqual(c.exception.code, 'no_account')
+        self.assertEqual(run.calls, [])
+        with open(self.conf, 'w') as f:
+            f.write('[gdrive]\ntype = drive\nscope = drive\ntoken = {"access_token":"x"}\n')
+        path = network.Rclone(run, self.conf).mount(network.RawUrl(network.GDRIVE_URL))
+        self.assertTrue(path.endswith('/spark-net/gdrive'))
+        self.assertEqual(network.split_remote(path + '/Docs'), (path, 'Google Drive'))
+        argv = run.calls[0][0]
+        self.assertEqual(argv[:3], ['rclone', 'mount', 'gdrive:'])
+        self.assertEqual(argv[argv.index('--config') + 1], self.conf)
 
 
 class Connecting(TempDir):
@@ -413,38 +493,39 @@ class HostKeys(TempDir):
 
 
 class GoogleDrive(TempDir):
-    def db(self, rows):
-        path = self.path('accounts.db')
-        conn = sqlite3.connect(path)
-        conn.execute('CREATE TABLE Accounts (id INTEGER PRIMARY KEY AUTOINCREMENT,'
-                     'name TEXT,provider TEXT,enabled INTEGER)')
-        conn.executemany('INSERT INTO Accounts (name, provider, enabled) VALUES (?,?,?)', rows)
-        conn.commit()
-        conn.close()
-        return path
-
-    def test_counts_only_enabled_google_accounts(self):
-        db = self.db([('a', 'google', 1), ('b', 'google', 0), ('c', 'nextcloud', 1)])
-        self.assertEqual(network.google_accounts(db), 1)
-        self.assertEqual(network.google_accounts(self.path('missing.db')), 0)
-        with open(self.path('bad.db'), 'wb') as f:
-            f.write(b'not a database')
-        self.assertEqual(network.google_accounts(self.path('bad.db')), 0)
-
     def test_state(self):
-        self.assertEqual(network.gdrive_state(worker=False, db=self.db([('a', 'google', 1)])),
-                         'none')
-        self.assertEqual(network.gdrive_state(worker=True, db=self.path('missing.db')),
-                         'no-account')
-        os.remove(self.path('accounts.db')) if os.path.exists(self.path('accounts.db')) else 0
-        self.assertEqual(network.gdrive_state(worker=True, db=self.db([('a', 'google', 1)])),
-                         'ready')
+        conf = self.path('rclone.conf')
+        self.assertEqual(network.gdrive_state(conf=conf, tool=False), 'none')
+        self.assertEqual(network.gdrive_state(conf=conf, tool=True), 'no-account')
+        with open(conf, 'w') as f:
+            f.write('[gdrive]\ntype = drive\n')
+        self.assertEqual(network.gdrive_state(conf=conf, tool=True), 'no-account')
+        with open(conf, 'w') as f:
+            f.write('[gdrive]\ntype = drive\ntoken = {"a":"%b"}\n')
+        self.assertEqual(network.gdrive_state(conf=conf, tool=True), 'ready')
+        with open(conf, 'w') as f:
+            f.write('not [an ini')
+        self.assertEqual(network.gdrive_state(conf=conf, tool=True), 'no-account')
 
-    def test_the_database_is_only_read(self):
-        db = self.db([('a', 'google', 1)])
-        before = os.stat(db).st_mtime_ns
-        network.google_accounts(db)
-        self.assertEqual(os.stat(db).st_mtime_ns, before)
+    def test_add_account_runs_rclone_and_keeps_the_file_private(self):
+        conf = self.path('cfg/spark-files/rclone.conf')
+        calls = []
+
+        def run(argv, **kw):
+            calls.append(argv)
+            with open(argv[argv.index('--config') + 1], 'w') as f:
+                f.write('[gdrive]\ntype = drive\ntoken = {"t":1}\n')
+            return subprocess.CompletedProcess(argv, 0, '', '')
+        network.add_google_account(run, conf)
+        self.assertEqual(calls[0][:5], ['rclone', 'config', 'create', 'gdrive', 'drive'])
+        self.assertEqual(os.stat(conf).st_mode & 0o777, 0o600)
+        self.assertEqual(network.gdrive_state(conf=conf, tool=True), 'ready')
+
+    def test_add_account_that_ends_without_a_token_fails(self):
+        conf = self.path('rclone.conf')
+        with self.assertRaises(NetworkError) as c:
+            network.add_google_account(FakeRunner(1, 'Error: user cancelled\n'), conf)
+        self.assertEqual((c.exception.code, c.exception.detail), ('failed', 'Error: user cancelled'))
 
     def test_sidebar_rows(self):
         servers = [{'name': 'Work', 'url': 'sftp://me@host/'}]
@@ -453,15 +534,10 @@ class GoogleDrive(TempDir):
         self.assertEqual(keys('no-account')[-1], 'net-gdrive-add')
         self.assertEqual(keys('ready')[-1], 'net-gdrive')
 
-    def test_account_setup_command(self):
-        cmd = network.account_setup_command()
-        if cmd:
-            self.assertIn('kcm_kaccounts', cmd)
-
 
 @unittest.skipUnless(DISPLAY, 'needs a display')
 class NetworkWindow(TempDir):
-    """The sidebar and the connect flow, with a fake kio-fuse."""
+    """The sidebar and the connect flow, with a fake connect."""
 
     @classmethod
     def setUpClass(cls):

@@ -295,7 +295,7 @@ jobs:
       - name: Check printing, scanning and devices
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kio-gdrive' | tee "$WORK/devices.txt"
+          $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd fuse-sshfs rclone' | tee "$WORK/devices.txt"
           if grep -q 'not installed' "$WORK/devices.txt"; then
             echo "::error::a printing, scanning or device package is not installed"; exit 1
           fi

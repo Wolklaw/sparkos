@@ -23,17 +23,17 @@ after the browser, and it's KDE's. Spark Files replaces it.
 - **Search:** filter the current folder as you type; Ctrl+F searches below it, by name.
 - **Tabs and a split view** (F3), because the owner moves files between drives a lot.
 - **Network and Google Drive:** a Network group in the sidebar. Connect to server (sftp, smb) with bookmarks;
-  passwords go to the system keyring, never to a file. Google Drive appears once an account is added in
-  Online Accounts, with a button to open that setup. Mounted through KIO and kio-fuse, so a server is just a
-  folder and the copy engine, progress and cancel work on it. A dead server never freezes the window.
+  passwords go to the system keyring, never to a file. Google Drive appears once a Google account is added
+  (a button opens Google's sign-in in the browser). Mounted with sshfs (sftp) and rclone (smb, Google Drive),
+  no KDE parts, so a server is just a folder and the copy engine, progress and cancel work on it. A dead server never freezes the window.
 - **Watching:** a folder updates by itself when its contents change (GIO file monitors).
 
 ## How
 
 - Python 3 and Tk like the other Spark apps; Pillow for thumbnails; GIO (`gi.repository.Gio`, already in the
   image) for the Trash, mounts, file monitoring, default apps and content types. Nothing third-party beyond
-  what the image has. Network places: kio-fuse over KIO's sftp, smb and gdrive workers (no new package; GVfs
-  lacks smb and fuse in the image), and `secret-tool` for passwords.
+  what the image has. Network places: sshfs and rclone FUSE mounts (until 2026-11-25 kio-fuse over KIO's
+  workers, with Google accounts from kaccounts), and `secret-tool` for passwords.
 - **Becomes the system's file manager:** the default handler for `inode/directory`, and the
   `org.freedesktop.FileManager1` D-Bus service, so "Show in folder" from Soot, FreeSuite, downloads and other
   apps opens Spark Files at the right file.
