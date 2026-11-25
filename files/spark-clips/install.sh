@@ -1,0 +1,267 @@
+#!/usr/bin/env bash
+# Install Spark Clips, for one user (no root) or for the whole system.
+#
+#   bash install.sh --user [--no-test] [--no-service]    just you, into ~/.local; no root
+#   bash install.sh --user --uninstall                   remove exactly what --user installed
+#   bash install.sh [--deps] [--prefix /usr/lib/spark-clips] [--no-test]    system-wide, root
+#   bash install.sh --uninstall                          remove the system-wide install, root
+#
+# --user        SparkOS keeps /usr read-only, so optional Spark apps install here. Needs only
+#               what the SparkOS image has (Python 3 with tkinter, Pillow, gobject, GStreamer).
+# --no-service  --user only: don't start the background service now (the window can start it
+#               later; it starts at every login once turned on).
+# --deps        system-wide only: install what it needs with dnf first (Fedora).
+# --no-test     skip the self-test at the end.
+#
+# The service (spark-clips.service, a systemd user unit) keeps the replay buffer. It is started
+# and enabled here. --uninstall stops and disables it. Your clips stay in ~/Videos/Clips, your
+# settings in ~/.config/spark-clips and the log in ~/.local/state/spark-clips.
+# Spark Clips is Linux only.
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")" && pwd)
+APP_ID=dev.wolklaw.SparkClips
+SLUG=spark-clips
+UNIT=$SLUG.service
+PREFIX=/usr/lib/$SLUG
+DEPS=0
+TEST=1
+SERVICE=1
+USER_MODE=0
+UNINSTALL=0
+STAGE=
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --user) USER_MODE=1 ;;
+    --uninstall) UNINSTALL=1 ;;
+    --deps) DEPS=1 ;;
+    --no-test) TEST=0 ;;
+    --stage) STAGE=$2; shift ;;
+    --no-service) SERVICE=0 ;;
+    --prefix) PREFIX=$2; shift ;;
+    -h|--help) sed -n '2,19p' "$0"; exit 0 ;;
+    *) echo "install.sh: unknown option $1" >&2; exit 2 ;;
+  esac
+  shift
+done
+SIZES="16 22 24 32 48 64 128 256 512"
+
+refresh_menus() {   # $1: the applications folder
+  command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
+  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
+    kbuildsycoca6 >/dev/null 2>&1 || true
+  fi
+}
+
+copy_app() {   # $1: target folder
+  install -d "$1/sparkclips" "$1/icons"
+  install -m 0644 "$here"/sparkclips/*.py "$1/sparkclips/"
+  install -m 0644 "$here/spark_clips.py" "$here/spark-app.json" "$1/"
+  install -m 0644 "$here/icons/$SLUG-64.png" "$here/icons/$SLUG-256.png" "$1/icons/"
+  python3 -m compileall -q "$1"
+}
+
+user_systemctl() {   # a failing systemctl never fails the install (no user bus in a container)
+  command -v systemctl >/dev/null && systemctl --user "$@" 2>/dev/null
+}
+
+# Live updates (files/spark-apps): --stage DIR writes the app's folder exactly as the system
+# install builds it (what goes in /usr/lib/$SLUG), and stops. CI packs that into the signed
+# bundle, so the bundle and the image's built-in copy can't differ.
+if [ -n "$STAGE" ]; then
+  copy_app "$STAGE"
+  find "$STAGE" -name __pycache__ -prune -exec rm -rf {} +
+  exit 0
+fi
+
+# ─── Per user, no root ───────────────────────────────────────
+
+if [ "$USER_MODE" = 1 ]; then
+  [ -n "${HOME:-}" ] && [ -d "$HOME" ] || { echo "install.sh --user: HOME is not set" >&2; exit 1; }
+  DATA=${XDG_DATA_HOME:-$HOME/.local/share}
+  CONFIG=${XDG_CONFIG_HOME:-$HOME/.config}
+  LIB=$HOME/.local/lib/$SLUG
+  BIN=$HOME/.local/bin/$SLUG
+  MANIFEST=$LIB/installed-files
+
+  if [ "$UNINSTALL" = 1 ]; then
+    if [ ! -f "$MANIFEST" ]; then
+      echo "Spark Clips isn't installed for $(id -un) (no $MANIFEST)."
+      exit 0
+    fi
+    user_systemctl disable --now "$UNIT" || true
+    while IFS= read -r path; do
+      case "$path" in
+        "$HOME"/*) rm -f -- "$path" ;;              # never anything outside your home
+        *) echo "skipping $path (outside $HOME)" >&2 ;;
+      esac
+    done < "$MANIFEST"
+    rm -rf -- "$LIB"
+    rmdir --ignore-fail-on-non-empty "$HOME/.local/lib" 2>/dev/null || true
+    user_systemctl daemon-reload || true
+    refresh_menus "$DATA/applications"
+    echo "Spark Clips removed for $(id -un), and its service stopped. Your clips stay in"
+    echo "~/Videos/Clips, your settings in ~/.config/$SLUG and the log in ~/.local/state/$SLUG;"
+    echo "delete them too if you want."
+    exit 0
+  fi
+
+  if [ "$(id -u)" = 0 ]; then
+    echo "install.sh --user: you're root; this would install for root only." >&2
+    echo "Run it as the person who will use it, or drop --user for a system-wide install." >&2
+    exit 1
+  fi
+  if ! python3 -c 'import tkinter' 2>/dev/null; then
+    echo "Spark Clips needs Python 3 with tkinter, which this system doesn't have." >&2
+    echo "On SparkOS it comes with the image; on Fedora: sudo dnf install python3-tkinter" >&2
+    exit 1
+  fi
+  if ! python3 -c 'import PIL.ImageTk, gi; gi.require_version("Gst", "1.0"); from gi.repository import Gst' 2>/dev/null; then
+    echo "Spark Clips needs Pillow with Tk support, python3-gobject and GStreamer." >&2
+    echo "On SparkOS they come with the image; on Fedora: sudo dnf install python3-pillow" >&2
+    echo "  python3-pillow-tk python3-gobject-base gstreamer1 gstreamer1-plugins-base" >&2
+    echo "  gstreamer1-plugins-good gstreamer1-plugins-bad-free" >&2
+    exit 1
+  fi
+
+  # a running service keeps the old code until it restarts; stop it while the files change
+  user_systemctl stop "$UNIT" || true
+  rm -rf -- "$LIB"
+  copy_app "$LIB"
+  : > "$MANIFEST"
+  record() { printf '%s\n' "$1" >> "$MANIFEST"; }
+
+  install -d "$(dirname "$BIN")"
+  cat > "$BIN" <<EOF
+#!/bin/sh
+exec /usr/bin/env python3 "$LIB/spark_clips.py" "\$@"
+EOF
+  chmod 0755 "$BIN"
+  record "$BIN"
+
+  # ~/.local/bin may not be on the desktop session's PATH: point the entry at the full path
+  desktop="$DATA/applications/$APP_ID.desktop"
+  install -d "$DATA/applications"
+  case "$BIN" in *" "*) exec_bin="\"$BIN\"" ;; *) exec_bin=$BIN ;; esac
+  sed "s|^Exec=spark-clips|Exec=$exec_bin|" "$here/$APP_ID.desktop" > "$desktop"
+  chmod 0644 "$desktop"
+  record "$desktop"
+  # the same file for kglobalaccel, so Meta+Alt+G works without a trip to System Settings
+  # (the system install links it from /usr/share/kglobalaccel; per user it is a copy)
+  shortcut="$DATA/kglobalaccel/$APP_ID.desktop"
+  install -Dm 0644 "$desktop" "$shortcut"
+  record "$shortcut"
+  for size in $SIZES; do
+    target="$DATA/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
+    install -Dm 0644 "$here/icons/$SLUG-$size.png" "$target"
+    record "$target"
+  done
+  target="$DATA/icons/hicolor/scalable/apps/$APP_ID.svg"
+  install -Dm 0644 "$here/icons/$SLUG.svg" "$target"
+  record "$target"
+
+  unit="$CONFIG/systemd/user/$UNIT"
+  install -d "$(dirname "$unit")"
+  case "$BIN" in *" "*) unit_bin="\"$BIN\"" ;; *) unit_bin=$BIN ;; esac
+  sed "s|@BIN@|$unit_bin|" "$here/systemd/$UNIT" > "$unit"
+  chmod 0644 "$unit"
+  record "$unit"
+  refresh_menus "$DATA/applications"
+
+  test -x "$BIN"
+  "$BIN" --version
+  if [ "$TEST" = 1 ]; then
+    "$BIN" --self-test
+  fi
+  user_systemctl daemon-reload || true
+  if [ "$SERVICE" = 1 ]; then
+    if user_systemctl enable --now "$UNIT"; then
+      echo "The service is on: it keeps the replay buffer from now on and at every login."
+    else
+      echo "Couldn't start the service here. Open Spark Clips and press START THE SERVICE," >&2
+      echo "or run:  systemctl --user enable --now $UNIT" >&2
+    fi
+  fi
+  echo "Spark Clips installed for $(id -un) in $LIB."
+  echo "Remove it with:  bash $here/install.sh --user --uninstall"
+  exit 0
+fi
+
+# ─── System-wide, root ───────────────────────────────────────
+
+if [ "$(id -u)" != 0 ]; then
+  echo "install.sh: system-wide needs root. For just you, without root: install.sh --user" >&2
+  exit 1
+fi
+
+if [ "$UNINSTALL" = 1 ]; then
+  rm -rf -- "$PREFIX"
+  rm -f "/usr/share/spark-apps/$SLUG.json" /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
+        "/usr/share/kglobalaccel/$APP_ID.desktop" \
+        "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg" "/usr/lib/systemd/user/$UNIT"
+  for size in $SIZES; do
+    rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
+  done
+  refresh_menus /usr/share/applications
+  echo "Spark Clips removed from the system. Each user turns the service off with:"
+  echo "  systemctl --user disable --now $UNIT"
+  exit 0
+fi
+
+if [ "$DEPS" = 1 ]; then
+  missing=()
+  for pkg in python3 python3-tkinter python3-pillow python3-pillow-tk python3-gobject-base \
+             gstreamer1 gstreamer1-plugins-base gstreamer1-plugins-good \
+             gstreamer1-plugins-bad-free gstreamer1-plugins-ugly-free pipewire-gstreamer \
+             xdg-utils; do
+    rpm -q --whatprovides "$pkg" >/dev/null 2>&1 || missing+=("$pkg")
+  done
+  if [ ${#missing[@]} -gt 0 ]; then
+    echo "--- installing: ${missing[*]}"
+    dnf -y install --setopt=install_weak_deps=False "${missing[@]}"
+  fi
+  # an H.264 encoder for machines without a GPU encoder: Cisco's openh264 (Fedora's own repo
+  # for it), else nothing; the app says so when no encoder is there
+  if ! gst-inspect-1.0 openh264enc >/dev/null 2>&1 && ! gst-inspect-1.0 x264enc >/dev/null 2>&1; then
+    dnf -y install --setopt=install_weak_deps=False --enablerepo=fedora-cisco-openh264 \
+      gstreamer1-plugin-openh264 2>/dev/null \
+      || echo "note: no software H.264 encoder installed; Spark Clips needs a GPU encoder here" >&2
+  fi
+fi
+
+rm -rf "$PREFIX"
+copy_app "$PREFIX"
+
+# Live updates: launch.py starts the newest verified live copy of this app, else the
+# built-in one in $PREFIX (also what starts where Spark Apps isn't installed)
+cat > /usr/bin/$SLUG <<EOF
+#!/bin/sh
+[ -f /usr/lib/spark-apps/launch.py ] && exec /usr/bin/python3 -I /usr/lib/spark-apps/launch.py $SLUG "\$@"
+exec /usr/bin/python3 $PREFIX/spark_clips.py "\$@"
+EOF
+chmod 0755 /usr/bin/$SLUG
+install -Dm 0644 "$here/spark-app.json" "/usr/share/spark-apps/$SLUG.json"
+
+install -Dm 0644 "$here/$APP_ID.desktop" "/usr/share/applications/$APP_ID.desktop"
+install -d /usr/share/kglobalaccel
+ln -sfn "../applications/$APP_ID.desktop" "/usr/share/kglobalaccel/$APP_ID.desktop"
+for size in $SIZES; do
+  install -Dm 0644 "$here/icons/$SLUG-$size.png" \
+    "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
+done
+install -Dm 0644 "$here/icons/$SLUG.svg" "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
+install -d /usr/lib/systemd/user
+sed "s|@BIN@|/usr/bin/$SLUG|" "$here/systemd/$UNIT" > "/usr/lib/systemd/user/$UNIT"
+chmod 0644 "/usr/lib/systemd/user/$UNIT"
+command -v update-desktop-database >/dev/null && update-desktop-database -q /usr/share/applications || true
+command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t -f /usr/share/icons/hicolor || true
+
+test -x /usr/bin/$SLUG
+test -f "$PREFIX/sparkclips/app.py"
+/usr/bin/$SLUG --version
+if [ "$TEST" = 1 ]; then
+  /usr/bin/$SLUG --self-test
+fi
+echo "Spark Clips installed to $PREFIX."
+echo "Each user starts the service once (or presses START THE SERVICE in the window):"
+echo "  systemctl --user enable --now $UNIT"

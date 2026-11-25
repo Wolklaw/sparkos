@@ -1,0 +1,13 @@
+[Unit]
+Description=Spark Clips: keeps the last seconds of your game so a key press can save them
+Documentation=https://github.com/Wolklaw/sparkos/tree/main/files/spark-clips
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=@BIN@ --daemon
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
