@@ -278,6 +278,20 @@ class SessionEndTest(unittest.TestCase):
         self.assertEqual(self.ran, [['poweroff']])
 
 
+class SignOutTest(unittest.TestCase):
+    # 10 helper -> 11 compositor -> 12 tee; 20 session runner -> 21 shell -> 22 sign-out,
+    # 21 -> 23 window list; 30 Xwayland; 40 Wine -> 41 Battle.net
+    TREE = {10: 1, 11: 10, 12: 11, 20: 1, 21: 20, 22: 21, 23: 21, 30: 1, 40: 1, 41: 40}
+
+    def test_apps_go_compositor_and_shell_stay(self):
+        out = ending.leftovers(sorted(self.TREE), 22, 10, parent=lambda p: self.TREE.get(p, 0))
+        self.assertEqual(out, [23, 30, 40, 41])
+
+    def test_no_leader_known_keeps_only_the_shell(self):
+        out = ending.leftovers([20, 21, 22, 40], 22, 0, parent=lambda p: self.TREE.get(p, 0))
+        self.assertEqual(out, [40])
+
+
 class PreloadTest(unittest.TestCase):
     """Apps started from the shell must not inherit gtk4-layer-shell (GTK 3 apps abort)."""
     def test_dropped_once_loaded(self):

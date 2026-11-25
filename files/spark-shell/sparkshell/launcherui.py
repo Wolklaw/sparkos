@@ -271,7 +271,9 @@ class Launcher(Gtk.Window):
         self.hide_launcher()
         if key == 'sign_out':
             import os
-            command = ['loginctl', 'terminate-session', os.environ.get('XDG_SESSION_ID', '')]
+            import sys
+            # apps first, then the session (see ending.sign_out)
+            command = [sys.executable, os.path.abspath(sys.argv[0]), '--sign-out']
         if not ask:
             apps.run(command)
             return

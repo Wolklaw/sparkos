@@ -6,6 +6,7 @@ Spark session.
     spark-shell --toggle       open or close the launcher of the running shell
     spark-shell --lock         lock the screen now (the shell does this when logind asks)
     spark-shell --xembed       put old X11 tray icons (Wine) in the tray (spark-xembed.service)
+    spark-shell --sign-out     close the session's apps, then end the session
     spark-shell --version
     spark-shell --self-test    check that the modules load; needs no display
 """
@@ -67,6 +68,9 @@ def main(argv) -> int:
         return self_test()
     if '--toggle' in argv:
         return toggle()
+    if '--sign-out' in argv:
+        from sparkshell.ending import sign_out
+        return sign_out()
     if '--xembed' in argv:
         from sparkshell.xembed import main as xembed_main
         return xembed_main()
