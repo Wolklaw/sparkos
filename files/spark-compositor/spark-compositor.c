@@ -1543,6 +1543,10 @@ static void view_map(struct wl_listener *l, void *data) {
 	focus_view(v, NULL);
 	if (!v->is_x11 && v->xdg->requested.fullscreen) view_set_fullscreen(v, true);
 	if (v->is_x11 && v->xw->fullscreen) view_set_fullscreen(v, true);
+	/* mapped already maximized (Wine restoring its last state): take it as a maximize request,
+	 * or the window keeps saying it is maximized at its normal size and cannot be dragged */
+	if (!v->fullscreen && (v->is_x11 ? v->xw->maximized_horz || v->xw->maximized_vert
+	                                 : v->xdg->requested.maximized)) view_set_maximized(v, true);
 	refocus_soon(s);
 }
 
