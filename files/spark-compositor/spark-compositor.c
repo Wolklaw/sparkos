@@ -1717,12 +1717,12 @@ static void begin_grab(struct server *s, struct view *v, enum cursor_mode mode, 
 
 static void view_request_move(struct wl_listener *l, void *d) {
 	struct view *v = wl_container_of(l, v, request_move);
-	if (S.focused_view == v) begin_grab(&S, v, CURSOR_MOVE, 0);
+	if (S.focused_view == v && S.seat->pointer_state.button_count > 0) begin_grab(&S, v, CURSOR_MOVE, 0);
 }
 static void view_request_resize(struct wl_listener *l, void *d) {
 	struct view *v = wl_container_of(l, v, request_resize);
 	struct wlr_xdg_toplevel_resize_event *e = d;
-	if (S.focused_view == v) begin_grab(&S, v, CURSOR_RESIZE, e->edges);
+	if (S.focused_view == v && S.seat->pointer_state.button_count > 0) begin_grab(&S, v, CURSOR_RESIZE, e->edges);
 }
 static void view_request_maximize(struct wl_listener *l, void *d) {
 	struct view *v = wl_container_of(l, v, request_maximize);
@@ -1829,12 +1829,14 @@ static void xw_override_changed(struct wl_listener *l, void *d) {
  * FreeSuite; Chromium; Java): without these, X11 windows could not be dragged or maximized */
 static void xw_request_move(struct wl_listener *l, void *d) {
 	struct view *v = wl_container_of(l, v, request_move);
-	if (v->mapped && !v->unmanaged) begin_grab(&S, v, CURSOR_MOVE, 0);
+	/* only while a button is held: Wine (Battle.net) can ask after a quick click is already over,
+	 * and the window then followed the pointer until the next click */
+	if (v->mapped && !v->unmanaged && S.seat->pointer_state.button_count > 0) begin_grab(&S, v, CURSOR_MOVE, 0);
 }
 static void xw_request_resize(struct wl_listener *l, void *d) {
 	struct view *v = wl_container_of(l, v, request_resize);
 	struct wlr_xwayland_resize_event *e = d;
-	if (v->mapped && !v->unmanaged) begin_grab(&S, v, CURSOR_RESIZE, e->edges);
+	if (v->mapped && !v->unmanaged && S.seat->pointer_state.button_count > 0) begin_grab(&S, v, CURSOR_RESIZE, e->edges);
 }
 static void xw_request_maximize(struct wl_listener *l, void *d) {
 	struct view *v = wl_container_of(l, v, request_maximize);
