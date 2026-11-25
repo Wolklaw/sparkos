@@ -42,6 +42,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 | **Spark Scan** | 1.1.0 | Scans from the glass or the feeder, straightens pages, and saves one PDF (searchable if you want) or an image per page. | [source](files/spark-scan) |
 | **Spark Notes** | 0.1.0 (new) | Quick notes as plain files, and clipboard history on Meta+V with search, pins and a pause. No account. Replaces Klipper. | [source](files/spark-notes) |
 | **Spark Emoji** | 0.1.0 (new) | Emoji and symbols on Meta+. (full stop): search in English or French, recents, skin tones, arrows, maths and accented letters. | [source](files/spark-emoji) |
+| **Spark Boxes** | 0.1.0 (new) | Virtual machines: make one from an ISO, start it, see its screen, snapshots, USB. Sets up UEFI, Secure Boot and a TPM for Windows 11. On libvirt and KVM (`spark virt setup` first). Replaces Virtual Machine Manager. | [source](files/spark-boxes) |
 | **Spark Audio** | 0.1.0 (new) | The sound mixer: outputs, microphones with a test, volume per app, a simple equalizer and Focusrite Scarlett controls. | [source](files/spark-audio) |
 
 ### Looking after the PC

@@ -42,6 +42,15 @@ package (GPL-3.0-or-later, https://github.com/bugaevc/wl-clipboard). It is calle
 command and is not linked into or modified by Spark Notes. The image step installs it
 (`files/spark-notes/install.sh --deps`).
 
+Spark Boxes runs virtual machines on libvirt and QEMU/KVM (Fedora's `libvirt-daemon-driver-qemu`,
+`qemu-kvm`, `edk2-ovmf` and `swtpm`; LGPL-2.1-or-later, GPL-2.0-or-later, BSD-2-Clause and BSD-3-Clause
+respectively; edk2 is BSD-2-Clause-Patent) through Fedora's `python3-libvirt` (LGPL-2.1-or-later), and shows a machine's screen with
+`spice-gtk3` (LGPL-2.1-or-later). They are used as libraries and commands and are not modified. The
+Windows driver disc (virtio-win) is not in the image: Spark Boxes downloads it on request, over https,
+from Fedora's own download server (https://fedorapeople.org/groups/virt/virtio-win/), checks it against
+a SHA-256 written in the source, and keeps it in the user's cache. Its drivers are by Red Hat and the
+virtio-win project (mostly BSD-3-Clause; see the licence files on the disc).
+
 SparkOS also builds kernel modules from other projects'
 source while the image builds: zenergy, ryzen_smu, xone (xonedo), hid-fanatecff, new-lg4ff,
 hid-tmff2 with hid-tminit (GPL-2.0) and vhba (GPL-2.0-or-later), plus v4l2loopback (GPL-2.0)

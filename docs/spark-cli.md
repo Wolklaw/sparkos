@@ -52,7 +52,7 @@ restarts) ask "Continue?" first.
 | `spark brew` | Set up Homebrew if it isn't there (Homebrew's installer, pinned to one commit and checked by SHA-256) | Bazzite's `brew-setup` |
 | `spark box [list\|new\|enter\|rm]` | Linux containers with Distrobox, or Toolbox when Distrobox isn't installed (plain Fedora) | `distrobox-new` |
 | **Virtual machines** | | |
-| `spark virt [status\|setup\|undo]` | KVM virtual machines: `setup` turns on libvirt's sockets (the packages are in the image, off), joins you to the `libvirt` group (also from `/usr/lib/group` when `/etc/group` lacks it) and starts the default NAT network; `undo` reverses it and keeps your machines and disks. The window, Virtual Machine Manager, comes from the Store (Flathub `org.virt_manager.virt-manager`) | `setup-virtualization` |
+| `spark virt [status\|setup\|undo]` | KVM virtual machines: `setup` turns on libvirt's sockets (the packages are in the image, off), joins you to the `libvirt` group (also from `/usr/lib/group` when `/etc/group` lacks it) and starts the default NAT network; `undo` reverses it and keeps your machines and disks. The window is Spark Boxes ([files/spark-boxes](../files/spark-boxes)), in the image | `setup-virtualization` |
 | **Problems** | | |
 | `spark logs [this\|last\|errors]` | The system log of this boot or the one before | `logs-this-boot`, `logs-last-boot` |
 | `spark report [FOLDER]` | One `.tar.gz` with `spark info`, deployments, devices, Vulkan, failed services, crashes, Flatpak apps and both boots' logs. **Nothing is uploaded.** | `get-logs`, `device-info` (those upload to a pastebin) |
@@ -103,9 +103,10 @@ arguments for passing a graphics card to a machine): `spark kargs` and `ls-iommu
   them with rpm-ostree on the PC was the other choice; it makes updates slower and can break when
   the image and Fedora's repositories drift apart, so the image carries them. The cost is disk
   space only (109 packages, a 59 MiB download on plain Kinoite).
-- **Virtual Machine Manager is not in the image.** The Flathub app has the client only; it
-  reaches the host's libvirt through `/run/libvirt` (its `--filesystem=/run/libvirt` permission)
-  at `qemu:///system`. That is why the daemon is on the host.
+- **The window is Spark Boxes.** It is a client only: it reaches the host's libvirt at
+  `qemu:///system` through python3-libvirt (and shows a machine's screen with spice-gtk3). The
+  two libraries add 8 packages, 4 MiB installed. That is why the daemon is on the host, not
+  in the app. (Virtual Machine Manager from Flathub is no longer the suggested window.)
 - **The group.** libvirt's polkit rule (`50-libvirt.rules`) lets the `libvirt` group manage
   machines without a password. The image's group list is `/usr/lib/group`; a PC whose `/etc/group`
   was changed doesn't pick up new groups from an update, so `setup` copies the `libvirt` line from
@@ -133,5 +134,5 @@ rpm-ostree step, `box` (rootless containers don't run inside a container).
 `spark virt` (added 2026-11-24): `bash -n`, `status` on a PC without the packages, and
 `--dry-run` of `setup` and `undo` only. **Not tried:** `setup` and `undo` for real, the group step on
 an image, starting the default network, a virtual machine's network through the `sparkos` zone, and
-Virtual Machine Manager from Flathub connecting. The first boot test with the packages will show
+Spark Boxes connecting (it is tried on libvirt's test driver and a real session libvirt, see its README). The first boot test with the packages will show
 whether the build step passes.
