@@ -458,7 +458,7 @@ before this).
 
 **Not added** (one line each):
 
-- `edk2-ovmf`, `lxc`: virtual machine firmware and LXC without a hypervisor or service using them (QEMU and libvirt aren't on Bazzite either; `lxc` is off). Virtual machine apps from Flathub bring their own.
+- `lxc`: LXC without a service using it (off on Bazzite). `edk2-ovmf` is in the image now, with libvirt and QEMU, for `spark virt setup` (added 2026-11-24).
 - `cosign` (Sigstore, 145 MiB): signature checks on updates are done by the container tools themselves (`signing.sh`'s policy); cosign is only needed to sign, which the build does.
 - `webapp-manager`, `rom-properties` (Terra): not in Fedora; another project's app, and ROM thumbnails for Dolphin (Spark Files is the file manager).
 - `plasma-oxygen`, `oxygen-sounds`, `oxygen-icon-theme`, `oxygen-cursor-themes` (165 MiB): an old KDE look; SparkOS uses its own theme and icons.
