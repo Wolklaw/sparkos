@@ -44,10 +44,6 @@ inactiveForeground=179,176,210
 [Icons]
 Theme=SparkOS
 
-# Konsole (kept hidden for one release) reads its default profile from here
-[Desktop Entry]
-DefaultProfile=SparkOS.profile
-
 [ColorEffects:Disabled]
 Color=56,56,56
 ColorAmount=0

@@ -10,10 +10,9 @@
 # - KDE's default terminal: TerminalApplication/TerminalService in /etc/xdg/kdeglobals, which
 #   Dolphin's "Open Terminal Here" and apps with Terminal=true use (files/system)
 # - xdg-terminal-exec's default (/etc/xdg/kde-xdg-terminals.list and xdg-terminals.list)
-# - Ctrl+Alt+T: Spark Terminal's desktop entry takes it; Konsole's gives it up
+# - Ctrl+Alt+T: Spark Terminal's desktop entry takes it
 # - the dock (the look-and-feel layout) and SparkOS's own scripts start spark-terminal
-# Konsole stays installed for one release as a fallback, hidden from the menu. Removing it is
-# a separate change.
+# Konsole is removed from the image (sparkos-apps.sh); this script checks nothing starts it.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-terminal"
@@ -35,13 +34,11 @@ install -d /usr/share/kglobalaccel
 ln -sfn ../applications/dev.wolklaw.SparkTerminal.desktop /usr/share/kglobalaccel/dev.wolklaw.SparkTerminal.desktop
 grep -qx 'X-KDE-Shortcuts=Ctrl+Alt+T' "$APP"
 
-# --- Konsole: kept for one release, out of the menu, without the shortcut
+# --- Konsole is gone from new images; an older image (the app's own CI runs this script on the
+# published one) still has it, so it gives up the shortcut there
 for entry in /usr/share/applications/org.kde.konsole.desktop /usr/share/kglobalaccel/org.kde.konsole.desktop; do
   [ -f "$entry" ] || continue
   sed -i --follow-symlinks '/^X-KDE-Shortcuts=/d' "$entry"
-  if [ "$entry" = /usr/share/applications/org.kde.konsole.desktop ] && ! grep -q '^NoDisplay=true' "$entry"; then
-    sed -i '/^\[Desktop Entry\]/a NoDisplay=true' "$entry"
-  fi
 done
 others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?Ctrl\+Alt\+T(,|$)' \
   /usr/share/applications/*.desktop /usr/share/kglobalaccel/*.desktop 2>/dev/null \

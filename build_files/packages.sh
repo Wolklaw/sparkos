@@ -11,14 +11,14 @@ dnf_install() { dnf -y --setopt=install_weak_deps=True install "$@"; }
 dnf -y makecache
 
 # What Bazzite brought that SparkOS's scripts and the boot test use, from Fedora's own
-# repositories: ImageMagick (sparkos-theme.sh draws the wallpaper and boot splash), Ark, KDE
-# Connect, printing, scanning, libratbag (gaming mice), the gaming layer (gamescope, MangoHud,
+# repositories: ImageMagick (sparkos-theme.sh draws the wallpaper and boot splash), kio-gdrive
+# (Google Drive in Spark Files), printing, scanning, libratbag (gaming mice), the gaming layer (gamescope, MangoHud,
 # GameMode), vulkaninfo/vainfo to check the drivers, and xdg-terminal-exec (how Plasma and apps
 # open the default terminal, Spark Terminal). Kinoite's other projects' apps are
 # removed by sparkos-apps.sh (step 5).
 dnf_install \
   ImageMagick \
-  ark kde-connect kio-gdrive \
+  kio-gdrive \
   plasma-print-manager cups-browsed ipp-usb \
   sane-airscan sane-backends-drivers-scanners \
   libratbag-ratbagd \
@@ -106,13 +106,14 @@ dnf -y remove rpmfusion-nonfree-release
 # - gcc, gcc-c++, make: Bazzite has a C/C++ compiler; Rust (cargo links with cc), pip and npm
 #   packages with native parts, and Claude Code's builds need one
 dnf_install gcc gcc-c++ make
-# - disks and system: snapper, btrfs-assistant (snapshots, off until set up, as on Bazzite),
+# - disks and system: snapper (snapshots, off until set up, as on Bazzite; its GUI,
+#   btrfs-assistant, is not installed),
 #   btrfsmaintenance (scrub and balance timers, off as on Bazzite), bees (btrfs dedup, off),
-#   gnome-disk-utility (Disks), greenboot (goes back to the previous system after three
+#   greenboot (goes back to the previous system after three
 #   failed boots of an update; fedora-parity.sh sets it up), Cockpit's pages (web admin, for
 #   Cockpit's own client or container; no web server is installed, as on Bazzite)
 dnf_install \
-  snapper btrfs-assistant btrfsmaintenance bees gnome-disk-utility \
+  snapper btrfsmaintenance bees \
   greenboot greenboot-default-health-checks \
   cockpit-system cockpit-files cockpit-networkmanager cockpit-podman cockpit-storaged
 # - security keys: sign in or sudo with a YubiKey or other U2F key, and YubiKey's manager

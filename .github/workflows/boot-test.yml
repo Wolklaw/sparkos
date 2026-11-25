@@ -295,7 +295,7 @@ jobs:
       - name: Check printing, scanning and devices
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kdeconnectd kio-gdrive' | tee "$WORK/devices.txt"
+          $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd kio-gdrive' | tee "$WORK/devices.txt"
           if grep -q 'not installed' "$WORK/devices.txt"; then
             echo "::error::a printing, scanning or device package is not installed"; exit 1
           fi
@@ -426,15 +426,14 @@ jobs:
         run: |
           # The firewall in plain words, in firewall-config's place: the files, the polkit action,
           # a self-test that only reads firewalld, a helper that refuses a bad operation without
-          # running anything, and firewall-config out of the menu but still installed
+          # running anything, and firewall-config gone from the image
           $SSH 'set -e; spark-firewall --version; ls -l /usr/bin/spark-firewall /usr/libexec/spark-firewall-helper /usr/share/applications/dev.wolklaw.SparkFirewall.desktop /usr/share/polkit-1/actions/dev.wolklaw.SparkFirewall.policy'
           $SSH 'spark-firewall --self-test' 2>&1 | tee "$WORK/spark-firewall-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-firewall-self-test.txt"
           $SSH 'echo "{\"ops\": [{\"op\": \"service\", \"zone\": \"--reload\", \"name\": \"ssh\", \"add\": true}]}" | /usr/libexec/spark-firewall-helper apply; echo "exit $?"' 2>&1 | tee "$WORK/spark-firewall-refuse.txt"
           grep -q 'refused' "$WORK/spark-firewall-refuse.txt"
           grep -qx 'exit 2' "$WORK/spark-firewall-refuse.txt"
-          $SSH 'rpm -q firewalld >/dev/null; grep -c "^NoDisplay=true" /usr/share/applications/firewall-config.desktop' | tee "$WORK/spark-firewall-takeover.txt"
-          grep -qx '1' "$WORK/spark-firewall-takeover.txt" || { echo "::error::firewall-config is still in the menu"; exit 1; }
+          $SSH 'rpm -q firewalld >/dev/null; ! rpm -q firewall-config; test ! -e /usr/share/applications/firewall-config.desktop'
 
       - name: Check Spark Backup
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -452,11 +451,11 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Drives and partitions: the files, then the self-test (lists the VM's drives, checks
-          # the safety rules on made-up ones; it changes nothing), and GNOME Disks out of the menu
+          # the safety rules on made-up ones; it changes nothing), and GNOME Disks gone from the image
           $SSH 'set -e; spark-disks --version; ls -l /usr/bin/spark-disks /usr/share/applications/dev.wolklaw.SparkDisks.desktop; command -v udisksctl smartctl lsblk'
           $SSH 'spark-disks --self-test' 2>&1 | tee "$WORK/spark-disks-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-disks-self-test.txt"
-          $SSH '! [ -f /usr/share/applications/org.gnome.DiskUtility.desktop ] || grep -qx NoDisplay=true /usr/share/applications/org.gnome.DiskUtility.desktop'
+          $SSH '! rpm -q gnome-disk-utility; test ! -e /usr/share/applications/org.gnome.DiskUtility.desktop'
 
       - name: Check Spark Files
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -510,9 +509,9 @@ jobs:
           $SSH 'ls /usr/share/kio/servicemenus/ | grep -i -E "spark"' | tee "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.compress.desktop' "$WORK/servicemenus.txt"
-          # Spark Terminal is the default terminal; Konsole is hidden and gave up Ctrl+Alt+T
-          $SSH 'kreadconfig6 --group General --key TerminalApplication; xdg-terminal-exec --print-id; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
-          diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n1\n') "$WORK/terminal.txt"
+          # Spark Terminal is the default terminal; Konsole is gone
+          $SSH 'kreadconfig6 --group General --key TerminalApplication; xdg-terminal-exec --print-id; ! rpm -q konsole; test ! -e /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
+          diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n') "$WORK/terminal.txt"
           # Spark Emoji has Meta+. and Plasma's Emoji Selector is hidden and gave the key up
           $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.plasma.emojier.desktop; grep -c "^X-KDE-Shortcuts=" /usr/share/applications/org.kde.plasma.emojier.desktop || true' | tee "$WORK/emoji.txt"
           diff <(printf '1\nlinked\n1\n0\n') "$WORK/emoji.txt" || { echo "::error::Meta+. is not Spark Emoji's"; exit 1; }
@@ -700,13 +699,15 @@ jobs:
           $SSH 'cd /usr/share/applications; for f in *.desktop; do
                   sed -n "/^\[Desktop Entry\]/,/^\[/p" "$f" | grep -qE "^(NoDisplay|Hidden)=true" || echo "$f"
                 done' | tee "$WORK/menu.txt"
-          SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-|org\.kde\.(kdeconnect\.(daemon|handler))|org\.gnome\.DiskUtility)' "$WORK/menu.txt" || true)
+          SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-)' "$WORK/menu.txt" || true)
           [ -z "$SHOWN" ] || echo "::warning::in the app menu but not SparkOS's own: $(echo $SHOWN)"
-          for id in org.kde.kdeconnect.app org.kde.ark org.kde.discover org.kde.plasma.emojier btop nvtop org.kde.kinfocenter org.kde.kjournaldbrowser; do
+          for id in org.kde.plasma.emojier btop nvtop; do
             if grep -qx "$id.desktop" "$WORK/menu.txt"; then echo "::error::$id is still in the app menu"; exit 1; fi
           done
+          # The hidden apps are gone from the image, not just from the menu (stage 1 of replacing KDE)
+          $SSH 'for p in konsole konsole-part ark ark-libs kde-connect kde-connect-libs kdeconnectd plasma-discover plasma-discover-libs plasma-discover-flatpak plasma-discover-rpm-ostree plasma-discover-kns plasma-discover-notifier kinfocenter kjournald gnome-disk-utility btrfs-assistant firewall-config spectacle plasma-systemmonitor; do if rpm -q $p >/dev/null 2>&1; then echo "$p is still installed"; exit 1; fi; done; echo "removed apps are gone"'
           # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH "rpm -q dolphin konsole plasma-systemsettings ark >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && test -x /usr/bin/spark-disks && test -x /usr/bin/spark-emoji && test -x /usr/bin/spark-notes && test -x /usr/bin/spark-boxes && test -x /usr/bin/spark-audio && test -x /usr/bin/spark-backup && for a in spark-edit spark-calc spark-fonts spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          $SSH "rpm -q dolphin plasma-systemsettings >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && test -x /usr/bin/spark-disks && test -x /usr/bin/spark-emoji && test -x /usr/bin/spark-notes && test -x /usr/bin/spark-boxes && test -x /usr/bin/spark-audio && test -x /usr/bin/spark-backup && for a in spark-edit spark-calc spark-fonts spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The SparkOS look (Phase 3), everywhere from power-on to the desktop:
 #   boot splash (Plymouth), sign-in screen wallpaper, the splash after sign-in, the desktop
-#   (colours, fonts, top bar and floating dock, wallpaper), lock screen, Konsole, About This
+#   (colours, fonts, top bar and floating dock, wallpaper), lock screen, the terminal colours, About This
 #   System and fastfetch.
 # Static files (colour scheme, look-and-feel package, Plymouth theme, /etc/xdg defaults) come
 # from files/system. This script renders the images from the SparkOS bot (files/sparkos-theme,
@@ -153,7 +153,7 @@ for f in \
   "$WALL/3840x2160.png" /usr/share/wallpapers/SparkOS/metadata.json \
   "$PLY/sparkos.plymouth" "$PLY/throbber-0001.png" "$PLY/throbber-0050.png" \
   /usr/share/icons/hicolor/256x256/apps/sparkos.png /usr/share/pixmaps/sparkos-logo.png \
-  /usr/share/konsole/SparkOS.profile /usr/share/konsole/SparkOS.colorscheme; do
+  /usr/share/konsole/SparkOS.colorscheme; do
   test -s "$f" || { echo "missing $f"; exit 1; }
 done
 grep -q '^LookAndFeelPackage=dev.wolklaw.sparkos.desktop$' /etc/xdg/kdeglobals

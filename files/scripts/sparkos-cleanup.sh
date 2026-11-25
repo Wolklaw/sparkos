@@ -53,20 +53,16 @@ if grep -l '^enabled=1' /etc/yum.repos.d/_copr* 2>/dev/null; then
 fi
 
 # --- Out of the app menu (still installed; the commands and the platform keep working)
-# Replaced by a Spark app, hidden for one release and then removed, as Dolphin and Konsole were:
-#   KDE Connect (Spark Link), Ark (Spark Archive), Discover (Spark Store), GNOME Disks and its
-#   disk-image mounter and writer (Spark Disks), the Emoji Selector (Spark Emoji, which has
-#   Meta+. since spark-emoji.sh)
+# KDE Connect, Ark, Discover, Konsole, GNOME Disks, Info Center, Journald Browser, Btrfs
+# Assistant and firewall-config are gone from the image (sparkos-apps.sh), so they are not here.
+# What stays installed because Plasma needs it, and is hidden:
+#   the Emoji Selector (Spark Emoji has Meta+. since spark-emoji.sh) and the Menu Editor
+#   (Spark Launcher is the menu); both are parts of plasma-desktop
 # Command-line tools that need no menu entry (they run in Spark Terminal): btop, nvtop,
 #   Microsoft Edit (msedit), yad's Icon Browser
-# Admin and developer tools: Info Center, Journald Browser, Btrfs Assistant (snapshots are off),
-#   the Foreground Booster's settings, the Menu Editor (Spark Launcher is the menu)
-HIDE=(org.kde.kdeconnect.app org.kde.kdeconnect.sms org.kde.kdeconnect.nonplasma
-      org.kde.ark org.kde.discover org.kde.plasma.emojier
-      org.gnome.DiskUtility gnome-disk-image-mounter gnome-disk-image-writer
-      btop nvtop com.microsoft.edit yad-icon-browser
-      org.kde.kinfocenter org.kde.kjournaldbrowser btrfs-assistant org.kde.foreground-booster
-      org.kde.kmenuedit firewall-config
+# The Foreground Booster's settings
+HIDE=(org.kde.plasma.emojier org.kde.kmenuedit
+      btop nvtop com.microsoft.edit yad-icon-browser org.kde.foreground-booster
       org.kde.kfontview org.kde.kfontinst)
 for id in "${HIDE[@]}"; do
   entry=/usr/share/applications/$id.desktop
@@ -79,6 +75,21 @@ for id in "${HIDE[@]}"; do
   grep -qx 'NoDisplay=true' <<<"$group" || { echo "$id.desktop is still in the menu"; exit 1; }
 done
 echo "--- hid ${#HIDE[@]} menu entries"
+
+# --- The hidden apps are gone from the image (sparkos-apps.sh removes them; nothing installed
+# since may bring one back)
+for pkg in konsole konsole-part ark ark-libs kde-connect kde-connect-libs kdeconnectd \
+           plasma-discover plasma-discover-libs plasma-discover-flatpak plasma-discover-kns \
+           plasma-discover-rpm-ostree plasma-discover-notifier kinfocenter kjournald \
+           gnome-disk-utility btrfs-assistant firewall-config spectacle plasma-systemmonitor; do
+  if rpm -q "$pkg" >/dev/null 2>&1; then echo "$pkg is back in the image"; exit 1; fi
+done
+for id in org.kde.konsole org.kde.ark org.kde.discover org.kde.kdeconnect.app org.kde.kinfocenter \
+          org.kde.kjournaldbrowser org.gnome.DiskUtility gnome-disk-image-mounter \
+          gnome-disk-image-writer btrfs-assistant firewall-config; do
+  if [ -e "/usr/share/applications/$id.desktop" ]; then echo "$id.desktop is back"; exit 1; fi
+done
+echo "--- the hidden apps are gone"
 
 # NetworkManager's connectivity check (fedoraproject.org, every 5 minutes) stays for now: it is
 # what detects hotel and café Wi-Fi sign-in pages. The owner decides (see the release2-cleanup PR).

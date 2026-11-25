@@ -13,10 +13,10 @@
 # support), KDE Connect, the Store, drivers, printing and scanning. Where a Spark app does the job,
 # KDE's own is removed too: Spark Monitor replaces Plasma System Monitor (and takes its shortcuts),
 # Spark Snip replaces Spectacle (it captures through KWin itself), Spark Terminal replaces Konsole
-# (Konsole stays installed but hidden for one release, as a fallback) and Spark Files replaces Dolphin:
+# (removed from the image) and Spark Files replaces Dolphin:
 # it is the default file manager and answers "Show in folder"; Dolphin stays installed but out of
-# the menu for one release (files/scripts/spark-files.sh). Ark and KDE Connect stay until
-# Spark Archive and Spark Link are tried on real hardware. Tailscale, a company's VPN service, is
+# the menu for one release (files/scripts/spark-files.sh). Ark, KDE Connect, Discover, Konsole,
+# GNOME Disks and firewall-config are removed (files/scripts/sparkos-apps.sh). Tailscale, a company's VPN service, is
 # removed too.
 #
 # Build it locally (from the repo root, as root, with about 40 GB free):
