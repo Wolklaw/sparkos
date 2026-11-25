@@ -31,7 +31,12 @@ os.environ.update({
     'SPARK_SETTINGS_AUTOSTART_DIRS': os.path.join(_tmp, 'autostart'),
     'SPARK_SETTINGS_REAL_DIR': os.path.join(_tmp, 'nokde'),
     'SPARK_SETTINGS_TEST_PAGE': os.path.join(FIX, 'os-release'),
+    # no test may reach the real system or session bus (KWin, powerdevil, logind ...);
+    # test_dbus.py swaps in private fake buses for its own classes
+    'DBUS_SYSTEM_BUS_ADDRESS': 'unix:path=/nonexistent/system',
+    'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/nonexistent/session',
 })
+os.environ.pop('DBUS_STARTER_ADDRESS', None)
 
 from sparksettings import (bluetooth, clock, core, defaults, displays, kcms, network,  # noqa: E402
                            power, printers, sound, startup, sysinfo)
@@ -238,13 +243,8 @@ Capture:
         self.assertIn('x-scheme-handler/https', calls()[0])
 
     def test_clock(self):
-        self.assertEqual(clock.zone(), 'America/Toronto')
-        self.assertTrue(clock.ntp())
+        self.assertIsNone(clock.zone())      # no bus here; tests/test_dbus.py has the fake timedated
         self.assertIn('Europe/Paris', clock.zones())
-        reset_calls()
-        clock.set_zone('Europe/Paris')
-        clock.set_ntp(False)
-        self.assertEqual(calls(), ['timedatectl set-timezone Europe/Paris', 'timedatectl set-ntp false'])
 
     def test_printers(self):
         ps = printers.printers()
@@ -273,7 +273,100 @@ Capture:
         self.assertEqual([m.id for m in mods][:2], ['kcm_pulseaudio', 'kcm_kscreen'])
         self.assertEqual(kcms.route_for('kcm_kscreen'), 'displays')
         self.assertEqual(kcms.route_for('kcm_pulseaudio.desktop'), 'sound')
-        self.assertIsNone(kcms.route_for('kcm_colors'))
+        self.assertEqual(kcms.route_for('kcm_colors'), 'appearance')
+        self.assertIsNone(kcms.route_for('kcm_tablet'))
+
+
+class Backends(unittest.TestCase):
+    """The pieces that write settings, against the fake kwriteconfig6 (an ini file in the
+    throwaway HOME) and files in the throwaway HOME."""
+
+    def test_spark_json_merges(self):
+        self.assertTrue(core.spark_save('t1', a=1))
+        self.assertTrue(core.spark_save('t1', b=2))
+        self.assertEqual(core.spark_load('t1'), {'a': 1, 'b': 2})
+        self.assertTrue(core.spark_file('t1').startswith(os.path.join(_tmp, 'config', 'spark')))
+        self.assertEqual(core.spark_load('missing'), {})
+
+    def test_shortcut_keys(self):
+        from sparksettings import shortcuts
+        self.assertEqual(shortcuts.key_text(0x10000000 | 0x04000000 | 0x45), 'Meta+Ctrl+E')
+        self.assertEqual(shortcuts.key_text(0), '')
+        self.assertEqual(shortcuts.key_code('e', 0x4 | 0x40), 0x10000000 | 0x04000000 | 0x45)
+        self.assertIsNone(shortcuts.key_code('Shift_L', 0))
+        self.assertEqual(shortcuts.key_code('Escape', 0), 0x01000000)
+
+    def test_lsblk(self):
+        from sparksettings import storage
+        text = json.dumps({'blockdevices': [{'name': 'sda', 'rm': False, 'children': [
+            {'name': 'sda1', 'label': 'Games', 'fstype': 'ext4', 'mountpoint': '/var/mnt/games',
+             'size': 1000, 'fsavail': 400, 'rm': False},
+            {'name': 'sda2', 'fstype': 'vfat', 'mountpoint': '/boot/efi', 'size': 5, 'rm': False}]},
+            {'name': 'sdb', 'rm': True, 'children': [
+                {'name': 'sdb1', 'fstype': 'exfat', 'mountpoint': '/run/media/u/USB', 'size': 9,
+                 'fsavail': 3, 'rm': True}]}]})
+        vols = storage.parse_lsblk(text)
+        self.assertEqual([(v.title, v.free) for v in vols], [('Games', 400)])
+        self.assertEqual(storage.parse_lsblk('nope'), [])
+
+    def test_notifications_and_power_write_plasma_and_spark(self):
+        from sparksettings import notifications
+        reset_calls()
+        self.assertTrue(notifications.save(seconds=8, position='TopRight', sounds_muted=True))
+        self.assertEqual(notifications.get(), {'seconds': 8, 'position': 'TopRight', 'sounds_muted': True})
+        self.assertTrue(any('plasmanotifyrc' in c and 'PopupTimeout' in c and '8000' in c for c in calls()))
+        self.assertTrue(power.set_timers(10, 30, 8))
+        self.assertEqual(power.timers(), {'screen_off': 10, 'sleep': 30, 'power_button': 8})
+        self.assertTrue(any('TurnOffDisplayIdleTimeoutSec' in c and '600' in c for c in calls()))
+        self.assertTrue(power.lock_set(True, 5, False))
+        self.assertEqual(power.lock_get(), {'autolock': True, 'minutes': 5, 'on_resume': False})
+
+    def test_appearance_lists_and_writes(self):
+        from sparksettings import appearance
+        share = os.path.join(_tmp, 'share')
+        os.makedirs(os.path.join(share, 'color-schemes'), exist_ok=True)
+        with open(os.path.join(share, 'color-schemes', 'Night.colors'), 'w') as f:
+            f.write('[General]\nName=Night Mode\n')
+        pic = os.path.join(share, 'wallpapers', 'Dusk', 'contents', 'images')
+        os.makedirs(pic, exist_ok=True)
+        for n in ('1280x720.png', '2560x1440.png'):
+            open(os.path.join(pic, n), 'w').close()
+        os.environ['SPARK_SETTINGS_SHARE_DIRS'] = share
+        try:
+            self.assertEqual(appearance.color_schemes(), [('Night Mode', 'Night')])
+            self.assertEqual(appearance.wallpapers(), [('Dusk', os.path.join(pic, '2560x1440.png'))])
+            reset_calls()
+            self.assertTrue(appearance.set_scheme('Night', '#3de8c8'))
+            self.assertEqual(appearance.get()['scheme'], 'Night')
+            self.assertTrue(appearance.set_wallpaper(os.path.join(pic, '2560x1440.png')))
+        finally:
+            del os.environ['SPARK_SETTINGS_SHARE_DIRS']
+
+    def test_startup_add_and_remove(self):
+        from sparksettings import startup
+        os.makedirs(os.path.join(_tmp, 'autostart'), exist_ok=True)
+        self.assertFalse(startup.add_app('nothing.desktop'))
+        self.assertTrue(startup.add_app('player.desktop'))
+        item = next(i for i in startup.items() if i.file == 'player.desktop')
+        self.assertTrue(startup.is_mine(item))
+        self.assertTrue(startup.remove(item))
+        self.assertFalse(any(i.file == 'player.desktop' for i in startup.items()))
+
+    def test_user_names(self):
+        from sparksettings import accounts
+        self.assertTrue(accounts.valid_name('anna_2'))
+        self.assertFalse(accounts.valid_name('Anna'))
+
+    def test_the_kde_paths_are_in_one_module(self):
+        """Nothing outside plasma.py and kcms.py names a KDE settings tool or module."""
+        banned = ('kcmshell6', 'systemsettings', 'plasma-open-settings', 'kcm_')
+        allowed = {'__init__.py', 'plasma.py', 'kcms.py', 'fr.py', 'cli.py', 'core.py', 'app.py', 'search.py'}
+        for f in glob.glob(os.path.join(ROOT, 'sparksettings', '*.py')):
+            if os.path.basename(f) in allowed:
+                continue
+            text = open(f, encoding='utf-8').read()
+            for word in banned:
+                self.assertNotIn(word, text, f'{os.path.basename(f)} mentions {word}')
 
 
 class Route(unittest.TestCase):
@@ -308,8 +401,6 @@ class French(unittest.TestCase):
                     found.add(n.args[0].value)
         for _k, label, _m in defaults.CATEGORIES:
             found.add(label)
-        for _k, title, _m in kcms.KDE_PAGES:
-            found.add(title)
         missing = sorted(s for s in found if s not in FR and s.strip() and any(c.isalpha() for c in s))
         self.assertEqual(missing, [])
 
@@ -381,6 +472,13 @@ class Window(unittest.TestCase):
             self.assertIn('96 kHz', choice.label.cget('text'))
         finally:
             os.environ['XDG_CONFIG_HOME'] = old
+
+    def test_new_pages_show_their_sections(self):
+        for key in ('appearance', 'input', 'shortcuts', 'notifications', 'users', 'storage',
+                    'power', 'startup', 'datetime', 'more'):
+            self.app.open_page(key)
+            self.app.idle(3)
+            self.assertIs(self.app.current, self.app.pages[key], key)
 
     def test_search_finds_refresh_rate_on_displays(self):
         hits = self.app.find('refresh')

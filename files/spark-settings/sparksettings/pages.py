@@ -658,37 +658,21 @@ class BluetoothPage(Page):
         self.app.bg(lambda: func(d.mac), done)
 
 
-from .pages2 import (AboutPage, DefaultAppsPage, DateTimePage, KdePage, MorePage,  # noqa: E402
+from .pages2 import (AboutPage, DefaultAppsPage, DateTimePage, MorePage,  # noqa: E402
                      PowerPage, PrintersPage, StartupPage, UpdatesPage)
-from . import kcms  # noqa: E402
-
-
-KDE_INDEX = {
-    'appearance': [("Wallpaper", "background picture desktop"), ("Colours and accent", "color theme dark light mint"),
-                   ("Cursor size", "mouse pointer"), ("Font size", "text fonts")],
-    'input': [("Pointer speed", "mouse acceleration sensitivity"), ("Scroll direction", "natural scrolling touchpad"),
-              ("Keyboard layout", "us international dead keys french language"), ("Key repeat rate", "delay"),
-              ("Caps Lock", "flicker light fix"), ("Shortcuts", "keys hotkeys"),
-              ("Game controllers", "gamepad joystick")],
-    'users': [("Your name and picture", "avatar account"), ("Password", "login"), ("Add a user", "account")],
-    'storage': [("Games drive", "steam library disk"), ("Removable drives", "usb automount mounted")],
-}
-
-
-def _kde_page(key, title, mods):
-    return type(f"{key.title()}Page", (KdePage,), {'key': key, 'title': title, 'modules': mods,
-                                                   'index': KDE_INDEX.get(key, [])})
+from .pages3 import (AppearancePage, InputPage, NotificationsPage, ShortcutsPage,  # noqa: E402
+                     StoragePage, UsersPage)
 
 
 PAGES: Dict[str, type] = {
     'displays': DisplaysPage, 'sound': SoundPage, 'network': NetworkPage,
-    'bluetooth': BluetoothPage, 'power': PowerPage, 'defaultapps': DefaultAppsPage,
-    'datetime': DateTimePage, 'printers': PrintersPage, 'startup': StartupPage,
+    'bluetooth': BluetoothPage, 'appearance': AppearancePage, 'input': InputPage,
+    'shortcuts': ShortcutsPage, 'notifications': NotificationsPage, 'power': PowerPage,
+    'defaultapps': DefaultAppsPage, 'startup': StartupPage, 'users': UsersPage,
+    'datetime': DateTimePage, 'printers': PrintersPage, 'storage': StoragePage,
+    'updates': UpdatesPage, 'more': MorePage, 'about': AboutPage,
 }
-for _key, _title, _mods in kcms.KDE_PAGES:
-    PAGES[_key] = _kde_page(_key, _title, _mods)
-PAGES.update({'updates': UpdatesPage, 'more': MorePage, 'about': AboutPage})
 
-SIDEBAR: List[str] = ['displays', 'sound', 'network', 'bluetooth', 'appearance', 'input', 'power',
-                      'defaultapps', 'startup', 'users', 'datetime', 'printers', 'storage',
-                      'updates', 'more', 'about']
+SIDEBAR: List[str] = ['displays', 'sound', 'network', 'bluetooth', 'appearance', 'input',
+                      'shortcuts', 'notifications', 'power', 'defaultapps', 'startup', 'users',
+                      'datetime', 'printers', 'storage', 'updates', 'more', 'about']

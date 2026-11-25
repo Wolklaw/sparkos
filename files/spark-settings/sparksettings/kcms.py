@@ -1,5 +1,7 @@
-"""KDE's settings modules, listed through kcmshell6 --list and opened with kcmshell6, for what
-Spark Settings doesn't cover yet. Page routing: which KCMs a Spark page replaces."""
+"""KDE's settings modules (kcmshell6), kept only as the last resort in "More settings", for
+what has no Spark page (drawing tablets, touchscreens, anything Plasma adds). open_module is the
+one place Spark Settings starts a KDE module. Page routing: which KCMs a Spark page replaces,
+used by the image's systemsettings and kcmshell6 stand-ins so Plasma's own links land here."""
 
 import glob
 import os
@@ -23,20 +25,15 @@ ROUTES: Dict[str, str] = {
     'kcm_printer_manager': 'printers',
     'kcm_autostart': 'startup',
     'kcm_about-distro': 'about',
+    'kcm_lookandfeel': 'appearance', 'kcm_colors': 'appearance', 'kcm_wallpaper': 'appearance',
+    'kcm_cursortheme': 'appearance', 'kcm_kwin_effects': 'appearance',
+    'kcm_animations': 'appearance', 'kcm_fonts': 'appearance',
+    'kcm_mouse': 'input', 'kcm_keyboard': 'input', 'kcm_touchpad': 'input',
+    'kcm_gamecontroller': 'input',
+    'kcm_keys': 'shortcuts', 'kcm_notifications': 'notifications', 'kcm_users': 'users',
+    'kcm_device_automounter': 'storage', 'kcm_baloofile': 'storage',
+    'kcm_screenlocker': 'power',
 }
-# page key -> a short note for the "opens in KDE's settings" pages
-KDE_PAGES: List[Tuple[str, str, List[str]]] = [
-    ('appearance', "Appearance", ['kcm_lookandfeel', 'kcm_colors', 'kcm_wallpaper',
-                                   'kcm_cursortheme', 'kcm_fonts', 'kcm_icons', 'kcm_desktoptheme',
-                                   'kcm_kwin_effects', 'kcm_animations']),
-    ('input', "Mouse, keyboard and controllers", ['kcm_mouse', 'kcm_keyboard', 'kcm_touchpad',
-                                                   'kcm_keys', 'kcm_gamecontroller',
-                                                   'kcm_tablet']),
-    ('users', "Users", ['kcm_users']),
-    ('storage', "Storage and games drive", ['kcm_device_automounter', 'kcm_baloofile']),
-]
-
-
 def route_for(module: str) -> Optional[str]:
     return ROUTES.get(module.strip().replace('.desktop', ''))
 

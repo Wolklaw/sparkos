@@ -32,8 +32,8 @@ def app_dirs() -> List[str]:
 
 
 class App:
-    def __init__(self, id_: str, name: str, mimes: List[str]):
-        self.id, self.name, self.mimes = id_, name, mimes
+    def __init__(self, id_: str, name: str, mimes: List[str], hidden: bool = False):
+        self.id, self.name, self.mimes, self.hidden = id_, name, mimes, hidden
 
 
 def installed_apps() -> Dict[str, App]:
@@ -53,7 +53,8 @@ def installed_apps() -> Dict[str, App]:
             if e.get('Type') != 'Application' or e.get('Hidden') == 'true':
                 continue
             apps[id_] = App(id_, e.get('Name', id_[:-8]),
-                            [m for m in e.get('MimeType', '').split(';') if m])
+                            [m for m in e.get('MimeType', '').split(';') if m],
+                            e.get('NoDisplay', '').lower() == 'true')
     return apps
 
 
