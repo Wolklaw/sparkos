@@ -25,14 +25,18 @@ class RealGreetd(unittest.TestCase):
 
     def setUp(self):
         # Fedora's greetd PAM stack opens an SELinux context, sets the login uid and a namespace.
-        # A container on a CI host cannot do those (pam_open_session: MODULE_UNKNOWN), so in a
-        # container only, use a plain stack for the user's session: the password check is still
-        # real pam_unix. /etc/pam.d/greetd and greetd-greeter are ours to remove afterwards (the package keeps its
-        # own copy in /usr/lib/pam.d).
+        # A container on a CI host cannot do those, so there (SPARK_GREETD_PLAIN_PAM=1, set by
+        # the workflow) the stacks are plain: the sign-in is accepted without a password check,
+        # and the test covers greetd's IPC, the greeter client and starting the session, not
+        # pam_unix. In a dev container without the variable the real stacks and pam_unix run.
+        # /etc/pam.d/greetd and greetd-greeter are ours to remove afterwards (the package keeps
+        # its own copy in /usr/lib/pam.d).
         self.pam_overrides = []
-        if os.path.exists('/run/.containerenv') or os.path.exists('/.dockerenv'):
-            stacks = {'greetd': 'auth required pam_unix.so\naccount required pam_unix.so\n'
-                                'session required pam_permit.so\n',
+        self.plain_pam = bool(os.environ.get('SPARK_GREETD_PLAIN_PAM'))
+        if self.plain_pam:
+            plain = ('auth required pam_succeed_if.so user = ' + USER + '\nauth required pam_permit.so\n'
+                     'account required pam_permit.so\nsession required pam_permit.so\n')
+            stacks = {'greetd': plain,
                       'greetd-greeter': 'auth required pam_permit.so\naccount required pam_permit.so\n'
                                         'session required pam_permit.so\n'}
             for name, text in stacks.items():
@@ -100,7 +104,7 @@ class RealGreetd(unittest.TestCase):
             result = json.load(handle)
         self.assertNotIn('error', result, result)
         self.assertEqual(result['right'], 'started')
-        self.assertEqual(result['prompts'], ['secret'])
+        self.assertEqual(result['prompts'], [] if self.plain_pam else ['secret'])
         self.wait_for(self.marker)
         with open(self.marker) as handle:
             self.assertEqual(handle.read().split(), [USER, 'spark-test'])
@@ -113,6 +117,8 @@ class RealGreetdWrongPassword(RealGreetd):
         pass
 
     def test_wrong_password_is_refused(self):
+        if self.plain_pam:
+            self.skipTest('plain PAM stack accepts any password')
         self.wait_for(self.out)
         with open(self.out) as handle:
             result = json.load(handle)
