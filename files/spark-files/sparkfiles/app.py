@@ -179,6 +179,8 @@ class App:
         self.thumbnailer = thumbs.Thumbnailer(self._thumb_ready) if thumbs.Image else None
 
         self.bridge = gloop.Bridge(self.root, self.on_request, self.mounts_changed)
+        self.portal_dialogs: Dict[str, object] = {}     # AppChooser handle → its picker
+        self._start_portal()
         self.dnd = DragController(self)
         from .xdnd import XDnd
         self.xdnd = XDnd(self.root, self._xdnd_over, self._xdnd_leave, self._xdnd_drop)
@@ -235,7 +237,7 @@ class App:
         if w in self.windows:
             self.windows.remove(w)
             self.xdnd.unregister(w)
-        if not self.windows:
+        if not self.windows and not self.portal_dialogs:
             self.quit()
 
     def window_focused(self, w) -> None:
@@ -244,7 +246,11 @@ class App:
             self.windows.append(w)               # most recent last
 
     def focus_window(self):
-        return self.windows[-1] if self.windows else None
+        """The file manager window last used (never a portal file chooser)."""
+        for w in reversed(self.windows):
+            if not getattr(w, 'picking', False):
+                return w
+        return None
 
     def quit(self) -> None:
         if self._quitting:
@@ -293,9 +299,50 @@ class App:
         self.quit()
 
     def _service_idle(self) -> None:
-        if not self.windows:
+        if not self.windows and not self.portal_dialogs:
             log.info("started for D-Bus, but nothing was asked: quitting")
             self.quit()
+
+    # ─── the portal: file chooser and "Open with" for other apps ─────────
+
+    def _start_portal(self) -> None:
+        if gloop.Gio is None or os.environ.get('SPARK_FILES_NO_PORTAL') == '1':
+            return
+        from . import portal
+        service = portal.Service(self.bridge, self.portal_file, self.portal_app,
+                                 self.portal_app_update)
+        self.bridge.in_glib(lambda: self.bridge._names.append(service.start()))
+
+    def portal_file(self, ask, parent: str, reply: Callable):
+        """FileChooser: a Spark Files window that picks instead of opening."""
+        from .chooser import ChooserWindow
+        log.info("file chooser for %s (%s)", getattr(ask, 'app_id', '') or '?', ask.method)
+        w = ChooserWindow(self, ask, reply)
+        self.windows.append(w)
+        self.glitch.add(w.title_text, w.mark, w.strip)
+        self._raise(w)
+        self.root.after(200, lambda: self._after_map(w))
+        return lambda: w.close() if w.winfo_exists() else None
+
+    def portal_app(self, handle: str, choices: List[str], options: dict, parent: str,
+                   reply: Callable):
+        """AppChooser: which app opens this file."""
+        from .chooser import AppPicker
+
+        def answered(response, results):
+            self.portal_dialogs.pop(handle, None)
+            reply(response, results)
+            if not self.windows and not self.portal_dialogs:
+                self.root.after(100, self.quit)
+        d = AppPicker(self, choices, options, answered)
+        self.portal_dialogs[handle] = d
+        d.show()
+        return lambda: d.cancel() if d.winfo_exists() else None
+
+    def portal_app_update(self, handle: str, choices: List[str]) -> None:
+        d = self.portal_dialogs.get(handle)
+        if d is not None and d.winfo_exists():
+            d.update_choices(choices)
 
     def on_request(self, mode: str, uris: List[str]) -> None:
         """From D-Bus: another spark-files, or "Show in folder" in another app."""
@@ -327,7 +374,7 @@ class App:
                 files.append(p)
         if files and not folders:
             folders = sorted({os.path.dirname(f) for f in files})
-        if mode == 'tab' and self.windows:
+        if mode == 'tab' and self.focus_window() is not None:
             w = self.focus_window()
             for f in folders or [home()]:
                 w.new_tab(f, select=True, select_items=files or None)

@@ -425,6 +425,9 @@ class Pane(Timers, tk.Frame):
         source = self.search_results if self.mode == 'search' else self.all_entries
         shown = filter_entries(source, self.filter_text, s['show_hidden'] or
                                self.mode == 'trash')
+        keep = getattr(self.window, 'keep_entry', None)        # the portal's file chooser
+        if keep is not None:
+            shown = [e for e in shown if keep(e)]
         key = self.sort_key()
         if self.mode == 'trash' and key == 'modified':
             shown = sorted(shown, key=lambda e: self.trash_info.get(e.path, ('', ''))[1],
@@ -653,7 +656,9 @@ class Pane(Timers, tk.Frame):
             return
         for e in folders:
             self.window.new_tab(e.path, select=False)
-        if files:
+        if files and getattr(self.window, 'picking', False):
+            self.window.pick([e.path for e in files])             # the portal's file chooser
+        elif files:
             self.app.open_files([e.path for e in files], self)
 
     def context_menu(self, event, entries: List[Entry]) -> None:
