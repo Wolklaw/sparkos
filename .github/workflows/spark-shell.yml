@@ -37,7 +37,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Install Python, GTK 4, Node
-        run: dnf -y install --setopt=install_weak_deps=False python3 python3-gobject gtk4 nodejs
+        run: dnf -y install --setopt=install_weak_deps=False python3 python3-gobject python3-cairo gtk4 nodejs
 
       - name: Unit tests
         run: |
