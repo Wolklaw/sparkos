@@ -5,6 +5,7 @@ Spark session.
     spark-shell                run the shell (the session script does this)
     spark-shell --toggle       open or close the launcher of the running shell
     spark-shell --lock         lock the screen now (the shell does this when logind asks)
+    spark-shell --xembed       put old X11 tray icons (Wine) in the tray (spark-xembed.service)
     spark-shell --version
     spark-shell --self-test    check that the modules load; needs no display
 """
@@ -18,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 def self_test() -> int:
     from sparkshell import config, strings, tray  # noqa: F401
-    from sparkshell import notifyd, windows  # noqa: F401
+    from sparkshell import notifyd, windows, xembed  # noqa: F401
     print('spark-shell self-test ok')
     return 0
 
@@ -66,6 +67,9 @@ def main(argv) -> int:
         return self_test()
     if '--toggle' in argv:
         return toggle()
+    if '--xembed' in argv:
+        from sparkshell.xembed import main as xembed_main
+        return xembed_main()
     preload_layer_shell()
     if '--lock' in argv:
         logging.basicConfig(level=logging.INFO, format='spark-lock: %(message)s')

@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from sparkshell import config, ending, notifyd, osd, tray, windows  # noqa: E402
+from sparkshell import config, ending, notifyd, osd, tray, windows, xembed  # noqa: E402
 
 
 class Config(unittest.TestCase):
@@ -82,6 +82,16 @@ class TrayParsing(unittest.TestCase):
         self.assertTrue(root.children[2].has_submenu)
         self.assertEqual(root.children[2].children[0].toggle, ('radio', True))
         self.assertTrue(root.children[0].visible and root.children[0].enabled)
+
+
+class XembedPixels(unittest.TestCase):
+    def test_bgra_to_argb_big_endian(self):
+        # one pixel: B=1 G=2 R=3 A=4, as X11 ZPixmap hands it over
+        self.assertEqual(xembed.to_argb_be(bytes([1, 2, 3, 4]), 32), bytes([4, 3, 2, 1]))
+
+    def test_24_bit_is_opaque(self):
+        self.assertEqual(xembed.to_argb_be(bytes([1, 2, 3, 0, 5, 6, 7, 0]), 24),
+                         bytes([255, 3, 2, 1, 255, 7, 6, 5]))
 
 
 class Notifications(unittest.TestCase):

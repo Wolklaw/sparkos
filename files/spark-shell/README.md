@@ -7,7 +7,7 @@ Stage 3 of replacing KDE (see [PLAN.md](../../PLAN.md), "Replacing KDE"). The de
 | Part | What it does |
 |---|---|
 | Panel | One per monitor, with the launcher button, a task list (pinned apps first), a clock and, on the first monitor, the tray and the notification bell. The clock opens a calendar and the next alarm; Spark Clock does the alarms. |
-| Tray | A StatusNotifierWatcher and host: icons, left, right and middle click, scroll, and dbusmenu menus (checks, radios, submenus). If KDE's daemon already owns the watcher name, the shell uses that one. |
+| Tray | A StatusNotifierWatcher and host: icons, left, right and middle click, scroll, and dbusmenu menus (checks, radios, submenus). If KDE's daemon already owns the watcher name, the shell uses that one. In the Spark compositor session, `spark-xembed.service` (`spark-shell --xembed`) also owns the old X11 tray, so Wine and Proton apps (Battle.net) show their icon here instead of opening a small window of their own; their menus open where the icon was clicked. |
 | Notifications | `org.freedesktop.Notifications` 1.2: actions, urgency, replace-id, images, do not disturb, a history list that survives restarts. Only in this session. |
 | Launcher | Full-screen search card: apps ranked by the same logic as the Spark Launcher widget (`launcher_logic.py`), sums answered by Spark Calc, power buttons with a second click to confirm. The Meta key opens it. |
 | Wallpaper | One background surface per monitor. No desktop icons. |

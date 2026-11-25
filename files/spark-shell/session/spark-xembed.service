@@ -1,0 +1,13 @@
+[Unit]
+Description=Spark tray for old X11 icons (Wine and Proton apps)
+Documentation=file:///usr/share/doc/spark-shell/README.md
+PartOf=graphical-session.target
+Before=xdg-desktop-autostart.target
+# Wine docks its icon when the app starts; started with the session, before any app, it never
+# has to fall back to a small window of its own
+
+[Service]
+ExecStart=/usr/bin/spark-shell --xembed
+Restart=on-failure
+RestartSec=2
+Slice=app.slice
