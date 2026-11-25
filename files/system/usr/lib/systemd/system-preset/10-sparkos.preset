@@ -3,3 +3,7 @@
 
 # Fedora's usage counting: rpm-ostree reports this machine to Fedora's servers once a week
 disable rpm-ostree-countme.timer
+
+# NFS client: its rpc-statd-notify.service makes the sign-in screen wait for the network at boot.
+# mount.nfs still starts rpc-statd when an NFS share is mounted by hand.
+disable nfs-client.target

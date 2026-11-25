@@ -79,6 +79,14 @@ for scope in system user; do
     > "/usr/lib/systemd/${scope}.conf.d/50-sparkos-timeout.conf"
 done
 
+# The sign-in screen doesn't wait for the network. Fedora enables nfs-client.target, whose
+# rpc-statd-notify.service waits for network-online.target; that holds back remote-fs.target and
+# so systemd-user-sessions and the sign-in screen, by about 6 s on the PC (NetworkManager's wait
+# for a connection). SparkOS has no NFS mounts; mounting one by hand still works, because
+# mount.nfs starts rpc-statd itself when it needs it.
+systemctl disable nfs-client.target
+grep -qx 'disable nfs-client.target' /usr/lib/systemd/system-preset/10-sparkos.preset
+
 # Locked memory up to 2 GiB per process (Bazzite's memlock.conf; Fedora's is 8 MiB). Emulators
 # such as RPCS3 and some anti-cheat and VR software need more.
 cat > /etc/security/limits.d/90-sparkos-memlock.conf <<'EOS'
@@ -121,6 +129,8 @@ kver=$(rpm -q kernel-core --qf '%{VERSION}-%{RELEASE}.%{ARCH}\n' | tail -1)
 for opt in CONFIG_CGROUP_DMEM=y CONFIG_TCP_CONG_BBR=m CONFIG_MQ_IOSCHED_KYBER=y CONFIG_IOSCHED_BFQ=y; do
   grep -qx "$opt" "/usr/lib/modules/$kver/config" || { echo "kernel $kver: $opt not set"; exit 1; }
 done
+state=$(systemctl is-enabled nfs-client.target || true)
+[ "$state" = disabled ] || { echo "nfs-client.target is $state"; exit 1; }
 for unit in ds-inhibit.service dmemcg-booster-system.service; do
   [ "$(systemctl is-enabled "$unit")" = enabled ] || { echo "$unit not enabled"; exit 1; }
 done
