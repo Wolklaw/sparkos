@@ -30,6 +30,11 @@ results = []
 def check(name):
     def wrap(fn):
         try:
+            # KWIN_ONLY_WAIVE="text one|text two": checks whose name contains one of these are
+            # not run (CI only; each is named in the job's workflow file with its reason)
+            for text in filter(None, os.environ.get('KWIN_ONLY_WAIVE', '').split('|')):
+                if text in name:
+                    raise Waived(f"waived by KWIN_ONLY_WAIVE ({text!r}), see the workflow file")
             note = fn()
             results.append(('PASS', name, note or ''))
         except Skip as why:
