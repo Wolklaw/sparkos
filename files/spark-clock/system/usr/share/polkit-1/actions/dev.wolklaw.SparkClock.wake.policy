@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>SparkOS</vendor>
+  <vendor_url>https://github.com/Wolklaw/sparkos</vendor_url>
+
+  <!-- The helper can only set or clear one wake-from-sleep time for the caller, so the person
+       at the PC may do it without a password. It runs no other command. -->
+  <action id="dev.wolklaw.SparkClock.wake">
+    <description>Set a wake-from-sleep time for Spark Clock alarms</description>
+    <description xml:lang="fr">Régler l'heure de réveil de l'ordinateur pour les alarmes de Spark Clock</description>
+    <message>Authentication is required to set a wake time</message>
+    <message xml:lang="fr">Une authentification est requise pour régler l'heure de réveil</message>
+    <icon_name>dev.wolklaw.SparkClock</icon_name>
+    <defaults>
+      <allow_any>no</allow_any>
+      <allow_inactive>no</allow_inactive>
+      <allow_active>yes</allow_active>
+    </defaults>
+    <annotate key="org.freedesktop.policykit.exec.path">/usr/libexec/spark-clock-wake</annotate>
+  </action>
+</policyconfig>

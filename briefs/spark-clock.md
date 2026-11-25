@@ -34,9 +34,20 @@ second, single instance (flock), and writes a heartbeat the window reads to show
 
 ## Decisions
 
-- **No wake from suspend.** It needs root (an RTC wake alarm, `rtcwake` or systemd's `WakeSystem`
-  timers in the system manager). The window and README say so; the alarm rings on wake if it is within
-  10 minutes. The owner can ask for it later; it would be a small root helper like Spark Firewall's.
+- **Wake from suspend (0.2.0), opt in.** A setting "Wake the PC from sleep", off by default. The
+  service arms one wake time (the next enabled alarm or waiting snooze, a minute early) and moves it
+  when alarms change and after each ring. Root part: `/usr/libexec/spark-clock-wake` run through
+  pkexec, with a polkit action `dev.wolklaw.SparkClock.wake` (`allow_active` yes, no password).
+  It only sets or clears one systemd timer, `spark-clock-wake-<uid>`, with `WakeSystem=true` that
+  runs `/usr/bin/true`, for a 10 digit epoch 10 s to 8 days ahead; uid from `PKEXEC_UID`;
+  no shell, absolute paths, fixed environment (same hardening as Spark Firewall's helper).
+  Why a systemd timer and not `/sys/class/rtc/rtc0/wakealarm`: systemd already owns the RTC alarm
+  for its own timers, and a second writer would fight it. A transient timer also vanishes at reboot.
+  The helper and policy ship in the image (`files/scripts/spark-clock-wake.sh`, in the Containerfile).
+  The script is deliberately not `spark-clock.sh`: that name would make Spark Store treat Clock as
+  built in. Version 0.2.0 raises `system_api` to 2, so older live bundles stop matching the image.
+  Without the helper (older image) the option says it is unavailable and nothing is called.
+  It cannot wake a PC that is shut down, and hibernate depends on the firmware. Timers do not wake.
 - **Sounds are generated**, by `make_sounds.py` (stdlib `wave` and `math`, fixed seed), so they are
   original and need no third-party licence. THIRD-PARTY.md has no entry for this app because nothing
   here is third-party.
@@ -44,12 +55,16 @@ second, single instance (flock), and writes a heartbeat the window reads to show
 
 ## Status
 
-Built 2026-11-24 in [files/spark-clock](../files/spark-clock), version 0.1.0. Optional, not in the
+Built 2026-11-24 in [files/spark-clock](../files/spark-clock), version 0.1.0; wake from suspend added in 0.2.0. Optional, not in the
 image. See the PR for what was tried on the real PC and what only ran with fakes.
 
 - Tests: schedule (including the spring daylight saving change), store, engine with a fake clock,
   notifier and sound, the sound loop with a fake player, and the window under a display, in English
   and French with a text-fit check.
+- Wake: tests cover the scheduling logic, the engine hook and the helper's input checks, all with
+  fake runners (no systemd, RTC, pkexec or polkit).
 - Not covered by tests: the real notification buttons being clicked, and sound heard by a person.
+  Also not tried on a booted SparkOS: pkexec from the user service (polkit must treat the service as
+  the active local user), the timer really waking the PC, and the PC staying up until the alarm.
 - No screenshot was checked by eye from the owner's Plasma session: its Xwayland windows capture as
   blank. The window was checked for clipped text under a display instead.

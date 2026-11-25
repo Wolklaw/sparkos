@@ -42,7 +42,8 @@ def run() -> int:
     except GLib.Error as exc:
         print(f"{APP_NAME} service can't reach the session bus: {exc.message}", file=sys.stderr)
         return 1
-    engine = Engine(notifier, Loop())
+    from .wake import WakeScheduler
+    engine = Engine(notifier, Loop(), wake=WakeScheduler())
     notifier.on_action = lambda n, action: _answer(engine, n, action)
     notifier.on_closed = engine.notification_closed
     loop = GLib.MainLoop()
