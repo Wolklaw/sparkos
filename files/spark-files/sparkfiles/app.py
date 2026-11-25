@@ -269,7 +269,7 @@ class App:
             pass
         self.bridge.close()
         try:
-            network.SshFs().unmount_all()        # only mounts this app made without KIO
+            network.unmount_all()                # only the mounts this app made
         except Exception:                        # noqa: BLE001
             pass
         # cancel every timer in Tcl only: the callbacks belong to the widgets that made them,
@@ -1032,17 +1032,35 @@ class App:
             self.network_go(window, None, None, url=network.GDRIVE_URL,
                             name=t('net.gdrive'))
         elif key == 'net-gdrive-add':
-            if network.open_account_setup():
-                window.active.flash(t('net.gdrive_waiting'), ms=9000)
-            else:
-                window.active.flash(t('net.gdrive_setup_failed'), error=True, ms=9000)
-            self._gdrive = None
+            self.add_google_account(window)
         elif key.startswith('net-server-'):
             try:
                 server, _pw = network.parse_address(place.path)
             except network.NetworkError:
                 return
             self.network_go(window, server, None, name=place.label, saved=True)
+
+    def add_google_account(self, window) -> None:
+        """Sign in to Google in the browser (rclone waits for it in a thread), then show
+        Google Drive in the sidebar."""
+        if getattr(self, '_signing_in', False):
+            window.active.flash(t('net.gdrive_signing_in'), ms=9000)
+            return
+        self._signing_in = True
+        window.active.flash(t('net.gdrive_signing_in'), ms=network.ACCOUNT_TIMEOUT * 1000)
+
+        def done(_result, err):
+            self._signing_in = False
+            self._gdrive = None
+            self._sidebars()
+            if not window.winfo_exists():
+                return
+            if err is not None:
+                window.active.flash(self.network_error_text(err, t('net.gdrive')),
+                                    error=True, ms=9000)
+            else:
+                window.active.flash(t('net.gdrive_added'), ms=5000)
+        network.start(network.add_google_account, self.bridge.post, done)
 
     def network_remove(self, place) -> None:
         network.remove_bookmark(self.settings, place.path)
@@ -1063,8 +1081,10 @@ class App:
             return t(f'net.err.address.{err.detail or "host"}')
         if err.code == 'timeout':
             return t('net.err.timeout', name=name, s=network.CONNECT_TIMEOUT)
-        if err.code == 'no_kio':
-            return t('net.err.no_kio')
+        if err.code == 'missing':
+            return t('net.err.missing', tool=err.detail)
+        if err.code == 'no_account':
+            return t('net.gdrive_no_account')
         if err.detail:
             return t('net.err.failed', name=name, why=err.detail)
         return t('net.err.failed_plain', name=name)

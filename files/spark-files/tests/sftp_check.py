@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
 """The real stack, end to end, on this PC only: a throwaway sshd on 127.0.0.1, then Spark Files'
-own code through kio-fuse and KIO's sftp worker: the host key check, connecting, listing,
+own code through sshfs: the host key check, connecting, listing,
 copying a folder to the server and back, cancelling a big copy, and a server that is gone.
 
     python3 files/spark-files/tests/sftp_check.py
 
-Needs sshd, ssh-keygen, kio-fuse and kio-extras. KIO's sftp worker reads the *passwd* home
-(~/.ssh), not $HOME, so this runs itself inside `unshare -m -c` with a temporary folder bind
+Needs sshd, ssh-keygen and sshfs. ssh reads the *passwd* home (~/.ssh), not $HOME, so this runs itself inside `unshare -m -c` with a temporary folder bind
 mounted over your home folder, inside that namespace only: nothing of yours is read or
 written, and nothing outside /tmp is touched.
 In a throwaway container that is already root, set SPARK_FILES_THROWAWAY=1 to use /root as is.
@@ -31,7 +30,7 @@ PORT = 2299
 def need() -> bool:
     return all(shutil.which(x) for x in ('ssh-keygen', 'ssh-keyscan', 'dbus-run-session')) \
         and os.path.exists('/usr/sbin/sshd' if os.path.exists('/usr/sbin/sshd')
-                           else '/usr/bin/sshd') and os.path.exists('/usr/libexec/kio-fuse')
+                           else '/usr/bin/sshd') and bool(shutil.which('sshfs'))
 
 
 def setup(tmp: str, ssh: str) -> subprocess.Popen:
@@ -58,7 +57,7 @@ def setup(tmp: str, ssh: str) -> subprocess.Popen:
     return daemon
 
 
-HELPERS = ('kio-fuse', 'kiod6', 'ksecretd', 'xdg-desktop-portal-kde')
+HELPERS = ('sshfs', 'ksecretd')
 
 
 def helper_pids() -> set:
@@ -73,7 +72,7 @@ def helper_pids() -> set:
 
 def outer() -> int:
     if not need():
-        print('skipped: sshd, ssh-keygen, dbus-run-session or kio-fuse missing')
+        print('skipped: sshd, ssh-keygen, dbus-run-session or sshfs missing')
         return 77
     tmp = tempfile.mkdtemp(prefix='spark-files-sftp-')
     daemon = None
@@ -131,6 +130,12 @@ def inner() -> int:
         print(('ok    ' if ok else 'FAIL  ') + name + (f'  {detail}' if detail and not ok
                                                        else ''))
     user = os.environ['SPARK_FILES_SSH_USER']
+    # In the user namespace /etc/ssh's files belong to "nobody", and ssh refuses them: give
+    # sshfs's ssh an empty config of its own (the test's only change to the app's command).
+    ssh_config = os.path.join(tmp, 'ssh_config')
+    open(ssh_config, 'w').close()
+    plain_argv = network.SshFs.argv
+    network.SshFs.argv = lambda self, *a: plain_argv(self, *a) + ['-F', ssh_config]
     if True:
         server, _ = network.parse_address(f'sftp://127.0.0.1:{PORT}{srv}', user=user)
 
@@ -199,6 +204,9 @@ def inner() -> int:
         except network.NetworkError as err:
             check('a stopped server is an error, not a hang',
                   time.monotonic() - began < 20, f'{err.code} {err.detail}')
+        network.unmount_all()
+        check('the mount is let go at exit', not os.path.ismount(network.mount_root() + '/sftp/'
+              + server.netloc()))
     return 0 if all(results) else 1
 
 

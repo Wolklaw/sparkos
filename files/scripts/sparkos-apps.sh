@@ -57,7 +57,7 @@ for pkg in "${remove[@]}"; do
 done
 # The removals must not have taken the platform with them
 rpm -q plasma-workspace plasma-login-manager dolphin plasma-systemsettings flatpak kwin \
-  kio-gdrive kaccounts-integration-qt6 firewalld snapper
+  firewalld snapper fuse-sshfs rclone
 # nor what packages.sh installed for SparkOS that Firefox also used (H.264 in Soot)
 rpm -q mozilla-openh264
 if [ -e /usr/share/applications/org.kde.plasma.keyboard.desktop ]; then

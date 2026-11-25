@@ -11,21 +11,19 @@ dnf_install() { dnf -y --setopt=install_weak_deps=True install "$@"; }
 dnf -y makecache
 
 # What Bazzite brought that SparkOS's scripts and the boot test use, from Fedora's own
-# repositories: ImageMagick (sparkos-theme.sh draws the wallpaper and boot splash), kio-gdrive
-# (Google Drive in Spark Files), printing, scanning, libratbag (gaming mice), the gaming layer (gamescope, MangoHud,
+# repositories: ImageMagick (sparkos-theme.sh draws the wallpaper and boot splash), printing, scanning, libratbag (gaming mice), the gaming layer (gamescope, MangoHud,
 # GameMode), vulkaninfo/vainfo to check the drivers, and xdg-terminal-exec (how Plasma and apps
 # open the default terminal, Spark Terminal). Kinoite's other projects' apps are
 # removed by sparkos-apps.sh (step 5).
-# fuse-sshfs: Spark Files' sftp places when kio-fuse is not on the session bus (a session
-# without Plasma); a user mount through fusermount3, no root.
+# fuse-sshfs and rclone: Spark Files' network places (sshfs for sftp, rclone for smb and Google
+# Drive); user mounts through fusermount3, no root and no KIO.
 dnf_install \
   ImageMagick \
-  kio-gdrive \
   plasma-print-manager cups-browsed ipp-usb \
   sane-airscan sane-backends-drivers-scanners \
   libratbag-ratbagd \
   fastfetch jq xdg-terminal-exec \
-  fuse-sshfs \
+  fuse-sshfs rclone \
   gamescope mangohud gamemode \
   vulkan-tools libva-utils
 

@@ -1,23 +1,22 @@
 """Network places and online accounts: sftp:// and smb:// servers, and Google Drive.
 
-How it works: KIO (the same workers Dolphin uses: kio-extras' sftp and smb, kio-gdrive) is
-mounted as an ordinary folder by kio-fuse, which is already in the image. kio-fuse answers
-`org.kde.KIOFuse.VFS.mountUrl(url)` on the session bus with a local path under
-$XDG_RUNTIME_DIR/kio-fuse-XXXX/. From there every feature of the app (listing, open, copy to
-and from with progress and cancel, drag and drop) works on that path like on any folder, so
-nothing here touches the file operations. Everything that can wait on a network runs in a
-thread; the window only ever hears back through the bridge.
+How it works: each place is mounted as an ordinary folder under $XDG_RUNTIME_DIR/spark-net/,
+with user-space FUSE mounts and no KDE part: sshfs for sftp, `rclone mount` for smb and for
+Google Drive. From there every feature of the app (listing, open, copy to and from with
+progress and cancel, drag and drop) works on that path like on any folder, so nothing here
+touches the file operations. Everything that can wait on a network runs in a thread; the
+window only ever hears back through the bridge.
 
 Passwords: never in settings.json and never in a bookmark. They go to the Secret Service
 (KWallet or GNOME Keyring) through `secret-tool`, with the password on its standard input
 (never on a command line).
 """
 
+import configparser
 import logging
 import os
 import re
 import shutil
-import sqlite3
 import subprocess
 import threading
 from typing import Callable, Dict, List, Optional, Tuple
@@ -32,10 +31,12 @@ DEFAULT_PORT = {'sftp': 22}
 GDRIVE_URL = 'gdrive:///'
 CONNECT_TIMEOUT = 30                  # seconds before "didn't answer"
 KEYRING_APP = 'spark-files'
+MOUNT_DIR = 'spark-net'           # $XDG_RUNTIME_DIR/spark-net/<scheme>/<server>
 
 
 class NetworkError(Exception):
-    """code: timeout | failed | no_kio | address; detail is the system's own words."""
+    """code: timeout | failed | missing (detail: the tool) | no_account | address; detail is
+    the system's own words."""
 
     def __init__(self, code: str, detail: str = ''):
         super().__init__(f"{code}: {detail}" if detail else code)
@@ -48,29 +49,30 @@ def runtime_dir() -> str:
     return os.environ.get('XDG_RUNTIME_DIR') or f'/run/user/{os.getuid()}'
 
 
+def mount_root() -> str:
+    return os.path.join(runtime_dir(), MOUNT_DIR)
+
+
 def split_remote(path: str) -> Optional[Tuple[str, str]]:
-    """('/run/user/1000/kio-fuse-AbC/sftp/me@host', 'sftp://me@host') for a path inside a
-    kio-fuse mount, or None. The first folder below the mount is the scheme and the second
-    the server (or the account list for gdrive)."""
-    prefix = runtime_dir().rstrip('/') + '/kio-fuse-'
-    if not path.startswith(prefix):
+    """('/run/user/1000/spark-net/sftp/me@host', 'sftp://me@host') for a path inside one of
+    the mounts, or None. The first folder below spark-net is the scheme and the second the
+    server (Google Drive has none)."""
+    root = mount_root()
+    if not path.startswith(root + '/'):
         return None
-    parts = path[len(runtime_dir().rstrip('/')) + 1:].split('/')
-    # parts: ['kio-fuse-AbC', scheme, host, ...]
-    if len(parts) < 2 or not parts[1]:
+    parts = path[len(root) + 1:].split('/')
+    scheme = parts[0]
+    if not scheme:
         return None
-    scheme = parts[1]
-    base_parts = parts[:3] if scheme != 'gdrive' and len(parts) >= 3 and parts[2] else parts[:2]
-    base = '/'.join([runtime_dir().rstrip('/')] + base_parts)
     if scheme == 'gdrive':
-        label = 'Google Drive'
-    else:
-        label = f"{scheme}://{unquote(parts[2])}" if len(parts) >= 3 and parts[2] else scheme + '://'
-    return base, label
+        return os.path.join(root, 'gdrive'), 'Google Drive'
+    if len(parts) < 2 or not parts[1]:
+        return os.path.join(root, scheme), scheme + '://'
+    return os.path.join(root, scheme, parts[1]), f"{scheme}://{unquote(parts[1])}"
 
 
 def is_remote(path: str) -> bool:
-    return bool(path) and path.startswith(runtime_dir().rstrip('/') + '/kio-fuse-')
+    return bool(path) and path.startswith(mount_root() + '/')
 
 
 # ─── addresses ───────────────────────────────────────────────
@@ -100,7 +102,7 @@ class Server:
         return f"{self.scheme}://{self.netloc()}{self.path if self.path != '/' else '/'}"
 
     def url(self, password: Optional[str] = None) -> str:
-        """For kio-fuse only; carries the password when there is one."""
+        """Carries the password when there is one: only for scrubbing it out of error text."""
         return f"{self.scheme}://{self.netloc(password)}{quote(self.path, safe='/')}"
 
     def key(self) -> str:
@@ -298,69 +300,45 @@ def accept_host_key(line: str, known_hosts: Optional[str] = None) -> None:
         f.write(line.rstrip('\n') + '\n')
 
 
-# ─── mounting through kio-fuse ───────────────────────────────
+# ─── mounting: sshfs for sftp, rclone for smb and Google Drive ─────
 
-class KioFuse:
-    """The kio-fuse side: ask it for the local path of a URL. D-Bus activation starts it."""
-    NAME, PATH, IFACE = 'org.kde.KIOFuse', '/org/kde/KIOFuse', 'org.kde.KIOFuse.VFS'
+GDRIVE_REMOTE = 'gdrive'          # the remote's name in rclone_conf()
 
-    def mount(self, url: str, timeout: float = CONNECT_TIMEOUT) -> str:
+
+def _fusermount() -> Optional[str]:
+    return shutil.which('fusermount3') or shutil.which('fusermount')
+
+
+def _unmount(point: str) -> None:
+    tool = _fusermount()
+    if tool and os.path.ismount(point):
+        subprocess.run([tool, '-u', '-z', point], capture_output=True, timeout=10)
+
+
+def unmount_all() -> None:
+    """At exit: let go of the mounts this app made (only real mounts are touched)."""
+    root = mount_root()
+    for scheme in SCHEMES:
         try:
-            import gi
-            gi.require_version('Gio', '2.0')
-            from gi.repository import Gio, GLib
-        except (ImportError, ValueError):
-            raise NetworkError('no_kio', 'gi')
-        try:
-            bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-            reply = bus.call_sync(self.NAME, self.PATH, self.IFACE, 'mountUrl',
-                                  GLib.Variant('(s)', (url,)), GLib.VariantType('(s)'),
-                                  Gio.DBusCallFlags.NONE, int(timeout * 1000), None)
-        except GLib.Error as exc:
-            text = exc.message or ''
-            if 'ServiceUnknown' in text or 'not provided' in text or 'No such' in text:
-                raise NetworkError('no_kio', text)
-            if 'Timeout' in text or 'timed out' in text.lower():
-                raise NetworkError('timeout')
-            raise NetworkError('failed', _scrub(text, url))
-        path = reply.unpack()[0]
-        if not path:
-            raise NetworkError('failed', '')
-        return path
+            names = os.listdir(os.path.join(root, scheme))
+        except OSError:
+            continue
+        for name in names:
+            _unmount(os.path.join(root, scheme, name))
+    _unmount(os.path.join(root, 'gdrive'))
 
 
-def kio_fuse_offered() -> bool:
-    """Is kio-fuse running, or startable by D-Bus activation? That needs KIO and kio-fuse, not
-    plasmashell, so it holds in a Plasma session and in a session with KWin alone."""
-    try:
-        import gi
-        gi.require_version('Gio', '2.0')
-        from gi.repository import Gio, GLib
-        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
-
-        def ask(method, args, reply):
-            return bus.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
-                                 'org.freedesktop.DBus', method, args, GLib.VariantType(reply),
-                                 Gio.DBusCallFlags.NONE, 3000, None).unpack()[0]
-        return (ask('NameHasOwner', GLib.Variant('(s)', (KioFuse.NAME,)), '(b)')
-                or KioFuse.NAME in ask('ListActivatableNames', None, '(as)'))
-    except Exception as exc:        # noqa: BLE001 - no PyGObject, no bus: KIO can't be reached
-        log.info("could not ask the bus about kio-fuse: %s", exc)
-        return False
-
-
-# ─── mounting through sshfs (sftp without KIO) ───────────────
-
-SSHFS_DIR = 'kio-fuse-sshfs'      # the same "kio-fuse-" prefix, so split_remote() and
-                                  # is_remote() treat these mounts like KIO's own
+def _last_line(text: str) -> str:
+    lines = [ln for ln in (text or '').strip().splitlines() if ln.strip()]
+    return lines[-1].strip() if lines else ''
 
 
 class SshFs:
-    """sftp:// through sshfs, for a session where kio-fuse can't be started. Mounts the
-    server's root at $XDG_RUNTIME_DIR/kio-fuse-sshfs/sftp/<user@host[:port]> and returns that
-    folder plus the address's path. A password goes to sshfs on its standard input
-    (password_stdin), never on a command line; without one it uses keys and the agent and
-    never asks (BatchMode). The ssh host key rules are ssh's own."""
+    """sftp:// through sshfs. Mounts the server's root at spark-net/sftp/<user@host[:port]>
+    and returns that folder plus the address's path. A password goes to sshfs on its standard
+    input (password_stdin), never on a command line; without one it uses keys and the agent
+    and never asks (BatchMode). The ssh host key rules are ssh's own."""
+    TOOL = 'sshfs'
 
     def __init__(self, runner: Optional[Callable] = None):
         self.runner = runner or subprocess.run
@@ -370,7 +348,7 @@ class SshFs:
         return bool(shutil.which('sshfs'))
 
     def mountpoint(self, server) -> str:
-        return os.path.join(runtime_dir(), SSHFS_DIR, 'sftp', server.netloc())
+        return os.path.join(mount_root(), 'sftp', server.netloc())
 
     def argv(self, server, mountpoint: str, password: Optional[str]) -> List[str]:
         cmd = ['sshfs', f"{server.user + '@' if server.user else ''}"
@@ -383,13 +361,10 @@ class SshFs:
                 else 'BatchMode=yes']
         return cmd
 
-    def mount(self, url: str, timeout: float = CONNECT_TIMEOUT) -> str:
-        raise NetworkError('failed', 'sshfs needs a server, not a bare URL')
-
-    def mount_server(self, server, password: Optional[str],
-                     timeout: float = CONNECT_TIMEOUT) -> str:
-        if server.scheme != 'sftp':
-            raise NetworkError('no_kio', server.scheme)
+    def mount(self, server, password: Optional[str] = None,
+              timeout: float = CONNECT_TIMEOUT) -> str:
+        if getattr(server, 'scheme', '') != 'sftp':
+            raise NetworkError('failed', 'sshfs only does sftp')
         point = self.mountpoint(server)
         os.makedirs(point, mode=0o700, exist_ok=True)
         if not os.path.ismount(point):
@@ -399,37 +374,112 @@ class SshFs:
                                    capture_output=True, text=True, timeout=timeout)
             except subprocess.TimeoutExpired:
                 raise NetworkError('timeout')
+            except FileNotFoundError:
+                raise NetworkError('missing', 'sshfs')
             except OSError as exc:
-                raise NetworkError('no_kio', str(exc))
+                raise NetworkError('failed', str(exc))
             if done.returncode != 0:
-                text = (done.stderr or '').strip().splitlines()
-                raise NetworkError('failed', _scrub(text[-1] if text else '', server.url(password)))
+                raise NetworkError('failed', _scrub(_last_line(done.stderr), server.url(password)))
         return point + (server.path if server.path != '/' else '')
 
-    def unmount_all(self) -> None:
-        """At exit: let go of the mounts this app made."""
-        base = os.path.join(runtime_dir(), SSHFS_DIR, 'sftp')
+
+def rclone_conf() -> str:
+    """Spark Files' own rclone config (only the Google account lives there; 0600)."""
+    base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(home(), '.config')
+    return os.path.join(base, 'spark-files', 'rclone.conf')
+
+
+class Rclone:
+    """smb:// and Google Drive through `rclone mount` (FUSE, a user mount, no root).
+
+    smb: an on-the-fly `:smb:` remote whose host, user and password come in RCLONE_SMB_*
+    environment variables, so nothing is written to disk and nothing is on a command line.
+    The password is first put through `rclone obscure -` (on its standard input), which is the
+    form rclone takes. The server's root (the list of shares) is mounted at
+    spark-net/smb/<user@host>; the share and folder are below it.
+
+    Google Drive: the `gdrive` remote in rclone_conf(), made by add_google_account(),
+    mounted at spark-net/gdrive."""
+    TOOL = 'rclone'
+
+    def __init__(self, runner: Optional[Callable] = None, conf: Optional[str] = None):
+        self.runner = runner or subprocess.run
+        self.conf = conf or rclone_conf()
+
+    @staticmethod
+    def available() -> bool:
+        return bool(shutil.which('rclone'))
+
+    def mountpoint(self, server) -> str:
+        if isinstance(server, RawUrl):
+            return os.path.join(mount_root(), 'gdrive')
+        return os.path.join(mount_root(), 'smb', server.netloc())
+
+    def obscure(self, password: str) -> str:
         try:
-            names = os.listdir(base)
-        except OSError:
-            return
-        tool = shutil.which('fusermount3') or shutil.which('fusermount')
-        for name in names:
-            point = os.path.join(base, name)
-            if tool and os.path.ismount(point):
-                subprocess.run([tool, '-u', '-z', point], capture_output=True, timeout=10)
+            done = self.runner(['rclone', 'obscure', '-'], input=password,
+                               capture_output=True, text=True, timeout=15)
+        except FileNotFoundError:
+            raise NetworkError('missing', 'rclone')
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise NetworkError('failed', str(exc))
+        if done.returncode != 0 or not done.stdout.strip():
+            raise NetworkError('failed', _last_line(done.stderr) or 'rclone obscure')
+        return done.stdout.strip()
+
+    def smb_env(self, server, password: Optional[str]) -> Dict[str, str]:
+        user, domain = server.user, ''
+        for sep in (';', '\\'):                     # smb://DOMAIN;user@host, DOMAIN\user
+            if sep in user:
+                domain, user = user.split(sep, 1)
+                break
+        env = {'RCLONE_SMB_HOST': server.host, 'RCLONE_SMB_USER': user or 'guest'}
+        if domain:
+            env['RCLONE_SMB_DOMAIN'] = domain
+        if server.port:
+            env['RCLONE_SMB_PORT'] = str(server.port)
+        if password:
+            env['RCLONE_SMB_PASS'] = self.obscure(password)
+        return env
+
+    def argv(self, remote: str, mountpoint: str, timeout: float) -> List[str]:
+        return ['rclone', 'mount', remote, mountpoint, '--config', self.conf,
+                '--daemon', '--daemon-wait', f'{int(timeout)}s',
+                '--vfs-cache-mode', 'writes', '--dir-cache-time', '15s']
+
+    def mount(self, server, password: Optional[str] = None,
+              timeout: float = CONNECT_TIMEOUT) -> str:
+        if isinstance(server, RawUrl):
+            if gdrive_state(conf=self.conf, tool=True) != 'ready':
+                raise NetworkError('no_account')
+            remote, env, below = GDRIVE_REMOTE + ':', {}, ''
+        elif getattr(server, 'scheme', '') == 'smb':
+            remote, env = ':smb:', self.smb_env(server, password)
+            below = server.path if server.path != '/' else ''
+        else:
+            raise NetworkError('failed', 'rclone here only does smb and Google Drive')
+        point = self.mountpoint(server)
+        os.makedirs(point, mode=0o700, exist_ok=True)
+        if not os.path.ismount(point):
+            try:
+                done = self.runner(self.argv(remote, point, timeout),
+                                   env=dict(os.environ, **env), stdin=subprocess.DEVNULL,
+                                   capture_output=True, text=True, timeout=timeout + 5)
+            except subprocess.TimeoutExpired:
+                raise NetworkError('timeout')
+            except FileNotFoundError:
+                raise NetworkError('missing', 'rclone')
+            except OSError as exc:
+                raise NetworkError('failed', str(exc))
+            if done.returncode != 0:
+                raise NetworkError('failed', _scrub(_last_line(done.stderr),
+                                                    server.url(password)))
+        return point + below
 
 
-def choose_backend(target, kio_offered: Optional[bool] = None, sshfs_there: Optional[bool] = None):
-    """KIO's kio-fuse when it can be reached (the same on Plasma as before); sshfs for sftp
-    when it can't; otherwise kio-fuse, whose error says what is missing."""
-    kio = kio_fuse_offered() if kio_offered is None else kio_offered
-    if kio:
-        return KioFuse()
-    if getattr(target, 'scheme', '') == 'sftp' and (
-            SshFs.available() if sshfs_there is None else sshfs_there):
-        return SshFs()
-    return KioFuse()
+def choose_backend(target):
+    """sshfs for sftp; rclone for smb and Google Drive."""
+    return SshFs() if getattr(target, 'scheme', '') == 'sftp' else Rclone()
 
 
 def _scrub(text: str, url: str) -> str:
@@ -467,10 +517,7 @@ def connect_blocking(server: Server, password: Optional[str], backend=None,
     """Mount the server and check it answers a listing. Returns the local path. Raises
     NetworkError. Takes up to `timeout` seconds in total; call from a thread."""
     backend = backend or choose_backend(server)
-    if isinstance(backend, SshFs):
-        mount = lambda: backend.mount_server(server, password, timeout)    # noqa: E731
-    else:
-        mount = lambda: backend.mount(server.url(password), timeout)       # noqa: E731
+    mount = lambda: backend.mount(server, password, timeout)    # noqa: E731
     done, value = _within(timeout, mount)
     if done is None:
         raise NetworkError('timeout')
@@ -515,61 +562,47 @@ def start(fn: Callable[[], object], post: Callable[[Callable], None],
 
 # ─── Google Drive ────────────────────────────────────────────
 
-def accounts_db() -> str:
-    base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(home(), '.config')
-    return os.path.join(base, 'libaccounts-glib', 'accounts.db')
-
-
-def gdrive_worker_present() -> bool:
-    for base in ('/usr/lib64/qt6/plugins/kf6/kio', '/usr/lib/qt6/plugins/kf6/kio',
-                 '/usr/lib64/qt6/plugins/kf6/kio/'):
-        if os.path.exists(os.path.join(base, 'gdrive.so')):
-            return True
-    return False
-
-
-def google_accounts(db: Optional[str] = None) -> int:
-    """How many Google accounts KDE's Online Accounts has switched on (read-only look at
-    the accounts database; 0 when there is none)."""
-    path = db or accounts_db()
-    if not os.path.exists(path):
-        return 0
-    try:
-        conn = sqlite3.connect(f'file:{path}?mode=ro', uri=True, timeout=2)
-        try:
-            row = conn.execute("SELECT COUNT(*) FROM Accounts WHERE provider='google' "
-                               "AND enabled=1").fetchone()
-        finally:
-            conn.close()
-    except sqlite3.Error:
-        return 0
-    return int(row[0]) if row else 0
-
-
-def gdrive_state(worker: Optional[bool] = None, db: Optional[str] = None) -> str:
-    """'none' (kio-gdrive isn't installed), 'no-account' or 'ready'."""
-    if not (gdrive_worker_present() if worker is None else worker):
+def gdrive_state(conf: Optional[str] = None, tool: Optional[bool] = None) -> str:
+    """'none' (no rclone), 'no-account' or 'ready' (the gdrive remote has a token)."""
+    if not (Rclone.available() if tool is None else tool):
         return 'none'
-    return 'ready' if google_accounts(db) else 'no-account'
-
-
-def account_setup_command() -> Optional[List[str]]:
-    """Opens KDE's Online Accounts page (Spark Settings hides it from the menu, but takes
-    it as --kde kcm_kaccounts)."""
-    if shutil.which('spark-settings'):
-        return ['spark-settings', '--kde', 'kcm_kaccounts']
-    if shutil.which('kcmshell6'):
-        return ['kcmshell6', 'kcm_kaccounts']
-    return None
-
-
-def open_account_setup() -> bool:
-    cmd = account_setup_command()
-    if not cmd:
-        return False
+    parser = configparser.ConfigParser(interpolation=None)
     try:
-        subprocess.Popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                         stderr=subprocess.DEVNULL, start_new_session=True)
+        parser.read(conf or rclone_conf(), encoding='utf-8')
+    except (configparser.Error, OSError, UnicodeDecodeError):
+        return 'no-account'
+    if parser.has_section(GDRIVE_REMOTE) and parser.get(GDRIVE_REMOTE, 'type',
+                                                         fallback='') == 'drive' \
+            and parser.get(GDRIVE_REMOTE, 'token', fallback='').strip():
+        return 'ready'
+    return 'no-account'
+
+
+ACCOUNT_TIMEOUT = 600             # seconds to finish signing in in the browser
+
+
+def add_google_account(runner: Callable = subprocess.run, conf: Optional[str] = None,
+                       timeout: float = ACCOUNT_TIMEOUT) -> None:
+    """Sign in to Google: rclone opens the browser on Google's own page and waits for the
+    answer on localhost, then writes the token to rclone_conf() (0600). Blocks until the
+    person is done (call from a thread). Raises NetworkError."""
+    conf = conf or rclone_conf()
+    os.makedirs(os.path.dirname(conf), mode=0o700, exist_ok=True)
+    if not os.path.exists(conf):
+        os.close(os.open(conf, os.O_WRONLY | os.O_CREAT, 0o600))
+    try:
+        done = runner(['rclone', 'config', 'create', GDRIVE_REMOTE, 'drive', 'scope=drive',
+                       '--config', conf], stdin=subprocess.DEVNULL, capture_output=True,
+                      text=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise NetworkError('timeout')
+    except FileNotFoundError:
+        raise NetworkError('missing', 'rclone')
+    except OSError as exc:
+        raise NetworkError('failed', str(exc))
+    try:
+        os.chmod(conf, 0o600)
     except OSError:
-        return False
-    return True
+        pass
+    if done.returncode != 0 or gdrive_state(conf=conf, tool=True) != 'ready':
+        raise NetworkError('failed', _last_line(done.stderr) or 'no token')
