@@ -30,7 +30,7 @@ firewall-offline-cmd --zone=trusted --add-interface=tailscale0
 test "$(firewall-offline-cmd --get-default-zone)" = "$zone"
 open=$(firewall-offline-cmd --zone="$zone" --list-ports)
 test -z "$open" || { echo "the $zone zone opens ports: $open"; exit 1; }
-for svc in mdns spark-link nova kdeconnect steam-streaming; do
+for svc in mdns spark-link nova steam-streaming; do
   firewall-offline-cmd --zone="$zone" --list-services | tr ' ' '\n' | grep -qx "$svc" \
     || { echo "$svc missing from $zone"; exit 1; }
 done

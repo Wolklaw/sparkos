@@ -28,7 +28,7 @@ if echo '{"ops": [{"op": "service", "zone": "--reload", "name": "ssh", "add": tr
   echo "the helper accepted a bad operation"; exit 1
 fi
 
-# firewall-config stays installed; sparkos-cleanup.sh hides it from the menu
+# firewall-config is removed from the image (sparkos-apps.sh); firewalld itself stays
 
 report=$(/usr/bin/spark-firewall --self-test)
 echo "$report"

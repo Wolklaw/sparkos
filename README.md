@@ -120,7 +120,7 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 **Platform (from Fedora and KDE)**
 
 - KDE Plasma, System Settings, Fedora's kernel and current Mesa drivers, CUPS driverless printing, SANE scanning, Bluetooth, and full video decoding and encoding from RPM Fusion.
-- Dolphin is out of the menu, kept for one release behind Spark Files; Konsole is hidden, kept for one release behind Spark Terminal. Ark, KDE Connect and Discover stay installed but out of the menu (Spark Archive, Spark Link and Spark Store replace them).
+- Dolphin is out of the menu, kept for one release behind Spark Files; Konsole, Ark, KDE Connect, Discover, Info Center, Journald Browser, GNOME Disks, Btrfs Assistant and firewall-config are removed from the image (Spark Terminal, Spark Archive, Spark Link, Spark Store, Spark Settings, Spark Disks and Spark Firewall replace them).
 - Removed from Fedora Kinoite: Firefox, Kate/KWrite, Filelight, Plasma System Monitor, Spectacle, Discover's tray notifier and KDE's other small apps. Each can be installed from the Store.
 
 Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build and opens each one from the app menu on a real SparkOS desktop in a VM, with a screenshot. On a real PC they have had only a few days of use, the new ones a few hours, and Spark Backup none yet. To install it next to Windows, see [docs/install.md](docs/install.md). For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
