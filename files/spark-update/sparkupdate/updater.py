@@ -9,6 +9,7 @@
 Both wait for a later hour while a game is running, on a metered connection, or on a low
 battery. Every command they run goes to the log."""
 
+import json
 import os
 import re
 import time
@@ -114,8 +115,48 @@ def check_image(host: Host, runner: Runner) -> Dict[str, Any]:
     if available is None:
         return {'ok': False, 'method': method, 'error': _first_error(out, err, code)}
     match = re.search(r'^\s*Digest:\s*(sha256:[0-9a-f]+)', out + '\n' + err, re.M)
+    digest = match.group(1) if match and available else ''
+    if not available and method == 'rpm-ostree':
+        # On a PC with layered packages, `rpm-ostree upgrade --check` only looks at those
+        # packages' repositories, not at the image: it says "No updates available" while a
+        # new SparkOS image waits (seen on the owner's PC, 2026-11-24). Ask the registry.
+        newer = registry_newer(host, runner)
+        if newer:
+            available, version, digest = True, newer['version'] or version, newer['digest']
     return {'ok': True, 'method': method, 'available': available, 'version': version,
-            'digest': match.group(1) if match and available else ''}
+            'digest': digest}
+
+
+def registry_newer(host: Host, runner: Runner) -> Optional[Dict[str, str]]:
+    """{'digest', 'version'} of the image in the registry when it is neither the booted nor
+    the staged one; None when it is one of them, or when the registry can't be asked (no
+    skopeo, offline, not a docker:// image): the caller keeps rpm-ostree's answer then."""
+    booted = host.booted
+    if booted is None or not booted.image or not booted.digest or \
+            not booted.transport.endswith('docker://'):
+        return None
+    code, out, _err = runner(['skopeo', 'inspect', '--no-tags',
+                              'docker://' + booted.image], timeout=120)
+    if code != 0:
+        return None
+    try:
+        data = json.loads(out)
+    except ValueError:
+        return None
+    if not isinstance(data, dict):
+        return None
+    digest = str(data.get('Digest') or '')
+    if not re.fullmatch(r'sha256:[0-9a-f]{64}', digest):
+        return None
+    known = {booted.digest} | ({host.staged.digest} if host.staged and host.staged.digest
+                               else set())
+    if digest in known:
+        return None
+    labels = data.get('Labels') or {}
+    version = str(labels.get('org.opencontainers.image.version') or '') \
+        if isinstance(labels, dict) else ''
+    log.info("the registry has a newer image (%s) than rpm-ostree's check said", digest[:19])
+    return {'digest': digest, 'version': version}
 
 
 def stage_image(host: Host, runner: Runner) -> Dict[str, Any]:
@@ -201,7 +242,8 @@ def system_run(env: Env, now_mode: Optional[str] = None, runner: Runner = run,
     state = load_state(env, state_path)      # the other run may have just finished
     log.info("%s run: %s", 'manual' if now_mode else 'scheduled',
              'check only' if mode == CHECK else 'check, download and stage')
-    state.update(running=True, phase='checking', last_run=now, reason='', manual=bool(now_mode))
+    state.update(running=True, phase='checking', phase_since=now, last_run=now, reason='',
+                 manual=bool(now_mode))
     save_state(env, state, state_path)
     try:
         return _system_pass(env, conf, state, mode, runner, clock, state_path, flatpak_scope)
@@ -265,6 +307,7 @@ def _system_pass(env: Env, conf: SystemSettings, state: Dict[str, Any], mode: st
         found = check_image(host, runner)
         if not found['ok'] or found['available']:
             state['phase'] = 'downloading'
+            state['phase_since'] = clock()
             save_state(env, state, state_path)
         result = stage_image(host, runner)
         state['method'] = result['method']
@@ -284,6 +327,7 @@ def _system_pass(env: Env, conf: SystemSettings, state: Dict[str, Any], mode: st
     state['last_check'] = clock()
     if conf.flatpak and mode == STAGE_NOW:
         state['phase'] = 'flatpak'
+        state['phase_since'] = clock()
         save_state(env, state, state_path)
         state['flatpak'] = update_flatpak(flatpak_scope, runner, clock())
         updated = state['flatpak'].get('updated') or []
