@@ -11,6 +11,7 @@ A GTK 4 + gtk4-layer-shell program (Python, PyGObject) in the house style, and a
 - **Notification server**: actions, urgency, replace-id, images, do not disturb, history.
 - **Launcher**: search with the Spark Launcher widget's ranking (shared `launcher_logic.py`, one `vectors.json` both copies must pass), sums through Spark Calc, power buttons.
 - **Wallpaper** layer per monitor, no desktop icons; **OSD** for volume and brightness.
+- **Sign out, restart, shut down** (added 2026-11-25): there is no ksmserver, so the shell asks KWin to close every window first (apps can save or ask), waits up to 8 seconds, and says which apps are still open if any; a second click goes anyway. Not tried with real apps.
 - **Power** (added 2026-11-25): the session also starts powerdevil, so the screen-off and sleep timers and the power button that Spark Settings writes to powerdevilrc apply, and the brightness keys reach all three monitors. The shell answers powerdevil's `org.kde.osdService` calls with its OSD instead of handling brightness itself.
 - **Session**: `/usr/share/wayland-sessions/spark.desktop` -> `spark-session` (KWin) -> `spark-session-run` (activation environment, `spark-workspace.target`, KDE daemon, portal, polkit agent, then the shell in a restart loop). `XDG_CURRENT_DESKTOP=Spark:KDE`, so the KDE portal and Qt theme still apply.
 
