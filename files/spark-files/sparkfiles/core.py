@@ -24,6 +24,7 @@ DEFAULTS: Dict[str, Any] = {
     "sidebar": True,
     "zoom": 1.0,                  # grid tile size factor
     "pinned": [],                 # folders pinned to the sidebar
+    "servers": [],                # saved network servers: {"name", "url"}; never a password
     "glitch": True,
     "confirm_trash": False,
     "geometry": None,
@@ -91,6 +92,8 @@ def load_settings() -> Dict[str, Any]:
     if settings['sort'] not in ('name', 'modified', 'size', 'type'):
         settings['sort'] = 'name'
     settings['pinned'] = [p for p in settings['pinned'] if isinstance(p, str)]
+    from .network import bookmarks
+    settings['servers'] = bookmarks(settings)
     settings['zoom'] = max(0.6, min(2.5, float(settings['zoom'])))
     return settings
 
@@ -100,7 +103,10 @@ def save_settings(settings: Dict[str, Any]) -> None:
     tmp = f'{path}.{os.getpid()}.tmp'
     try:
         with open(tmp, 'w', encoding='utf-8') as f:
-            json.dump({k: settings.get(k, v) for k, v in DEFAULTS.items()}, f, indent=1)
+            from .network import bookmarks
+            out = {k: settings.get(k, v) for k, v in DEFAULTS.items()}
+            out['servers'] = bookmarks(out)         # a password never reaches the file
+            json.dump(out, f, indent=1)
         os.replace(tmp, path)
     except OSError as exc:
         log.warning("could not save settings: %s", exc)

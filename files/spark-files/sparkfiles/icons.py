@@ -24,7 +24,7 @@ COLOURS = {
     'audio': '#b9a6ff', 'archive': '#f0a671', 'document': '#8ec9ff', 'code': '#52e8a4',
     'program': T["pink"], 'drive': T["accent"], 'usb': T["accent"], 'trash': T["muted"],
     'home': T["accent"], 'desktop': T["accent"], 'download': T["accent"], 'game': T["accent"],
-    'pin': T["gold"], 'broken': T["dim"],
+    'pin': T["gold"], 'network': T["accent"], 'broken': T["dim"],
 }
 
 
@@ -74,6 +74,10 @@ def _draw(kind: str, size: int, link: bool = False):
         d.ellipse(P(16.5, 11, 18.5, 13), fill=c)
         if kind == 'usb':
             line(5, 12, 12, 12)
+    elif kind == 'network':
+        d.ellipse(P(3.5, 3.5, 20.5, 20.5), outline=c, width=w, fill=_fade(c, 0.12))
+        d.ellipse(P(8.5, 3.5, 15.5, 20.5), outline=c, width=w)
+        line(3.5, 12, 20.5, 12)
     elif kind == 'trash':
         line(5, 6.5, 19, 6.5)
         line(10, 6.5, 10, 4, 14, 4, 14, 6.5)

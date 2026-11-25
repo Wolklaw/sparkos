@@ -92,13 +92,15 @@ class Fits(unittest.TestCase):
     def test_dialogs_fit(self):
         from sparkfiles.dialogs import BatchRename, OpenWith, Properties
         from sparkfiles.jobs import ClashDialog
+        from sparkfiles.netdialogs import ConnectDialog
         from sparkfiles.ops import Job
         paths = [os.path.join(self.dir, n) for n in ('a.txt', 'b.png')]
         job = Job('copy', paths, self.dir)
         for d in (Properties(self.app, self.w, paths[:1]),
                   BatchRename(self.app, self.w, paths, lambda *_a: None),
                   OpenWith(self.app, self.w, paths[:1]),
-                  ClashDialog(self.app, self.w, job, paths[0], paths[0])):
+                  ClashDialog(self.app, self.w, job, paths[0], paths[0]),
+                  ConnectDialog(self.app, self.w)):
             d.place_and_show()
             for _ in range(10):
                 self.app.root.update()
