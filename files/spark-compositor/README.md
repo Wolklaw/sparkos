@@ -42,6 +42,10 @@ Defaults:
   Super+Up (maximize), Super+Left/Right (snap to a half; again moves on to the next screen),
   Super+Down (restore, then minimize), Super+d (show the desktop, again brings the windows back),
   Super+o (next output). Super+drag moves a window, Super+right-drag resizes it.
+- Window switcher: `focus-next` bound with a modifier (Alt+Tab, Super+Tab) opens a panel of the
+  open windows, most recent first, while the modifier is held. Tab or the arrows move along,
+  Shift+Tab goes back (Alt+Shift+Tab also opens it at the far end), letting go switches, Escape
+  stays put. Icons come from each app's .desktop file and the SparkOS icon theme.
 - Session: Super alone (Spark menu), Super+l (lock), Super+Shift+e (quit), Super+Ctrl+Shift+r
   (reload this file).
 - Apps: Super+Return and Ctrl+Alt+t (terminal), Ctrl+Shift+Esc, Super+Esc and Ctrl+Esc (Spark

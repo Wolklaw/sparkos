@@ -41,7 +41,7 @@ RUN --mount=type=bind,source=files/spark-compositor,target=/src \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     dnf -y --setopt=install_weak_deps=False install gcc make pkgconf-pkg-config wlroots-devel \
         wayland-devel wayland-protocols-devel wlr-protocols-devel libxkbcommon-devel libinput-devel \
-        pixman-devel libdrm-devel cairo-devel pango-devel && \
+        pixman-devel libdrm-devel cairo-devel pango-devel librsvg2-devel && \
     cp -r /src /build && make -C /build && install -Dm755 /build/spark-compositor /spark-compositor && \
     make -C /build/spark-wl-windows && install -Dm755 /build/spark-wl-windows/spark-wl-windows /spark-wl-windows
 

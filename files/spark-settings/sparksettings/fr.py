@@ -348,7 +348,7 @@ FR = {
     'Open the start menu': 'Ouvrir le menu Démarrer',
     'Open a terminal': 'Ouvrir un terminal',
     'Close the window': 'Fermer la fenêtre',
-    'Next window': 'Fenêtre suivante',
+    'Switch windows': 'Changer de fenêtre',
     'Full screen': 'Plein écran',
     'Maximize the window': 'Agrandir la fenêtre',
     'Move the window to the next screen': "Déplacer la fenêtre vers l'écran suivant",

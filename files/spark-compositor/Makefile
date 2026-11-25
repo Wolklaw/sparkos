@@ -5,7 +5,7 @@
 # vendored. Same warning flags as the image's other compiled piece (sparkos-capslock).
 CC      ?= gcc
 PREFIX  ?= /usr
-PKGS     = wlroots-0.20 wayland-server xkbcommon libinput pixman-1 cairo pangocairo libdrm
+PKGS     = wlroots-0.20 wayland-server xkbcommon libinput pixman-1 cairo pangocairo libdrm librsvg-2.0
 WP       = $(shell pkg-config --variable=pkgdatadir wayland-protocols)
 WLRP     = /usr/share/wlr-protocols/unstable
 CFLAGS  ?= -O2

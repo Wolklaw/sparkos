@@ -153,7 +153,7 @@ DEFAULTS = [
     ("Files", 'exec', 'spark-files', ['Super+e']),
     ("Settings", 'exec', 'spark-settings', ['Super+i']),
     ("Close the window", 'close', '', ['Super+q', 'Alt+F4']),
-    ("Next window", 'focus-next', '', ['Alt+Tab', 'Super+Tab']),
+    ("Switch windows", 'focus-next', '', ['Alt+Tab', 'Super+Tab']),
     ("Full screen", 'fullscreen', '', ['Super+f']),
     ("Maximize the window", 'maximize', '', ['Super+Up']),
     ("Move the window to the next screen", 'output-next', '', ['Super+o']),

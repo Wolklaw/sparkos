@@ -17,6 +17,7 @@
 #include <getopt.h>
 #include <math.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,6 +30,9 @@
 #include <wlr/interfaces/wlr_buffer.h>
 #include <drm_fourcc.h>
 #include <pango/pangocairo.h>
+#include <librsvg/rsvg.h>
+#include <dirent.h>
+#include <strings.h>
 #include <wayland-server-core.h>
 #include <wlr/backend.h>
 #include <wlr/backend/headless.h>
@@ -139,6 +143,9 @@ struct server {
 	/* a bind on Super_L/Super_R alone runs when that key is released with nothing pressed
 	 * or clicked in between, like the Windows key opening Start; 0 = no tap pending */
 	uint32_t tap_keycode;
+	/* Alt+Tab switcher: open while the modifier that opened it is held; sel indexes the
+	 * switcher list (most recently focused first) */
+	struct { bool on; int sel; uint32_t mods; struct wlr_scene_buffer *buf; } sw;
 
 	struct wlr_seat *seat;
 	struct wlr_cursor *cursor;
@@ -302,6 +309,8 @@ static const char *view_app_id(struct view *v) {
 	return a ? a : "";
 }
 static void focus_layer_or_view(struct server *s);
+static void switcher_close(struct server *s, bool commit);
+static void switcher_draw(struct server *s);
 
 /* ---------- small helpers ---------- */
 
@@ -1579,6 +1588,7 @@ static void view_unmap(struct wl_listener *l, void *data) {
 	struct server *s = v->server;
 	v->mapped = false;
 	refocus_soon(s);
+	if (s->sw.on) switcher_draw(s);
 	if (v->unmanaged) {
 		/* a menu or popup that took the keyboard (Wine, Battle.net) gives it back to the window
 		 * under it; without this typing went nowhere until Alt+Tab */
@@ -2093,6 +2103,7 @@ static void new_lock(struct wl_listener *l, void *data) {
 		wlr_scene_node_lower_to_bottom(&s->lock_rect->node);
 		wlr_scene_node_set_position(&s->lock_rect->node, -50000, -50000);
 	}
+	switcher_close(s, false);
 	s->locked = true;
 	s->focused_layer = NULL;
 	if (s->lock_tree) wlr_scene_node_raise_to_top(&s->lock_tree->node);
@@ -2425,6 +2436,307 @@ static void new_constraint(struct wl_listener *l, void *data) {
 	if (s->seat->pointer_state.focused_surface == c->surface) check_constraint(s, c->surface);
 }
 
+/* ---------- Alt+Tab switcher ----------
+ * Hold Alt, press Tab to step through the windows (Shift+Tab or the arrows go back), let go of
+ * Alt to switch, Escape to stay. The compositor draws it: a panel of cards (app icon and name)
+ * under the selected window's full title, centred on the screen in use. */
+
+#define ALTTAB_MAX 40
+#define ALTTAB_TW 132
+#define ALTTAB_TH 120
+#define ALTTAB_PAD 18
+#define ALTTAB_HEAD 40
+#define ALTTAB_ICON 56
+
+/* snprintf for paths and short strings: false (and nothing useful in out) when it doesn't fit */
+__attribute__((format(printf, 3, 4)))
+static bool pathf(char *out, size_t n, const char *fmt, ...) {
+	va_list ap; va_start(ap, fmt);
+	int r = vsnprintf(out, n, fmt, ap);
+	va_end(ap);
+	return r >= 0 && (size_t)r < n;
+}
+
+static int switcher_list(struct server *s, struct view **out) {
+	int n = 0;
+	struct view *v;
+	wl_list_for_each(v, &s->views, link)
+		if (v->mapped && !v->unmanaged && n < ALTTAB_MAX) out[n++] = v;
+	return n;
+}
+
+/* app name and icon file for an app_id, from its .desktop file and the icon themes; cached */
+struct sw_app { struct wl_list link; char *id, *name, *icon; };
+static struct wl_list sw_apps = { &sw_apps, &sw_apps };
+
+static int data_dirs(char dirs[][256], int max) {
+	int n = 0;
+	const char *home = getenv("HOME"), *xh = getenv("XDG_DATA_HOME");
+	if (xh && *xh) pathf(dirs[n++], 256, "%s", xh);
+	else if (home) pathf(dirs[n++], 256, "%s/.local/share", home);
+	const char *xd = getenv("XDG_DATA_DIRS");
+	char buf[2048];
+	pathf(buf, sizeof buf, "%s", xd && *xd ? xd : "/usr/local/share:/usr/share");
+	for (char *save = NULL, *t = strtok_r(buf, ":", &save); t && n < max; t = strtok_r(NULL, ":", &save))
+		if (*t) pathf(dirs[n++], 256, "%s", t);
+	/* Flatpak apps (Steam): the session doesn't always pass XDG_DATA_DIRS to the compositor */
+	char fp[2][256] = { "", "/var/lib/flatpak/exports/share" };
+	if (home) pathf(fp[0], 256, "%s/.local/share/flatpak/exports/share", home);
+	for (int f = 0; f < 2; f++) {
+		bool have = !fp[f][0];
+		for (int i = 0; i < n && !have; i++) have = !strcmp(dirs[i], fp[f]);
+		if (!have && n < max) pathf(dirs[n++], 256, "%s", fp[f]);
+	}
+	return n;
+}
+
+/* reads Name= and Icon= of [Desktop Entry]; with wmclass set, only if StartupWMClass matches */
+static bool desktop_read(const char *path, const char *wmclass, char *name, char *icon) {
+	FILE *f = fopen(path, "r");
+	if (!f) return false;
+	char line[512], nm[128] = "", ic[256] = "", wc[128] = "";
+	bool in = false, hidden = false;
+	while (fgets(line, sizeof line, f)) {
+		line[strcspn(line, "\r\n")] = 0;
+		if (line[0] == '[') { if (in) break; in = !strcmp(line, "[Desktop Entry]"); continue; }
+		if (!in) continue;
+		if (!strncmp(line, "Name=", 5) && !nm[0]) pathf(nm, sizeof nm, "%s", line + 5);
+		else if (!strncmp(line, "Icon=", 5)) pathf(ic, sizeof ic, "%s", line + 5);
+		else if (!strncmp(line, "StartupWMClass=", 15)) pathf(wc, sizeof wc, "%s", line + 15);
+		else if (!strcmp(line, "NoDisplay=true") || !strcmp(line, "Hidden=true")) hidden = true;
+	}
+	fclose(f);
+	if (wmclass && (hidden || strcasecmp(wc, wmclass))) return false;
+	if (nm[0]) pathf(name, 128, "%s", nm);
+	if (ic[0]) pathf(icon, 256, "%s", ic);
+	return true;
+}
+
+static bool icon_find(char dirs[][256], int nd, const char *icon, char *out) {
+	if (!icon[0]) return false;
+	if (icon[0] == '/') { pathf(out, 512, "%s", icon); return access(out, R_OK) == 0; }
+	static const char *themes[] = { "SparkOS", "breeze-dark", "breeze", "hicolor" };
+	static const char *pats[] = { "%s/icons/%s/apps/scalable/%s.svg", "%s/icons/%s/apps/48/%s.svg",
+		"%s/icons/%s/scalable/apps/%s.svg", "%s/icons/%s/256x256/apps/%s.png", "%s/icons/%s/128x128/apps/%s.png",
+		"%s/icons/%s/64x64/apps/%s.png", "%s/icons/%s/48x48/apps/%s.png" };
+	for (size_t t = 0; t < sizeof themes / sizeof *themes; t++)
+		for (int d = 0; d < nd; d++)
+			for (size_t p = 0; p < sizeof pats / sizeof *pats; p++) {
+				if (pathf(out, 512, pats[p], dirs[d], themes[t], icon) && access(out, R_OK) == 0) return true;
+			}
+	for (int d = 0; d < nd; d++) {
+		pathf(out, 512, "%s/pixmaps/%s.svg", dirs[d], icon); if (access(out, R_OK) == 0) return true;
+		pathf(out, 512, "%s/pixmaps/%s.png", dirs[d], icon); if (access(out, R_OK) == 0) return true;
+	}
+	return false;
+}
+
+static struct sw_app *sw_app_for(const char *id) {
+	struct sw_app *a;
+	wl_list_for_each(a, &sw_apps, link) if (!strcmp(a->id, id)) return a;
+	char dirs[16][256]; int nd = data_dirs(dirs, 16);
+	char name[128] = "", icon[256] = "", path[600];
+	bool found = false;
+	if (*id) {
+		char low[128]; pathf(low, sizeof low, "%s", id);
+		for (char *c = low; *c; c++) *c = tolower((unsigned char)*c);
+		for (int d = 0; d < nd && !found; d++) {
+			pathf(path, sizeof path, "%s/applications/%s.desktop", dirs[d], id);
+			found = desktop_read(path, NULL, name, icon);
+			if (!found) { pathf(path, sizeof path, "%s/applications/%s.desktop", dirs[d], low); found = desktop_read(path, NULL, name, icon); }
+		}
+		/* X11 apps: the window class, matched against StartupWMClass */
+		for (int d = 0; d < nd && !found; d++) {
+			char ad[300]; pathf(ad, sizeof ad, "%s/applications", dirs[d]);
+			DIR *dir = opendir(ad);
+			if (!dir) continue;
+			struct dirent *e;
+			while (!found && (e = readdir(dir))) {
+				size_t l = strlen(e->d_name);
+				if (l < 9 || strcmp(e->d_name + l - 8, ".desktop")) continue;
+				pathf(path, sizeof path, "%s/%s", ad, e->d_name);
+				found = desktop_read(path, id, name, icon);
+			}
+			closedir(dir);
+		}
+		if (!icon[0]) pathf(icon, sizeof icon, "%s", low);
+	}
+	char file[512] = "";
+	if (!icon_find(dirs, nd, icon, file)) file[0] = 0;
+	a = calloc(1, sizeof *a);
+	a->id = strdup(id);
+	a->name = strdup(name[0] ? name : (*id ? id : "Window"));
+	a->icon = strdup(file);
+	wl_list_insert(&sw_apps, &a->link);
+	return a;
+}
+
+static void rrect(cairo_t *cr, double x, double y, double w, double h, double r) {
+	cairo_new_sub_path(cr);
+	cairo_arc(cr, x + w - r, y + r, r, -M_PI / 2, 0);
+	cairo_arc(cr, x + w - r, y + h - r, r, 0, M_PI / 2);
+	cairo_arc(cr, x + r, y + h - r, r, M_PI / 2, M_PI);
+	cairo_arc(cr, x + r, y + r, r, M_PI, 3 * M_PI / 2);
+	cairo_close_path(cr);
+}
+
+static void sw_text(cairo_t *cr, const char *text, const char *font, double x, double y, int w, uint32_t rgb, double a, bool slip) {
+	PangoLayout *pl = pango_cairo_create_layout(cr);
+	PangoFontDescription *fd = pango_font_description_from_string(font);
+	pango_layout_set_font_description(pl, fd);
+	pango_font_description_free(fd);
+	pango_layout_set_text(pl, text, -1);
+	pango_layout_set_width(pl, w * PANGO_SCALE);
+	pango_layout_set_ellipsize(pl, PANGO_ELLIPSIZE_END);
+	pango_layout_set_alignment(pl, PANGO_ALIGN_CENTER);
+	if (slip) {
+		ink(cr, 0xff2e88, 0.55); cairo_move_to(cr, x - 2, y); pango_cairo_show_layout(cr, pl);
+		ink(cr, 0x22d8ff, 0.55); cairo_move_to(cr, x + 2, y); pango_cairo_show_layout(cr, pl);
+	}
+	ink(cr, rgb, a); cairo_move_to(cr, x, y); pango_cairo_show_layout(cr, pl);
+	g_object_unref(pl);
+}
+
+static void sw_icon(cairo_t *cr, struct sw_app *a, double x, double y, double sz, bool dim) {
+	bool drawn = false;
+	size_t l = strlen(a->icon);
+	cairo_save(cr);
+	if (l > 4 && !strcmp(a->icon + l - 4, ".svg")) {
+		RsvgHandle *h = rsvg_handle_new_from_file(a->icon, NULL);
+		if (h) {
+			RsvgRectangle vp = { x, y, sz, sz };
+			if (dim) cairo_push_group(cr);
+			drawn = rsvg_handle_render_document(h, cr, &vp, NULL);
+			if (dim) { cairo_pop_group_to_source(cr); cairo_paint_with_alpha(cr, 0.5); }
+			g_object_unref(h);
+		}
+	} else if (l > 4) {
+		cairo_surface_t *img = cairo_image_surface_create_from_png(a->icon);
+		int iw = cairo_image_surface_get_width(img), ih = cairo_image_surface_get_height(img);
+		if (cairo_surface_status(img) == CAIRO_STATUS_SUCCESS && iw > 0 && ih > 0) {
+			cairo_translate(cr, x, y);
+			cairo_scale(cr, sz / iw, sz / ih);
+			cairo_set_source_surface(cr, img, 0, 0);
+			cairo_pattern_set_filter(cairo_get_source(cr), CAIRO_FILTER_GOOD);
+			cairo_paint_with_alpha(cr, dim ? 0.5 : 1);
+			drawn = true;
+		}
+		cairo_surface_destroy(img);
+	}
+	cairo_restore(cr);
+	if (drawn) return;
+	/* no icon: the app's first letter on a flat tile */
+	ink(cr, 0x12292c, 1); rrect(cr, x, y, sz, sz, 3); cairo_fill(cr);
+	char letter[8] = "?";
+	if (a->name[0]) { gunichar c = g_unichar_toupper(g_utf8_get_char(a->name)); letter[g_unichar_to_utf8(c, letter)] = 0; }
+	sw_text(cr, letter, "Cascadia Mono, monospace Bold 22", x, y + sz / 2 - 16, (int)sz, 0x3de8c8, dim ? 0.5 : 1, false);
+}
+
+static void switcher_draw(struct server *s) {
+	struct view *list[ALTTAB_MAX];
+	int n = switcher_list(s, list);
+	if (!s->sw.on || n == 0) { if (s->sw.buf) wlr_scene_node_set_enabled(&s->sw.buf->node, false); return; }
+	if (s->sw.sel >= n) s->sw.sel = n - 1;
+	if (s->sw.sel < 0) s->sw.sel = 0;
+	struct wlr_output *wo = s->focused_output ? s->focused_output : output_at_cursor(s);
+	if (!wo) return;
+	struct wlr_box ob; wlr_output_layout_get_box(s->output_layout, wo, &ob);
+	int maxcols = (ob.width - 80 - 2 * ALTTAB_PAD) / ALTTAB_TW;
+	if (maxcols < 1) maxcols = 1;
+	int cols = n < maxcols ? n : maxcols, rows = (n + cols - 1) / cols;
+	int w = cols * ALTTAB_TW + 2 * ALTTAB_PAD, h = ALTTAB_HEAD + rows * ALTTAB_TH + 2 * ALTTAB_PAD;
+	if (w < 360) w = 360;
+	float scale = wo->scale > 0 ? wo->scale : 1;
+	int pw = (int)ceilf(w * scale), ph = (int)ceilf(h * scale);
+	struct cbuf *c = calloc(1, sizeof *c);
+	c->cs = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, pw, ph);
+	wlr_buffer_init(&c->base, &cbuf_impl, pw, ph);
+	cairo_t *cr = cairo_create(c->cs);
+	cairo_scale(cr, scale, scale);
+	/* panel: flat, 1px line, 3px corners */
+	ink(cr, 0x04090b, 0.96); rrect(cr, 0, 0, w, h, 3); cairo_fill(cr);
+	ink(cr, 0x1f6a66, 1); cairo_set_line_width(cr, 1); rrect(cr, 0.5, 0.5, w - 1, h - 1, 3); cairo_stroke(cr);
+	struct view *selv = list[s->sw.sel];
+	const char *title = selv->is_x11 ? selv->xw->title : selv->xdg->title;
+	if (!title || !*title) title = sw_app_for(view_app_id(selv))->name;
+	sw_text(cr, title, "Cascadia Mono, monospace Bold 11", ALTTAB_PAD, ALTTAB_PAD + 2, w - 2 * ALTTAB_PAD, 0xd4f1ec, 1, true);
+	int x0 = (w - cols * ALTTAB_TW) / 2;
+	for (int i = 0; i < n; i++) {
+		struct view *v = list[i];
+		struct sw_app *a = sw_app_for(view_app_id(v));
+		double tx = x0 + (i % cols) * ALTTAB_TW, ty = ALTTAB_PAD + ALTTAB_HEAD + (i / cols) * ALTTAB_TH;
+		bool sel = i == s->sw.sel;
+		if (sel) {
+			ink(cr, 0x12292c, 1); rrect(cr, tx + 4, ty + 2, ALTTAB_TW - 8, ALTTAB_TH - 4, 3); cairo_fill(cr);
+			cairo_set_line_width(cr, 1.5);
+			ink(cr, 0xff2e88, 0.8); rrect(cr, tx + 2.75, ty + 2.75, ALTTAB_TW - 8, ALTTAB_TH - 4, 3); cairo_stroke(cr);
+			ink(cr, 0x22d8ff, 0.8); rrect(cr, tx + 5.25, ty + 2.75, ALTTAB_TW - 8, ALTTAB_TH - 4, 3); cairo_stroke(cr);
+			ink(cr, 0x3de8c8, 1); rrect(cr, tx + 4.75, ty + 2.75, ALTTAB_TW - 9.5, ALTTAB_TH - 5.5, 3); cairo_stroke(cr);
+		}
+		sw_icon(cr, a, tx + (ALTTAB_TW - ALTTAB_ICON) / 2.0, ty + 16, ALTTAB_ICON, v->minimized);
+		sw_text(cr, a->name, "Cascadia Mono, monospace Bold 9", tx + 10, ty + 16 + ALTTAB_ICON + 14, ALTTAB_TW - 20,
+			sel ? 0xd4f1ec : 0x6f9f98, 1, false);
+	}
+	cairo_destroy(cr);
+	cairo_surface_flush(c->cs);
+	if (!s->sw.buf) s->sw.buf = wlr_scene_buffer_create(s->layers[L_OVERLAY], NULL);
+	wlr_scene_buffer_set_buffer(s->sw.buf, &c->base);
+	wlr_scene_buffer_set_dest_size(s->sw.buf, w, h);
+	wlr_buffer_drop(&c->base);
+	wlr_scene_node_set_position(&s->sw.buf->node, ob.x + (ob.width - w) / 2, ob.y + (ob.height - h) / 2);
+	wlr_scene_node_raise_to_top(&s->sw.buf->node);
+	wlr_scene_node_set_enabled(&s->sw.buf->node, true);
+}
+
+static void switcher_close(struct server *s, bool commit) {
+	if (!s->sw.on) return;
+	s->sw.on = false;
+	if (s->sw.buf) wlr_scene_node_set_enabled(&s->sw.buf->node, false);
+	if (!commit || s->locked) return;
+	struct view *list[ALTTAB_MAX];
+	int n = switcher_list(s, list);
+	if (s->sw.sel < 0 || s->sw.sel >= n) return;
+	struct view *v = list[s->sw.sel];
+	const char *t = v->is_x11 ? v->xw->title : v->xdg->title;
+	wlr_log(WLR_INFO, "switcher: picked app_id=%s title=%s", view_app_id(v), t ? t : "");
+	v->desktop_hidden = false;
+	if (v->minimized) view_set_minimized(v, false);
+	else focus_view(v, NULL);
+}
+
+static void switcher_step(struct server *s, int d) {
+	struct view *list[ALTTAB_MAX];
+	int n = switcher_list(s, list);
+	if (n == 0) { switcher_close(s, false); return; }
+	s->sw.sel = ((s->sw.sel + d) % n + n) % n;
+	switcher_draw(s);
+}
+
+/* opened by a focus-next bind held with a modifier; false when there's nothing to switch to */
+static bool switcher_open(struct server *s, uint32_t mods, int dir) {
+	struct view *list[ALTTAB_MAX];
+	int n = switcher_list(s, list);
+	if (n < 2) return false;
+	s->sw.on = true;
+	s->sw.mods = mods;
+	/* the focused window is first unless something else (a menu, the shell) has the keyboard */
+	s->sw.sel = list[0] == s->focused_view ? (dir > 0 ? 1 : n - 1) : (dir > 0 ? 0 : n - 1);
+	switcher_draw(s);
+	return true;
+}
+
+/* a key while the switcher is open; every key is the switcher's until it closes */
+static void switcher_key(struct server *s, xkb_keysym_t sym, uint32_t mods) {
+	switch (sym) {
+	case XKB_KEY_Tab: switcher_step(s, (mods & WLR_MODIFIER_SHIFT) ? -1 : 1); break;
+	case XKB_KEY_ISO_Left_Tab: case XKB_KEY_Left: case XKB_KEY_Up: switcher_step(s, -1); break;
+	case XKB_KEY_Right: case XKB_KEY_Down: switcher_step(s, 1); break;
+	case XKB_KEY_Escape: switcher_close(s, false); break;
+	case XKB_KEY_Return: case XKB_KEY_KP_Enter: case XKB_KEY_space: switcher_close(s, true); break;
+	default: break;
+	}
+}
+
 static bool run_action(struct server *s, struct bind *b);
 
 static bool handle_key(struct server *s, struct keyboard *k, uint32_t keycode, enum wl_keyboard_key_state st) {
@@ -2454,7 +2766,19 @@ static bool handle_key(struct server *s, struct keyboard *k, uint32_t keycode, e
 		}
 	}
 	s->tap_keycode = 0;
-	if (s->locked) return false;
+	if (s->locked) { switcher_close(s, false); return false; }
+	if (s->sw.on) {
+		for (int i = 0; i < n; i++) switcher_key(s, syms[i], mods);
+		if (k->nhandled < 16) k->handled[k->nhandled++] = keycode;
+		return true;
+	}
+	/* Alt+Shift+Tab opens the switcher on the last window */
+	for (int i = 0; i < n; i++)
+		if (syms[i] == XKB_KEY_ISO_Left_Tab && (mods & (WLR_MODIFIER_LOGO | WLR_MODIFIER_ALT | WLR_MODIFIER_CTRL)) == WLR_MODIFIER_ALT &&
+		    switcher_open(s, WLR_MODIFIER_ALT, -1)) {
+			if (k->nhandled < 16) k->handled[k->nhandled++] = keycode;
+			return true;
+		}
 	for (int i = 0; i < n; i++) {
 		if (syms[i] != XKB_KEY_Super_L && syms[i] != XKB_KEY_Super_R) continue;
 		struct bind *b;
@@ -2480,6 +2804,7 @@ static void kb_modifiers(struct wl_listener *l, void *d) {
 	struct keyboard *k = wl_container_of(l, k, modifiers);
 	wlr_seat_set_keyboard(k->server->seat, k->wlr);
 	wlr_seat_keyboard_notify_modifiers(k->server->seat, &k->wlr->modifiers);
+	if (k->server->sw.on && !(wlr_keyboard_get_modifiers(k->wlr) & k->server->sw.mods)) switcher_close(k->server, true);
 }
 static void kb_key(struct wl_listener *l, void *data) {
 	struct keyboard *k = wl_container_of(l, k, key);
@@ -2492,6 +2817,7 @@ static void kb_key(struct wl_listener *l, void *data) {
 }
 static void kb_destroy(struct wl_listener *l, void *d) {
 	struct keyboard *k = wl_container_of(l, k, destroy);
+	switcher_close(k->server, true);     /* its Alt can't come up any more */
 	UNLISTEN(&k->modifiers); UNLISTEN(&k->key); UNLISTEN(&k->destroy);
 	wl_list_remove(&k->link); free(k);
 }
@@ -2657,7 +2983,10 @@ static bool run_action(struct server *s, struct bind *b) {
 	case A_EXEC: if (b->arg) spawn(b->arg); return true;
 	case A_CLOSE: if (s->focused_view) { view_close(s->focused_view); return true; } return false;
 	case A_QUIT: wl_display_terminate(s->display); return true;
-	case A_FOCUS_NEXT: { struct view *n = next_view(s); if (n) { focus_view(n, NULL); return true; } return false; }
+	case A_FOCUS_NEXT: {
+		/* held with a modifier (Alt+Tab): the switcher, until the modifier goes up */
+		if (b->mods) { if (s->sw.on) { switcher_step(s, 1); return true; } return switcher_open(s, b->mods, 1); }
+		struct view *n = next_view(s); if (n) { focus_view(n, NULL); return true; } return false; }
 	case A_FULLSCREEN: if (s->focused_view) { view_set_fullscreen(s->focused_view, !s->focused_view->fullscreen); return true; } return false;
 	case A_MAXIMIZE: if (s->focused_view) { view_set_maximized(s->focused_view, !s->focused_view->maximized); return true; } return false;
 	case A_OUTPUT_NEXT: {

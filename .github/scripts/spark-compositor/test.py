@@ -178,6 +178,24 @@ try:
         out = windows_json()
         check('"minimized":true' not in out, "Super+D again brings them back")
 
+    # 7c. Alt+Tab switcher: shown while Alt is held, letting go of Alt switches
+    def picks():
+        return re.findall(r"switcher: picked (app_id=\S+ title=.*)", log())
+    p = start(["wtype", "-M", "alt", "-k", "Tab", "-s", "1500", "-m", "alt"])
+    time.sleep(0.8)
+    check(not picks(), "Alt+Tab waits for Alt to come up before switching")
+    run(["grim", os.path.join(OUT, "switcher.png")])
+    p.wait(timeout=10); time.sleep(0.5)
+    first = picks()
+    check(len(first) == 1, f"letting go of Alt switches window ({first})")
+    run(["wtype", "-M", "alt", "-k", "Tab", "-m", "alt"]); time.sleep(0.5)
+    run(["wtype", "-M", "alt", "-k", "Tab", "-m", "alt"]); time.sleep(0.5)
+    got = picks()
+    check(len(got) == 3 and got[2] == got[0] and got[1] != got[0],
+          f"Alt+Tab twice goes back to the same window, most recent first ({got})")
+    run(["wtype", "-M", "alt", "-k", "Tab", "-k", "Escape", "-m", "alt"]); time.sleep(0.5)
+    check(len(picks()) == 3, "Escape closes the switcher without switching")
+
     # 8. screenshots through screencopy
     time.sleep(1)
     shots = {}
