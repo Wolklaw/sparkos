@@ -9,8 +9,8 @@ import tkinter as tk
 
 from . import trash as trash_mod
 from .core import human_size
-from .places import (TRASH, Place, free_space, home_places, pinned_places, removable_drives,
-                     windows_drives)
+from .places import (TRASH, Place, free_space, home_places, network_places, pinned_places,
+                     removable_drives, windows_drives)
 from .text import t
 from .ui import Progress, menu
 from .widgets import T
@@ -44,6 +44,7 @@ class Sidebar(tk.Frame):
             (t('side.places'), home_places(t)),
             (t('side.drives'), windows_drives(t) + removable_drives(t) +
              a.unmounted_volumes()),
+            (t('side.network'), network_places(t, a.settings['servers'], a.gdrive_state)),
             (t('side.pinned'), pinned_places(a.settings['pinned'])),
             ('', [Place('trash', t('place.trash'), TRASH,
                         'trash')]),
@@ -75,7 +76,7 @@ class Sidebar(tk.Frame):
         if place.key == 'trash':
             kind = 'trash'
         image = a.icons.get(kind if kind in ('home', 'desktop', 'download', 'drive', 'usb',
-                                             'trash', 'game', 'pin') else
+                                             'trash', 'game', 'pin', 'network') else
                             {'document': 'document', 'image': 'image', 'audio': 'audio',
                              'video': 'video'}.get(kind, 'folder'), px(16))
         icon = tk.Label(row, image=image, bg=T["panel"], padx=px(6))
@@ -151,6 +152,9 @@ class Sidebar(tk.Frame):
             self._paint(key)
 
     def open(self, place: Place, tab: bool = False) -> None:
+        if place.key.startswith('net-'):
+            self.app.network_open(self.window, place)
+            return
         if place.unmounted:
             self.app.mount_volume(place, lambda path: self.window.active.go(path))
             return
@@ -161,6 +165,15 @@ class Sidebar(tk.Frame):
 
     def place_menu(self, event, place: Place) -> None:
         m = menu(self, self.app.font(10, False))
+        if place.key.startswith('net-'):
+            if place.key.startswith('net-server-'):
+                m.add_command(label=t('net.forget_password'),
+                              command=lambda: self.app.network_forget_password(self.window,
+                                                                               place))
+                m.add_command(label=t('net.forget'),
+                              command=lambda: self.app.network_remove(place))
+                m.tk_popup(event.x_root, event.y_root)
+            return
         if not place.unmounted:
             m.add_command(label=t('menu.open_tab'), command=lambda: self.open(place, tab=True))
             m.add_command(label=t('menu.open_window'),
@@ -207,7 +220,7 @@ class Sidebar(tk.Frame):
                 self._paint(key)
         if key:
             place = self.rows[key][3]
-            if place.unmounted:
+            if place.unmounted or place.key.startswith('net-'):
                 return None
             return place.path
         folders = [p for p in dragged if os.path.isdir(p)]

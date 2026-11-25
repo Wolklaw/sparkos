@@ -16,7 +16,7 @@ import tkinter as tk
 import tkinter.font as tkfont
 
 from . import APP_CLASS, APP_NAME, APP_SLUG, SERVICE_IDLE_MS, VERSION, core, gloop
-from . import servicemenus, thumbs, trash as trash_mod
+from . import network, servicemenus, thumbs, trash as trash_mod
 from .core import home, log
 from .dnd import DragController
 from .icons import Icons, to_photo
@@ -28,6 +28,7 @@ from .text import t
 from .ui import Dialog, Tooltip, ask, ask_text, menu, style_ttk
 from .widgets import MONO_FAMILIES, T, Glitch
 
+NET_FLASH_MS = 60000                   # "Connecting…" stays until it ends (the timeout is 30 s)
 URI_SAFE = "/!$&'()*+,;=:@~-._"
 
 
@@ -409,7 +410,8 @@ class App:
     # ─── thumbnails ──────────────────────────────────────────
 
     def thumb_for(self, e: Entry, box: int):
-        if self.thumbnailer is None or not thumbs.can_thumbnail(e.ext):
+        if self.thumbnailer is None or not thumbs.can_thumbnail(e.ext) or \
+                network.is_remote(e.path):         # would download every photo to draw one
             return None
         key = (e.path, e.mtime, box)
         photo = self._thumb_tk.get(key)
@@ -448,7 +450,8 @@ class App:
         self.bridge.post(store)
 
     def big_thumb(self, e: Entry, size: int, cb: Callable) -> None:
-        if self.thumbnailer is None or not thumbs.can_thumbnail(e.ext):
+        if self.thumbnailer is None or not thumbs.can_thumbnail(e.ext) or \
+                network.is_remote(e.path):
             return
         src = self._thumb_src.get(e.path)
         if src is not None and src[0] == e.mtime and src[1].width >= min(size, 200):
@@ -1003,8 +1006,180 @@ class App:
                     window.active.flash(t('status.ejected', name=place.label), ms=4000)
         threading.Thread(target=work, daemon=True).start()
 
+    # ─── network places and online accounts ──────────────────
+
+    @property
+    def gdrive_state(self) -> str:
+        """'none' | 'no-account' | 'ready', looked up at most every few seconds."""
+        now = time.monotonic()
+        cached = getattr(self, '_gdrive', None)
+        if cached is None or now - cached[0] > 5:
+            cached = (now, network.gdrive_state())
+            self._gdrive = cached
+        return cached[1]
+
+    def network_open(self, window, place) -> None:
+        """A click on a row of the sidebar's Network group."""
+        key = place.key
+        if key == 'net-connect':
+            from .netdialogs import ConnectDialog
+            ConnectDialog(self, window).run()
+        elif key == 'net-gdrive':
+            self.network_go(window, None, None, url=network.GDRIVE_URL,
+                            name=t('net.gdrive'))
+        elif key == 'net-gdrive-add':
+            if network.open_account_setup():
+                window.active.flash(t('net.gdrive_waiting'), ms=9000)
+            else:
+                window.active.flash(t('net.gdrive_setup_failed'), error=True, ms=9000)
+            self._gdrive = None
+        elif key.startswith('net-server-'):
+            try:
+                server, _pw = network.parse_address(place.path)
+            except network.NetworkError:
+                return
+            self.network_go(window, server, None, name=place.label, saved=True)
+
+    def network_remove(self, place) -> None:
+        network.remove_bookmark(self.settings, place.path)
+        self.settings_changed()
+        self._sidebars()
+
+    def network_forget_password(self, window, place) -> None:
+        try:
+            server, _pw = network.parse_address(place.path)
+        except network.NetworkError:
+            return
+        threading.Thread(target=lambda: network.Keyring().clear(server.key()),
+                         daemon=True).start()
+        window.active.flash(t('net.forgot_password', name=place.label), ms=4000)
+
+    def network_error_text(self, err, name: str) -> str:
+        if err.code == 'address':
+            return t(f'net.err.address.{err.detail or "host"}')
+        if err.code == 'timeout':
+            return t('net.err.timeout', name=name, s=network.CONNECT_TIMEOUT)
+        if err.code == 'no_kio':
+            return t('net.err.no_kio')
+        if err.detail:
+            return t('net.err.failed', name=name, why=err.detail)
+        return t('net.err.failed_plain', name=name)
+
+    def network_go(self, window, server, password: Optional[str], name: str = '',
+                   url: str = '', saved: bool = False, remember: bool = False,
+                   save_as: str = '', on_fail: Optional[Callable[[str], None]] = None,
+                   on_ok: Optional[Callable[[], None]] = None) -> Callable[[], None]:
+        """Connect (first time: check the ssh host key with the user), then show the server's
+        folder in the window's active pane. Everything slow runs in threads, so the window
+        keeps answering; the pane says "Connecting" and can be used meanwhile. Returns a
+        function that gives up waiting. `saved`: look the password up in the keyring.
+        `url` is for places that aren't servers (Google Drive)."""
+        pane = window.active
+        name = name or (server.display() if server else url)
+        cancelled = [False]
+        cancel_current: List[Callable[[], None]] = [lambda: None]
+
+        def cancel():
+            cancelled[0] = True
+            cancel_current[0]()
+
+        def fail(err):
+            if cancelled[0]:
+                return
+            text = self.network_error_text(err, name) if isinstance(
+                err, network.NetworkError) else str(err)
+            if on_fail:
+                on_fail(text)
+            elif pane.winfo_exists():
+                pane.flash(text, error=True, ms=9000)
+
+        def connect():
+            if cancelled[0]:
+                return
+            if pane.winfo_exists() and not on_fail:
+                pane.flash(t('net.connecting', name=name), ms=NET_FLASH_MS)
+            keyring = network.Keyring()
+
+            def work():
+                if url:
+                    return network.connect_blocking(network.RawUrl(url), None)
+                pw = password
+                if pw is None and saved:
+                    pw = keyring.lookup(server.key())
+                path = network.connect_blocking(server, pw)
+                note = ''
+                if remember and password:
+                    if not keyring.store(server.key(), password,
+                                         label=f"Spark Files {server.display()}"):
+                        note = t('net.no_keyring')
+                return path, note
+
+            def done(result, err):
+                if err is not None:
+                    fail(err)
+                    return
+                path, note = result if isinstance(result, tuple) else (result, '')
+                if server is not None and save_as:
+                    network.add_bookmark(self.settings, save_as, server)
+                    self.settings_changed()
+                    self._sidebars()
+                if on_ok:
+                    on_ok()
+                if pane.winfo_exists():
+                    pane.go(path)
+                    pane.flash(note or t('net.connected', name=name), ms=5000,
+                               error=bool(note))
+                    self.glitch.now(window.strip)
+            cancel_current[0] = network.start(work, self.bridge.post, done)
+
+        if server is not None and server.scheme == 'sftp':
+            if on_fail:
+                pass
+            elif pane.winfo_exists():
+                pane.flash(t('net.checking'), ms=NET_FLASH_MS)
+
+            def check():
+                if network.host_key_known(server) is not False:
+                    return None
+                return network.scan_host_key(server)
+
+            def checked(result, err):
+                if cancelled[0]:
+                    return
+                if err is not None:
+                    fail(network.NetworkError('failed', t('net.hostkey_changed',
+                                                          why=err.detail or err.code)))
+                    return
+                if result is not None:
+                    line, fingerprint = result
+                    answer = ask(self, window, t('net.hostkey_title'),
+                                 t('net.hostkey', host=server.display(), fp=fingerprint),
+                                 [('cancel', t('button.cancel'), 'ghost'),
+                                  ('yes', t('net.hostkey_yes'), 'primary')],
+                                 default='cancel')
+                    if answer != 'yes':
+                        if on_fail:
+                            on_fail('')
+                        elif pane.winfo_exists():
+                            pane.flash(t('job.cancelled'), ms=3000)
+                        return
+                    try:
+                        network.accept_host_key(line)
+                    except OSError as exc:
+                        fail(network.NetworkError('failed', exc.strerror or str(exc)))
+                        return
+                connect()
+            cancel_current[0] = network.start(check, self.bridge.post, checked)
+        else:
+            connect()
+        return cancel
+
     def drive_label(self, path: str) -> Optional[Tuple[str, str]]:
-        """('C:', '/var/mnt/c') for a path on a Windows drive; a USB stick's label."""
+        """('C:', '/var/mnt/c') for a path on a Windows drive; a USB stick's label; a
+        network place's address ('sftp://me@host')."""
+        remote = network.split_remote(path)
+        if remote:
+            return remote[1], remote[0]
         m = re.match(r'^(/var/mnt/([a-z]))(/|$)', path)
         if m:
             return t('place.drive', letter=m.group(2).upper()), m.group(1)

@@ -3,9 +3,9 @@
   "slug": "spark-files",
   "name": "Spark Files",
   "name_fr": "Spark Files",
-  "summary": "File manager: tabs and a split view, copies and moves in the background, search by name, thumbnails, the Trash and your drives.",
-  "summary_fr": "Gestionnaire de fichiers : onglets et vue partagée, copies et déplacements en arrière-plan, recherche par nom, vignettes, la corbeille et vos lecteurs.",
-  "version": "1.0.0",
+  "summary": "File manager: tabs and a split view, copies and moves in the background, search by name, thumbnails, the Trash, your drives, network servers and Google Drive.",
+  "summary_fr": "Gestionnaire de fichiers : onglets et vue partagée, copies et déplacements en arrière-plan, recherche par nom, vignettes, la corbeille, vos lecteurs, les serveurs réseau et Google Drive.",
+  "version": "1.1.0",
   "installed_size_kb": 1210,
   "icon": "icons/spark-files-256.png",
   "categories": ["System", "FileTools", "FileManager"],
@@ -18,7 +18,10 @@
     "optional": {
       "gstreamer playbin": "video thumbnails",
       "udisksctl": "Eject for USB drives",
-      "spark-terminal": "Open a terminal here (Konsole or the desktop's terminal otherwise)"
+      "spark-terminal": "Open a terminal here (Konsole or the desktop's terminal otherwise)",
+      "kio-fuse, kio-extras, kio-gdrive": "network places (sftp, smb) and Google Drive",
+      "secret-tool": "remember server passwords in the keyring",
+      "ssh-keyscan": "the host key check for sftp servers"
     },
     "system": "Linux; any desktop; X11 or XWayland for dragging to and from other apps"
   },

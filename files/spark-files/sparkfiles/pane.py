@@ -5,14 +5,16 @@ one pane, or two side by side in the split view (F3).
 The pane lists a folder, the Trash, or the results of a search below a folder (Ctrl+F)."""
 
 import os
+import re
 import threading
 import time
 from typing import Dict, List, Optional, Tuple
 
 import tkinter as tk
 
-from . import trash as trash_mod
+from . import network, trash as trash_mod
 from .core import home, home_short, human_size, expand_path
+from .network import is_remote
 from .listing import Entry, filter_entries, list_dir, read_entry, sort_entries
 from .places import TRASH, free_space
 from .search import Search
@@ -147,6 +149,8 @@ class PathBar(Timers, tk.Frame):
         if not text:
             self.show()
             return 'break'
+        if re.match(r'^[A-Za-z][A-Za-z0-9+.-]*://', text):
+            return self._commit_address(text)
         path = expand_path(text, self.path if self.path != TRASH else home())
         if os.path.isdir(path):
             self.show()
@@ -156,6 +160,18 @@ class PathBar(Timers, tk.Frame):
             self.pane.go(os.path.dirname(path), select=[path])
         else:
             self.pane.flash(t('error.no_such_folder', path=home_short(path)), error=True)
+        return 'break'
+
+    def _commit_address(self, text: str) -> str:
+        """sftp://host/folder or smb://host/share typed in the bar: connect (a typed
+        password is used once and never kept)."""
+        try:
+            server, password = network.parse_address(text)
+        except network.NetworkError as err:
+            self.pane.flash(self.app.network_error_text(err, text), error=True)
+            return 'break'
+        self.show()
+        self.app.network_go(self.pane.window, server, password, saved=password is None)
         return 'break'
 
     def _complete(self, _e=None) -> str:
@@ -285,7 +301,13 @@ class Pane(Timers, tk.Frame):
         self.b_back.set_enabled(self.hist_pos > 0)
         self.b_fwd.set_enabled(self.hist_pos < len(self.history) - 1)
         self.b_up.set_enabled(self.mode == 'search' or
-                              (self.mode == 'folder' and self.path != '/'))
+                              (self.mode == 'folder' and self.path != '/' and
+                               not self._at_server_root()))
+
+    def _at_server_root(self) -> bool:
+        """The top of a server's mount: above it is kio-fuse's own folder, not a place."""
+        remote = network.split_remote(self.path)
+        return bool(remote) and self.path.rstrip('/') == remote[0]
 
     def back(self) -> None:
         if self.hist_pos > 0:
@@ -304,7 +326,7 @@ class Pane(Timers, tk.Frame):
         if self.mode == 'search':
             self.stop_search(reload=True)
             return
-        if self.mode == 'trash' or self.path == '/':
+        if self.mode == 'trash' or self.path == '/' or self._at_server_root():
             return
         parent = os.path.dirname(self.path)
         self.go(parent, select=[self.path])
@@ -431,7 +453,7 @@ class Pane(Timers, tk.Frame):
     def _watch(self) -> None:
         self.app.bridge.unwatch(self.watch_id)
         self.watch_id = 0
-        if self.mode == 'folder':
+        if self.mode == 'folder' and not is_remote(self.path):    # a server tells no one
             self.watch_id = self.app.bridge.watch(self.path, self._changed)
         elif self.mode == 'trash':
             self.watch_id = self.app.bridge.watch(os.path.join(trash_mod.home_trash(), 'files'),

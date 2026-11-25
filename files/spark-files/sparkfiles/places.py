@@ -7,6 +7,7 @@ import shutil
 from typing import Dict, List, Optional
 
 from .core import home
+from .network import is_remote
 
 TRASH = 'trash:///'                 # the Trash isn't a real folder; the view lists it itself
 
@@ -140,12 +141,26 @@ def pinned_places(paths: List[str]) -> List[Place]:
 
 
 def free_space(path: str) -> Optional[tuple]:
-    """(free, total) bytes, or None."""
+    """(free, total) bytes, or None. Never asks a network place (it could take a minute)."""
+    if is_remote(path):
+        return None
     try:
         usage = shutil.disk_usage(path)
         return usage.free, usage.total
     except OSError:
         return None
+
+
+def network_places(t, servers: List[Dict[str, str]], gdrive: str) -> List[Place]:
+    """The sidebar's Network group. A place here isn't a folder: its key starts with 'net-'
+    and the sidebar connects to it when clicked. gdrive: 'none' | 'no-account' | 'ready'."""
+    out = [Place(f"net-server-{b['url']}", b['name'], b['url'], 'network') for b in servers]
+    out.append(Place('net-connect', t('net.connect'), '', 'network'))
+    if gdrive == 'ready':
+        out.append(Place('net-gdrive', t('net.gdrive'), '', 'network'))
+    elif gdrive == 'no-account':
+        out.append(Place('net-gdrive-add', t('net.gdrive_add'), '', 'network'))
+    return out
 
 
 def mount_point(path: str) -> str:
