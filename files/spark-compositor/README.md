@@ -2,8 +2,8 @@
 
 A Wayland compositor on wlroots 0.20, written in C. It runs the Spark session,
 "Spark (experimental compositor)" (`spark-wl`) on the login screen, with Spark Shell and no KDE, Plasma
-or KWin. It has been the owner's daily session since 25 Nov 2026; Plasma is still the login screen's
-default and stays installed as the fallback. Read the "Missing" list before you log in to it.
+or KWin. It has been the owner's daily session since 25 Nov 2026 and is the login screen's default
+(`PreselectedSession` in /etc/plasmalogin.conf); Plasma stays installed as the fallback. Read the "Missing" list before you log in to it.
 
 `spark-wl-windows/` is a small helper that gives Spark Shell the window list (foreign-toplevel) for
 its task list.

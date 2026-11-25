@@ -2,7 +2,7 @@
 
 The security pieces of the Spark session (stage 3 of "Replacing KDE" in [PLAN.md](../../PLAN.md)).
 They are part of the image, not live-updated apps: they run as root or before anyone is signed in.
-Plasma stays the default session and Plasma Login Manager stays the display manager.
+Spark (`spark-wl`) is the default session; Plasma is the fallback. Plasma Login Manager stays the display manager.
 
 | Piece | State |
 |---|---|

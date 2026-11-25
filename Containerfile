@@ -80,7 +80,7 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
 #     sparkos-capslock@<device>.service for each physical keyboard (80-sparkos-capslock.rules).
 COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
 
-# 3c. The experimental Spark compositor (session "spark-wl", never the default). Its runtime
+# 3c. The experimental Spark compositor (session "spark-wl", the login screen's default). Its runtime
 #     library and portal come from packages.sh in step 4.
 COPY --from=compositor-build /spark-compositor /usr/bin/spark-compositor
 COPY --from=compositor-build /spark-wl-windows /usr/libexec/spark-wl-windows

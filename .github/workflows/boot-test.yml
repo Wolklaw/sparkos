@@ -798,6 +798,12 @@ jobs:
           # wallet. Autologin only if that fails, because it leaves KWallet without a wallet.
           sendkeys() { for k in "$@"; do echo "sendkey $k" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null; sleep 0.2; done; }
           plasma_up() { $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1; }
+          # The image starts on the Spark session (spark-wl). Check that, then preselect Plasma in
+          # this VM only, because the checks below need a Plasma session.
+          $SSH 'grep -qx "PreselectedSession=spark-wl.desktop" /etc/plasmalogin.conf && test -f /usr/share/wayland-sessions/spark-wl.desktop' \
+            || { echo "::error::the login screen does not default to the Spark session (spark-wl)"; exit 1; }
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "sed -i s/^PreselectedSession=.*/PreselectedSession=plasma.desktop/ /etc/plasmalogin.conf && systemctl restart plasmalogin"'
+          sleep 15
           sendkeys shift; sleep 3
           echo "screendump $WORK/shots/3a-sign-in.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
           sendkeys s p a r k o s minus b o o t minus t e s t ret

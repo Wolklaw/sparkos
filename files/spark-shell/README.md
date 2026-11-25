@@ -7,7 +7,7 @@ It runs in two sessions on the login screen:
 - **Spark (experimental compositor)**, `spark-wl`: on the [Spark compositor](../spark-compositor), with no KDE, Plasma or KWin. This is the one in daily use since 25 Nov 2026. The window list comes from `spark-wl-windows` (foreign-toplevel), and `spark-wl-startup` starts the session services.
 - **Spark**: the same shell on KWin, as described in the rest of this file (the KWin script, powerdevil, the KDE daemon).
 
-**Plasma is still the login screen's default.**
+**`spark-wl` is the login screen's default.** Plasma stays in the session menu as the fallback.
 
 ## What is in it
 

@@ -8,20 +8,20 @@ On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 1
 
 ## The desktop
 
-SparkOS draws its own desktop. You choose the session on the login screen.
+SparkOS draws its own desktop. The login screen starts the Spark session; Plasma is in its session menu as the fallback.
 
-- **Spark** (`spark-wl`) is the session the owner's PC uses every day. It runs nothing from KDE, Plasma or KWin:
-  - **Spark compositor**: a Wayland compositor on wlroots, written in C ([source](files/spark-compositor)). It draws the title bars and handles snapping and maximizing. Alt+Tab opens a window switcher, and the Windows 7 window keys work (Super+arrows, Super+D, Super+E). The volume and media keys work, and the screen stays on while a video or game asks for it. X11 apps run through XWayland.
+- **Spark** (`spark-wl`) is the default session, and the one the owner's PC uses every day. It runs nothing from KDE, Plasma or KWin:
+  - **Spark compositor**: a Wayland compositor on wlroots, written in C ([source](files/spark-compositor)). It draws the title bars and handles snapping and maximizing. Alt+Tab opens a window switcher, and the Windows 7 window keys work (Super+arrows, Super+D, Super+E). The volume and mute keys work, and the screen stays on while a video or game asks for it. X11 apps run through XWayland.
   - **Spark Shell**: the panel, task list, tray, notifications, the Spark menu (Win7-style, above the SPARK button), wallpaper, volume display and lock screen, all in GTK 4 ([source](files/spark-shell)). Old X11 tray icons work too, so Wine and Proton apps such as Battle.net show theirs in the tray.
   - **Spark's own pieces for the rest**: password prompts (polkit agent), Open and Save dialogs for every app (a Spark Files portal), screenshots and screen sharing through the wlroots portal, and the startup sound.
-- **Plasma** is still installed. It is still the login screen's default for a new account, as the fallback while the Spark session is new.
+- **Plasma** is still installed as the fallback. Pick it in the login screen's session menu; the next sign-in starts on Spark again.
 
 Still from KDE in this image:
 - The login screen (Plasma Login Manager). A Spark greeter on greetd is built and installed, but off; `spark greeter enable` turns it on.
 - The password store (KWallet).
 - The Plasma packages kept for the fallback session.
 
-Replacing these and making Spark the default session are the next steps (PLAN.md, "Replacing KDE").
+Replacing these is the next step (PLAN.md, "Replacing KDE").
 
 Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. NVIDIA has not been tried at all.
 
