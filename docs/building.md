@@ -57,6 +57,28 @@ The same tags BlueBuild used, so the boot test, the installer and every PC keep 
 - Only then do the other tags, `latest` included, move to that digest (a manifest copy, so the
   digest and its signature stay the same). A PC never sees a `latest` whose signature isn't there yet.
 
+## Module signing (Secure Boot)
+
+The out-of-tree kernel modules ([kmods.sh](../build_files/kmods.sh)) are signed in step 4b so
+they load with Secure Boot on. The public certificate is [secureboot/sparkos-kmods.der](../secureboot);
+the private key is the `KMOD_SIGNING_KEY` repo secret, handed to `podman build` as a build secret
+(`--secret id=kmod_signing_key,env=KMOD_SIGNING_KEY`) and mounted only in that step, so it is in no
+layer. No secret (a PR from a fork, Dependabot, a local build): the build logs `NOT SIGNING` and
+leaves the modules unsigned. With the secret, the build fails if a module has no signer
+(`modinfo -F signer`) or if the key isn't the certificate's.
+
+Make the key once, on your own PC:
+
+1. `build_files/make-kmod-key.sh ~/sparkos-kmod-key` writes `kmod-signing.key` (private) and
+   `sparkos-kmods.der` (public).
+2. `gh secret set KMOD_SIGNING_KEY --repo Wolklaw/sparkos < ~/sparkos-kmod-key/kmod-signing.key`
+3. Copy `sparkos-kmods.der` to `secureboot/sparkos-kmods.der` and commit it. Never commit the key;
+   keep a copy of it somewhere safe, then delete it from the PC.
+4. Merge. The next build signs; on each SparkOS PC run `spark secureboot enroll` once.
+
+A new key means every PC enrolls again. A local build can sign too: add
+`--secret id=kmod_signing_key,src=PATH-TO-KEY`.
+
 ## Testing
 
 [boot-test.yml](../.github/workflows/boot-test.yml) runs after every build of main: it installs the

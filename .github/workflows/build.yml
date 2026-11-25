@@ -36,6 +36,7 @@ on:
     paths:
       - "Containerfile"
       - "cosign.pub"
+      - "secureboot/**"
       - "build_files/**"
       - "files/**"
       - "!files/spark-*/**"
@@ -106,7 +107,17 @@ jobs:
         env:
           BASE: ${{ steps.base.outputs.name }}
           BASE_DIGEST: ${{ steps.base.outputs.digest }}
+          # PEM private key that signs the out-of-tree kernel modules for Secure Boot. Not
+          # available to pull requests from forks or Dependabot; then the modules stay unsigned.
+          KMOD_SIGNING_KEY: ${{ secrets.KMOD_SIGNING_KEY }}
         run: |
+          secret_args=()
+          if [ -n "$KMOD_SIGNING_KEY" ]; then
+            secret_args=(--secret id=kmod_signing_key,env=KMOD_SIGNING_KEY)
+            echo "Module-signing key present: the kernel modules will be signed."
+          else
+            echo "::warning::No KMOD_SIGNING_KEY secret: the kernel modules will be unsigned (Secure Boot refuses them)."
+          fi
           # Pulled by digest, so the base is exactly the one recorded in the labels
           for i in 1 2 3 4 5; do sudo podman pull -q "${BASE%:*}@$BASE_DIGEST" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman build \
@@ -116,6 +127,7 @@ jobs:
             --build-arg IMAGE_NAME="$IMAGE_NAME" \
             --build-arg REVISION="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            "${secret_args[@]}" \
             --tag localhost/sparkos:build \
             .
           sudo podman image inspect localhost/sparkos:build --format '{{.Id}} {{.Size}} bytes, {{len .RootFS.Layers}} layers'

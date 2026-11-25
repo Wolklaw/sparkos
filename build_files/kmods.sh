@@ -18,6 +18,12 @@
 #   hid-fanatecff, new-lg4ff, hid-tmff2 (+ hid-tminit): Fanatec, Logitech and Thrustmaster
 #                  racing wheels with full force feedback
 #   vhba           virtual disc drive (CDEmu)
+#
+# Secure Boot: with a signing key (build secret "kmod_signing_key", a PEM private key) the install
+# step signs every module with the kernel's sign-file (sha256). The matching certificate is
+# secureboot/sparkos-kmods.der in the repo; it ships in the image and the user enrolls it with
+# "spark secureboot enroll". Without the key (pull requests, forks, local builds) the modules stay
+# unsigned and the build says so. How to make the key: build_files/make-kmod-key.sh.
 # The commits are the ones Bazzite's own builds used on 2026-11-22 (rpm -qa in
 # ghcr.io/wolklaw/sparkos:latest), so the drivers behave the same after the switch.
 set -euo pipefail
@@ -92,7 +98,10 @@ build() {
   # The base image has no /var/tmp; rpmbuild (as the akmods user) needs one it can write to
   mkdir -p /var/tmp && chmod 1777 /var/tmp
   rm -rf "$src"
-  mkdir -p "$src" "$out/extra" "$out/rpms" "$out/firmware" "$out/files" "$out/licenses"
+  mkdir -p "$src" "$out/extra" "$out/rpms" "$out/firmware" "$out/files" "$out/licenses" "$out/tools"
+  # kernel-devel's signing tool, for the install step (which has no kernel-devel)
+  test -x "$kdir/scripts/sign-file"
+  install -m 0755 "$kdir/scripts/sign-file" "$out/tools/sign-file"
 
   local entry name url sum lic dir
   for entry in "${SOURCES[@]}"; do
@@ -195,8 +204,33 @@ build() {
   find "$out" -type f | sort
 }
 
+# Signing. The key is the build secret's file; the cert is the public certificate (DER) from the repo.
+SIGN_KEY=/run/secrets/kmod_signing_key
+SIGN_CERT=/tmp/secureboot/sparkos-kmods.der
+signing_on() { [ -s "$SIGN_KEY" ]; }
+
+# Sign every module under extra/ (the ones built from source and v4l2loopback's), in place. The
+# signature goes on the uncompressed module, then it's compressed again, as the kernel expects.
+sign_modules() { # kernel-version
+  local kver=$1 ko raw n=0
+  [ -s "$SIGN_CERT" ] || { echo "kmods.sh: a signing key is set but secureboot/sparkos-kmods.der is missing" >&2; exit 1; }
+  # The key must be the certificate's key, or the signatures would verify against nothing
+  [ "$(openssl pkey -in "$SIGN_KEY" -pubout 2>/dev/null)" = "$(openssl x509 -inform DER -in "$SIGN_CERT" -pubkey -noout)" ] ||
+    { echo "kmods.sh: the signing key does not match secureboot/sparkos-kmods.der" >&2; exit 1; }
+  while IFS= read -r -d '' ko; do
+    raw=$(mktemp)
+    xz -dc "$ko" >"$raw"
+    /tmp/kmods/tools/sign-file sha256 "$SIGN_KEY" "$SIGN_CERT" "$raw"
+    xz -C crc32 --lzma2=dict=1MiB -c "$raw" >"$ko"
+    rm -f "$raw"
+    n=$((n + 1))
+  done < <(find "/usr/lib/modules/$kver/extra" -name '*.ko.xz' -print0)
+  [ "$n" -gt 0 ] || { echo "kmods.sh: found no modules to sign" >&2; exit 1; }
+  echo "kmods.sh: signed $n modules with the SparkOS module-signing key"
+}
+
 install_kmods() {
-  local in=/tmp/kmods kver built ko name
+  local in=/tmp/kmods kver built ko name signer
   kver=$(image_kernel)
   built=$(cat "$in/KVER")
   if [ "$built" != "$kver" ]; then
@@ -248,6 +282,18 @@ EOF
   cp -r "$in"/licenses/. /usr/share/licenses/sparkos-kmods/
   cp "$in/SOURCES" /usr/share/licenses/sparkos-kmods/SOURCES
 
+  # The public certificate, for "spark secureboot enroll". It's public, so it ships even when
+  # this build has no key to sign with.
+  if [ -s "$SIGN_CERT" ]; then
+    install -D -m 0644 "$SIGN_CERT" /usr/share/sparkos/secureboot/sparkos-kmods.der
+  fi
+  if signing_on; then
+    sign_modules "$kver"
+  else
+    echo "kmods.sh: NOT SIGNING: no kmod_signing_key build secret (a pull request, a fork or a local build)."
+    echo "kmods.sh: the modules are unsigned and will not load with Secure Boot on."
+  fi
+
   depmod -a "$kver"
 
   # Every module is where modprobe finds it, and for this kernel
@@ -256,6 +302,11 @@ EOF
     vm=$(modinfo -k "$kver" -F vermagic "$name")
     [ "${vm%% *}" = "$kver" ] || { echo "kmods.sh: $name is for '${vm%% *}', not $kver" >&2; exit 1; }
     echo "$name: $(modinfo -k "$kver" -F filename "$name")"
+    if signing_on; then
+      signer=$(modinfo -k "$kver" -F signer "$name")
+      [ -n "$signer" ] || { echo "kmods.sh: $name is not signed" >&2; exit 1; }
+      echo "$name: signed by '$signer' ($(modinfo -k "$kver" -F sig_hashalgo "$name"))"
+    fi
   done
   mkdir -p /usr/share/sparkos/fedora-base
   { echo "kernel: $kver"; cat "$in/SOURCES"; rpm -q kmod-v4l2loopback-"$kver" v4l2loopback; } \
