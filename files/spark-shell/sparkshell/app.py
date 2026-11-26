@@ -43,7 +43,11 @@ SHELL_XML = """
 """
 class Shell(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
+        # REPLACE: a shell left over from a signed-out session must not keep the name (the new
+        # one would only pass it "activate" and exit, and the new session stays black).
+        # ALLOW_REPLACEMENT: when a newer shell takes the name, this one quits (name-lost).
+        super().__init__(application_id=APP_ID,
+                         flags=Gio.ApplicationFlags.REPLACE | Gio.ApplicationFlags.ALLOW_REPLACEMENT)
         self.config = config.clean({})
         self.panels = []
         self.wallpapers = []
