@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from sparkshell import config, ending, notifyd, osd, screensaver, tray, windows, xembed  # noqa: E402
+from sparkshell import config, ending, notifyd, osd, password, screensaver, tray, windows, xembed  # noqa: E402
 
 
 class Config(unittest.TestCase):
@@ -346,3 +346,60 @@ class MediaKeysTest(unittest.TestCase):
         self.assertEqual(osd.choose_player([('a', 'Stopped'), ('b', 'Paused')]), 'b')
         self.assertEqual(osd.choose_player([('a', 'Stopped')]), 'a')
         self.assertIsNone(osd.choose_player([]))
+
+
+# a passwd that talks like Fedora's: current password "old", pwquality wants 8 characters
+FAKE_PASSWD = r"""#!/bin/sh
+printf 'Current password: '; read -r cur
+if [ "$cur" != old ]; then
+  echo 'passwd: Authentication token manipulation error'; echo 'passwd: password unchanged'; exit 10
+fi
+printf 'New password: '; read -r new
+if [ ${#new} -lt 8 ]; then
+  echo 'BAD PASSWORD: The password is shorter than 8 characters'; printf 'New password: '; read -r new
+fi
+printf 'Retype new password: '; read -r again
+[ "$new" = "$again" ] || { echo 'Sorry, passwords do not match.'; echo 'passwd: Authentication token manipulation error'; exit 10; }
+echo "$new" > "$OUT"
+echo 'passwd: all authentication tokens updated successfully.'
+"""
+
+
+class PasswordTest(unittest.TestCase):
+    def setUp(self):
+        self.dir = tempfile.TemporaryDirectory()
+        self.fake = os.path.join(self.dir.name, 'passwd')
+        with open(self.fake, 'w') as f:
+            f.write(FAKE_PASSWD)
+        os.chmod(self.fake, 0o755)
+        self.out = os.path.join(self.dir.name, 'out')
+        os.environ['OUT'] = self.out
+
+    def tearDown(self):
+        os.environ.pop('OUT', None)
+        self.dir.cleanup()
+
+    def run_it(self, current, new):
+        return password.change(current, new, command=(self.fake,), timeout=10)
+
+    def test_checks(self):
+        self.assertEqual(password.check('', 'a', 'a'), 'pw_need_current')
+        self.assertEqual(password.check('o', '', ''), 'pw_need_new')
+        self.assertEqual(password.check('o', 'a', 'b'), 'pw_mismatch')
+        self.assertEqual(password.check('o', 'o', 'o'), 'pw_same')
+        self.assertIsNone(password.check('o', 'longer one', 'longer one'))
+
+    def test_changed(self):
+        self.assertEqual(self.run_it('old', 'good password'), (True, ''))
+        with open(self.out) as f:
+            self.assertEqual(f.read().strip(), 'good password')
+
+    def test_wrong_current(self):
+        self.assertEqual(self.run_it('nope', 'good password'), (False, ''))
+        self.assertFalse(os.path.exists(self.out))
+
+    def test_too_weak(self):
+        ok, message = self.run_it('old', 'short')
+        self.assertFalse(ok)
+        self.assertIn('shorter than 8', message)
+        self.assertFalse(os.path.exists(self.out))
