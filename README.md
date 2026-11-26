@@ -8,6 +8,15 @@ On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 1
 
 ## The desktop
 
+![The Spark menu open above the SPARK button, on the Spark desktop](docs/screenshots/launcher.webp)
+
+| | |
+|---|---|
+| ![Spark Welcome](docs/screenshots/welcome.webp) | ![Spark Files](docs/screenshots/files.webp) |
+| ![Spark Store](docs/screenshots/store.webp) | |
+
+Screenshots from the Spark session, 25 Nov 2026, in a fresh user folder.
+
 SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: Fedora Kinoite ships them, and the last build step removes them ([sparkos-no-kde.sh](files/scripts/sparkos-no-kde.sh)). The build fails if a KDE package is left.
 
 - **Spark Greeter** is the login screen: greetd runs it on the Spark compositor. If it fails to start a few times in a row, greetd switches to a text login by itself, and `spark greeter enable` brings it back.
