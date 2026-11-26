@@ -164,6 +164,18 @@ class PortalStream(NamedTuple):
     restore_token: Optional[str]
 
 
+def name_screen(name: str):
+    """Tell /usr/libexec/spark-screen-pick which screen this request is for."""
+    folder = os.path.join(os.environ.get('XDG_RUNTIME_DIR') or f'/run/user/{os.getuid()}',
+                          APP_SLUG)
+    try:
+        os.makedirs(folder, mode=0o700, exist_ok=True)
+        with open(os.path.join(folder, 'screen'), 'w', encoding='utf-8') as fh:
+            fh.write(name + '\n')
+    except OSError as exc:
+        log.warning("could not name the screen for the portal chooser: %s", exc)
+
+
 class ScreenCastPortal:
     """org.freedesktop.portal.ScreenCast over D-Bus, through PyGObject's Gio.
 
@@ -261,10 +273,8 @@ class ScreenCastPortal:
                        'multiple': v('b', False)}
             if cursors & 2:
                 options['cursor_mode'] = v('u', 2)                            # embedded
-            if version >= 4:
-                options['persist_mode'] = v('u', 2)                           # until revoked
-                if restore_token:
-                    options['restore_token'] = v('s', restore_token)
+            # No persist_mode: a restored session skips the chooser, and the
+            # chooser is what puts the screen picked in Snip on the stream.
             return v('(oa{sv})', (self.session, options))
 
         self._request('SelectSources', select)
@@ -348,6 +358,7 @@ class Recording:
             raise RecordError(t('rec.no_gst'))
         if not self.encoders:
             raise RecordError(t('rec.no_encoder'))
+        name_screen(self.monitor.name)
         self.portal = ScreenCastPortal()
         self.state = 'asking'
         threading.Thread(target=self._ask, daemon=True).start()
