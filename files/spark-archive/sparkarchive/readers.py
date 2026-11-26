@@ -206,7 +206,10 @@ class ZipReader(Reader):
                 raise BadArchive(str(exc)) from None
             with handle:
                 if e.kind == LINK:
-                    e.target = handle.read(4096).decode('utf-8', 'surrogateescape')
+                    # through the guard too: a wrong password that slips past the check byte
+                    # must come back as WrongPassword, not as a bug
+                    e.target = _Guarded(handle, encrypted=e.encrypted).read(4096) \
+                        .decode('utf-8', 'surrogateescape')
                     yield e, None
                 else:
                     yield e, _Guarded(handle, encrypted=e.encrypted)
@@ -217,7 +220,8 @@ class ZipReader(Reader):
 
 class _Guarded:
     """Turns the read errors of Python's decompressors into BadArchive (or WrongPassword: a
-    wrong zip password slips past the check byte 1 time in 256 and fails the CRC instead)."""
+    wrong zip password slips past the check byte 1 time in 256 and then fails the CRC or the
+    decompressor instead)."""
 
     def __init__(self, handle, encrypted: bool = False):
         self.handle, self.encrypted = handle, encrypted
@@ -227,7 +231,10 @@ class _Guarded:
             return self.handle.read(n)
         except (zipfile.BadZipFile, zlib.error, lzma.LZMAError, EOFError, tarfile.TarError,
                 ValueError) as exc:
-            if self.encrypted and 'crc' in str(exc).lower():
+            # Encrypted with a wrong key, the data is noise: it fails the CRC, or the
+            # decompressor gives up on it first
+            if self.encrypted and ('crc' in str(exc).lower()
+                                   or isinstance(exc, (zlib.error, lzma.LZMAError, EOFError))):
                 raise WrongPassword(str(exc)) from None
             raise BadArchive(str(exc) or type(exc).__name__) from None
         except OSError as exc:
