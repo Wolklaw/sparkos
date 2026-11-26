@@ -18,13 +18,14 @@
     "python": ">=3.11",
     "python_modules": ["tkinter", "ssl"],
     "optional": {
-      "gi (GObject, Gio)": "Plasma notifications, the clipboard through Klipper, and the mDNS announcement through Avahi",
+      "gi (GObject, Gio)": "notifications and the mDNS announcement through Avahi",
       "gdbus": "notifications without GObject",
       "avahi-daemon": "phones find this PC by itself; without it they use the pairing link or the typed address",
       "soot": "links from the phone open in Soot (else the default browser)",
-      "kdialog": "the KDE file picker for Send files"
+      "wl-clipboard": "clipboard sharing",
+      "spark-pick": "the Spark Files picker for Send files (else Tk's own dialog)"
     },
-    "system": "Linux; Plasma 6 for notifications, the clipboard and Dolphin's Send to phone"
+    "system": "Linux; a notification daemon, and Spark Files for the right-click Send to phone"
   },
   "install": {
     "user": "bash install.sh --user",

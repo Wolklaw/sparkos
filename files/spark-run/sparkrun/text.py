@@ -15,7 +15,7 @@ EN = {
     'status.crashed': "SOMETHING WENT WRONG; SEE THE LOG",
     'apps.heading': "Installed Windows apps",
     'apps.empty': "No Windows apps installed yet.\n\nDouble-click an .exe or .msi file in "
-                  "Dolphin, or choose one with Run a program.",
+                  "Spark Files, or choose one with Run a program.",
     'apps.games': "Games run better through Steam, Heroic or Spark Games.",
     'apps.meta': "{windows} · {size} · added {added}",
     'apps.meta_nosize': "{windows} · added {added}",
@@ -163,7 +163,7 @@ FR = {
     'status.crashed': "UN PROBLÈME EST SURVENU; VOYEZ LE JOURNAL",
     'apps.heading': "Applications Windows installées",
     'apps.empty': "Aucune application Windows installée pour l'instant.\n\nDouble-cliquez "
-                  "sur un fichier .exe ou .msi dans Dolphin, ou choisissez-en un avec "
+                  "sur un fichier .exe ou .msi dans Spark Files, ou choisissez-en un avec "
                   "Lancer un programme.",
     'apps.games': "Les jeux fonctionnent mieux avec Steam, Heroic ou Spark Games.",
     'apps.meta': "{windows} · {size} · ajoutée le {added}",

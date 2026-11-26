@@ -1,3 +1,5 @@
 #!/bin/sh
-# Stand-in so no test ever changes the real displays under spark-wl. Logs the call only.
+# Stand-in so no test ever changes the real displays. Logs the call; --json prints the fixture.
+D=$(cd "$(dirname "$0")/.." && pwd)
 printf "%s\n" "wlr-randr $*" >> "${FAKE_LOG:-/dev/null}"
+case "$1" in --json) cat "$D/displays.json";; esac

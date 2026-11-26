@@ -1,13 +1,12 @@
-"""Displays through kscreen-doctor: read the outputs (-j), build the commands for each change,
-and the commands that put an output back as it was (the 15 second revert)."""
+"""Displays through wlr-randr: read the outputs (--json), build the change for each setting,
+and the changes that put an output back as it was (the 15 second revert)."""
 
 import json
+import os
 from typing import Any, Dict, List, Optional
 
 from .core import run
 
-ROTATIONS = {1: 'normal', 2: 'left', 4: 'inverted', 8: 'right'}
-VRR = {0: 'never', 1: 'always', 2: 'automatic'}
 SCALES = [1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0]
 
 
@@ -32,14 +31,12 @@ class Output:
     def __init__(self, d: Dict[str, Any]):
         self.name = str(d.get('name', ''))
         self.enabled = bool(d.get('enabled', False))
-        self.connected = bool(d.get('connected', True))
         pos = d.get('pos') or {}
         self.x, self.y = int(pos.get('x', 0)), int(pos.get('y', 0))
         self.scale = float(d.get('scale', 1.0) or 1.0)
-        self.rotation = ROTATIONS.get(int(d.get('rotation', 1) or 1), 'normal')
-        self.vrr: Optional[str] = VRR.get(int(d['vrrPolicy'])) if 'vrrPolicy' in d else None
-        self.hdr: Optional[bool] = bool(d['hdr']) if 'hdr' in d else None
-        self.priority = int(d.get('priority', 0) or 0)
+        self.rotation = 'normal'
+        self.vrr = str(d.get('vrr', 'never'))  # 'never' or 'always' (adaptive sync)
+        self.hdr = False
         self.modes = [Mode(m) for m in d.get('modes', [])]
         self.mode_id = str(d.get('currentModeId', ''))
         self.model = str(d.get('model') or d.get('name') or '')
@@ -77,20 +74,6 @@ class Output:
         return sorted((m for m in self.modes if m.res == res), key=lambda m: -m.hz)
 
 
-def parse(text: str) -> List[Output]:
-    try:
-        data = json.loads(text)
-    except ValueError:
-        return []
-    outs = [Output(o) for o in data.get('outputs', []) if isinstance(o, dict)]
-    return [o for o in outs if o.connected]
-
-
-def load() -> List[Output]:
-    rc, text, _ = run(['kscreen-doctor', '-j'], timeout=10)
-    return parse(text) if rc == 0 else []
-
-
 # ── what each change runs ──
 def a_mode(o: Output, mode_id: str) -> str:
     return f"output.{o.name}.mode.{mode_id}"
@@ -110,10 +93,6 @@ def a_vrr(o: Output, policy: str) -> str:
 
 def a_hdr(o: Output, on: bool) -> str:
     return f"output.{o.name}.hdr.{'enable' if on else 'disable'}"
-
-
-def a_primary(o: Output) -> str:
-    return f"output.{o.name}.priority.1"
 
 
 def a_position(o: Output, x: int, y: int) -> str:
@@ -137,17 +116,8 @@ def restore_args(old: List[Output], names: List[str]) -> List[str]:
         if o.mode_id:
             args.append(a_mode(o, o.mode_id))
         args += [a_scale(o, o.scale), a_rotation(o, o.rotation), a_position(o, o.x, o.y)]
-        if o.vrr:
-            args.append(a_vrr(o, o.vrr))
-        if o.hdr is not None:
-            args.append(a_hdr(o, o.hdr))
-        if o.priority == 1:
-            args.append(a_primary(o))
+        args += [a_vrr(o, o.vrr), a_hdr(o, o.hdr)]
     return args
-
-
-def apply(args: List[str]) -> bool:
-    return bool(args) and run(['kscreen-doctor', *args], timeout=15)[0] == 0
 
 
 def snap(moving: Output, x: int, y: int, others: List[Output], limit: int = 120):
@@ -168,30 +138,24 @@ def snap(moving: Output, x: int, y: int, others: List[Output], limit: int = 120)
     return max(0, x), max(0, y)
 
 
-# ── Spark compositor session: wlr-randr, no kscreen ──
-# The same Output objects and the same "output.NAME.KEY.VALUE" change strings, so the page and
-# the 15 second revert work unchanged. Each apply also writes the compositor's outputs.conf, so
-# the layout is what the compositor sets up at the next login.
-import os  # noqa: E402
+# ── reading and applying through wlr-randr ──
+# Each apply also writes the compositor's outputs.conf, so the layout is what the compositor
+# sets up at the next login.
 
 WL_ROT = {'normal': 'normal', '90': 'left', '180': 'inverted', '270': 'right'}
 WL_TRANSFORM = {v: k for k, v in WL_ROT.items()}
-
-
-def on_sparkwl() -> bool:
-    return 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
 
 
 def _wl_mode_id(m: Dict[str, Any]) -> str:
     return f"{m['width']}x{m['height']}@{float(m['refresh']):.3f}"
 
 
-def parse_wlr(text: str) -> List[Output]:
+def parse(text: str) -> List[Output]:
     try:
         data = json.loads(text)
     except ValueError:
         return []
-    outs = []
+    outs, hdr = [], _conf_hdr()
     for d in data if isinstance(data, list) else []:
         modes, current, seen = [], '', set()
         for m in d.get('modes', []):
@@ -208,14 +172,16 @@ def parse_wlr(text: str) -> List[Output]:
                     'pos': pos, 'scale': d.get('scale', 1.0), 'modes': modes,
                     'currentModeId': current, 'model': d.get('model', ''),
                     'vendor': d.get('make', ''),
-                    'vrrPolicy': 1 if d.get('adaptive_sync') else 0})
+                    'vrr': 'always' if d.get('adaptive_sync') else 'never'})
         o.rotation = WL_ROT.get(str(d.get('transform', 'normal')), 'normal')
+        o.hdr = hdr.get(o.name, False)
         outs.append(o)
     return outs
 
 
 def _wl_args(args: List[str]) -> List[List[str]]:
-    """kscreen-style change strings to one wlr-randr argument list per output."""
+    """Change strings to one wlr-randr argument list per output (HDR is not a wlr-randr
+    setting: it goes to outputs.conf only, see apply)."""
     per: Dict[str, List[str]] = {}
     for a in args:
         parts = a.split('.', 3)
@@ -232,7 +198,7 @@ def _wl_args(args: List[str]) -> List[List[str]]:
         elif key == 'disable':
             flags.append('--off')
         elif key == 'mode':
-            flags += ['--mode', val.replace('@', '@') + 'Hz' if '@' in val else val]
+            flags += ['--mode', val + 'Hz' if '@' in val else val]
         elif key == 'scale':
             flags += ['--scale', val]
         elif key == 'rotation':
@@ -241,7 +207,6 @@ def _wl_args(args: List[str]) -> List[List[str]]:
             flags += ['--pos', val]
         elif key == 'vrrpolicy':
             flags += ['--adaptive-sync', 'disabled' if val == 'never' else 'enabled']
-        # priority (primary) and hdr: the compositor has neither yet
     return [f for f in per.values() if len(f) > 2]
 
 
@@ -250,8 +215,25 @@ def _conf_path() -> str:
     return os.path.join(base, 'spark', 'compositor', 'outputs.conf')
 
 
-# Keys this page does not edit (HDR) are carried over from the existing file.
-_KEEP_KEYS = ('hdr', 'sdr_white')
+# Keys this page does not edit are carried over from the existing file.
+_KEEP_KEYS = ('sdr_white',)
+
+
+def _conf_hdr() -> Dict[str, bool]:
+    """hdr=on per output in outputs.conf (the compositor turns HDR on at login)."""
+    found: Dict[str, bool] = {}
+    try:
+        with open(_conf_path(), encoding='utf-8') as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2 and parts[0] == 'output':
+                    for kv in parts[2:]:
+                        k, _, v = kv.partition('=')
+                        if k == 'hdr':
+                            found[parts[1]] = v in ('on', 'true', '1')
+    except OSError:
+        pass
+    return found
 
 
 def _kept_keys() -> dict:
@@ -269,8 +251,8 @@ def _kept_keys() -> dict:
     return kept
 
 
-def save_conf(outs: List[Output]) -> None:
-    kept = _kept_keys()
+def save_conf(outs: List[Output], hdr: Optional[Dict[str, bool]] = None) -> None:
+    kept, hdr = _kept_keys(), {**_conf_hdr(), **(hdr or {})}
     lines = ['# Written by Spark Settings > Displays. Read by spark-compositor at login.']
     for o in outs:
         if not o.enabled:
@@ -281,7 +263,7 @@ def save_conf(outs: List[Output]) -> None:
         rot = WL_TRANSFORM.get(o.rotation, 'normal')
         lines.append(f"output {o.name}{mode} scale={o.scale:g} transform={rot} "
                      f"pos={o.x},{o.y}" + (' vrr=on' if o.vrr == 'always' else '')
-                     + kept.get(o.name, ''))
+                     + (' hdr=on' if hdr.get(o.name) else '') + kept.get(o.name, ''))
     path = _conf_path()
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + '.tmp'
@@ -290,26 +272,28 @@ def save_conf(outs: List[Output]) -> None:
     os.replace(tmp, path)
 
 
-_kscreen_load, _kscreen_apply = load, apply
+def _hdr_changes(args: List[str]) -> Dict[str, bool]:
+    out: Dict[str, bool] = {}
+    for a in args:
+        parts = a.split('.')
+        if len(parts) == 4 and parts[0] == 'output' and parts[2] == 'hdr':
+            out[parts[1]] = parts[3] == 'enable'
+    return out
 
 
-def load() -> List[Output]:  # noqa: F811
-    if not on_sparkwl():
-        return _kscreen_load()
+def load() -> List[Output]:
     rc, text, _ = run(['wlr-randr', '--json'], timeout=10)
-    return parse_wlr(text) if rc == 0 else []
+    return parse(text) if rc == 0 else []
 
 
-def apply(args: List[str]) -> bool:  # noqa: F811
-    if not on_sparkwl():
-        return _kscreen_apply(args)
-    groups = _wl_args(args)
-    if not groups:
+def apply(args: List[str]) -> bool:
+    groups, hdr = _wl_args(args), _hdr_changes(args)
+    if not groups and not hdr:
         return False
     flat = [x for g in groups for x in g]
-    ok = run(['wlr-randr', *flat], timeout=15)[0] == 0
+    ok = not flat or run(['wlr-randr', *flat], timeout=15)[0] == 0
     if ok:
         outs = load()
         if outs:
-            save_conf(outs)
+            save_conf(outs, hdr)
     return ok

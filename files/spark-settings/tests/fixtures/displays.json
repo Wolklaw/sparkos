@@ -1,262 +1,170 @@
-{
- "outputs": [
-  {
-   "brightness": 0.9,
-   "clones": [],
-   "connected": true,
-   "currentModeId": "3",
-   "ddcCiAllowed": true,
-   "enabled": true,
-   "followPreferredMode": false,
-   "iccProfilePath": "",
-   "icon": "",
-   "id": 1,
-   "maxBpc": 0,
-   "modes": [
-    {
-     "id": "1",
-     "name": "1920x1080@120",
-     "refreshRate": 119.98,
-     "size": {
-      "width": 1920,
-      "height": 1080
-     }
-    },
-    {
-     "id": "2",
-     "name": "1920x1080@60",
-     "refreshRate": 60.0,
-     "size": {
-      "width": 1920,
-      "height": 1080
-     }
-    },
-    {
-     "id": "3",
-     "name": "2560x1440@144",
-     "refreshRate": 143.91,
-     "size": {
-      "width": 2560,
-      "height": 1440
-     }
-    },
-    {
-     "id": "4",
-     "name": "2560x1440@60",
-     "refreshRate": 59.95,
-     "size": {
-      "width": 2560,
-      "height": 1440
-     }
-    },
-    {
-     "id": "5",
-     "name": "1280x720@60",
-     "refreshRate": 60.0,
-     "size": {
-      "width": 1280,
-      "height": 720
-     }
-    }
-   ],
-   "name": "DP-1",
-   "overscan": 0,
-   "pos": {
-    "x": 0,
-    "y": 0
-   },
-   "preferredModes": [
-    "1"
-   ],
-   "priority": 1,
-   "rgbRange": 1,
-   "rotation": 1,
-   "scale": 1.0,
-   "size": {
-    "height": 1920,
-    "width": 1080
-   },
-   "sizeMM": {
-    "height": 299,
-    "width": 531
-   },
-   "type": 14,
-   "vrrPolicy": 2,
-   "hdr": false,
-   "vendor": "Acme",
-   "model": "Panel One"
+[
+ {
+  "name": "DP-1",
+  "description": "Acme Panel One",
+  "make": "Acme",
+  "model": "Panel One",
+  "serial": "",
+  "physical_size": {
+   "width": 531,
+   "height": 299
   },
-  {
-   "brightness": 0.9,
-   "clones": [],
-   "connected": true,
-   "currentModeId": "1",
-   "ddcCiAllowed": true,
-   "enabled": true,
-   "followPreferredMode": false,
-   "iccProfilePath": "",
-   "icon": "",
-   "id": 2,
-   "maxBpc": 0,
-   "modes": [
-    {
-     "id": "1",
-     "name": "1920x1080@120",
-     "refreshRate": 119.98,
-     "size": {
-      "width": 1920,
-      "height": 1080
-     }
-    },
-    {
-     "id": "2",
-     "name": "1920x1080@60",
-     "refreshRate": 60.0,
-     "size": {
-      "width": 1920,
-      "height": 1080
-     }
-    },
-    {
-     "id": "3",
-     "name": "2560x1440@144",
-     "refreshRate": 143.91,
-     "size": {
-      "width": 2560,
-      "height": 1440
-     }
-    },
-    {
-     "id": "4",
-     "name": "2560x1440@60",
-     "refreshRate": 59.95,
-     "size": {
-      "width": 2560,
-      "height": 1440
-     }
-    },
-    {
-     "id": "5",
-     "name": "1280x720@60",
-     "refreshRate": 60.0,
-     "size": {
-      "width": 1280,
-      "height": 720
-     }
-    }
-   ],
-   "name": "DP-2",
-   "overscan": 0,
-   "pos": {
-    "x": 2560,
-    "y": 0
+  "enabled": true,
+  "modes": [
+   {
+    "width": 1920,
+    "height": 1080,
+    "refresh": 119.98,
+    "preferred": true,
+    "current": false
    },
-   "preferredModes": [
-    "1"
-   ],
-   "priority": 2,
-   "rgbRange": 1,
-   "rotation": 1,
-   "scale": 1.0,
-   "size": {
-    "height": 1920,
-    "width": 1080
+   {
+    "width": 1920,
+    "height": 1080,
+    "refresh": 60.0,
+    "preferred": false,
+    "current": false
    },
-   "sizeMM": {
-    "height": 299,
-    "width": 531
+   {
+    "width": 2560,
+    "height": 1440,
+    "refresh": 143.91,
+    "preferred": false,
+    "current": true
    },
-   "type": 14,
-   "vrrPolicy": 2,
-   "hdr": false,
-   "vendor": "Acme",
-   "model": "Panel Two"
+   {
+    "width": 2560,
+    "height": 1440,
+    "refresh": 59.95,
+    "preferred": false,
+    "current": false
+   },
+   {
+    "width": 1280,
+    "height": 720,
+    "refresh": 60.0,
+    "preferred": false,
+    "current": false
+   }
+  ],
+  "position": {
+   "x": 0,
+   "y": 0
   },
-  {
-   "brightness": 0.9,
-   "clones": [],
-   "connected": true,
-   "currentModeId": "2",
-   "ddcCiAllowed": true,
-   "enabled": true,
-   "followPreferredMode": false,
-   "iccProfilePath": "",
-   "icon": "",
-   "id": 3,
-   "maxBpc": 0,
-   "modes": [
-    {
-     "id": "1",
-     "name": "1920x1080@120",
-     "refreshRate": 119.98,
-     "size": {
-      "width": 1920,
-      "height": 1080
-     }
-    },
-    {
-     "id": "2",
-     "name": "1920x1080@60",
-     "refreshRate": 60.0,
-     "size": {
-      "width": 1920,
-      "height": 1080
-     }
-    },
-    {
-     "id": "3",
-     "name": "2560x1440@144",
-     "refreshRate": 143.91,
-     "size": {
-      "width": 2560,
-      "height": 1440
-     }
-    },
-    {
-     "id": "4",
-     "name": "2560x1440@60",
-     "refreshRate": 59.95,
-     "size": {
-      "width": 2560,
-      "height": 1440
-     }
-    },
-    {
-     "id": "5",
-     "name": "1280x720@60",
-     "refreshRate": 60.0,
-     "size": {
-      "width": 1280,
-      "height": 720
-     }
-    }
-   ],
-   "name": "HDMI-A-1",
-   "overscan": 0,
-   "pos": {
-    "x": 4480,
-    "y": 0
+  "transform": "normal",
+  "scale": 1.0,
+  "adaptive_sync": true
+ },
+ {
+  "name": "DP-2",
+  "description": "Acme Panel Two",
+  "make": "Acme",
+  "model": "Panel Two",
+  "serial": "",
+  "physical_size": {
+   "width": 531,
+   "height": 299
+  },
+  "enabled": true,
+  "modes": [
+   {
+    "width": 1920,
+    "height": 1080,
+    "refresh": 119.98,
+    "preferred": true,
+    "current": true
    },
-   "preferredModes": [
-    "1"
-   ],
-   "priority": 2,
-   "rgbRange": 1,
-   "rotation": 1,
-   "scale": 1.0,
-   "size": {
-    "height": 1920,
-    "width": 1080
+   {
+    "width": 1920,
+    "height": 1080,
+    "refresh": 60.0,
+    "preferred": false,
+    "current": false
    },
-   "sizeMM": {
-    "height": 299,
-    "width": 531
+   {
+    "width": 2560,
+    "height": 1440,
+    "refresh": 143.91,
+    "preferred": false,
+    "current": false
    },
-   "type": 14,
-   "vrrPolicy": 2,
-   "hdr": false,
-   "vendor": "Other",
-   "model": "Side TV"
-  }
- ]
-}
+   {
+    "width": 2560,
+    "height": 1440,
+    "refresh": 59.95,
+    "preferred": false,
+    "current": false
+   },
+   {
+    "width": 1280,
+    "height": 720,
+    "refresh": 60.0,
+    "preferred": false,
+    "current": false
+   }
+  ],
+  "position": {
+   "x": 2560,
+   "y": 0
+  },
+  "transform": "normal",
+  "scale": 1.0,
+  "adaptive_sync": false
+ },
+ {
+  "name": "HDMI-A-1",
+  "description": "Other Side TV",
+  "make": "Other",
+  "model": "Side TV",
+  "serial": "",
+  "physical_size": {
+   "width": 531,
+   "height": 299
+  },
+  "enabled": true,
+  "modes": [
+   {
+    "width": 1920,
+    "height": 1080,
+    "refresh": 119.98,
+    "preferred": true,
+    "current": false
+   },
+   {
+    "width": 1920,
+    "height": 1080,
+    "refresh": 60.0,
+    "preferred": false,
+    "current": true
+   },
+   {
+    "width": 2560,
+    "height": 1440,
+    "refresh": 143.91,
+    "preferred": false,
+    "current": false
+   },
+   {
+    "width": 2560,
+    "height": 1440,
+    "refresh": 59.95,
+    "preferred": false,
+    "current": false
+   },
+   {
+    "width": 1280,
+    "height": 720,
+    "refresh": 60.0,
+    "preferred": false,
+    "current": false
+   }
+  ],
+  "position": {
+   "x": 4480,
+   "y": 0
+  },
+  "transform": "normal",
+  "scale": 1.0,
+  "adaptive_sync": false
+ }
+]

@@ -25,7 +25,7 @@ SOUNDS = ('/usr/share/sounds/ocean/stereo/phone-incoming-call.oga',
 
 
 def markup_escape(text: str) -> str:
-    """Plasma reads a little HTML in a notification's body: show phone text as text."""
+    """Notification daemons read a little HTML in a body: show phone text as text."""
     return text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
 
 
@@ -108,7 +108,6 @@ class Desktop:
     def __init__(self):
         self.bus = session_bus()
         self.notes: Dict[str, int] = {}          # notification key -> id
-        self._clip_sub: Optional[int] = None
         self._clip_poll: Optional[threading.Event] = None
 
     # ── links ──
@@ -170,18 +169,8 @@ class Desktop:
                             'org.freedesktop.Notifications.CloseNotification', str(nid)],
                            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5)
 
-    # ── clipboard: Plasma's Klipper over D-Bus, else wl-clipboard ──
-    def _klipper(self, method: str, args=None, reply=None):
-        return self.bus.call('org.kde.klipper', '/klipper', 'org.kde.klipper.klipper', method,
-                             args, reply)
-
+    # ── clipboard: wl-clipboard ──
     def get_clipboard(self) -> Optional[str]:
-        if self.bus:
-            try:
-                (text,) = self._klipper('getClipboardContents', reply='(s)')
-                return text
-            except Exception:
-                pass
         if shutil.which('wl-paste') and os.environ.get('WAYLAND_DISPLAY'):
             try:
                 done = subprocess.run(['wl-paste', '--no-newline', '--type', 'text'],
@@ -194,31 +183,16 @@ class Desktop:
         return None
 
     def set_clipboard(self, text: str) -> bool:
-        if self.bus:
-            try:
-                self._klipper('setClipboardContents', ('(s)', text))
-                return True
-            except Exception:
-                pass
         if shutil.which('wl-copy') and os.environ.get('WAYLAND_DISPLAY'):
             return _spawn(['wl-copy', '--type', 'text/plain;charset=utf-8'],
                           text.encode('utf-8'))
-        log.warning("no way to set the clipboard (no Klipper, no wl-copy)")
+        log.warning("no way to set the clipboard (no wl-copy)")
         return False
 
     def watch_clipboard(self, callback: Callable[[str], None]) -> bool:
-        """Call back with the new text each time the PC's clipboard changes, until
-        unwatch_clipboard. Klipper's signal when it's there (no polling); else every 2 s."""
+        """Call back with the new text each time the PC's clipboard changes (checked every 2 s),
+        until unwatch_clipboard."""
         self.unwatch_clipboard()
-        if self.bus:
-            try:
-                self._klipper('getClipboardContents', reply='(s)')
-                self._clip_sub = self.bus.subscribe(
-                    'org.kde.klipper', 'org.kde.klipper.klipper', 'clipboardHistoryUpdated',
-                    '/klipper', lambda: self._clip_changed(callback))
-                return True
-            except Exception as exc:
-                log.info("Klipper not reachable (%s)", exc)
         if self.get_clipboard() is None:
             return False
         stop = threading.Event()
@@ -235,29 +209,13 @@ class Desktop:
         threading.Thread(target=poll, name='clipboard', daemon=True).start()
         return True
 
-    def _clip_changed(self, callback: Callable[[str], None]) -> None:
-        text = self.get_clipboard()
-        if text is not None:
-            callback(text)
-
     def unwatch_clipboard(self) -> None:
-        if self._clip_sub is not None and self.bus:
-            self.bus.unsubscribe(self._clip_sub)
-        self._clip_sub = None
         if self._clip_poll is not None:
             self._clip_poll.set()
         self._clip_poll = None
 
     def clipboard_backend(self) -> str:
-        if self.bus:
-            try:
-                self._klipper('getClipboardContents', reply='(s)')
-                return 'Klipper (D-Bus)'
-            except Exception:
-                pass
-        if shutil.which('wl-paste') and shutil.which('wl-copy'):
-            return 'wl-clipboard'
-        return ''
+        return 'wl-clipboard' if shutil.which('wl-paste') and shutil.which('wl-copy') else ''
 
     # ── sound, window ──
     def ring(self) -> None:
