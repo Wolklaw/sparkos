@@ -62,20 +62,14 @@ The image build step is [files/scripts/spark-terminal.sh](../scripts/spark-termi
 adds `vte291-gtk4` from Fedora, installs Spark Terminal in `/usr/lib/spark-terminal`, and makes
 it the terminal everywhere:
 
-- KDE's default terminal (`TerminalApplication` and `TerminalService` in `/etc/xdg/kdeglobals`):
-  Dolphin's "Open Terminal Here" and apps with `Terminal=true` start it
+- the `TerminalApplication` and `TerminalService` keys in `/etc/xdg/kdeglobals`, which Spark Files and
+  other KDE-aware apps read: "Open Terminal Here" and apps with `Terminal=true` start it
 - `xdg-terminal-exec`'s default (`/etc/xdg/kde-xdg-terminals.list`, `xdg-terminals.list`)
-- Ctrl+Alt+T, which Konsole gives up
-- the dock, the Claude Code menu entry and Dolphin action, the `.rpm` installer window, and Spark
+- Ctrl+Alt+T, which the Spark compositor binds to it
+- the dock, the Claude Code menu entry and the Spark Files action, the `.rpm` installer window, and Spark
   Connect's "Open terminal"
 
-Konsole stays installed for one release, hidden from the menu, as a fallback (`konsole` still
-runs it). Removing it is a separate change.
-
-People who already use SparkOS keep their own dock: the dock layout applies to new users, so
-right-click the dock to swap Konsole for Spark Terminal. Plasma may also still give Ctrl+Alt+T to
-Konsole for an existing user, since it remembers shortcuts it already registered; System Settings
-> Shortcuts moves it.
+Konsole is not in the image. A person who still has an old dock layout can right-click the dock to swap it for Spark Terminal.
 
 ## Install by hand
 

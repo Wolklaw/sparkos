@@ -84,7 +84,7 @@ python3 -m unittest discover -s tests -v
 python3 make_icons.py                     # redraw icons/ after changing the mark
 ```
 
-`--user` needs only what the SparkOS image already has (Python 3 with tkinter, libarchive). It installs to `~/.local/lib/spark-archive/`, `~/.local/bin/spark-archive`, `~/.local/share/applications/`, `~/.local/share/icons/`, the file types for archive parts in `~/.local/share/mime/packages/` (then runs `update-mime-database`, also after uninstalling) and the two Dolphin menus in `~/.local/share/kio/servicemenus/` (made executable: Plasma ignores a service menu in your home folder otherwise), and lists every file it wrote in `~/.local/lib/spark-archive/installed-files` for `--uninstall`. It does not make Spark Archive the default app for archives; that is the image's job (or Dolphin's **Open with**).
+`--user` needs only what the SparkOS image already has (Python 3 with tkinter, libarchive). It installs to `~/.local/lib/spark-archive/`, `~/.local/bin/spark-archive`, `~/.local/share/applications/`, `~/.local/share/icons/`, the file types for archive parts in `~/.local/share/mime/packages/` (then runs `update-mime-database`, also after uninstalling) and the two file-manager menus in `~/.local/share/kio/servicemenus/` (made executable; Spark Files reads these service menus), and lists every file it wrote in `~/.local/lib/spark-archive/installed-files` for `--uninstall`. It does not make Spark Archive the default app for archives; that is the image's job (or Spark Files' **Open with**).
 
 The system-wide install (the image build step, [files/scripts/spark-archive.sh](../scripts/spark-archive.sh)) puts the menus in `/usr/share/kio/servicemenus/` and fails the build if `--self-test` fails. The self-test compresses and extracts a zip, a tar.zst and (with the 7z command) a 7z for real, makes and opens a zip and a 7z with a password, reads the tar.zst back through libarchive, and checks that a zip with `../` and `/` names stays inside its folder. It also says whether unrar is there.
 
@@ -98,7 +98,7 @@ The 7z and zip password fixtures in `tests/fixtures` were made with 7-Zip. The R
 
 ## Known gaps
 
-- **Not tried on a SparkOS desktop yet.** CI runs the windows under Xvfb; nobody has right-clicked in Dolphin on real Plasma 6.8 with it yet, so Extract on a `.r00` or `.z01` part is checked through GIO's view of the file types, not in Dolphin itself. While Ark is still installed, Dolphin shows both Ark's Extract/Compress entries and these.
+- **Not tried on a SparkOS desktop yet.** CI runs the windows under Xvfb; nobody has right-clicked in Spark Files on hardware with it yet, so Extract on a `.r00` or `.z01` part is checked through GIO's view of the file types, not in the file manager itself.
 - **Making archives in several parts** isn't offered; opening them is.
 - **RAR can't be made** (there is no free RAR writer). RAR is open-only, as in Ark.
 - **Password-protected RAR needs unrar**, which comes from RPM Fusion (nonfree). It is in the SparkOS image today; if it ever leaves, those archives say the unrar command is needed instead of opening.

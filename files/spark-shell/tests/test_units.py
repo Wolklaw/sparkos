@@ -200,6 +200,24 @@ class OsdParsers(unittest.TestCase):
         self.assertIsNone(osd.parse_wpctl_volume('nothing'))
         self.assertIsNone(osd.parse_wpctl_volume(None))
 
+    def test_next_brightness(self):
+        self.assertEqual(osd.next_brightness(50, 100, True), 55)
+        self.assertEqual(osd.next_brightness(98, 100, True), 100)
+        self.assertEqual(osd.next_brightness(3, 100, False), 1)      # never fully dark
+        self.assertEqual(osd.next_brightness(120000, 120000, False), 114000)
+        self.assertEqual(osd.next_brightness(4, 7, True), 5)         # tiny ranges still move
+        self.assertEqual(osd.next_brightness(4, 0, True), 4)
+
+    def test_read_backlights(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, 'amdgpu_bl0'))
+            for name, text in (('brightness', '40\n'), ('max_brightness', '255\n')):
+                with open(os.path.join(root, 'amdgpu_bl0', name), 'w') as f:
+                    f.write(text)
+            os.makedirs(os.path.join(root, 'broken'))
+            self.assertEqual(osd.read_backlights(root), [('amdgpu_bl0', 40, 255)])
+        self.assertEqual(osd.read_backlights('/nonexistent-backlight-dir'), [])
+
     def test_osd_service_brightness(self):
         class FakeOsd:
             def __init__(self):

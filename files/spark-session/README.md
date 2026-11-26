@@ -55,6 +55,6 @@ manager.
 | `test_polkit_window.py`, `test_greeter.py` | Xvfb |
 | `test_greetd_real.py` | real greetd, `SPARK_ALLOW_REAL_GREETD=1` |
 | `test_greeter_ctl.py` | a fake root and a fake systemctl |
-| `tests/lock/run_lock_test.sh` | headless KWin, `--cap-add SYS_NICE`, `SPARK_ALLOW_LOCK_TEST=1`. Written for the Plasma session; it checks KWin's lock, not the image's |
+| `tests/lock/run_lock_test.sh` | headless KWin, `--cap-add SYS_NICE`, `SPARK_ALLOW_LOCK_TEST=1`. Written for the old Plasma session; it checks KWin's lock, not the Spark compositor's |
 
 CI: [.github/workflows/spark-session.yml](../../.github/workflows/spark-session.yml).

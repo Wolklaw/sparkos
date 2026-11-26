@@ -395,6 +395,7 @@ static void set_default_binds(struct server *s) {
 	add_bind(s, "XF86Calculator", A_EXEC, "spark-calc", false);
 	add_bind(s, "Super+e", A_EXEC, "spark-files", false);
 	add_bind(s, "Super+i", A_EXEC, "spark-settings", false);
+	add_bind(s, "Super+Alt+g", A_EXEC, "spark-clips --save", false);
 	add_bind(s, "Super+q", A_CLOSE, NULL, false);
 	add_bind(s, "Alt+F4", A_CLOSE, NULL, false);
 	add_bind(s, "Alt+Tab", A_FOCUS_NEXT, NULL, false);
@@ -426,6 +427,8 @@ static void set_default_binds(struct server *s) {
 	add_bind(s, "XF86AudioNext", A_EXEC, SHELL_KEY "next", false);
 	add_bind(s, "XF86AudioPrev", A_EXEC, SHELL_KEY "previous", false);
 	add_bind(s, "XF86AudioStop", A_EXEC, SHELL_KEY "stop", false);
+	add_bind(s, "XF86MonBrightnessUp", A_EXEC, SHELL_KEY "brightness-up", false);
+	add_bind(s, "XF86MonBrightnessDown", A_EXEC, SHELL_KEY "brightness-down", false);
 #undef SHELL_KEY
 }
 

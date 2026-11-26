@@ -2,8 +2,8 @@
 
 A Wayland compositor on wlroots 0.20, written in C. It runs the Spark session,
 "Spark (experimental compositor)" (`spark-wl`) on the login screen, with Spark Shell and no KDE, Plasma
-or KWin. It has been the owner's daily session since 25 Nov 2026 and is the login screen's default
-(`PreselectedSession` in /etc/plasmalogin.conf); Plasma stays installed as the fallback. Read the "Missing" list before you log in to it.
+or KWin. It has been the owner's daily session since 25 Nov 2026 and is the only session in the image
+(greetd with Spark Greeter starts it; KDE, Plasma and KWin are removed). Read the "Missing" list before you log in to it.
 
 `spark-wl-windows/` is a small helper that gives Spark Shell the window list (foreign-toplevel) for
 its task list.
@@ -62,14 +62,14 @@ Defaults:
   (reload this file).
 - Apps: Super+Return and Ctrl+Alt+t (terminal), Ctrl+Shift+Esc, Super+Esc and Ctrl+Esc (Spark
   Monitor), Super+e (Spark Files), Super+i (Spark Settings), Super+. (Spark Emoji), Super+v
-  (clipboard history), Calculator key (Spark Calc). These are the same keys the apps register
-  in Plasma.
+  (clipboard history), Super+Alt+g (save a Spark Clips clip), Calculator key (Spark Calc). These are the keys the apps' desktop entries used to register in Plasma;
+  the compositor now binds them itself and the entries' `X-KDE-Shortcuts` lines are not read.
 - Title bars: the compositor draws them (title, minimize, maximize, close)
   on Wayland apps that ask for server-side decorations and on X11 windows that don't draw their
   own. X11 apps that draw their own bar (Battle.net) get none; dragging one by its own bar while
   maximized restores it.
 - Spark Snip: Print and Super+Shift+s (area), Super+Shift+t (text), Super+Shift+r (recording).
-- Volume keys go to the Spark shell's on-screen display; play/pause, next, previous and stop go to
+- Volume and brightness keys go to the Spark shell's on-screen display; play/pause, next, previous and stop go to
   the playing MPRIS player through the shell.
 - Apps that ask `org.freedesktop.ScreenSaver` to keep the screen on (Steam, Chrome, Discord) are
   answered by the shell, which keeps `$XDG_RUNTIME_DIR/spark-wl/idle-inhibit` while they do; the

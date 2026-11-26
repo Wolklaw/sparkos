@@ -22,7 +22,7 @@ It follows the PC's language: French when the system language is French (`LANG=f
   ready. It starts the next time you restart. Your apps are already up to date." with
   **Later** and **Restart**. The apps sentence shows only when the last Flatpak updates
   really finished. Later brings it back after a day at the soonest (or 3 days, or a week, in
-  Settings), never while a game runs. Restart asks Plasma to close your apps first.
+  Settings), never while a game runs. Restart reboots through systemd (logind), so apps get the normal end-of-session signals.
 - **The window** (menu: Spark Update): the version running now and the one the next restart
   starts, what changed between them, Check now, Restart to update, Roll back, Settings, Log.
 
@@ -30,7 +30,7 @@ It follows the PC's language: French when the system language is French (`LANG=f
 
 Nothing is invented. Each SparkOS image carries `/usr/share/sparkos/release.json` (written by
 the image build): the versions of Soot, FreeSuite, every Spark app, the Fedora base, the Linux
-kernel, Mesa, KDE Plasma and Flatpak. The window compares the file of the running version with
+kernel, Mesa and Flatpak. The window compares the file of the running version with
 the one of the staged version (or, with no update waiting, with the previous version). For a
 version built before that file existed, it reads the same things from that version's files on
 disk (`/ostree/deploy/...`). If neither can be read, it says so.

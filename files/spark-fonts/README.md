@@ -1,6 +1,6 @@
 # Spark Fonts
 
-See, install and remove fonts. Replaces KDE's Font Management page and font viewer.
+See, install and remove fonts. Replaces KDE's Font Management page and font viewer (SparkOS no longer ships KDE).
 
 - Lists every font on the system and in your own folder, grouped by family, with search and filters.
 - Preview, characters and details tabs: sample text, glyph grid, licence, designer, variable axes.

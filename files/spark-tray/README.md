@@ -6,9 +6,9 @@ SparkOS house style (dark, 3px corners, mono type, a magenta and cyan channel sl
 decoration). Built into the image; live updates on. Stage 2 of "Replacing KDE" in
 [PLAN.md](../../PLAN.md).
 
-It replaces, one step at a time, plasma-nm, bluedevil, powerdevil's battery applet,
-plasma-print-manager and plasma-pa's volume applet. Those stay installed and keep running in the
-Plasma session; Spark Tray starts at login only in the `spark` session.
+It replaces plasma-nm, bluedevil, powerdevil's battery applet, plasma-print-manager and
+plasma-pa's volume applet, none of which are in the image. Spark Tray starts at login in the
+Spark session.
 
 ## The icons
 
@@ -31,7 +31,7 @@ Spark's other apps use Tk. This one uses GTK 3 through PyGObject, for three reas
   (optional here, guarded and untested) is the way to do it on Wayland.
 - Tk draws a Tk look and doesn't follow the screen scale. GTK does both.
 
-The image already has GTK 3 and PyGObject (Plasma and the Spark apps use them), so this adds no
+The image already has GTK 3 and PyGObject (the Spark apps use them), so this adds no
 big dependency. The StatusNotifierItem and `com.canonical.dbusmenu` sides are written by hand on
 Gio. Each icon has its own D-Bus connection and its own `org.kde.StatusNotifierItem-<pid>-<n>`
 name, because every item answers at `/StatusNotifierItem`.
@@ -54,11 +54,11 @@ Spark Settings has no switch for these yet; the command line is the only control
 ## Autostart
 
 - The image ships `/etc/xdg/autostart/dev.wolklaw.SparkTray.desktop` with `OnlyShowIn=Spark;`, so it
-  starts in the Spark session and not in Plasma.
+  starts in the Spark session and not in other desktops.
 - `spark-tray --enable` writes a per-user autostart file with no `OnlyShowIn`, so it starts in
-  Plasma too. `--disable` writes `Hidden=true`. `--reset` removes the file, back to the default.
-- If you run it in Plasma next to Plasma's own applets, you get two icons for each. Turn the Plasma
-  ones off in Plasma's tray settings first.
+  other desktops too. `--disable` writes `Hidden=true`. `--reset` removes the file, back to the default.
+- On a KDE machine next to Plasma's own applets you get two icons for each; turn the Plasma ones
+  off in Plasma's tray settings first.
 
 ## Install
 
@@ -92,6 +92,6 @@ Written 2026-11-25. Honest state:
 
 - Tested against fakes: all five backends, the StatusNotifierItem and menu protocol, settings, the
   per-user install and uninstall.
-- Not tried against real NetworkManager, BlueZ, UPower or CUPS, with a real Plasma or Spark tray
+- Not tried against real NetworkManager, BlueZ, UPower or CUPS, with a real Spark Shell tray
   host, on real Wayland, or with gtk-layer-shell.
 - Airplane mode covers NetworkManager's Wi-Fi and BlueZ's power; it does not touch other radios.
