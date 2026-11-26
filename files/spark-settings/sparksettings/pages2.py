@@ -1,12 +1,12 @@
-"""The other pages: Power, Default apps, Date time and language, Printers, Startup, Updates,
-the pages that open KDE's modules, More settings, and About."""
+"""The other pages: Power, Default apps, Date time and language, Printers, Startup, Updates
+and About."""
 
 import time
 from typing import List
 
 import tkinter as tk
 
-from . import APP_NAME, VERSION, clock, core, defaults, kcms, power, printers, startup, sysinfo
+from . import APP_NAME, VERSION, clock, core, defaults, power, printers, startup, sysinfo
 from .app import Page
 from .i18n import _
 from .ui import Choice, entry, label
@@ -22,8 +22,7 @@ class PowerPage(Page):
     key, title, tool = 'power', "Power", 'busctl'
     index = [("Power profile", "performance balanced saver battery"),
              ("Screen off and sleep", "timer suspend idle"),
-             ("Lock screen", "lock password idle resume"),
-             ("Power button", "shutdown sleep hibernate action")]
+             ("Lock screen", "lock password idle resume")]
 
     def build(self, f):
         self.holder = tk.Frame(f, bg=T["bg"])
@@ -65,9 +64,6 @@ class PowerPage(Page):
                    str(t['sleep']), lambda v: self.set_timer('sleep', int(v)), f10, 12).pack(anchor='w')
         else:
             label(r, _("This computer can't sleep."), f10, fg=T["muted"]).pack(anchor='w')
-        r = self.row(box, _("Power button"))
-        Choice(r, [(_(n), str(v)) for n, v in power.BUTTON_ACTIONS], str(t['power_button']),
-               lambda v: self.set_timer('power_button', int(v)), f10, 18).pack(anchor='w')
         box = self.section(h, _("Lock screen"))
         lk = self.lock
         Toggle(box, _("Lock after a while without use"), bool(lk['autolock']),
@@ -81,7 +77,7 @@ class PowerPage(Page):
     def set_timer(self, key, value):
         self.timers[key] = value
         t = self.timers
-        self.app.bg(lambda: power.set_timers(t['screen_off'], t['sleep'], t['power_button']),
+        self.app.bg(lambda: power.set_timers(t['screen_off'], t['sleep']),
                     lambda ok: self.say(_("Saved.") if ok else _("Could not save it."), not ok))
 
     def set_lock(self, **kw):
@@ -146,9 +142,7 @@ class DefaultAppsPage(Page):
                                         _("Could not change it."), not ok))
 
     def pick_term(self, app_id):
-        cmd = app_id.replace('.desktop', '').split('.')[-1].lower()
-        cmd = {'sparkterminal': 'spark-terminal'}.get(cmd, cmd)
-        ok = defaults.terminal_set(app_id, cmd)
+        ok = defaults.terminal_set(app_id)
         self.say(_("Changed: {what}.").format(what=_("Terminal")) if ok else _("Could not change it."), not ok)
 
 
@@ -413,40 +407,6 @@ class UpdatesPage(Page):
     def open(self):
         if not core.spawn(['spark-update']):
             self.say(_("Spark Update isn't installed."), True)
-
-
-class MorePage(Page):
-    key, title = 'more', "More settings"
-    index = [("Every KDE settings module", "kcm kde plasma advanced")]
-
-    def build(self, f):
-        box = self.section(f, '')
-        label(box, _("Everything Spark Settings doesn't cover yet, from KDE. Each opens in its own window."),
-              self.app.font(10), fg=T["muted"], wraplength=640).pack(anchor='w')
-        self.listbox = tk.Frame(f, bg=T["bg"])
-        self.listbox.pack(fill='both', expand=True, padx=24)
-        self.mods = []
-
-    def refresh(self):
-        self.app.bg(kcms.more_settings, self.render)
-
-    def render(self, mods):
-        clear(self.listbox)
-        mods = mods or []
-        if not mods:
-            label(self.listbox, _("KDE's settings modules aren't installed here."),
-                  self.app.font(10), fg=T["gold"], bg=T["bg"]).pack(anchor='w')
-        cols = 2
-        for i, k in enumerate(mods):
-            b = tk.Label(self.listbox, text=k.name, font=self.app.font(9), anchor='w', bg=T["panel"],
-                         fg=T["text"], padx=10, pady=5, cursor='hand2', takefocus=1)
-            b.grid(row=i // cols, column=i % cols, sticky='ew', padx=2, pady=2)
-            b.bind('<Enter>', lambda _e, b=b: b.config(bg=T["hover"], fg=T["accent"]))
-            b.bind('<Leave>', lambda _e, b=b: b.config(bg=T["panel"], fg=T["text"]))
-            b.bind('<ButtonRelease-1>', lambda _e, k=k: kcms.open_module(k.id))
-            b.bind('<Return>', lambda _e, k=k: kcms.open_module(k.id))
-        for c in range(cols):
-            self.listbox.columnconfigure(c, weight=1, uniform='c')
 
 
 class AboutPage(Page):

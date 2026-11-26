@@ -73,16 +73,34 @@ def set_default(app_id: str, mimes: List[str]) -> bool:
     return run(['xdg-mime', 'default', app_id, *mimes])[0] == 0
 
 
-# the terminal is not a MIME type: Plasma and xdg-terminal-exec read these
+# the terminal is not a MIME type: xdg-terminal-exec reads the first desktop id in
+# ~/.config/xdg-terminals.list (then /etc/xdg/xdg-terminals.list)
+def _terminals_list(path: str) -> str:
+    try:
+        with open(path, encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#'):
+                    return line
+    except OSError:
+        pass
+    return ''
+
+
 def terminal_get() -> str:
-    from . import core
-    return core.kread('kdeglobals', 'General', 'TerminalService')
+    return (_terminals_list(os.path.join(xdg_config_home(), 'xdg-terminals.list'))
+            or _terminals_list('/etc/xdg/xdg-terminals.list'))
 
 
-def terminal_set(app_id: str, command: str) -> bool:
-    from . import core
-    ok = core.kwrite('kdeglobals', 'General', 'TerminalService', app_id) == 0
-    return ok and core.kwrite('kdeglobals', 'General', 'TerminalApplication', command) == 0
+def terminal_set(app_id: str) -> bool:
+    path = os.path.join(xdg_config_home(), 'xdg-terminals.list')
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(f"# Written by Spark Settings: the terminal xdg-terminal-exec starts\n{app_id}\n")
+        return True
+    except OSError:
+        return False
 
 
 def terminal_candidates(apps: Dict[str, App]) -> List[App]:

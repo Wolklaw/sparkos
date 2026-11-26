@@ -27,28 +27,11 @@ Done in Spark Settings (each reads the real state when opened and talks to the t
 | Updates | Spark Update | opens it |
 | About | `/etc/os-release`, `rpm-ostree`, `lspci` | version, image, hardware, "Copy system info" |
 
-Spark Settings does not open KDE's System Settings: it is not installed. Settings that belong to
-the user are saved in `~/.config/spark/*.json` (and the compositor config), which the Spark
-compositor and Spark Shell read. `sparksettings/plasma.py` still holds the old writes for KDE's rc
-files (colour scheme, KWin effects, powerdevil, kscreenlocker, plasma-localerc, baloo). In the
-Spark session every one of them does nothing and reports success, so a page saves only to
-Spark's own files.
-
-The **More settings** page (KDE's control modules through `kcmshell6 --list`) is not shown in the
-Spark session, because there are no KDE modules to list. Search matches English and French names
+Settings that belong to the user are saved in `~/.config/spark/*.json` (and the compositor
+config), which the Spark compositor and Spark Shell read. Search matches English and French names
 and keywords.
 
-## Names KDE's apps used to call
-
-`files/scripts/spark-settings.sh` (the image build step) moved KDE's `systemsettings` and
-`kcmshell6` aside and put a stand-in at each name that runs `spark-settings --route`, so links
-such as `systemsettings kcm_kscreen` land on the matching page (`ROUTES` in `sparksettings/kcms.py`).
-The last build step ([sparkos-no-kde.sh](../scripts/sparkos-no-kde.sh)) deletes the stand-ins and
-the moved originals along with KDE, so `--route` and `spark-settings --kde` have nothing to call
-on the image. They still work on a machine that has KDE.
-
-Spark Settings is pinned on the dock. Spark Welcome opens it on one page with the old module name
-(`kcm_printer_manager` and the like), through Spark Settings' own route table.
+Spark Settings is pinned on the dock. Spark Welcome opens it on one page with `--page`.
 
 ## Install
 
@@ -74,8 +57,7 @@ against recorded output, not the devices.
 ## Known limits
 
 - Displays go through `wlr-randr` (`displays.py`); each change is also written to the compositor's `outputs.conf`, and HDR is set there for the next sign-in.
-- Input: pointer and touchpad settings are written to the compositor config and reloaded; button mapping, calibration, tablets and touchscreens are not set here. The keyboard layout reads `kxkbrc` as its fallback when no Spark setting exists.
-- The Plasma-file writes in `plasma.py` (KWin effects, powerdevil timers, kscreenlocker) do nothing in the Spark session; the Spark settings in `~/.config/spark/*.json` are what takes effect.
+- Input: pointer and touchpad settings are written to the compositor config and reloaded; button mapping, calibration, tablets and touchscreens are not set here. The keyboard layout defaults to US until a layout is saved.
 - Users: no passwords here, and no picture upload beyond choosing a file.
-- The 24-hour clock is saved in the Spark locale setting; `plasma-localerc` is only also written for KDE machines.
-- The proxy is saved to `kioslaverc`, which only KDE apps read; other apps follow their own.
+- The language and 24-hour clock choices are saved in `~/.config/spark/locale.json`; nothing in the Spark session reads that file yet, so only the system language (localed) changes what apps show.
+- The default terminal is written to `~/.config/xdg-terminals.list`, which `xdg-terminal-exec` reads.

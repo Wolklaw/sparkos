@@ -1,9 +1,7 @@
-"""Network through nmcli (terse mode): Wi-Fi, wired, VPN connections, and the proxy."""
+"""Network through nmcli (terse mode): Wi-Fi, wired, and VPN connections."""
 
-import re
-from typing import Dict, List, Optional
+from typing import Dict, List
 
-from . import core
 from .core import out, run
 
 
@@ -112,21 +110,3 @@ def vpn_import(path: str) -> str:
     rc, _, err = run(['nmcli', 'con', 'import', 'type', kind, 'file', path])
     return '' if rc == 0 else (err.strip() or "could not import")
 
-
-# ── proxy: KDE's setting (kioslaverc), used by KDE and Spark apps ──
-def proxy_get() -> Dict[str, str]:
-    kind = core.kread('kioslaverc', 'Proxy Settings', 'ProxyType', '0')
-    mode = {'0': 'none', '1': 'manual', '4': 'auto'}.get(kind, 'none')
-    return {'mode': mode, 'http': core.kread('kioslaverc', 'Proxy Settings', 'httpProxy'),
-            'https': core.kread('kioslaverc', 'Proxy Settings', 'httpsProxy')}
-
-
-def proxy_set(mode: str, http: str = '') -> bool:
-    kind = {'none': '0', 'manual': '1'}.get(mode, '0')
-    ok = core.kwrite('kioslaverc', 'Proxy Settings', 'ProxyType', kind) == 0
-    if mode == 'manual':
-        url = http if '://' in http else f"http://{http}"
-        url = re.sub(r':(\d+)$', r' \1', url)      # KDE writes "http://host 3128"
-        ok = ok and core.kwrite('kioslaverc', 'Proxy Settings', 'httpProxy', url) == 0
-        ok = ok and core.kwrite('kioslaverc', 'Proxy Settings', 'httpsProxy', url) == 0
-    return ok

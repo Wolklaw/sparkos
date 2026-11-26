@@ -1,12 +1,11 @@
 name: spark-settings
-# Spark Settings, SparkOS's settings app (in place of KDE System Settings).
+# Spark Settings, SparkOS's settings app.
 # files/scripts/spark-settings.sh is the image build step.
 #
-# fedora:  runs the image build step in a plain Fedora container, with stand-ins for KDE's
-#          systemsettings and kcmshell6 so the takeover is tested too, then the self-test and
+# fedora:  runs the image build step in a plain Fedora container, then the self-test and
 #          the unit and window tests under Xvfb as a normal user, in English and in French.
 #          Every tool is a fake (tests/fixtures/bin); no real setting is touched.
-# sparkos: inside the published SparkOS image, checks the stand-ins and the
+# sparkos: inside the published SparkOS image, checks KDE is gone and the
 #          image's tools (self-test --strict), installs it for a normal user with
 #          install.sh --user (no root), runs the tests on the image's own Python and Tk,
 #          uninstalls it, and checks nothing is left behind.
