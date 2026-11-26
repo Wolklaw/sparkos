@@ -156,7 +156,7 @@ jobs:
         run: |
           # Nvidia image: Nvidia's open modules for the image's kernel, its driver, and no build
           # tools or RPM Fusion nonfree left behind. Main image: no Nvidia driver at all.
-          sudo podman run --rm -e GPU localhost/sparkos:build sh -euc '
+          sudo podman run --rm -e GPU="$GPU" localhost/sparkos:build sh -euc '
             kver=$(ls /usr/lib/modules)
             if [ "$GPU" = nvidia ]; then
               for m in nvidia nvidia-modeset nvidia-drm nvidia-uvm; do
