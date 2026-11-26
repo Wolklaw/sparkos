@@ -83,6 +83,7 @@
 #include <wlr/types/wlr_single_pixel_buffer_v1.h>
 #include <wlr/types/wlr_subcompositor.h>
 #include <wlr/types/wlr_tearing_control_v1.h>
+#include <wlr/types/wlr_linux_drm_syncobj_v1.h>
 #include <wlr/types/wlr_viewporter.h>
 #include <wlr/types/wlr_virtual_keyboard_v1.h>
 #include <wlr/types/wlr_virtual_pointer_v1.h>
@@ -202,6 +203,8 @@ struct server {
 	bool lock_sent;   /* locked was sent to the current lock client (wlroots aborts on a second one) */
 	struct wlr_surface *lock_focus;
 
+	struct wl_listener renderer_lost;
+	bool want_vulkan;                     /* HDR asked for the Vulkan renderer at start */
 	struct wl_listener new_output, new_xdg_toplevel, new_xdg_popup, new_layer_surface, new_input,
 		new_xwayland_surface, xwayland_ready, request_set_cursor, request_set_selection,
 		request_set_primary, cursor_motion, cursor_motion_abs, cursor_button, cursor_axis,
@@ -220,6 +223,11 @@ struct output {
 	struct wlr_box usable;
 	struct wl_listener frame, request_state, destroy;
 	bool dpms_off;                        /* powered down by the idle timer */
+	/* tearing test result, kept for one fullscreen window at one refresh rate. The pointer is
+	 * only compared, never followed, and view_destroy clears it. */
+	struct view *tear_view;
+	int tear_refresh;
+	bool tear_ok;
 };
 
 struct view {
@@ -718,9 +726,20 @@ static void output_frame(struct wl_listener *l, void *data) {
 		struct wlr_output_state st;
 		wlr_output_state_init(&st);
 		if (output_build_state(o, &st)) {
-			st.tearing_page_flip = true;
-			if (!wlr_output_test_state(wo, &st)) st.tearing_page_flip = false;
-			wlr_output_commit_state(wo, &st);
+			/* a test commit is a full atomic check in the kernel: do it once per fullscreen
+			 * window and mode, not every frame. A refused tearing commit is redone vsynced. */
+			if (o->tear_view != fv || o->tear_refresh != wo->refresh) {
+				o->tear_view = fv; o->tear_refresh = wo->refresh;
+				st.tearing_page_flip = true;
+				o->tear_ok = wlr_output_test_state(wo, &st);
+				wlr_log(WLR_INFO, "output %s: tearing %s", wo->name, o->tear_ok ? "on" : "refused by the driver");
+			}
+			st.tearing_page_flip = o->tear_ok;
+			if (!wlr_output_commit_state(wo, &st) && st.tearing_page_flip) {
+				o->tear_ok = false;
+				st.tearing_page_flip = false;
+				wlr_output_commit_state(wo, &st);
+			}
 		}
 		wlr_output_state_finish(&st);
 	} else if (o->hdr_tr && wo->image_description) {
@@ -820,10 +839,19 @@ static void new_output(struct wl_listener *l, void *data) {
 	wlr_output_state_init(&st);
 	apply_cfg_to_state(wo, c, &st);
 	bool ok = wlr_output_commit_state(wo, &st);
-	if (!ok && c && c->hdr) { /* HDR refused: same settings in SDR */
+	/* step down one setting at a time, so a refused HDR or VRR request keeps the mode,
+	 * scale and rotation instead of dropping straight to the preferred mode */
+	struct out_cfg t; if (c) t = *c;
+	if (!ok && c && t.hdr) { /* HDR refused: same settings in SDR */
 		wlr_log(WLR_ERROR, "output %s: HDR was refused, using SDR", wo->name);
 		wlr_output_state_finish(&st); wlr_output_state_init(&st);
-		c->hdr = false; apply_cfg_to_state(wo, c, &st); c->hdr = true;
+		t.hdr = false; apply_cfg_to_state(wo, &t, &st);
+		ok = wlr_output_commit_state(wo, &st);
+	}
+	if (!ok && c && t.vrr) { /* adaptive sync refused: same settings without it */
+		wlr_log(WLR_ERROR, "output %s: adaptive sync was refused, turning it off", wo->name);
+		wlr_output_state_finish(&st); wlr_output_state_init(&st);
+		t.vrr = false; apply_cfg_to_state(wo, &t, &st);
 		ok = wlr_output_commit_state(wo, &st);
 	}
 	if (!ok && c) { /* the configured mode failed: fall back to the preferred one */
@@ -880,6 +908,7 @@ static bool apply_output_config(struct server *s, struct wlr_output_configuratio
 		wlr_output_state_init(&st);
 		wlr_output_state_set_enabled(&st, h->state.enabled);
 		if (h->state.enabled) {
+			if (!test && wo->renderer != s->renderer) wlr_output_init_render(wo, s->allocator, s->renderer);
 			if (h->state.mode) wlr_output_state_set_mode(&st, h->state.mode);
 			else wlr_output_state_set_custom_mode(&st, h->state.custom_mode.width,
 				h->state.custom_mode.height, h->state.custom_mode.refresh);
@@ -1674,6 +1703,11 @@ static void view_destroy(struct wl_listener *l, void *data) {
 	if (s->press_view == v) s->press_view = NULL;
 	free(v->deco_title);
 	if (s->grab_view == v) { s->grab_view = NULL; s->cursor_mode = CURSOR_PASSTHROUGH; }
+	struct output *o;
+	wl_list_for_each(o, &s->outputs, link) if (o->tear_view == v) o->tear_view = NULL;
+	/* the link is always initialised (make_view), so this is safe even when unmap already
+	 * took the view out; a view left in s->views after free crashed later list walks */
+	wl_list_remove(&v->link);
 	wlr_scene_node_destroy(&v->tree->node);
 	free(v);
 }
@@ -3374,6 +3408,52 @@ static void cap_mgr_bind(struct wl_client *client, void *data, uint32_t version,
 	wl_resource_set_implementation(r, &cap_mgr_impl, data, NULL);
 }
 
+static struct wlr_renderer *make_renderer(struct server *s) {
+	bool forced = getenv("WLR_RENDERER") != NULL;
+	if (s->want_vulkan && !forced) setenv("WLR_RENDERER", "vulkan", 1);
+	struct wlr_renderer *r = wlr_renderer_autocreate(s->backend);
+	if (!r && s->want_vulkan && !forced) {
+		wlr_log(WLR_ERROR, "the Vulkan renderer failed; HDR stays off");
+		unsetenv("WLR_RENDERER");
+		r = wlr_renderer_autocreate(s->backend);
+	}
+	if (s->want_vulkan && !forced) unsetenv("WLR_RENDERER");   /* not passed on to clients */
+	return r;
+}
+
+/* A GPU reset (an AMD ring timeout, an Nvidia Xid) loses the renderer. Without a new one the
+ * screen stays frozen until logout; with it, windows redraw and the session goes on. */
+static void renderer_lost(struct wl_listener *l, void *data) {
+	struct server *s = wl_container_of(l, s, renderer_lost);
+	wlr_log(WLR_ERROR, "the GPU was reset: making a new renderer");
+	struct wlr_renderer *r = make_renderer(s);
+	if (!r) { wlr_log(WLR_ERROR, "no new renderer"); return; }
+	struct wlr_allocator *a = wlr_allocator_autocreate(s->backend, r);
+	if (!a) { wlr_log(WLR_ERROR, "no new allocator"); wlr_renderer_destroy(r); return; }
+	struct wlr_renderer *old_r = s->renderer;
+	struct wlr_allocator *old_a = s->allocator;
+	s->renderer = r; s->allocator = a;
+	wl_list_remove(&s->renderer_lost.link);
+	wl_signal_add(&r->events.lost, &s->renderer_lost);
+	wlr_compositor_set_renderer(s->compositor, r);
+	struct output *o;
+	wl_list_for_each(o, &s->outputs, link) {
+		struct wlr_output *wo = o->wlr_output;
+		/* HDR captures keep 8-bit buffers from the old allocator: drop them, they are made
+		 * again on the next capture */
+		struct wlr_addon *ad = wlr_addon_find(&wo->addons, NULL, &cap_addon_impl);
+		if (ad) {
+			struct cap_src *src = wl_container_of(ad, src, addon);
+			if (src->sdr_chain) { wlr_swapchain_destroy(src->sdr_chain); src->sdr_chain = NULL; }
+		}
+		wlr_output_init_render(wo, a, r);
+		o->tear_view = NULL;
+		wlr_output_schedule_frame(wo);
+	}
+	wlr_allocator_destroy(old_a);
+	wlr_renderer_destroy(old_r);
+}
+
 int main(int argc, char **argv) {
 	const char *startup = NULL;
 	int c;
@@ -3416,19 +3496,22 @@ int main(int argc, char **argv) {
 	bool want_hdr = false;
 	struct out_cfg *oc;
 	wl_list_for_each(oc, &s->out_cfgs, link) want_hdr |= oc->hdr && oc->enabled;
-	bool forced = getenv("WLR_RENDERER") != NULL;
-	if (want_hdr && !forced) setenv("WLR_RENDERER", "vulkan", 1);
-	s->renderer = wlr_renderer_autocreate(s->backend);
-	if (!s->renderer && want_hdr && !forced) {
-		wlr_log(WLR_ERROR, "the Vulkan renderer failed; HDR stays off");
-		unsetenv("WLR_RENDERER");
-		s->renderer = wlr_renderer_autocreate(s->backend);
-	}
-	if (want_hdr && !forced) unsetenv("WLR_RENDERER");   /* not passed on to clients */
+	s->want_vulkan = want_hdr;
+	s->renderer = make_renderer(s);
 	if (!s->renderer) { wlr_log(WLR_ERROR, "no renderer"); return 1; }
+	LISTEN(s->renderer->events.lost, &s->renderer_lost, renderer_lost);
 	wlr_renderer_init_wl_display(s->renderer, s->display);
 	s->allocator = wlr_allocator_autocreate(s->backend, s->renderer);
 	if (!s->allocator) { wlr_log(WLR_ERROR, "no allocator"); return 1; }
+
+	/* explicit sync (linux-drm-syncobj): the Nvidia driver needs it for Wayland windows that
+	 * don't flicker or stall, and Vulkan games on Mesa use it too. Only offered when both the
+	 * renderer and the backend can wait on timelines; the scene applies the fences itself. */
+	if (s->renderer->features.timeline && s->backend->features.timeline) {
+		int drm_fd = wlr_renderer_get_drm_fd(s->renderer);
+		if (drm_fd >= 0 && wlr_linux_drm_syncobj_manager_v1_create(s->display, 1, drm_fd))
+			wlr_log(WLR_INFO, "explicit sync on");
+	}
 
 	s->compositor = wlr_compositor_create(s->display, 6, s->renderer);
 	wlr_subcompositor_create(s->display);
@@ -3580,6 +3663,7 @@ int main(int argc, char **argv) {
 	wlr_output_layout_destroy(s->output_layout);
 	wlr_cursor_destroy(s->cursor);
 	wlr_allocator_destroy(s->allocator);
+	UNLISTEN(&s->renderer_lost);
 	wlr_renderer_destroy(s->renderer);
 	wlr_backend_destroy(s->backend);
 	wl_display_destroy(s->display);
