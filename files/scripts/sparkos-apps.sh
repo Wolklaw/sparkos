@@ -20,6 +20,9 @@ for pkg in firefox firefox-langpacks fedora-third-party fedora-workstation-repos
 done
 if [ ${#remove[@]} -gt 0 ]; then
   echo "--- removing: ${remove[*]}"
+  # On base-atomic, Firefox is what pulled in openh264 (H.264 in Soot); marked as wanted, dnf
+  # doesn't take it out with Firefox as an unused dependency
+  dnf -y mark user mozilla-openh264
   dnf -y remove "${remove[@]}"
 else
   echo "--- none of the base's third-party apps are installed as RPMs"
