@@ -184,15 +184,14 @@ def save_settings(data: Dict[str, Any]) -> None:
 
 
 def reduced_motion() -> bool:
-    """True when the desktop asks for no animation (Plasma: animation speed set to instant)."""
+    """True when animations are turned off in Spark Settings (appearance.json) or by env."""
     if os.environ.get('SPARK_GAMES_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):
         return True
     base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(home(), '.config')
     try:
-        with open(os.path.join(base, 'kdeglobals'), encoding='utf-8', errors='replace') as f:
-            match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
+        with open(os.path.join(base, 'spark', 'appearance.json'), encoding='utf-8') as f:
+            return json.load(f).get('animations', True) is False
+    except (OSError, ValueError, AttributeError):
         return False
 
 
@@ -226,7 +225,7 @@ def spawn(argv: List[str], env: Optional[Dict[str, str]] = None,
 
 
 def open_uri(target: str) -> Optional[str]:
-    """Open a folder or a link with the desktop's handler (Dolphin for folders)."""
+    """Open a folder or a link with the desktop's handler (Spark Files for folders)."""
     if os.name == 'nt':                      # Windows dev runs only
         try:
             os.startfile(target)             # type: ignore[attr-defined]
@@ -271,6 +270,6 @@ def now() -> int:
 
 
 def picker():
-    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
-    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
-    return shutil.which('spark-pick') or shutil.which('kdialog')
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal).
+    None: use Tk's own dialog."""
+    return shutil.which('spark-pick')

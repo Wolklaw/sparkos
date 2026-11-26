@@ -30,10 +30,9 @@ def reduced_motion() -> bool:
         return True
     base = os.environ.get("XDG_CONFIG_HOME") or os.path.join(os.path.expanduser("~"), ".config")
     try:
-        with open(os.path.join(base, "kdeglobals"), encoding="utf-8", errors="replace") as f:
-            match = re.search(r"^AnimationDurationFactor\s*=\s*([0-9.]+)", f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
+        with open(os.path.join(base, "spark", "appearance.json"), encoding="utf-8") as f:
+            return json.load(f).get("animations", True) is False
+    except (OSError, ValueError, AttributeError):
         return False
 
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 # Spark's polkit authentication agent: the password window for pkexec and system settings in the
 # Spark session. Start it once per session (the Spark session script does); it registers itself
-# with polkit and exits 1 if it cannot. Plasma keeps polkit-kde; do not run both.
+# with polkit and exits 1 if it cannot. Do not run another polkit agent beside it.
 export PYTHONPATH=/usr/lib/spark-session${PYTHONPATH:+:$PYTHONPATH}
 exec /usr/bin/python3 -s -m sparksession.polkit_agent "$@"

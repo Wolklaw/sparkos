@@ -20,7 +20,7 @@
     "gi_namespaces": {"Gtk": "4.0"},
     "packages_fedora": ["python3-gobject", "gtk4", "wl-clipboard"],
     "optional": {},
-    "system": "Linux with a Wayland desktop that offers the data-control protocol (KDE Plasma 6 does). The clipboard history needs wl-clipboard; notes work without it"
+    "system": "Linux with a Wayland desktop that offers the data-control protocol (the Spark compositor does). The clipboard history needs wl-clipboard; notes work without it"
   },
   "install": {
     "user": "bash install.sh --user",

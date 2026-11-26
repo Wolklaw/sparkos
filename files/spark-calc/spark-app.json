@@ -18,7 +18,7 @@
     "python": ">=3.9",
     "python_modules": ["tkinter", "decimal", "fractions"],
     "optional": {},
-    "system": "Any Linux desktop; Plasma for the Calculator key"
+    "system": "Any Linux desktop; the Spark session binds the Calculator key"
   },
   "install": {
     "user": "bash install.sh --user",

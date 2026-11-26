@@ -13,8 +13,7 @@
 # --deps     system-wide only: install what it needs with dnf first (Fedora; the image build).
 # --no-test  skip the self-test at the end.
 #
-# Taking Meta+. from Plasma's Emoji Selector is the image's job (files/scripts/spark-emoji.sh),
-# not this script's. Settings (~/.config/spark-emoji) and the log
+# Meta+. is bound by spark-compositor, not by this script. Settings (~/.config/spark-emoji) and the log
 # (~/.local/state/spark-emoji) are not touched by --uninstall.
 set -euo pipefail
 
@@ -45,9 +44,6 @@ GI_CHECK='import gi; gi.require_version("Gtk", "4.0"); from gi.repository import
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 copy_app() {   # $1: destination folder
@@ -126,7 +122,7 @@ EOF
   case "$BIN" in *" "*) exec_bin="\"$BIN\"" ;; *) exec_bin=$BIN ;; esac
   # no shortcut from here: Meta+. belongs to the system-wide install, and a per-user entry
   # must not fight it for the key
-  sed -e "s|^Exec=spark-emoji|Exec=$exec_bin|" -e '/^X-KDE-Shortcuts=/d' "$here/$APP_ID.desktop" > "$desktop"
+  sed -e "s|^Exec=spark-emoji|Exec=$exec_bin|" "$here/$APP_ID.desktop" > "$desktop"
   chmod 0644 "$desktop"
   record "$desktop"
   for size in $SIZES; do

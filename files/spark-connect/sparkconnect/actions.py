@@ -174,7 +174,7 @@ def terminal_argv(machine: Machine, remote: Optional[str] = None,
         inner.append(remote)
     if WINDOWS:
         return inner                     # started with CREATE_NEW_CONSOLE
-    for term, flag in (('spark-terminal', '-e'), ('konsole', '-e'), ('x-terminal-emulator', '-e'),
+    for term, flag in (('spark-terminal', '-e'), ('x-terminal-emulator', '-e'),
                        ('gnome-terminal', '--'), ('xterm', '-e')):
         if shutil.which(term):
             return [term, flag] + inner

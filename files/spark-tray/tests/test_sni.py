@@ -1,4 +1,4 @@
-"""The StatusNotifierItem and its menu, talked to the way a tray (Plasma's, or the Spark shell's)
+"""The StatusNotifierItem and its menu, talked to the way a tray (the Spark shell's)
 talks to it: through a fake StatusNotifierWatcher on a private session bus."""
 
 import unittest

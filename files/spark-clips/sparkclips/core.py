@@ -102,10 +102,9 @@ def reduced_motion() -> bool:
         return True
     base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(home(), '.config')
     try:
-        with open(os.path.join(base, 'kdeglobals'), encoding='utf-8', errors='replace') as f:
-            match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
+        with open(os.path.join(base, 'spark', 'appearance.json'), encoding='utf-8') as f:
+            return json.load(f).get('animations', True) is False
+    except (OSError, ValueError, AttributeError):
         return False
 
 
@@ -221,7 +220,7 @@ def portal_path() -> str:
 
 
 def load_portal() -> Dict[str, Any]:
-    """What the share portal told us last time: the restore token (so Plasma's dialog shows
+    """What the share portal told us last time: the restore token (so the share dialog shows
     once) and a description of the screen it picked. Written by the service only."""
     try:
         with open(portal_path(), encoding='utf-8') as f:

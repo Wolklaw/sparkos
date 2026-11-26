@@ -60,7 +60,7 @@ def cache_dir() -> str:
 
 
 def thumbnail_root() -> str:
-    """The freedesktop thumbnail cache, shared with Dolphin."""
+    """The freedesktop thumbnail cache, shared with other file managers."""
     base = os.environ.get('XDG_CACHE_HOME') or os.path.join(os.path.expanduser('~'), '.cache')
     return os.path.join(base, 'thumbnails')
 
@@ -120,15 +120,14 @@ def save_json(name: str, data: Dict[str, Any]) -> None:
 
 
 def reduced_motion() -> bool:
-    """True when the desktop asks for no animation (Plasma: animation speed set to instant)."""
+    """True when animations are turned off in Spark Settings (appearance.json) or by env."""
     if os.environ.get('SPARK_MEDIA_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):
         return True
     base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
     try:
-        with open(os.path.join(base, 'kdeglobals'), encoding='utf-8', errors='replace') as f:
-            match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
+        with open(os.path.join(base, 'spark', 'appearance.json'), encoding='utf-8') as f:
+            return json.load(f).get('animations', True) is False
+    except (OSError, ValueError, AttributeError):
         return False
 
 
@@ -146,7 +145,7 @@ def kind_of(path: str) -> Optional[str]:
 
 
 def path_from_arg(arg: str) -> str:
-    """Dolphin passes paths, some apps pass file:// URIs."""
+    """File managers pass paths, some apps pass file:// URIs."""
     if arg.startswith('file://'):
         return unquote(urlparse(arg).path)
     return os.path.abspath(os.path.expanduser(arg))
@@ -254,7 +253,7 @@ def clock(seconds: Optional[float]) -> str:
 
 def move_to_trash(path: str) -> Optional[str]:
     """Move a file to the Trash (recoverable). None on success, otherwise what went wrong."""
-    for cmd in (['gio', 'trash', '--', path], ['kioclient', 'move', path, 'trash:/']):
+    for cmd in (['gio', 'trash', '--', path],):
         if shutil.which(cmd[0]):
             try:
                 result = subprocess.run(cmd, capture_output=True, text=True, timeout=20)
@@ -263,7 +262,7 @@ def move_to_trash(path: str) -> Optional[str]:
             if result.returncode == 0 and not os.path.exists(path):
                 return None
             return (result.stderr or result.stdout).strip() or f"{cmd[0]} failed"
-    return "no trash tool found (gio or kioclient)"
+    return "no trash tool found (gio)"
 
 
 def pick_files(kind: Optional[str], start: str) -> List[str]:
@@ -520,7 +519,7 @@ def clamp_center(image_size: Tuple[int, int], view: Tuple[int, int], scale: floa
     return out[0], out[1]
 
 
-# ─── Thumbnails (freedesktop cache, shared with Dolphin) ──────
+# ─── Thumbnails (freedesktop cache, shared with other file managers) ──────
 
 def thumbnail_path(path: str, flavour: str = 'large') -> str:
     digest = hashlib.md5(file_uri(path).encode('utf-8')).hexdigest()
@@ -606,6 +605,6 @@ def image_formats() -> Dict[str, bool]:
 
 
 def picker():
-    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
-    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
-    return shutil.which('spark-pick') or shutil.which('kdialog')
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal).
+    None: use Tk's own dialog."""
+    return shutil.which('spark-pick')

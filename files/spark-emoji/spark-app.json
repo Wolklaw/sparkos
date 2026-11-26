@@ -22,7 +22,7 @@
     "optional": {
       "google-noto-color-emoji-fonts": "colour emoji (without it they show as boxes or in black and white)"
     },
-    "system": "Linux; any desktop. Pasting into the previous window needs a desktop with the RemoteDesktop portal (KDE Plasma 6 has it) and the person's OK; without it Spark Emoji copies"
+    "system": "Linux; any desktop. Pasting into the previous window needs a desktop with the RemoteDesktop portal (the Spark session has it) and the person's OK; without it Spark Emoji copies"
   },
   "install": {
     "user": "bash install.sh --user",

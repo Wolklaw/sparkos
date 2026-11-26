@@ -18,7 +18,7 @@
     "optional": {
       "gstreamer playbin": "video thumbnails",
       "udisksctl": "Eject for USB drives",
-      "spark-terminal": "Open a terminal here (Konsole or the desktop's terminal otherwise)",
+      "spark-terminal": "Open a terminal here (the desktop's terminal otherwise)",
       "fuse-sshfs": "sftp places",
       "rclone": "smb places and Google Drive",
       "secret-tool": "remember server passwords in the keyring",

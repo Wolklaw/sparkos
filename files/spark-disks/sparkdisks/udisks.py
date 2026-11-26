@@ -1,4 +1,4 @@
-"""udisks2 over D-Bus: the service GNOME Disks and Plasma use. udisks asks polkit before each
+"""udisks2 over D-Bus: the service GNOME Disks uses. udisks asks polkit before each
 change, so the password prompt is the system's and Spark Disks never runs as root.
 
 `Backend` is the list of things ops.py may ask for; `Udisks` is the real one (PyGObject's Gio,

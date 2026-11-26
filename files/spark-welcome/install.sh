@@ -93,10 +93,6 @@ refresh_menus() {
     command -v update-desktop-database >/dev/null && update-desktop-database -q "$APPS" || true
     command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t -f "$ICONS" || true
   fi
-  # Plasma picks up new and removed entries by itself; this just makes it immediate.
-  if [ "$USER_MODE" = 1 ] && [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
-    command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 if [ "$UNINSTALL" = 1 ]; then

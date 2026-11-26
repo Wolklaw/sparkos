@@ -134,7 +134,7 @@ def self_test() -> int:
     pk = fileio.pkexec_path()
     print(f"admin:     " + (f"pkexec at {pk} (Save as administrator works)" if pk else
                             "no pkexec: Save as administrator is unavailable"))
-    pick = shutil.which('spark-pick') or shutil.which('kdialog')
+    pick = shutil.which('spark-pick')
     print(f"dialogs:   " + (f"{os.path.basename(pick)} (the desktop's own file dialogs)" if pick
                             else "Tk's own file dialogs (spark-pick not found)"))
     from .instance import socket_path

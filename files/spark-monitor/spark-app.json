@@ -20,7 +20,7 @@
       "hwdata": "GPU names (/usr/share/hwdata/pci.ids)",
       "systemctl": "switching systemd --user services in the Startup tab"
     },
-    "system": "Linux with /proc and /sys; Plasma 6 for grouping by app and the shortcut"
+    "system": "Linux with /proc and /sys; the Spark session for grouping by app and the shortcut"
   },
   "install": {
     "user": "bash install.sh --user",

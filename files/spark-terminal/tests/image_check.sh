@@ -2,7 +2,7 @@
 # Run as root inside the SparkOS image (CI: podman run ... -v .:/repo:ro). The published image
 # may predate Spark Terminal, so this does what the image build does first: copies files/system
 # over the image and runs files/scripts/spark-terminal.sh (adds VTE, installs the app system-wide,
-# makes it the default terminal, hides Konsole). Then, as a normal user: the self-test, the unit
+# makes it the default terminal, removes the old terminal's entry). Then, as a normal user: the self-test, the unit
 # and window tests on the image's own Python, GTK and VTE (vim and less start and quit cleanly
 # inside it), and a per-user install and uninstall.
 set -euo pipefail

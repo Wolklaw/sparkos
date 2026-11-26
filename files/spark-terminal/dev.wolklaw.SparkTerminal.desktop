@@ -13,7 +13,6 @@ Categories=System;TerminalEmulator;
 Keywords=terminal;shell;console;command;prompt;bash;cli;cmd;konsole;invite de commandes;
 Keywords[fr]=terminal;shell;console;commande;invite;bash;
 StartupNotify=true
-X-KDE-Shortcuts=Ctrl+Alt+T
 StartupWMClass=dev.wolklaw.SparkTerminal
 X-ExecArg=-e
 X-TerminalArgExec=-e

@@ -11,9 +11,7 @@
 # --deps     system-wide only: install what it needs with dnf first (Fedora; the image build).
 # --no-test  skip the self-test at the end.
 #
-# The desktop entry carries X-KDE-Shortcuts=Calculator: a link to it in the kglobalaccel
-# folder is how Plasma registers an app's global shortcut, so a keyboard's Calculator key
-# opens Spark Calc. Settings (~/.config/spark-calc) and history (~/.local/state/spark-calc)
+# The Spark compositor binds a keyboard's Calculator key to Spark Calc. Settings (~/.config/spark-calc) and history (~/.local/state/spark-calc)
 # are not touched by --uninstall.
 set -euo pipefail
 
@@ -43,20 +41,6 @@ SIZES="16 22 24 32 48 64 128 256 512"
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  # KDE's menu cache; Plasma's shortcut daemon reads new X-KDE-Shortcuts from it
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
-}
-
-forget_shortcut() {
-  # Ask Plasma's shortcut daemon to drop the component now its desktop entry is gone.
-  # Best effort: only in a running Plasma session.
-  if [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v gdbus >/dev/null; then
-    gdbus call --session --dest org.kde.kglobalaccel \
-      --object-path "/component/${APP_ID//./_}_desktop" \
-      --method org.kde.kglobalaccel.Component.cleanUp >/dev/null 2>&1 || true
-  fi
 }
 
 copy_program() {   # $1: where the program goes
@@ -98,11 +82,10 @@ if [ "$USER_MODE" = 1 ]; then
       esac
     done < "$MANIFEST"
     rm -rf -- "$LIB"
-    for dir in "$DATA/kglobalaccel" "$HOME/.local/lib"; do
+    for dir in "$HOME/.local/lib"; do
       rmdir --ignore-fail-on-non-empty "$dir" 2>/dev/null || true
     done
     refresh_menus "$DATA/applications"
-    forget_shortcut
     echo "Spark Calc removed for $(id -un). Settings and history stay in ~/.config/$SLUG"
     echo "and ~/.local/state/$SLUG; delete those folders too if you don't want them."
     exit 0
@@ -146,9 +129,6 @@ EOF
   target="$DATA/icons/hicolor/scalable/apps/$APP_ID.svg"
   install -Dm 0644 "$here/icons/$SLUG.svg" "$target"
   record "$target"
-  install -d "$DATA/kglobalaccel"
-  ln -sfn "../applications/$APP_ID.desktop" "$DATA/kglobalaccel/$APP_ID.desktop"
-  record "$DATA/kglobalaccel/$APP_ID.desktop"
   refresh_menus "$DATA/applications"
 
   test -x "$BIN"
@@ -172,7 +152,6 @@ fi
 if [ "$UNINSTALL" = 1 ]; then
   rm -rf -- "$PREFIX"
   rm -f "/usr/share/spark-apps/$SLUG.json" /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
-        "/usr/share/kglobalaccel/$APP_ID.desktop" \
         "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
   for size in $SIZES; do
     rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
@@ -205,8 +184,6 @@ chmod 0755 /usr/bin/$SLUG
 install -Dm 0644 "$here/spark-app.json" "/usr/share/spark-apps/$SLUG.json"
 
 install -Dm 0644 "$here/$APP_ID.desktop" "/usr/share/applications/$APP_ID.desktop"
-install -d /usr/share/kglobalaccel
-ln -sfn "../applications/$APP_ID.desktop" "/usr/share/kglobalaccel/$APP_ID.desktop"
 for size in $SIZES; do
   install -Dm 0644 "$here/icons/$SLUG-$size.png" \
     "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"

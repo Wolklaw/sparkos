@@ -4,7 +4,7 @@ Two steps, so a RAW opens as fast as a JPEG:
 1. The JPEG the camera stored inside the file. Every camera writes one; most are full size.
    Found by reading the file, no extra program needed.
 2. When that preview is smaller than the photo, the full decode from the sensor data, in the
-   background, by LibRaw's C library (SparkOS has it for KDE's RAW thumbnails).
+   background, by LibRaw's C library (SparkOS has it already).
 
 The camera, lens, settings and date come from the RAW's TIFF tags (all of these formats but
 CR3 and RAF are TIFF inside), read with Pillow's TIFF tag reader."""
@@ -242,7 +242,7 @@ _libraw_tried = False
 
 
 def libraw() -> Optional[ctypes.CDLL]:
-    """LibRaw's C library (the thread-safe build), which KDE's RAW thumbnails already use."""
+    """LibRaw's C library (the thread-safe build)."""
     global _libraw, _libraw_tried
     if _libraw_tried:
         return _libraw

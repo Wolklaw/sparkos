@@ -1,7 +1,7 @@
 """The System tab's data: what this PC is, in sections of label and value rows. No Tk here.
 
 Most of it is read from /proc and /sys. A few things need a program, run once on a thread when
-the tab opens (rpm-ostree, udevadm, vulkaninfo, kscreen-doctor); see fetch(). Serial numbers are
+the tab opens (rpm-ostree, udevadm, vulkaninfo); see fetch(). Serial numbers are
 kept in rows marked `secret` and left out of the screen and the copy unless asked for. The
 machine ID, host name, user name and network addresses are never read."""
 
@@ -61,8 +61,6 @@ def fetch(host: Host, gpu_ids: Optional[List[Tuple[int, int]]] = None) -> Dict[s
     out['glx'] = None
     if not out['vulkan'] and host.have('glxinfo'):
         out['glx'] = host.run('glxinfo.txt', ['glxinfo', '-B'], 15)
-    out['kscreen'] = host.run('kscreen.json', ['kscreen-doctor', '-j'], 10) \
-        if host.have('kscreen-doctor') else None
     return out
 
 
@@ -137,32 +135,6 @@ def parse_udev_memory(text: Optional[str]) -> List[Dict[str, str]]:
         except ValueError:
             continue
         out.append(mod)
-    return out
-
-
-def parse_kscreen(text: Optional[str]) -> Dict[str, Dict[str, str]]:
-    """connector name -> current mode, scale, from `kscreen-doctor -j`."""
-    try:
-        outputs = json.loads(text or '')['outputs']
-    except (ValueError, KeyError, TypeError):
-        return {}
-    out: Dict[str, Dict[str, str]] = {}
-    for o in outputs:
-        if not isinstance(o, dict) or not o.get('connected') or not o.get('enabled', True):
-            continue
-        mode = next((m for m in o.get('modes', []) if str(m.get('id')) == str(o.get('currentModeId'))),
-                    None)
-        info: Dict[str, str] = {}
-        if mode:
-            size = mode.get('size') or {}
-            try:
-                info['mode'] = f"{int(size['width'])}x{int(size['height'])}"
-                info['hz'] = f"{float(mode['refreshRate']):.0f}"
-            except (KeyError, TypeError, ValueError):
-                pass
-        if o.get('scale') not in (None, 1, 1.0):
-            info['scale'] = f"{float(o['scale']) * 100:.0f}%"
-        out[str(o.get('name'))] = info
     return out
 
 
@@ -351,7 +323,6 @@ def disks_section(src: Source, sampler: SystemSampler) -> Section:
 
 def displays_section(src: Source, cmds: Dict[str, Optional[str]]) -> Section:
     drm = os.path.join(src.sys, 'class', 'drm')
-    live = parse_kscreen(cmds.get('kscreen'))
     rows = []
     for entry in sorted(listdir(drm), key=natural):
         match = re.fullmatch(r'card\d+-(.+)', entry)
@@ -361,18 +332,12 @@ def displays_section(src: Source, cmds: Dict[str, Optional[str]]) -> Section:
         edid = parse_edid(read_bytes(os.path.join(drm, entry, 'edid')))
         name = edid.get('name') or t('sys.display')
         parts = []
-        mode = live.get(connector, {})
-        if mode.get('mode'):
-            parts.append(mode['mode'] + (f"@{mode['hz']} Hz" if mode.get('hz') else ''))
-        else:
-            first = (read_line(os.path.join(drm, entry, 'modes')) or '')
-            if first:
-                parts.append(first)
+        first = (read_line(os.path.join(drm, entry, 'modes')) or '')    # the preferred mode
+        if first:
+            parts.append(first)
         if edid.get('width_cm'):
             w, h = int(edid['width_cm']), int(edid['height_cm'])
             parts.append(f"{(w * w + h * h) ** 0.5 / 2.54:.0f}\"")
-        if mode.get('scale'):
-            parts.append(t('sys.scale', scale=mode['scale']))
         rows.append(Row(connector, ', '.join([name] + parts)))
         if edid.get('serial') and real(edid['serial']):
             rows.append(Row(f"{connector} {t('sys.serial').lower()}", edid['serial'], secret=True))

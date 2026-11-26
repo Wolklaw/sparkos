@@ -28,7 +28,7 @@ HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ─── Look helpers ────────────────────────────────────────────
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_RUN_SCALE')
     if forced:

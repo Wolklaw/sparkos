@@ -1,7 +1,7 @@
 """The pasting code against a fake XDG desktop portal (tests/fake_portal.py) on a private
 session bus. Run inside `dbus-run-session` with SPARK_EMOJI_FAKE_BUS=1; skipped otherwise.
 This proves Spark Emoji speaks the portal's protocol (create, select, start, then the key
-presses); it can't prove that KDE's real portal accepts it, which only a real session shows."""
+presses); it can't prove that the real portal accepts it, which only a real session shows."""
 
 import json
 import os

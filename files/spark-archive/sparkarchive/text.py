@@ -7,7 +7,7 @@ from .core import language
 EN = {
     # window
     'empty.title': "No archive open",
-    'empty.body': "Open a zip, tar, 7z, rar or iso file to see what's inside. In Dolphin, "
+    'empty.body': "Open a zip, tar, 7z, rar or iso file to see what's inside. In Spark Files, "
                   "right-click an archive for Extract here, or any files for Compress.",
     'button.open': "Open archive",
     'button.compress': "Compress files",
@@ -127,7 +127,7 @@ FR = {
     # fenêtre
     'empty.title': "Aucune archive ouverte",
     'empty.body': "Ouvrez un fichier zip, tar, 7z, rar ou iso pour voir ce qu'il contient. "
-                  "Dans Dolphin, faites un clic droit sur une archive pour Extraire ici, ou "
+                  "Dans Spark Files, faites un clic droit sur une archive pour Extraire ici, ou "
                   "sur des fichiers pour Compresser.",
     'button.open': "Ouvrir une archive",
     'button.compress': "Compresser des fichiers",

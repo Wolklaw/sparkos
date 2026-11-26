@@ -38,7 +38,7 @@ the glitch effect. They're saved in `~/.config/spark-terminal/settings.json`; th
 
 ## The command line
 
-Konsole's options, so scripts that started Konsole can switch:
+Konsole's options, so scripts written for Konsole can switch:
 
 ```
 spark-terminal [--workdir DIR] [--hold] [--title TITLE] [-e COMMAND [ARGS...]]
@@ -69,7 +69,6 @@ it the terminal everywhere:
 - the dock, the Claude Code menu entry and the Spark Files action, the `.rpm` installer window, and Spark
   Connect's "Open terminal"
 
-Konsole is not in the image. A person who still has an old dock layout can right-click the dock to swap it for Spark Terminal.
 
 ## Install by hand
 

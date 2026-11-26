@@ -10,7 +10,7 @@
 #            so "Show in folder" in other apps reaches Spark Files. Needs only what the SparkOS
 #            image has (Python 3 with tkinter, Pillow, PyGObject); nothing is downloaded.
 # --default  with --user: also make it your default file manager (inode/directory), with
-#            xdg-mime. --uninstall puts Dolphin back if Spark Files was the default.
+#            xdg-mime. --uninstall removes the default if Spark Files was it.
 # --deps     system-wide only: install what it needs with dnf first (Fedora; the image build).
 # --no-test  skip the self-test at the end.
 #
@@ -45,9 +45,6 @@ SIZES="16 22 24 32 48 64 128 256 512"
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 copy_app() {   # $1: destination folder
@@ -78,8 +75,7 @@ if [ "$USER_MODE" = 1 ]; then
       exit 0
     fi
     if command -v xdg-mime >/dev/null && [ "$(xdg-mime query default inode/directory 2>/dev/null)" = "$APP_ID.desktop" ]; then
-      xdg-mime default org.kde.dolphin.desktop inode/directory 2>/dev/null || true
-      echo "Folders open in Dolphin again."
+      echo "Spark Files was the default for folders; choose another file manager if you have one."
     fi
     while IFS= read -r path; do
       case "$path" in

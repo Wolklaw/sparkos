@@ -69,7 +69,6 @@ class Description(unittest.TestCase):
         self.assertIn('\nExec=spark-calc\n', text)
         self.assertIn(f'\nIcon={APP_ID}\n', text)
         self.assertIn('\nStartupWMClass=SparkCalc\n', text)
-        self.assertIn('\nX-KDE-Shortcuts=Calculator\n', text)
 
     def test_icons(self):
         for size in (16, 22, 24, 32, 48, 64, 128, 256, 512):
@@ -96,8 +95,6 @@ class UserInstall(unittest.TestCase):
             entry = f.read()
         self.assertIn(f'\nExec={bin_path}\n', entry)
         self.assertIn(f'\nExec={bin_path} --mode programmer\n', entry)
-        self.assertTrue(os.path.islink(os.path.join(home, '.local', 'share', 'kglobalaccel',
-                                                    f'{APP_ID}.desktop')))
         out = subprocess.run([bin_path, '--eval', '6*7'], capture_output=True, text=True,
                              env=env, timeout=60)
         self.assertEqual(out.stdout.strip(), '42')

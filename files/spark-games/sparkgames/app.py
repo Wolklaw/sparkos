@@ -34,7 +34,7 @@ class PadEvent:
 
 
 def detect_scale(root) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     import tkinter as tk
     forced = os.environ.get('SPARK_GAMES_SCALE')
@@ -646,9 +646,6 @@ class App:
             if os.path.isfile(path) and which('gio'):
                 spawn(['gio', 'launch', path])
                 return
-        if which('plasma-discover'):
-            spawn(['plasma-discover'])
-            return
         open_uri('https://flathub.org')
 
     def open_welcome(self):

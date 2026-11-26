@@ -316,7 +316,7 @@ class YamlLexer(Lexer):
 
 class IniLexer(Lexer):
     """INI and conf files: [sections], key=value, ; and # comments (desktop entries, systemd
-    units, KDE's rc files)."""
+    units, rc files)."""
     name = 'INI'
     line_comment = '#'
     SECTION = re.compile(r'\s*\[[^\]\n]*\]')
@@ -566,7 +566,7 @@ def detect(path: Optional[str], first_line: str = '') -> Optional[str]:
         if ext in EXT_TO_LANG:
             return EXT_TO_LANG[ext]
         if low.endswith('rc') and ext == '' and first_line.lstrip().startswith('['):
-            return 'ini'                                  # KDE's kwinrc, dolphinrc...
+            return 'ini'                                  # kwinrc, dolphinrc... (rc files from other desktops)
     if first_line.startswith('#!'):
         for needle, lang in SHEBANGS:
             if needle in first_line:

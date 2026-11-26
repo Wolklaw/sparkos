@@ -1,6 +1,6 @@
 # Spark Notes
 
-The SparkOS quick notes and clipboard history. It replaces KDE's Klipper on Meta+V (Windows key and
+The SparkOS quick notes and clipboard history. It is bound to Meta+V (Windows key and
 V). Version 0.1.0. No account, no cloud: everything stays in your home folder.
 
 ## Using it
@@ -53,9 +53,7 @@ Language follows `LC_ALL`, `LC_MESSAGES`, `LANG` (English or Quebec French); `SP
 ## Installing
 
 On SparkOS it is in the image (`files/scripts/spark-notes.sh`). The image step installs the app and
-`wl-clipboard`, enables the watcher for every login, gives the popup Meta+V, and takes Klipper out of the
-system tray (it lives in plasmashell, so there is no file to hide: the default layout starts the tray
-without it, and a one-time update script does the same for a profile that already exists).
+`wl-clipboard`, enables the watcher for every login and gives the popup Meta+V.
 
 Elsewhere:
 

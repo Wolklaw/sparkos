@@ -30,7 +30,7 @@ HEX_DIGITS = '0123456789ABCDEF'
 # ─── Look ─────────────────────────────────────────────────────
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_CALC_SCALE')
     if forced:

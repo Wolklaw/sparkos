@@ -376,7 +376,7 @@ class HomeView(tk.Frame):
         k = event.keysym
         cols = self._columns()
         moves = {'Left': -1, 'Right': 1, 'Up': -cols, 'Down': cols}
-        if k == 'BackSpace' or (k == 'Up' and event.state & 0x8):      # Alt+Up, as in Dolphin
+        if k == 'BackSpace' or (k == 'Up' and event.state & 0x8):      # Alt+Up, as in most file managers
             self._go_up()
         elif k in moves and self.kind == 'music' and k in ('Left', 'Right'):
             return False

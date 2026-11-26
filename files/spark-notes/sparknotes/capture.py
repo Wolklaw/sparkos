@@ -2,7 +2,7 @@
 
 `spark-notes --watch` runs `wl-paste --watch spark-notes --capture`. wl-paste (from the
 wl-clipboard package) talks to the compositor through the Wayland data-control protocol, which
-KWin implements, and starts `--capture` once for every change of the clipboard. Between copies
+the Spark compositor implements, and starts `--capture` once for every change of the clipboard. Between copies
 nothing runs, so it costs no CPU.
 
 `--capture` reads what was copied and adds it to the history, with these rules:
@@ -11,7 +11,7 @@ nothing runs, so it costs no CPU.
 - the program marked it as a password (x-kde-passwordManagerHint): keep nothing
 - text: kept (up to 1 MB); an image (png, jpeg, bmp): kept if images are on (up to 8 MB)
 - the clipboard became empty (the program that copied it closed; Wayland drops the copy with
-  it): the newest item in the history is put back, as Klipper did. Off with keep_alive=false.
+  it): the newest item in the history is put back, as other clipboard managers do. Off with keep_alive=false.
 
 No GTK in this file, so a capture starts fast.
 """

@@ -1,6 +1,6 @@
 # Spark Files
 
-The SparkOS file manager, in Dolphin's place. Folders open in it, it's on the dock, and "Show in folder" in Soot, FreeSuite, notifications and most other apps lands in it with the file selected. Dolphin is not in the image. Spark Files covers network servers (sftp, smb) and Google Drive too.
+The SparkOS file manager. Folders open in it, it's on the dock, and "Show in folder" in Soot, FreeSuite, notifications and most other apps lands in it with the file selected. Spark Files covers network servers (sftp, smb) and Google Drive too.
 
 It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 
@@ -15,7 +15,7 @@ It follows the PC's language: French when the system language is French (`LANG=f
 - **Thumbnails** are made in the background, newest request first (what's on screen now), and kept in the freedesktop cache (`~/.cache/thumbnails`), the same one Dolphin and Spark Media use. Videos take a frame from 10% in through GStreamer. Photos over 200 MB get an icon instead.
 - **Preview pane** (F11): a large thumbnail, the first lines of a text file, what a folder holds, type, size, date.
 - **Open** with the default app (double-click or Enter), **Open with** (the apps for that type, or any app, with "always use this one"), open folders in a new tab (middle-click) or window.
-- **Copy, cut, paste** (Ctrl+C, Ctrl+X, Ctrl+V) through the desktop's clipboard, in the formats Dolphin and GTK apps use, so you can copy in one and paste in the other. **Drag and drop** between views, tabs, split panes, windows and onto sidebar places; on the same drive it moves, onto another drive it copies (Shift moves, Ctrl copies either way); a label next to the pointer says which. Drag a folder onto the sidebar's empty part to pin it. Dragging out to other apps and in from them uses XDND (see "How it works").
+- **Copy, cut, paste** (Ctrl+C, Ctrl+X, Ctrl+V) through the desktop's clipboard, in the formats KDE and GTK apps use, so you can copy in one and paste in the other. **Drag and drop** between views, tabs, split panes, windows and onto sidebar places; on the same drive it moves, onto another drive it copies (Shift moves, Ctrl copies either way); a label next to the pointer says which. Drag a folder onto the sidebar's empty part to pin it. Dragging out to other apps and in from them uses XDND (see "How it works").
 - **Rename** with F2 in place (the name is selected without its extension; Tab moves on to the next one), several at once with a batch rename (`Trip ##` numbers them 01, 02...; `*` is the old name; or find and replace), with a live preview that refuses names used twice or already taken.
 - **New folder** (Ctrl+Shift+N), **new file** (empty, or from `~/Templates`).
 - **Trash** (Delete), with **Ctrl+Z** to put it back; the Trash view lists where each item came from, puts items back (asking if the name is taken by then), and empties. Files on another drive go to that drive's own trash folder, as the freedesktop spec says, so trashing never copies gigabytes across drives; on a drive without one (read-only, or not yours) it offers to delete for good. **Delete for good** (Shift+Delete) always asks first.
@@ -25,8 +25,8 @@ It follows the PC's language: French when the system language is French (`LANG=f
 - **Tabs** (Ctrl+T, Ctrl+W, Ctrl+Tab, Ctrl+Shift+T reopens the last one closed) and a **split view** (F3), with "Copy to / Move to (other side)" in the right-click menu.
 - **Watching.** A folder updates by itself when something in it changes (GIO file monitors; changes in bursts reload once). A drive unplugged while you're in it takes you to the nearest folder still there.
 - **Properties** (Alt+Enter): type, size (counted in the background for folders, hard links once), what a folder contains, dates, owner, permissions (owner, group, others; "can run as a program" for files), how full a drive is, which app opens it (with Change).
-- **Right-click actions other apps add** through KDE's service menus (`share/kio/servicemenus`): Spark Archive's Compress and Extract, Spark Link's "Send to phone", "Open Claude Code here". Spark Files reads the same files Dolphin did, so apps that add a menu entry for Dolphin appear here without knowing about Spark Files.
-- **Open a terminal here** (Shift+F4): Spark Terminal (`spark-terminal --workdir`) when it's installed, Konsole until then.
+- **Right-click actions other apps add** through service menu files (the KDE format, `share/kio/servicemenus`): Spark Archive's Compress and Extract, Spark Link's "Send to phone", "Open Claude Code here". Apps that add a menu entry the way Dolphin reads it appear here without knowing about Spark Files.
+- **Open a terminal here** (Shift+F4): Spark Terminal (`spark-terminal --workdir`) when it's installed.
 - **Copy path** (Ctrl+Shift+C).
 
 - **Open and Save dialogs for other apps** (1.3.0, in the Spark session only). Apps that ask through the desktop portal (Flatpak apps, Firefox, Chrome, Electron apps) get a Spark Files window instead of the toolkit's own dialog: the same sidebar, tabs and views, with a bar at the bottom for the name to save as, the file type, any extra options the app adds, and Cancel and Open/Save. Double-click or Enter picks a file; only files of the chosen type are listed; saving over a file asks first. Apps' "Open with" (the portal's app chooser) gets Spark Files' app picker. Qt and GTK apps that draw their own dialogs (not through the portal) keep doing so.
@@ -44,13 +44,13 @@ It follows the PC's language: French when the system language is French (`LANG=f
 
 ## Install
 
-On SparkOS it is in the image (`files/scripts/spark-files.sh` installs it with `install.sh --deps`, removes Dolphin's FileManager1 activation file so there is only one, and hides Dolphin from the menu; `sparkos-defaults.sh` makes it the default for folders; the dock pins it).
+On SparkOS it is in the image (`files/scripts/spark-files.sh` installs it with `install.sh --deps`; `sparkos-defaults.sh` makes it the default for folders; the dock pins it).
 
 Anywhere else, for one user, no root:
 
     bash install.sh --user             # into ~/.local, with the D-Bus files for "Show in folder"
     bash install.sh --user --default   # and make it your default file manager
-    bash install.sh --user --uninstall # remove exactly that (Dolphin is the default again)
+    bash install.sh --user --uninstall # remove exactly that (no folder handler is left until another is chosen)
 
 System-wide: `sudo bash install.sh --deps`. It needs Python 3 with tkinter, Pillow (with its Tk module, or without: it falls back to PNG data), PyGObject, and optionally GStreamer for video thumbnails. For network places: `sshfs` (fuse-sshfs) and `rclone` (both in the image), `ssh-keyscan` and `ssh-keygen` (OpenSSH), and `secret-tool` (libsecret) to remember passwords; without them the entry says what's missing. `spark-files --self-test` says what's there and copies, moves, renames, trashes and restores in a temporary folder.
 
@@ -60,16 +60,15 @@ Settings: `~/.config/spark-files/settings.json`. Log: `~/.local/state/spark-file
 
     python3 -m unittest discover -s files/spark-files/tests -v
     python3 files/spark-files/tests/sftp_check.py   # by hand: real sftp through sshfs, nothing of yours touched
-    XDG_RUNTIME_DIR=$(mktemp -d) dbus-run-session -- kwin_wayland --virtual --xwayland \
-        --exit-with-session "python3 files/spark-files/tests/portal_check.py"   # Open/Save through the real portal
+    xvfb-run -a dbus-run-session -- python3 files/spark-files/tests/portal_check.py   # Open/Save through the real portal
 
-The file operations (copy, move across drives, clashes, pause and cancel, permissions), the Trash, sorting and filtering, thumbnails and the freedesktop cache, service menus, search and URI lists need no display. The window tests (navigation, filtering, keyboard selection, rename in place, clipboard copy and cut, trash and undo, the Trash view, watching, split view, tabs, grid, search, drag and drop, 10,000 files in under a second, properties, menus) need a display; the D-Bus test (FileManager1.ShowItems opens the folder with the file selected, and `spark-files FOLDER` hands over) needs a session bus. CI (`.github/workflows/spark-files.yml`) runs all of them under Xvfb in `dbus-run-session`, in English and in French, plus the speed check, on Fedora and inside the SparkOS image (`tests/user_install_check.sh`). The boot test checks it is the file manager in a real Plasma session (`.github/scripts/spark-files-check.sh`).
+The file operations (copy, move across drives, clashes, pause and cancel, permissions), the Trash, sorting and filtering, thumbnails and the freedesktop cache, service menus, search and URI lists need no display. The window tests (navigation, filtering, keyboard selection, rename in place, clipboard copy and cut, trash and undo, the Trash view, watching, split view, tabs, grid, search, drag and drop, 10,000 files in under a second, properties, menus) need a display; the D-Bus test (FileManager1.ShowItems opens the folder with the file selected, and `spark-files FOLDER` hands over) needs a session bus. CI (`.github/workflows/spark-files.yml`) runs all of them under Xvfb in `dbus-run-session`, in English and in French, plus the speed check, on Fedora and inside the SparkOS image (`tests/user_install_check.sh`). The boot test checks it is the file manager in a real Spark session (`.github/scripts/spark-files-check.sh`).
 
 ## Not done yet
 
-- The Open and Save dialogs (1.3.0) are tested with the D-Bus calls xdg-desktop-portal makes (`tests/test_portal.py`, including its Close), the window under a display, and end to end through the real `xdg-desktop-portal` (earlier in a virtual KWin) and in CI (`tests/portal_check.py`: OpenFile with a filter, SaveFile, cancel). Not yet tried in the Spark session on the owner's PC with a real app (Firefox, a Flatpak). The window isn't tied to the app that asked (no transient-for across XWayland and Wayland).
+- The Open and Save dialogs (1.3.0) are tested with the D-Bus calls xdg-desktop-portal makes (`tests/test_portal.py`, including its Close), the window under a display, and end to end through the real `xdg-desktop-portal` and in CI (`tests/portal_check.py`: OpenFile with a filter, SaveFile, cancel). Not yet tried in the Spark session on the owner's PC with a real app (Firefox, a Flatpak). The window isn't tied to the app that asked (no transient-for across XWayland and Wayland).
 
-- Not yet tried on the owner's PC. Dragging to and from Wayland-native apps (Soot) relies on the compositor's XWayland bridge (previously KWin's); CI tests it only between two X apps (both directions, `tests/xdnd_peer.py`).
-- Network places are tested against a throwaway sshd on this PC (`tests/sftp_check.py`: host key, listing, copy both ways, cancel, a stopped server) and with fakes in `tests/test_network.py`. Not tried: a real `smb://` server through rclone, Google Drive with a real account (the browser sign-in included), and the keyring with a locked KWallet (its unlock prompt). Other online accounts (Nextcloud, WebDAV, `ftp:`) aren't in the dialog.
+- Not yet tried on the owner's PC. Dragging to and from Wayland-native apps (Soot) relies on the compositor's XWayland bridge ; CI tests it only between two X apps (both directions, `tests/xdnd_peer.py`).
+- Network places are tested against a throwaway sshd on this PC (`tests/sftp_check.py`: host key, listing, copy both ways, cancel, a stopped server) and with fakes in `tests/test_network.py`. Not tried: a real `smb://` server through rclone, Google Drive with a real account (the browser sign-in included), and the keyring with a locked keyring (its unlock prompt). Other online accounts (Nextcloud, WebDAV, `ftp:`) aren't in the dialog.
 - Remote folders aren't watched for changes (reload with F5), have no thumbnails, and show no free space.
 - No undo for copies or for "delete for good".

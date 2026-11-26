@@ -35,7 +35,7 @@ from .widgets import T, Glitch, GlitchText, IconButton, Mark, Strip, WolkButton,
 
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_MEDIA_SCALE')
     if forced:
@@ -361,7 +361,7 @@ class App:
         root.focus_force()
 
     def remote_open(self, paths: List[str], kind: Optional[str] = None):
-        """Files from a second `spark-media` (a double-click in Dolphin while this is open).
+        """Files from a second `spark-media` (a double-click in a file manager while this is open).
         Songs and playlists go into the queue and play now; a photo or a video opens here."""
         self.raise_window()
         songs: List[str] = []
@@ -410,7 +410,7 @@ class App:
             view.cancel_edit()
         return False
 
-    # ── media keys and Plasma's media controls (MPRIS) ──
+    # ── media keys and the shell's media controls (MPRIS) ──
     def _start_mpris(self):
         session = self._music
         if session is None or session.player is None or os.environ.get('SPARK_MEDIA_NO_MPRIS'):

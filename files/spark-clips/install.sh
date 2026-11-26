@@ -48,9 +48,6 @@ SIZES="16 22 24 32 48 64 128 256 512"
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 copy_app() {   # $1: target folder
@@ -146,11 +143,6 @@ EOF
   sed "s|^Exec=spark-clips|Exec=$exec_bin|" "$here/$APP_ID.desktop" > "$desktop"
   chmod 0644 "$desktop"
   record "$desktop"
-  # the same file for kglobalaccel, so Meta+Alt+G works without a trip to System Settings
-  # (the system install links it from /usr/share/kglobalaccel; per user it is a copy)
-  shortcut="$DATA/kglobalaccel/$APP_ID.desktop"
-  install -Dm 0644 "$desktop" "$shortcut"
-  record "$shortcut"
   for size in $SIZES; do
     target="$DATA/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
     install -Dm 0644 "$here/icons/$SLUG-$size.png" "$target"
@@ -197,7 +189,6 @@ fi
 if [ "$UNINSTALL" = 1 ]; then
   rm -rf -- "$PREFIX"
   rm -f "/usr/share/spark-apps/$SLUG.json" /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
-        "/usr/share/kglobalaccel/$APP_ID.desktop" \
         "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg" "/usr/lib/systemd/user/$UNIT"
   for size in $SIZES; do
     rm -f "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
@@ -243,8 +234,6 @@ chmod 0755 /usr/bin/$SLUG
 install -Dm 0644 "$here/spark-app.json" "/usr/share/spark-apps/$SLUG.json"
 
 install -Dm 0644 "$here/$APP_ID.desktop" "/usr/share/applications/$APP_ID.desktop"
-install -d /usr/share/kglobalaccel
-ln -sfn "../applications/$APP_ID.desktop" "/usr/share/kglobalaccel/$APP_ID.desktop"
 for size in $SIZES; do
   install -Dm 0644 "$here/icons/$SLUG-$size.png" \
     "/usr/share/icons/hicolor/${size}x${size}/apps/$APP_ID.png"

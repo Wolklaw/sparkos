@@ -306,7 +306,7 @@ class Bridge:
 
         flags = Gio.BusNameOwnerFlags.NONE
         if which == 'fm1':
-            # take "Show in folder" over from Dolphin's daemon if it's running, and give it
+            # take "Show in folder" over from another file manager's daemon if it's running, and give it
             # back if someone else asks the same way
             flags = Gio.BusNameOwnerFlags.ALLOW_REPLACEMENT | Gio.BusNameOwnerFlags.REPLACE
         self._names.append(Gio.bus_own_name(Gio.BusType.SESSION, name, flags, bus_acquired,

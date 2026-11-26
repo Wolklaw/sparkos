@@ -195,11 +195,7 @@ class Window(unittest.TestCase):
         self.app.change(seconds=300, bitrate=60)
         self.assertEqual(self.app.memory.cget('fg'), '#f4c95d')
 
-    def test_a_taken_shortcut_is_named(self):
-        self.app.shortcut_owner = 'Some Program'
-        self.app.show_shortcut()
-        self.assertIn('Some Program', self.app.shortcut_label.cget('text'))
-        self.app.shortcut_owner = None
+    def test_the_shortcut_is_shown(self):
         self.app.show_shortcut()
         self.assertIn('Meta+Alt+G', self.app.shortcut_label.cget('text'))
 

@@ -138,15 +138,14 @@ def remove_tree(path: str) -> None:
 
 
 def reduced_motion() -> bool:
-    """True when the desktop asks for no animation (Plasma: animation speed set to instant)."""
+    """True when animations are turned off in Spark Settings (appearance.json) or by env."""
     if os.environ.get('SPARK_RUN_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):
         return True
     try:
-        with open(os.path.join(_base('XDG_CONFIG_HOME', '.config'), 'kdeglobals'),
-                  encoding='utf-8', errors='replace') as f:
-            match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
+        with open(os.path.join(_base('XDG_CONFIG_HOME', '.config'), 'spark', 'appearance.json'),
+                  encoding='utf-8') as f:
+            return json.load(f).get('animations', True) is False
+    except (OSError, ValueError, AttributeError):
         return False
 
 

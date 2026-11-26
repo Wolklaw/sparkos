@@ -84,7 +84,7 @@ def main():
     grab(empty.root, os.path.join(out, 'empty.png'))
     empty.root.destroy()
 
-    # the Dolphin progress window, held on its progress panel
+    # the progress window, held on its progress panel
     from sparkarchive.jobwindow import JobWindow
     from sparkarchive import jobs
     import time

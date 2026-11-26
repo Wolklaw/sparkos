@@ -91,7 +91,6 @@ jobs:
             as "test -x ~/.local/bin/spark-clips"
             as "grep -q \"^Exec=$home/.local/bin/spark-clips$\" ~/.local/share/applications/dev.wolklaw.SparkClips.desktop"
             as "grep -q \"^Exec=$home/.local/bin/spark-clips --save$\" ~/.local/share/applications/dev.wolklaw.SparkClips.desktop"
-            as "test -f ~/.local/share/kglobalaccel/dev.wolklaw.SparkClips.desktop"
             as "test -f ~/.config/systemd/user/spark-clips.service"
             as "grep -q \"^ExecStart=$home/.local/bin/spark-clips --daemon$\" ~/.config/systemd/user/spark-clips.service"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkClips.png"
@@ -106,7 +105,6 @@ jobs:
             echo "--- uninstall"
             as "bash ~/spark-clips/install.sh --user --uninstall"
             as "test ! -e ~/.config/systemd/user/spark-clips.service"
-            as "test ! -e ~/.local/share/kglobalaccel/dev.wolklaw.SparkClips.desktop"
             left=$(as "find ~/.local ~/.config -iname \"*spark*clips*\" -o -iname \"*SparkClips*\"" || true)
             left=$(printf "%s\n" "$left" | grep -v "/.local/state/spark-clips" || true)
             if [ -n "$left" ]; then echo "left behind:"; echo "$left"; exit 1; fi

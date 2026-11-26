@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install the Spark session's security pieces, system-wide (root): the polkit agent
 # (spark-polkit), the sign-in screen (spark-greeter) and the files that let `spark greeter`
-# turn it on. Nothing is turned on: greetd stays disabled and Plasma Login Manager stays the
-# display manager. The session script that starts spark-polkit belongs to the Spark shell
+# turn it on. Nothing is turned on: greetd stays disabled until a person
+# turns it on. The session script that starts spark-polkit belongs to the Spark shell
 # (files/spark-shell), not to this folder.
 #
 #   bash install.sh [--root DIR] [--deps] [--no-test]
@@ -12,7 +12,7 @@
 # --no-test    skip the self-test at the end
 #
 # This is not an app: no live-update manifest. These files run as root or before anyone is
-# signed in, so they change only with the image (see PLAN.md, "Replacing KDE").
+# signed in, so they change only with the image (see PLAN.md).
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)

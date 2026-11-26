@@ -1,6 +1,6 @@
 # Spark Link
 
-Your phone and this PC, linked over the local network with no account and no outside server. It replaces KDE Connect with something both ends of which are SparkOS's own: this is the PC side; the phone side is the "Link to PC" section of Soot's Android app. The two follow [docs/spark-link-protocol.md](../../docs/spark-link-protocol.md).
+Your phone and this PC, linked over the local network with no account and no outside server. Both ends of it are SparkOS's own: this is the PC side; the phone side is the "Link to PC" section of Soot's Android app. The two follow [docs/spark-link-protocol.md](../../docs/spark-link-protocol.md).
 
 It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 

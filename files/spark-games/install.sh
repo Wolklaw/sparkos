@@ -67,10 +67,10 @@ MANIFEST=$PREFIX/installed-files
 
 refresh_menus() {
   if [ "$USER_MODE" = 1 ]; then
-    # Plasma notices new files in ~/.local/share by itself; this only makes it immediate. The
-    # system cache tools are skipped: they'd leave cache files in ~/.local that uninstall
-    # would then have to guess about.
-    command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 >/dev/null 2>&1 || true
+    # The shell notices new files in ~/.local/share by itself. The system cache tools are
+    # skipped: they'd leave cache files in ~/.local that uninstall would then have to guess
+    # about.
+    :
   else
     command -v update-desktop-database >/dev/null && update-desktop-database -q "$APPS" || true
     command -v gtk-update-icon-cache >/dev/null && gtk-update-icon-cache -q -t -f "$ICONS" || true

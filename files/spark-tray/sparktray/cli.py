@@ -84,7 +84,7 @@ def settings(args) -> Optional[int]:
         done = True
     if args.reset:
         autostart.reset()
-        print("Autostart is back to the default: on in the Spark session, off in Plasma.")
+        print("Autostart is back to the default: on in the Spark session.")
         done = True
     if args.item:
         name, state = args.item
@@ -119,7 +119,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(
         prog=APP_SLUG, description=f"{APP_NAME}: network, Bluetooth, power, printer and volume "
         "icons for the tray.")
-    parser.add_argument('--enable', action='store_true', help="start at login (also in Plasma)")
+    parser.add_argument('--enable', action='store_true', help="start at login (also outside the Spark session)")
     parser.add_argument('--disable', action='store_true', help="never start at login")
     parser.add_argument('--reset', action='store_true',
                         help="autostart back to the default: on in the Spark session only")

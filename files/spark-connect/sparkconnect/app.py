@@ -31,7 +31,7 @@ EXAMPLE = os.path.join(APP_DIR, 'machines.example.toml')
 
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux; Plasma publishes it as Xft.dpi."""
+    """UI scale. Tk ignores the desktop's scaling on Linux; the desktop publishes it as Xft.dpi."""
     forced = os.environ.get('SPARK_CONNECT_SCALE')
     if forced:
         try:

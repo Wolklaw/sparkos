@@ -97,7 +97,6 @@ jobs:
             as "bash ~/spark-monitor/install.sh --user"
             as "test -x ~/.local/bin/spark-monitor"
             as "grep -q \"^Exec=$home/.local/bin/spark-monitor$\" ~/.local/share/applications/dev.wolklaw.SparkMonitor.desktop"
-            as "grep -q \"^X-KDE-Shortcuts=Ctrl+Shift+Esc$\" ~/.local/share/kglobalaccel/dev.wolklaw.SparkMonitor.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkMonitor.png"
             # no "test ! -e /usr/..." here: the image ships this app system-wide; the /usr check proves the user install left /usr alone
 

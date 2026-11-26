@@ -1,5 +1,5 @@
 """The few programs the Logs and System tabs ask: journalctl, coredumpctl, systemctl,
-rpm-ostree, udevadm, vulkaninfo, kscreen-doctor. Everything else comes from /proc and /sys.
+rpm-ostree, udevadm, vulkaninfo. Everything else comes from /proc and /sys.
 
 Each call has a key. On this PC the key is ignored and the program runs; with test data
 (--root) the answer is the file `commands/<key>` under the fake root, so the tests and the

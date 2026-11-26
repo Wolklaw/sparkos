@@ -24,7 +24,7 @@ from .widgets import T, Glitch, GlitchText, Mark, Strip, WolkButton, pick_mono
 
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_WELCOME_SCALE')
     if forced:
@@ -461,7 +461,7 @@ def self_test() -> int:
         if not path:
             failures.append(tool)
     optional = ('xdg-user-dir', 'xdg-open', 'vulkaninfo', 'wpctl', 'pw-play', 'lpstat',
-                'scanimage', 'nmcli', 'bluetoothctl', 'rpm-ostree', 'systemsettings')
+                'scanimage', 'nmcli', 'bluetoothctl', 'rpm-ostree', 'spark-settings')
     print("optional: " + "  ".join(f"{name}:{'yes' if shutil.which(name) else 'no'}"
                                    for name in optional))
     places = [core.autostart_file()] + [os.path.join(d, f'{APP_ID}.desktop')

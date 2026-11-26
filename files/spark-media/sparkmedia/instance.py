@@ -1,5 +1,5 @@
 """One Spark Media per person. The open window listens on a socket in $XDG_RUNTIME_DIR; a
-second `spark-media FILE` (a double-click in Dolphin) hands its files to it and exits, before
+second `spark-media FILE` (a double-click in a file manager) hands its files to it and exits, before
 it has even made a window.
 
 A socket left behind by a crash answers nobody: the next start finds it dead, removes it and

@@ -13,5 +13,4 @@ Categories=Utility;
 Keywords=emoji;emojis;emoticon;smiley;symbol;symbols;arrow;currency;accent;unicode;character;émoji;émojis;symbole;symboles;flèche;caractère;
 Keywords[fr]=émoji;émojis;emoji;smiley;symbole;symboles;flèche;monnaie;accent;caractère;unicode;
 StartupNotify=false
-X-KDE-Shortcuts=Meta+.
 StartupWMClass=dev.wolklaw.SparkEmoji

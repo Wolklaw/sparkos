@@ -7,7 +7,6 @@ import getpass
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -144,15 +143,14 @@ def save_json(name: str, data: Dict[str, Any]) -> None:
 
 
 def reduced_motion() -> bool:
-    """True when the desktop asks for no animation (Plasma: animation speed set to instant)."""
+    """True when animations are turned off in Spark Settings (appearance.json) or by env."""
     if os.environ.get('SPARK_WELCOME_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):
         return True
     try:
-        with open(os.path.join(_xdg_base('XDG_CONFIG_HOME', '.config'), 'kdeglobals'),
-                  encoding='utf-8', errors='replace') as f:
-            match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
+        with open(os.path.join(_xdg_base('XDG_CONFIG_HOME', '.config'), 'spark', 'appearance.json'),
+                  encoding='utf-8') as f:
+            return json.load(f).get('animations', True) is False
+    except (OSError, ValueError, AttributeError):
         return False
 
 
@@ -204,13 +202,9 @@ def open_url(url: str) -> bool:
 
 
 def open_settings(module: Optional[str] = None) -> bool:
-    """Spark Settings, on one page when given a KDE module name (kcm_printer_manager...): it
-    opens its own page for that module, or KDE's. Plasma's System Settings where it isn't."""
-    if module:
-        cmd = first_available(['spark-settings', module], ['systemsettings', module],
-                              ['kcmshell6', module])
-    else:
-        cmd = first_available(['spark-settings'], ['systemsettings'])
+    """Spark Settings, on one page when given a route name (kcm_printer_manager...): Spark
+    Settings maps those names to its own pages."""
+    cmd = first_available(['spark-settings', module] if module else ['spark-settings'])
     return launch(cmd) if cmd else False
 
 
@@ -252,7 +246,7 @@ def xdg_user_dir(key: str, fallback: str) -> str:
 
 
 def _human_size(n: float) -> str:
-    """In the units Windows and Dolphin show (1 KB = 1024 bytes), so a drive reads the same
+    """In the units Windows shows (1 KB = 1024 bytes), so a drive reads the same
     size here as in Windows: a 1 TB disk's C: is about 930 GB in both."""
     for unit in ('B', 'KB', 'MB', 'GB'):
         if n < 1024:

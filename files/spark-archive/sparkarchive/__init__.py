@@ -1,6 +1,6 @@
 """Spark Archive: open zip, tar (gz, bz2, xz, zst), 7z, rar and iso files, also in several
 parts, extract them safely, and make zip, 7z and tar.zst archives, zip and 7z with a password.
-Dolphin's right-click menu gets Extract here, Extract to folder, and Compress to .zip, .7z,
+The file manager's right-click menu gets Extract here, Extract to folder, and Compress to .zip, .7z,
 .tar.zst or with a password. English and French.
 
 zip and tar are read with Python's own zipfile and tarfile; 7z, rar and iso with libarchive

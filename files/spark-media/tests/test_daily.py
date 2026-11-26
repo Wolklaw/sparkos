@@ -1,8 +1,8 @@
-"""Tests for one Spark Media per person, MPRIS (media keys, Plasma's media controls) and
+"""Tests for one Spark Media per person, MPRIS (media keys, the shell's media controls) and
 HEIC/AVIF photos.
 
 MPRIS tests need a session bus: CI runs them under `dbus-run-session` and calls Spark Media
-from outside with `gdbus`, like Plasma does. Lines starting with "heif:" and "mpris:" go to the
+from outside with `gdbus`, like a shell does. Lines starting with "heif:" and "mpris:" go to the
 CI summary."""
 
 import json
@@ -346,7 +346,7 @@ class WindowTests(unittest.TestCase):
         return until() if until else True
 
     def second_start(self, *args):
-        """`spark-media ARGS` as Dolphin would start it, while this window keeps running."""
+        """`spark-media ARGS` as a file manager would start it, while this window keeps running."""
         proc = subprocess.Popen([sys.executable, os.path.join(ROOT, 'spark_media.py')] + list(args),
                                 env=dict(os.environ), stdout=subprocess.PIPE,
                                 stderr=subprocess.STDOUT, text=True)

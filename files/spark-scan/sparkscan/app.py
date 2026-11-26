@@ -41,7 +41,7 @@ HANDLE = 7                   # crop corner handle, px before scaling
 
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_SCAN_SCALE')
     if forced:

@@ -18,7 +18,7 @@ from .text import t
 
 AUTOSTART, SERVICE = 'autostart', 'service'
 MARK = 'X-Spark-Monitor-Override'
-DESKTOP = 'KDE'
+DESKTOP = 'Spark'
 TARGETS_SKIPPED = ('sockets.target.wants', 'timers.target.wants', 'paths.target.wants')
 
 

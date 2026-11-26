@@ -129,7 +129,7 @@ class System(unittest.TestCase):
         return out
 
     def test_fetch_reads_every_command(self):
-        self.assertEqual(set(self.cmds), {'ostree', 'udev', 'vulkan', 'glx', 'kscreen'})
+        self.assertEqual(set(self.cmds), {'ostree', 'udev', 'vulkan', 'glx'})
         self.assertTrue(self.cmds['ostree'])
 
     def test_parsers(self):
@@ -143,7 +143,6 @@ class System(unittest.TestCase):
         self.assertEqual(len(devices), 2)
         self.assertIn('Mesa 26', sysinfo.vulkan_for(devices, 0x1002, 0x73bf)['driverInfo'])
         self.assertIsNone(sysinfo.vulkan_for(devices, 0x10de, 0x1))
-        self.assertEqual(sysinfo.parse_kscreen(self.cmds['kscreen'])['DP-1']['hz'], '144')
         self.assertEqual(sysinfo.parse_glx('OpenGL version string: 4.6 (Core) Mesa 26.0'),
                          '4.6 (Core) Mesa 26.0')
 

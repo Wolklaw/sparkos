@@ -4,8 +4,7 @@ Apps that ask for a file through the portal (Flatpak apps, Firefox and Chrome, E
 anything with GTK_USE_PORTAL or Qt's xdgdesktopportal theme) reach xdg-desktop-portal, which
 hands the job to a backend. In the Spark session spark-portals.conf points FileChooser and
 AppChooser here (org.freedesktop.impl.portal.desktop.spark); everything else (screenshots,
-screen sharing, shortcuts, settings) stays with xdg-desktop-portal-kde. Plasma doesn't read
-spark-portals.conf, so nothing changes there.
+screen sharing, shortcuts, settings) stays with the other portal backends.
 
 The parsing and the answers are plain functions (tested without a bus or a screen); Service
 runs in the GLib thread of gloop.Bridge and asks the Tk side for a window."""
@@ -106,7 +105,7 @@ class Filter:
         return (self.name, list(self.patterns))
 
     def matches(self, name: str, mime: Optional[str] = None) -> bool:
-        """Glob patterns (kind 0) are matched without caring about case, as KDE's and GTK's
+        """Glob patterns (kind 0) are matched without caring about case, as other file choosers'
         dialogs do in practice; MIME patterns (kind 1) may end in /*."""
         low = name.casefold()
         for kind, pattern in self.patterns:

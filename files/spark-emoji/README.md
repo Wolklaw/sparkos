@@ -1,6 +1,6 @@
 # Spark Emoji
 
-The SparkOS emoji and symbol picker. It replaces the Emoji Selector of KDE Plasma, which SparkOS no longer ships, on Meta+. (Windows key and
+The SparkOS emoji and symbol picker. It is bound to Meta+. (Windows key and
 full stop): a small popup where you type to search, in English and French at once, and Enter or a click
 copies the character. Version 0.1.0.
 

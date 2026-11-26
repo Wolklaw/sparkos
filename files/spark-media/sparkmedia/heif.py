@@ -1,4 +1,4 @@
-"""HEIC/HEIF and AVIF photos (what phones save) through libheif's C library, the one KDE's
+"""HEIC/HEIF and AVIF photos (what phones save) through libheif's C library, the one other desktops'
 image plugins use, called with ctypes like TagLib and LibRaw.
 
 libheif decodes AVIF with dav1d or libaom, and HEIC only when it has an HEVC decoder (libde265,

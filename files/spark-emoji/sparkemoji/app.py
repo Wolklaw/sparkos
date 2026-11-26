@@ -1,7 +1,7 @@
 """Starting Spark Emoji: the command line, the self-test, and the GTK application. The
 application is unique: pressing Meta+. while the picker is open closes it, and the process
 stays around for a minute after a pick so the copied text is handed to the clipboard manager
-(Klipper in Plasma) and a second pick starts at once."""
+(Spark Notes) and a second pick starts at once."""
 
 import os
 import shutil
