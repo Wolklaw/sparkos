@@ -2,7 +2,7 @@
 # Run as root inside the SparkOS image (CI: podman run ... -v files/spark-settings:/src:ro).
 # Installs Spark Settings for a normal user with install.sh --user, runs the self-test and the
 # tests on the image's own Python and Tk (window tests under Xvfb when the image has it),
-# checks the image's stand-ins for systemsettings and kcmshell6, uninstalls, and checks nothing
+# checks that KDE's systemsettings and kcmshell6 are gone, uninstalls, and checks nothing
 # is left in ~/.local.
 set -euo pipefail
 
@@ -21,12 +21,11 @@ echo "image: $(. /etc/os-release; echo "$PRETTY_NAME"), $(python3 --version), Tk
 if [ -x /usr/bin/spark-settings ]; then
   echo "--- the image's own copy and its stand-ins"
   /usr/bin/spark-settings --version
-  for tool in systemsettings kcmshell6; do
-    grep -q 'spark-settings --route' "/usr/bin/$tool" || { echo "/usr/bin/$tool is not the stand-in"; exit 1; }
-    test -x "/usr/libexec/sparkos/kde-settings/$tool" || { echo "the real $tool was not kept"; exit 1; }
+  # KDE's System Settings is gone from the image: no stand-ins and no real copies are left
+  for f in /usr/bin/systemsettings /usr/bin/kcmshell6 /usr/libexec/sparkos/kde-settings \
+           /usr/share/applications/systemsettings.desktop; do
+    if [ -e "$f" ]; then echo "left over from KDE: $f"; exit 1; fi
   done
-  grep -q '^NoDisplay=true' /usr/share/applications/systemsettings.desktop
-  QT_QPA_PLATFORM=offscreen /usr/bin/kcmshell6 --list | head -3 || true   # the real tool can abort without a display; this only shows it is reached
 else
   echo "(this image was built before Spark Settings: its own copy and stand-ins are checked once it is rebuilt)"
 fi
