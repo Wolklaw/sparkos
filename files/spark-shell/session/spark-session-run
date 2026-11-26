@@ -48,6 +48,41 @@ else
     run_shell() { python3 "$here/../spark_shell.py"; }      # a source checkout (tests)
 fi
 
+# The compositor of this session: a process of our session scope running spark-compositor.
+# This script is not its child (its parent is PID 1), so it is found by its binary.
+compositor=""
+if [ -r /proc/self/cgroup ]; then
+    cg=$(sed -n 's/^0:://p' /proc/self/cgroup)
+    for p in $(cat "/sys/fs/cgroup$cg/cgroup.procs" 2>/dev/null); do
+        case $(readlink "/proc/$p/exe" 2>/dev/null) in
+            */spark-compositor*) compositor=$p; break ;;
+        esac
+    done
+fi
+
+# Whether this session is still running: its compositor is alive (not a zombie) and logind
+# has not started closing it. After a sign-out this script can outlive its compositor; a shell
+# restarted then would land on the next session's compositor (same wayland-0), and stopping
+# the target would take the next session's services down with it (a black screen).
+session_alive() {
+    if [ -n "$compositor" ]; then
+        state=$(sed -n 's/^State:[[:space:]]*//p' "/proc/$compositor/status" 2>/dev/null)
+        case $state in ''|Z*|X*) return 1 ;; esac
+    fi
+    if [ -n "$XDG_SESSION_ID" ]; then
+        [ "$(loginctl show-session "$XDG_SESSION_ID" -p State --value 2>/dev/null)" = closing ] && return 1
+    fi
+    return 0
+}
+
+# Whether the session target is ours: spark-wl-startup puts this session's id in the user
+# manager's environment. A newer session replaces it, and then the target is that session's.
+owns_target() {
+    [ -z "$XDG_SESSION_ID" ] && return 0
+    current=$(systemctl --user show-environment 2>/dev/null | sed -n 's/^XDG_SESSION_ID=//p')
+    [ -z "$current" ] || [ "$current" = "$XDG_SESSION_ID" ]
+}
+
 started=0
 tries=0
 status=0
@@ -60,13 +95,21 @@ while :; do
     if [ $((now - began)) -gt 60 ]; then tries=0; fi
     tries=$((tries + 1))
     started=$((started + 1))
+    sleep 1
+    if ! session_alive; then
+        echo "spark-session: the shell stopped ($status) and the session is over, not restarting" >&2
+        break
+    fi
     echo "spark-session: the shell stopped ($status), restart $tries of 5" >&2
     [ "$tries" -ge 5 ] && break
-    sleep 1
 done
 
 if [ "$use_systemd" = 1 ]; then
-    systemctl --user stop "$target"
+    if owns_target; then
+        systemctl --user stop "$target"
+    else
+        echo "spark-session: a newer session runs $target, leaving it up" >&2
+    fi
 else
     for p in $pids; do kill "$p" 2>/dev/null; done
 fi

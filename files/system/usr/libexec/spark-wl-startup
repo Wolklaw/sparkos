@@ -9,8 +9,11 @@ systemctl --user stop xdg-desktop-autostart.target graphical-session.target 2>/d
 # The polkit agent registers for $XDG_SESSION_ID. Without it, polkit guesses the session from
 # the agent's process while this session is still starting, and password prompts go nowhere.
 dbus-update-activation-environment --systemd XDG_SESSION_ID 2>/dev/null
-if [ -x /usr/libexec/spark-session-run ] && command -v spark-shell >/dev/null 2>&1; then
-  SPARK_SESSION_TARGET=spark-wl-workspace.target exec /usr/libexec/spark-session-run
+# A developer copy of the runner in ~/.local/share/spark-dev/bin wins, like spark-wl-session's
+run=/usr/libexec/spark-session-run
+[ -x "$HOME/.local/share/spark-dev/bin/spark-session-run" ] && run="$HOME/.local/share/spark-dev/bin/spark-session-run"
+if [ -x "$run" ] && command -v spark-shell >/dev/null 2>&1; then
+  SPARK_SESSION_TARGET=spark-wl-workspace.target exec "$run"
 fi
 dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP \
   XDG_SESSION_TYPE XDG_SESSION_DESKTOP 2>/dev/null

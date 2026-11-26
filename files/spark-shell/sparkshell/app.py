@@ -2,6 +2,7 @@
 windows for every monitor and wires the services together."""
 
 import atexit
+import sys
 import os
 import logging
 
@@ -52,9 +53,15 @@ class Shell(Gtk.Application):
     def do_activate(self):
         if self.started:
             return
+        display = Gdk.Display.get_default()
+        if display is None:
+            # Started after the compositor is gone (a logout): nothing to draw on, so leave
+            # instead of hanging on with no windows
+            print('spark-shell: no display, exiting', file=sys.stderr)
+            self.quit()
+            return
         self.started = True
         self.hold()
-        display = Gdk.Display.get_default()
         provider = Gtk.CssProvider()
         provider.load_from_string(theme.CSS)
         Gtk.StyleContext.add_provider_for_display(
