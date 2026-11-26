@@ -38,8 +38,9 @@ jobs:
         run: make -C files/spark-compositor && make -C files/spark-compositor/spark-wl-windows
 
       - name: Run it headless with test clients
-        run: python3 .github/scripts/spark-compositor/test.py files/spark-compositor/spark-compositor "$RUNNER_TEMP/out" \
-          files/spark-compositor/spark-wl-windows/spark-wl-windows
+        run: |
+          python3 .github/scripts/spark-compositor/test.py files/spark-compositor/spark-compositor "$RUNNER_TEMP/out" \
+            files/spark-compositor/spark-wl-windows/spark-wl-windows
 
       - name: Keep the screenshots and the log
         if: always()

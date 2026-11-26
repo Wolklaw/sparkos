@@ -32,9 +32,11 @@ current_dm() {
   if [ -L "$DM_LINK" ]; then basename "$(readlink "$DM_LINK")"; fi
 }
 
+same() { [ -f "$1" ] && [ -f "$2" ] && [ "$(< "$1")" = "$(< "$2")" ]; }
+
 mode() {
-  if [ -f "$CONFIG" ] && cmp -s "$CONFIG" "$OURS"; then echo spark
-  elif [ -f "$CONFIG" ] && cmp -s "$CONFIG" "$TEXT"; then echo text
+  if same "$CONFIG" "$OURS"; then echo spark
+  elif same "$CONFIG" "$TEXT"; then echo text
   else echo other; fi
 }
 
