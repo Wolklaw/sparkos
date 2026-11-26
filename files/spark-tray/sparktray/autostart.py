@@ -1,8 +1,8 @@
 """Start Spark Tray at login, per user, the XDG way.
 
 The image ships /etc/xdg/autostart/dev.wolklaw.SparkTray.desktop with OnlyShowIn=Spark, so the
-tray starts in the `spark` session and not in Plasma (which has its own applets). A person
-turns it on in Plasma with --enable, which writes a user file without OnlyShowIn, or off
+tray starts in the `spark` session. --enable writes a user file without OnlyShowIn (what the
+--user install uses), --disable turns it off
 everywhere with --disable (Hidden=true, which overrides the system file). --reset removes the
 user file and returns to the default."""
 

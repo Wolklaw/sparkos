@@ -1,4 +1,4 @@
-"""The small window Dolphin's right-click menu opens: Extract here, Extract to folder,
+"""The small window the file manager's right-click menu opens: Extract here, Extract to folder,
 Compress to .zip, .7z or .tar.zst, and Compress with a password. It shows progress and
 Cancel, asks for a password or before overwriting, and closes by itself when everything went
 through cleanly. A job that finishes within a third of a second never shows a window at all.

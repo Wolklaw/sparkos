@@ -1,12 +1,12 @@
 """The command line. --version, --self-test and --list never load Tk.
 
   spark-archive [ARCHIVE]                  the window (with that archive open)
-  spark-archive --extract-here A [A...]    Dolphin: extract next to each archive
-  spark-archive --extract-folder A [A...]  Dolphin: extract into a folder named after it
-  spark-archive --compress zip F [F...]    Dolphin: make F.zip next to the files
-  spark-archive --compress 7z F...         Dolphin: make F.7z (needs the 7z command)
-  spark-archive --compress tar.zst F...    Dolphin: make F.tar.zst
-  spark-archive --compress-password F...   Dolphin: ask zip or 7z and a password, then make it
+  spark-archive --extract-here A [A...]    file manager: extract next to each archive
+  spark-archive --extract-folder A [A...]  file manager: extract into a folder named after it
+  spark-archive --compress zip F [F...]    file manager: make F.zip next to the files
+  spark-archive --compress 7z F...         file manager: make F.7z (needs the 7z command)
+  spark-archive --compress tar.zst F...    file manager: make F.tar.zst
+  spark-archive --compress-password F...   file manager: ask zip or 7z and a password, then make it
   spark-archive --compress zip --password-stdin [--zip-encryption zipcrypto|aes] F...
                                            the same without a window: the password is the
                                            first line of stdin; zip is AES-256 unless

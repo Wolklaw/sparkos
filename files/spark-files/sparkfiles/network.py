@@ -1,7 +1,7 @@
 """Network places and online accounts: sftp:// and smb:// servers, and Google Drive.
 
 How it works: each place is mounted as an ordinary folder under $XDG_RUNTIME_DIR/spark-net/,
-with user-space FUSE mounts and no KDE part: sshfs for sftp, `rclone mount` for smb and for
+with user-space FUSE mounts and no extra daemon: sshfs for sftp, `rclone mount` for smb and for
 Google Drive. From there every feature of the app (listing, open, copy to and from with
 progress and cancel, drag and drop) works on that path like on any folder, so nothing here
 touches the file operations. Everything that can wait on a network runs in a thread; the

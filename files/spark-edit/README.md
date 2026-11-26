@@ -1,6 +1,6 @@
 # Spark Edit
 
-The SparkOS text and code editor: notes, settings files, logs and code. Kate and KWrite are gone from the image, so without it `.txt`, `.md`, `.conf` and code files open in FreeSuite Writer, an office suite. Spark Edit is small (about 600 KB installed, half of it Python's compiled copies; it needs Python and Tk, nothing else) and opens at once.
+The SparkOS text and code editor: notes, settings files, logs and code. Without it `.txt`, `.md`, `.conf` and code files open in FreeSuite Writer, an office suite. Spark Edit is small (about 600 KB installed, half of it Python's compiled copies; it needs Python and Tk, nothing else) and opens at once.
 
 It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 
@@ -11,7 +11,7 @@ It is optional for now: the main SparkOS session decides when it goes into the i
 - **Recent files** on the start screen and in the menu.
 - **Find and replace** (Ctrl+F, Ctrl+H): match case, whole word, regular expressions (Python's syntax; `\1` in the replacement), "3 of 12", every match marked on screen, Replace all as one undo step. F3 and Shift+F3 move between matches. **Go to line** (Ctrl+G): `120` or `120:8`.
 - **Line numbers, word wrap** (Alt+Z), **zoom** (Ctrl+plus, Ctrl+minus, Ctrl+0, Ctrl+wheel), current line lit.
-- **Syntax colours** for Python, JavaScript, TypeScript, JSON, YAML, TOML, INI and conf files (desktop entries, systemd units, KDE's rc files), shell, Markdown, HTML and XML, CSS, C, C++, Rust and Go, from small tokenisers in [`syntax.py`](sparkedit/syntax.py) in the house palette. The language is picked from the file name or the `#!` line; click it in the status bar to change it.
+- **Syntax colours** for Python, JavaScript, TypeScript, JSON, YAML, TOML, INI and conf files (desktop entries, systemd units, rc files), shell, Markdown, HTML and XML, CSS, C, C++, Rust and Go, from small tokenisers in [`syntax.py`](sparkedit/syntax.py) in the house palette. The language is picked from the file name or the `#!` line; click it in the status bar to change it.
 - **Files stay as they were.** The encoding (UTF-8, UTF-8 with BOM, UTF-16 LE/BE, Latin-1, Windows-1252) and the line endings (LF, CRLF, CR) are detected and kept: a CRLF file stays CRLF. Both are shown in the status bar; click them to reopen with another encoding or to save with another encoding or line ending. A character the file's encoding can't hold is pointed out, with an offer to save as UTF-8. Binary files are recognised and not opened unless you say so.
 - **Save as administrator.** Saving a file you can't write (most of `/etc`) offers "Save as administrator": pkexec asks for your password in the polkit prompt and copies the new text over the file, keeping its owner and permissions. Files under `/usr` are on SparkOS's read-only image; Spark Edit says so instead of asking for a password that can't help.
 - **Changed elsewhere?** A file another program changed is reloaded when you come back to the window (unless you have unsaved edits in it; then saving asks before overwriting).
@@ -26,7 +26,7 @@ It is optional for now: the main SparkOS session decides when it goes into the i
 - **Change tracking.** A small proxy sits in front of the Text widget's Tcl command (the way IDLE does it), so every insert and delete says which line changed. Line numbers are drawn for the visible lines only.
 - **Saving** writes a temporary file next to the original, flushes it to disk, and swaps it in, so a crash in the middle of a save never leaves half a file. Permissions and group are kept, symlinks stay links (the file they point to is saved), and files with hard links are written in place so the links stay.
 - **One window.** A Unix socket in `$XDG_RUNTIME_DIR` hands `spark-edit FILE` to the open window before Tk is even loaded. `--new-window` starts a separate one.
-- File dialogs run in a worker thread so the window keeps drawing. They come from `spark-pick`, which asks the desktop portal, so on SparkOS the Open and Save dialogs are Spark Files' picker. On a Plasma machine without `spark-pick` it uses `kdialog`, and Tk's own dialogs where neither exists.
+- File dialogs run in a worker thread so the window keeps drawing. They come from `spark-pick`, which asks the desktop portal, so on SparkOS the Open and Save dialogs are Spark Files' picker. Without `spark-pick` it uses Tk's own dialogs.
 
 Settings are in `~/.config/spark-edit/`, the session, the autosaves and the log in `~/.local/state/spark-edit/`.
 
@@ -51,7 +51,7 @@ Both targets are met: the window is up in under 0.2 s, and a 50 MB log is on scr
 bash install.sh --user                    # just you, into ~/.local; no root
 bash install.sh --user --uninstall        # removes exactly what --user installed
 sudo bash install.sh --deps               # system-wide, with Fedora packages (what the image build runs)
-spark-edit notes.txt                      # or from the app menu, or "Open with" in Dolphin
+spark-edit notes.txt                      # or from the app menu, or "Open with" in Spark Files
 spark-edit src/main.c:120:8               # open at line 120, column 8
 spark-edit --self-test                    # what it needs, checked without a display
 spark-edit --bench big.log                # open time for a file

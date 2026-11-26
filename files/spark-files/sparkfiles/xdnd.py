@@ -1,5 +1,5 @@
 """Drag and drop with other windows, which Tk doesn't do by itself: the XDND protocol
-(version 5), the one every X11 and XWayland app speaks; KWin carries it to and from Wayland
+(version 5), the one every X11 and XWayland app speaks; the compositor's XWayland carries it to and from Wayland
 apps.
 
 Receiving: Tk gets the XDND client messages on its own windows; a generic event handler

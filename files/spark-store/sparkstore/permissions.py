@@ -152,8 +152,7 @@ def describe(metadata: str) -> List[Line]:
             for prefix in ('org.mpris.MediaPlayer2',):
                 if name.startswith(prefix):
                     known = ('other', 'info', 'perm.o.media_keys')
-            if name.startswith(('org.freedesktop.portal.', 'org.kde.kwin.',
-                                'org.freedesktop.impl.')):
+            if name.startswith(('org.freedesktop.portal.', 'org.freedesktop.impl.')):
                 known = ('other', 'info', None)
         if known is None:
             others += 1

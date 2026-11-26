@@ -412,7 +412,7 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # Task manager on Ctrl+Shift+Esc; the self-test reads the live /proc and /sys
-          $SSH 'set -e; spark-monitor --version; ls -l /usr/bin/spark-monitor; grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkMonitor.desktop'
+          $SSH 'set -e; spark-monitor --version; ls -l /usr/bin/spark-monitor; ! grep -H "^X-KDE" /usr/share/applications/dev.wolklaw.SparkMonitor.desktop'
           $SSH 'spark-monitor --self-test' 2>&1 | tee "$WORK/spark-monitor-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-monitor-self-test.txt"
 
@@ -516,12 +516,10 @@ jobs:
           # Spark Terminal is the default terminal
           $SSH 'sed -n "/^\[General\]/,/^\[/s/^TerminalApplication=//p" /etc/xdg/kdeglobals; xdg-terminal-exec --print-id' | tee "$WORK/terminal.txt"
           diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n') "$WORK/terminal.txt"
-          # Spark Emoji has Meta+. and no other entry claims it
-          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -l "^X-KDE-Shortcuts=\(.*,\)\?Meta+\.\(,\|$\)" /usr/share/applications/*.desktop | grep -v SparkEmoji | wc -l' | tee "$WORK/emoji.txt"
-          diff <(printf '1\nlinked\n0\n') "$WORK/emoji.txt" || { echo "::error::Meta+. is not Spark Emoji's"; exit 1; }
-          # Spark Notes has Meta+V and its watcher is enabled for every login 
-          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+V$" /usr/share/applications/dev.wolklaw.SparkNotes.Clipboard.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkNotes.Clipboard.desktop && echo linked; test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service && echo watcher-enabled; test -x /usr/bin/wl-paste && echo wl-paste' | tee "$WORK/notes.txt"
-          diff <(printf '1\nlinked\nwatcher-enabled\nwl-paste\n') "$WORK/notes.txt" || { echo "::error::Meta+V is not Spark Notes'"; exit 1; }
+          # Spark Emoji, Spark Notes, Spark Calc and Spark Terminal take their keys from the compositor:
+          # their desktop entries carry no KDE shortcut keys. Spark Notes' watcher is on for every login.
+          $SSH 'cd /usr/share/applications; grep -l "^X-KDE" dev.wolklaw.SparkEmoji.desktop dev.wolklaw.SparkNotes.desktop dev.wolklaw.SparkNotes.Clipboard.desktop dev.wolklaw.SparkCalc.desktop dev.wolklaw.SparkTerminal.desktop dev.wolklaw.SparkMonitor.desktop | wc -l; test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service && echo watcher-enabled; test -x /usr/bin/wl-paste && echo wl-paste' | tee "$WORK/notes.txt"
+          diff <(printf '0\nwatcher-enabled\nwl-paste\n') "$WORK/notes.txt" || { echo "::error::a Spark app entry has KDE keys, or Spark Notes' watcher is off"; exit 1; }
           # Text and code open in Spark Edit, archives in Spark Archive
           $SSH 'for m in text/plain text/markdown application/json text/x-python application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/edit-archive-defaults.txt"
           for m in text/plain text/markdown application/json text/x-python; do
@@ -546,12 +544,6 @@ jobs:
       - name: Check the Release 2 cleanup
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # Spark Monitor has Ctrl+Shift+Esc, Meta+Esc and Ctrl+Esc, and no other entry has them
-          $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/kglobalaccel/*.desktop' | tee "$WORK/cleanup-monitor.txt"
-          grep -q 'dev.wolklaw.SparkMonitor.desktop:X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc$' "$WORK/cleanup-monitor.txt"
-          if grep -v 'SparkMonitor' "$WORK/cleanup-monitor.txt" | grep -E 'X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)(,|$)'; then
-            echo "::error::another app claims Spark Monitor's keys"; exit 1
-          fi
           # No Tailscale: no package, no repository, no units
           $SSH 'rpm -q tailscale 2>&1; ls /etc/yum.repos.d/; echo "== units"; systemctl list-unit-files --no-legend "tailscale*"' | tee "$WORK/cleanup-tailscale.txt"
           grep -q 'package tailscale is not installed' "$WORK/cleanup-tailscale.txt" || { echo "::error::tailscale is installed"; exit 1; }

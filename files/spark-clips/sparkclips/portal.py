@@ -1,5 +1,5 @@
-"""The desktop's ScreenCast portal: the only way a Wayland program may watch the screen. On
-KDE Plasma it asks once which screen to share; the answer is remembered through a restore token
+"""The desktop's ScreenCast portal: the only way a Wayland program may watch the screen. In
+the Spark session it asks once which screen to share; the answer is remembered through a restore token
 (portal.json), so later starts are silent.
 
 Written after Spark Snip's client, kept here so the app stays self-contained. Blocking: run

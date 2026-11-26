@@ -1,4 +1,4 @@
-"""The Trash, the freedesktop way (the same folders Dolphin, Plasma and GNOME use), so things
+"""The Trash, the freedesktop way (the same folders other desktops use), so things
 trashed here can be restored there and the other way round.
 
 Files in your home go to ~/.local/share/Trash. Files on another drive (a Windows drive under

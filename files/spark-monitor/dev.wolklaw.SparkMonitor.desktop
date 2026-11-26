@@ -14,7 +14,6 @@ Keywords=task manager;task;manager;process;processes;end task;kill;cpu;memory;ra
 Keywords[fr]=gestionnaire des tâches;tâche;processus;fin de tâche;processeur;mémoire;carte graphique;disque;réseau;performances;démarrage;
 StartupWMClass=SparkMonitor
 SingleMainWindow=true
-X-KDE-Shortcuts=Ctrl+Shift+Esc
 Actions=Performance;Startup;
 
 [Desktop Action Performance]

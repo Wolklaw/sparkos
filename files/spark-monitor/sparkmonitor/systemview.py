@@ -1,5 +1,5 @@
 """The System tab: what this PC is, for support requests. Built when the tab is first opened.
-The part that needs programs (rpm-ostree, vulkaninfo, udevadm, kscreen-doctor) is read once on
+The part that needs programs (rpm-ostree, vulkaninfo, udevadm) is read once on
 a thread and fills in when it is ready; the rest is on screen at once."""
 
 import queue

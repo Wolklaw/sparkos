@@ -30,7 +30,7 @@ TABS = ('apps', 'performance', 'startup', 'details', 'logs', 'system')
 # ─── The window ───────────────────────────────────────────────
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the Spark session publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_MONITOR_SCALE')
     if forced:

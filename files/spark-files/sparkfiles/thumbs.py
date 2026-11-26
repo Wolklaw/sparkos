@@ -1,5 +1,5 @@
 """Thumbnails for photos and videos, made in the background and kept in the freedesktop
-thumbnail cache (~/.cache/thumbnails), the same one Dolphin and Spark Media use, so a photo
+thumbnail cache (~/.cache/thumbnails), the same one other file managers and Spark Media use, so a photo
 seen in one of them is instant in the others.
 
 Thumbnailer.request(path, mtime) queues a job; the newest requests go first (what's on screen

@@ -29,8 +29,7 @@
       "compression.zstd": "tar.zst with Python 3.14+ (otherwise the zstd command or libarchive)",
       "7z": "password-protected 7z, making 7z and password-protected zip, split zip, and zip AES if libarchive can't decrypt it",
       "unrar": "password-protected RAR (RPM Fusion's unrar package; in the SparkOS image)",
-      "kdialog": "the desktop's own file dialogs",
-      "dolphin": "the right-click menu and Show in folder"
+      "spark-pick": "Spark Files' own file dialogs (Tk's are used without it)"
     },
     "system": "Linux"
   },

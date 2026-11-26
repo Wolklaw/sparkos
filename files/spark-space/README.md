@@ -24,7 +24,7 @@ The scan runs in a background thread (4 by default, `--threads N`); the window s
 ## What it can do
 
 - **Open** (with the default app) and **Show in folder** (Spark Files selects the item; without it, the folder opens with `xdg-open`).
-- **Move to trash**, after a confirm naming the item and its size. It uses the desktop's trash (the freedesktop.org one Spark Files and Dolphin use), so the item can be restored from there.
+- **Move to trash**, after a confirm naming the item and its size. It uses the desktop's trash (the freedesktop.org one Spark Files uses), so the item can be restored from there.
 
 There is no delete, no "empty trash" and no cleaning by itself. The trash button is off, and the action refuses even if called, for:
 

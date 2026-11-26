@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
   File types for the later parts of multi-part archives, which have none of their own, so
-  Dolphin can offer Extract on them and open them with Spark Archive (which finds the rest of
+  The file manager can offer Extract on them and open them with Spark Archive (which finds the rest of
   the set from any part). The first parts already have types: photos.rar and photos.part1.rar
   are application/vnd.rar, photos.7z.001 is application/x-7z-compressed, photos.zip is
   application/zip.

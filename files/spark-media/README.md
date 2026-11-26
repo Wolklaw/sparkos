@@ -12,7 +12,7 @@ The SparkOS app for photos, videos and music. Double-click a photo, video, song 
 - **Media keys and media controls:** the keyboard's play, pause, next and previous keys and anything else that speaks MPRIS2 (such as Spark Shell's media controls) control the music, with the title, artist, album and cover.
 - **English and French:** French when the computer's language is French (`LC_ALL`, `LC_MESSAGES` or `LANG` starting with `fr`), English otherwise. `SPARK_LANG=en` or `SPARK_LANG=fr` overrides it.
 
-Everything runs on the computer. Nothing is uploaded. Settings are in `~/.config/spark-media/`, the log in `~/.local/state/spark-media/`, the music index and album covers in `~/.cache/spark-media/`, and thumbnails go to the shared `~/.cache/thumbnails` (Dolphin uses it too).
+Everything runs on the computer. Nothing is uploaded. Settings are in `~/.config/spark-media/`, the log in `~/.local/state/spark-media/`, the music index and album covers in `~/.cache/spark-media/`, and thumbnails go to the shared `~/.cache/thumbnails` (other file managers use it too).
 
 | Key | Photos | Editing a photo | Videos and music |
 |---|---|---|---|

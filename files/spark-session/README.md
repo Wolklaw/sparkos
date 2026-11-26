@@ -1,8 +1,8 @@
 # Spark session: polkit agent, sign-in screen, lock screen
 
-The security pieces of the Spark session (stage 3 of "Replacing KDE" in [PLAN.md](../../PLAN.md)).
+The security pieces of the Spark session (see [PLAN.md](../../PLAN.md)).
 They are part of the image, not live-updated apps: they run as root or before anyone is signed in.
-The image has no KDE: greetd with the Spark greeter is the display manager, and Spark (`spark-wl`)
+greetd with the Spark greeter is the display manager, and Spark (`spark-wl`)
 is the only session.
 
 | Piece | State |
@@ -55,6 +55,6 @@ manager.
 | `test_polkit_window.py`, `test_greeter.py` | Xvfb |
 | `test_greetd_real.py` | real greetd, `SPARK_ALLOW_REAL_GREETD=1` |
 | `test_greeter_ctl.py` | a fake root and a fake systemctl |
-| `tests/lock/run_lock_test.sh` | headless KWin, `--cap-add SYS_NICE`, `SPARK_ALLOW_LOCK_TEST=1`. Written for the old Plasma session; it checks KWin's lock, not the Spark compositor's |
+| `tests/lock/run_lock_test.sh` | headless Spark compositor, `--cap-add SYS_NICE`, `SPARK_ALLOW_LOCK_TEST=1` |
 
 CI: [.github/workflows/spark-session.yml](../../.github/workflows/spark-session.yml).

@@ -3,7 +3,6 @@
 import json
 import logging
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -82,15 +81,14 @@ def save_json(name: str, data: Dict[str, Any]) -> None:
 
 
 def reduced_motion() -> bool:
-    """True when the desktop asks for no animation (Plasma: animation speed set to instant)."""
+    """True when animations are turned off in Spark Settings (appearance.json) or by env."""
     if os.environ.get('SPARK_ARCHIVE_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):
         return True
     base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
     try:
-        with open(os.path.join(base, 'kdeglobals'), encoding='utf-8', errors='replace') as f:
-            match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
+        with open(os.path.join(base, 'spark', 'appearance.json'), encoding='utf-8') as f:
+            return json.load(f).get('animations', True) is False
+    except (OSError, ValueError, AttributeError):
         return False
 
 
@@ -114,7 +112,7 @@ SIZE_UNITS = {'en': ("B", "KB", "MB", "GB", "TB"), 'fr': ("o", "Ko", "Mo", "Go",
 
 
 def size(n: Optional[float], digits: int = 1) -> str:
-    """Bytes, in the units Windows and Dolphin use (1 KB = 1024 bytes); in French
+    """Bytes, in the units Windows and most file managers use (1 KB = 1024 bytes); in French
     '392,6 Ko'."""
     if n is None or n < 0:
         return "—"
@@ -231,13 +229,8 @@ def pick_folder(start: str) -> Optional[str]:
 
 
 def show_in_file_manager(path: str) -> None:
-    """Open a folder (or a file's folder, with the file selected) in Dolphin or the default."""
+    """Open a folder (or a file's folder) in the default file manager."""
     try:
-        if shutil.which('dolphin') and os.path.exists(path):
-            subprocess.Popen(['dolphin', '--select', path] if os.path.isfile(path)
-                             else ['dolphin', path], start_new_session=True,
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            return
         folder = path if os.path.isdir(path) else os.path.dirname(path)
         if shutil.which('xdg-open'):
             subprocess.Popen(['xdg-open', folder], start_new_session=True,
@@ -247,6 +240,6 @@ def show_in_file_manager(path: str) -> None:
 
 
 def picker():
-    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
-    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
-    return shutil.which('spark-pick') or shutil.which('kdialog')
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal).
+    None: use Tk's own dialog."""
+    return shutil.which('spark-pick')

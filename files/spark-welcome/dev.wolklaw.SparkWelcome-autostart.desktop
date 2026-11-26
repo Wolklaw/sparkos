@@ -8,5 +8,4 @@ Exec=spark-welcome --first-login
 Icon=dev.wolklaw.SparkWelcome
 Terminal=false
 NoDisplay=true
-X-KDE-autostart-phase=2
 X-GNOME-Autostart-enabled=true

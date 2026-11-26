@@ -29,7 +29,7 @@ SYNC_OPEN = 1024 * 1024          # files up to this size are read before the tab
 
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_EDIT_SCALE')
     if forced:
@@ -737,7 +737,7 @@ class App:
     def save_admin(self, buf: Buffer, path: Optional[str] = None, data: Optional[bytes] = None,
                    version: Optional[int] = None,
                    then: Optional[Callable[[], None]] = None) -> None:
-        """Save through pkexec, in a worker thread: the password prompt is Plasma's."""
+        """Save through pkexec, in a worker thread: the password prompt is Spark Polkit's."""
         if buf is None or buf.loading:
             return
         path = path or buf.path
@@ -1427,6 +1427,6 @@ def bench(path: Optional[str], age: Callable[[], float]) -> int:
 
 
 def picker():
-    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
-    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
-    return shutil.which('spark-pick') or shutil.which('kdialog')
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal).
+    None: use Tk's own dialog."""
+    return shutil.which('spark-pick')

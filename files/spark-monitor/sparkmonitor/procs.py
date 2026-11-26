@@ -1,6 +1,6 @@
 """Processes, and the apps they belong to.
 
-Plasma 6 starts every app in its own systemd scope, so /proc/<pid>/cgroup says which app a
+The Spark session starts every app in its own systemd scope, so /proc/<pid>/cgroup says which app a
 process belongs to: app-<desktop-id>@<random>.scope, or app-flatpak-<id>-<n>.scope for
 Flatpak apps. Those become the rows of the Apps tab, named and iconed from the app's desktop
 entry. Steam games get their own row, found through Steam's launcher process.
@@ -31,12 +31,12 @@ SECTIONS = (APP, BACKGROUND, SYSTEM)
 # Parts of the desktop and the session. Ending them logs you out, freezes the screen or cuts
 # the sound, so the Apps tab won't; Details still can, after a warning.
 PROTECTED = re.compile(
-    r'^(plasma|kwin|org\.kde\.(plasmashell|kwin|ksmserver|kded|kglobalaccel|polkit)|'
-    r'ksmserver|kded|kglobalaccel|dbus|xdg-desktop-portal|xdg-document-portal|xdg-permission|'
-    r'pipewire|wireplumber|systemd|at-spi|gvfs|xwayland|sddm|gdm|polkit)', re.I)
+    r'^(spark-compositor|spark-shell|spark-polkit|spark-greeter|greetd|'
+    r'dbus|xdg-desktop-portal|xdg-document-portal|xdg-permission|'
+    r'pipewire|wireplumber|systemd|at-spi|gvfs|xwayland|polkit)', re.I)
 PROTECTED_COMM = re.compile(
-    r'^(systemd|kwin_wayland|kwin_x11|kwin_wayland_wr|plasmashell|ksmserver|kded6|sddm|'
-    r'startplasma|Xwayland|dbus-broker|dbus-daemon|pipewire|wireplumber)', re.I)
+    r'^(systemd|spark-composit|spark-shell|spark-session|greetd|'
+    r'Xwayland|dbus-broker|dbus-daemon|pipewire|wireplumber)', re.I)
 
 STEAM_IDS = ('steam', 'com.valvesoftware.steam', 'valve-steam')
 

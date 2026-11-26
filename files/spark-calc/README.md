@@ -28,7 +28,7 @@ SparkOS has had no calculator since KCalc went. Spark Calc is an optional Spark 
 | Ctrl+M, Ctrl+P, Ctrl+Q, Ctrl+R, Ctrl+L | MS, M+, M−, MR, MC |
 | Ctrl+W | Close |
 
-The Spark compositor binds the keyboard's Calculator key (`XF86Calculator`) to Spark Calc; change it in Spark Settings > Shortcuts. The desktop entry's `X-KDE-Shortcuts=Calculator` line is left over from KCalc and nothing reads it in the Spark session.
+The Spark compositor binds the keyboard's Calculator key (`XF86Calculator`) to Spark Calc; change it in Spark Settings > Shortcuts.
 
 ## How it counts
 
@@ -91,7 +91,7 @@ python3 -m unittest discover -s tests -v
 python3 make_icons.py                     # redraw icons/ after changing the mark (needs Pillow)
 ```
 
-`--user` needs only what the SparkOS image already has (Python 3 with tkinter). It installs to `~/.local/lib/spark-calc/`, `~/.local/bin/spark-calc`, `~/.local/share/applications/`, `~/.local/share/icons/` and `~/.local/share/kglobalaccel/` (a link only KDE's shortcut daemon read; it does nothing in the Spark session), and lists every file it wrote in `~/.local/lib/spark-calc/installed-files` for `--uninstall`. Settings (`~/.config/spark-calc/`) and history (`~/.local/state/spark-calc/`) are left in place by `--uninstall`.
+`--user` needs only what the SparkOS image already has (Python 3 with tkinter). It installs to `~/.local/lib/spark-calc/`, `~/.local/bin/spark-calc`, `~/.local/share/applications/`, and `~/.local/share/icons/`, and lists every file it wrote in `~/.local/lib/spark-calc/installed-files` for `--uninstall`. Settings (`~/.config/spark-calc/`) and history (`~/.local/state/spark-calc/`) are left in place by `--uninstall`.
 
 `spark-app.json` describes the app for the Spark Portal (ID, name, summary, version, size, what it needs, how to install it).
 

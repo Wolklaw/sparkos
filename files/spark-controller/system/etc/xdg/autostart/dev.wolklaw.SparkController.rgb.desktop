@@ -7,4 +7,3 @@ Comment[fr]=Applique l'éclairage enregistré dans Spark Controller
 Exec=spark-controller --apply-rgb
 NoDisplay=true
 Terminal=false
-X-KDE-autostart-phase=2

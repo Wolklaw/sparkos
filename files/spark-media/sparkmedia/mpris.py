@@ -1,4 +1,4 @@
-"""MPRIS2 on the session bus, so the keyboard's media keys, Plasma's media widget and the lock
+"""MPRIS2 on the session bus, so the keyboard's media keys, the shell's media widget and the lock
 screen control the music: org.mpris.MediaPlayer2.SparkMedia.
 
 D-Bus runs on GLib's Gio, through PyGObject (already there for GStreamer), in a thread with its

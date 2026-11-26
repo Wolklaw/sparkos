@@ -89,19 +89,19 @@ class DataTests(unittest.TestCase):
 
     def test_sessions_spark_first_hidden_skipped(self):
         with tempfile.TemporaryDirectory() as d:
-            write(d, 'plasma.desktop', '[Desktop Entry]\nName=Plasma (Wayland)\nExec=/usr/bin/startplasma-wayland\n'
-                  'DesktopNames=KDE\n')
+            write(d, 'other.desktop', '[Desktop Entry]\nName=Other (Wayland)\nExec=/usr/bin/other-session\n'
+                  'DesktopNames=Other\n')
             write(d, 'spark.desktop', '[Desktop Entry]\nName=Spark\nName[fr]=Étincelle\nExec=/usr/bin/spark session\n'
                   'DesktopNames=Spark\n')
             write(d, 'hidden.desktop', '[Desktop Entry]\nName=H\nExec=h\nNoDisplay=true\n')
             write(d, 'gone.desktop', '[Desktop Entry]\nName=G\nExec=g\nTryExec=/nonexistent/binary\n')
             write(d, 'readme.txt', 'not a session')
             sessions = greeter_data.list_sessions((d,))
-        self.assertEqual([s.ident for s in sessions], ['spark', 'plasma'])
+        self.assertEqual([s.ident for s in sessions], ['spark', 'other'])
         self.assertEqual(sessions[0].name, 'Spark')
         self.assertEqual(sessions[0].cmd, ['/usr/bin/spark', 'session'])
         self.assertIn('XDG_CURRENT_DESKTOP=Spark', sessions[0].env)
-        self.assertIn('XDG_SESSION_DESKTOP=plasma', sessions[1].env)
+        self.assertIn('XDG_SESSION_DESKTOP=other', sessions[1].env)
         self.assertIn('XDG_SESSION_TYPE=wayland', sessions[1].env)
 
     def test_memory_round_trip_and_a_broken_file(self):
@@ -109,9 +109,9 @@ class DataTests(unittest.TestCase):
             path = os.path.join(d, 'sub', 'state.json')
             memory = greeter_data.Memory(path)
             self.assertIsNone(memory.last_user())
-            memory.remember('alice', 'plasma')
+            memory.remember('alice', 'other')
             again = greeter_data.Memory(path)
-            self.assertEqual((again.last_user(), again.last_session('alice')), ('alice', 'plasma'))
+            self.assertEqual((again.last_user(), again.last_session('alice')), ('alice', 'other'))
             write(d, 'broken.json', '{not json')
             self.assertIsNone(greeter_data.Memory(os.path.join(d, 'broken.json')).last_user())
 
@@ -240,7 +240,7 @@ class WindowTests(unittest.TestCase):
         self.memory = greeter_data.Memory(os.path.join(self.dir, 'state.json'))
         self.users = [greeter_data.User('alice', 'Alice A', 1000), greeter_data.User('bob', 'Bob B', 1001)]
         self.sessions = [greeter_data.Session('Spark', ['/usr/bin/spark'], 'Spark', 'spark'),
-                         greeter_data.Session('Plasma', ['/usr/bin/startplasma-wayland'], 'KDE', 'plasma')]
+                         greeter_data.Session('Other', ['/usr/bin/other-session'], 'Other', 'other')]
         self.powered, self.finished = [], []
         self.window = None
 
@@ -263,7 +263,7 @@ class WindowTests(unittest.TestCase):
 
     def test_english_screen_has_everything(self):
         text = '\n'.join(texts(self.open()))
-        for word in ('SIGN IN', 'USER', 'SESSION', 'Alice A', 'Spark', 'Plasma', 'SLEEP', 'RESTART',
+        for word in ('SIGN IN', 'USER', 'SESSION', 'Alice A', 'Spark', 'Other', 'SLEEP', 'RESTART',
                      'SHUT DOWN', 'Other user...'):
             self.assertIn(word, text)
 
@@ -275,15 +275,15 @@ class WindowTests(unittest.TestCase):
 
     def test_right_password_signs_in_and_remembers(self):
         win = self.open()
-        win.session_drop.set_selected(1)               # Plasma
+        win.session_drop.set_selected(1)               # the second session
         win.password.set_text(FakeGreetd.PASSWORD)
         win.go.emit('clicked')
         self.assertTrue(pump(10, lambda: self.finished))
-        self.assertEqual(self.server.started[0][0], ['/usr/bin/startplasma-wayland'])
-        self.assertIn('XDG_CURRENT_DESKTOP=KDE', self.server.started[0][1])
+        self.assertEqual(self.server.started[0][0], ['/usr/bin/other-session'])
+        self.assertIn('XDG_CURRENT_DESKTOP=Other', self.server.started[0][1])
         self.assertEqual(win.password.get_text(), '')
         self.assertEqual(self.memory.last_user(), 'alice')
-        self.assertEqual(self.memory.last_session('alice'), 'plasma')
+        self.assertEqual(self.memory.last_session('alice'), 'other')
 
     def test_wrong_password_shows_a_warning_and_stays(self):
         win = self.open()
@@ -313,7 +313,7 @@ class WindowTests(unittest.TestCase):
         self.assertTrue(win.name_entry.get_visible())
 
     def test_remembered_user_and_session_are_preselected(self):
-        self.memory.remember('bob', 'plasma')
+        self.memory.remember('bob', 'other')
         win = self.open()
         self.assertEqual(win.user_drop.get_selected(), 1)
         self.assertEqual(win.session_drop.get_selected(), 1)

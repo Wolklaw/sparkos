@@ -34,7 +34,7 @@ dnf_install() {
 if [ "$DEPS" = 1 ]; then
   # 1. programs and data, by package name. taglib reads music tags, LibRaw develops camera
   #    RAW photos and libheif opens HEIC and AVIF, all through their C libraries; SparkOS
-  #    already has them (KDE uses them). HEIC also needs libheif's HEVC decoder (libde265):
+  #    already has them (Spark Files uses them). HEIC also needs libheif's HEVC decoder (libde265):
   #    SparkOS has it from RPM Fusion; plain Fedora doesn't ship one, so there only AVIF
   #    opens and HEIC says what's missing.
   missing=()

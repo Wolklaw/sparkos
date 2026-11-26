@@ -4,7 +4,7 @@
  *
  * What it is: floating windows (xdg-shell and XWayland), any number of outputs with their own
  * mode, scale, transform and position, the protocols a shell and screen capture need, and a
- * small config file. What it is not: a replacement for KWin yet (no HDR, no tested VRR, no
+ * small config file. What it is not: a finished compositor yet (no HDR, no tested VRR, no
  * mixed-refresh handling beyond what wlroots does per output). See briefs/spark-compositor.md.
  *
  * Config: ~/.config/spark/compositor/compositor.conf (and outputs.conf next to it), see
@@ -393,8 +393,7 @@ static void add_bind(struct server *s, const char *combo, enum action a, const c
 static void set_default_binds(struct server *s) {
 	add_bind(s, "Super+Return", A_EXEC, "spark-terminal || foot || xterm", false);
 	add_bind(s, "Ctrl+Alt+t", A_EXEC, "spark-terminal || foot || xterm", false);
-	/* the Spark apps' own keys (X-KDE-Shortcuts in their desktop entries; kglobalaccel reads
-	 * those on Plasma, and nothing from KDE runs here) */
+	/* the Spark apps' own keys (the apps' desktop entries no longer carry shortcuts) */
 	add_bind(s, "Ctrl+Shift+Escape", A_EXEC, "spark-monitor", false);
 	add_bind(s, "Super+Escape", A_EXEC, "spark-monitor", false);
 	add_bind(s, "Ctrl+Escape", A_EXEC, "spark-monitor", false);

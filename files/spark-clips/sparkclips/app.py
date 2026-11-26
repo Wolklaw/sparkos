@@ -104,7 +104,6 @@ class App:
         self.infos: Dict[str, Dict[str, Any]] = {}
         self.queued: set = set()
         self.columns = 0
-        self.shortcut_owner: Optional[str] = None
         self.trim_window: Optional[tk.Toplevel] = None
 
         self._header()
@@ -122,8 +121,6 @@ class App:
         self.glitch.add(self.title, self.mark, self.strip)
         self.refresh_library(force=True)
         self.apply_status(None)
-        if poll:
-            threading.Thread(target=self._find_shortcut_owner, daemon=True).start()
         self.tick_job = self.root.after(TICK_MS, self._tick)
 
     def px(self, v: float) -> int:
@@ -311,20 +308,8 @@ class App:
             text += ' ' + t('memory.too_big')
         self.memory.config(text=text, fg=T["gold"] if big else T["muted"])
 
-    def _find_shortcut_owner(self) -> None:
-        owner = shortcut.owner()
-        self.inbox.put(lambda: self._set_owner(owner))
-
-    def _set_owner(self, owner: Optional[str]) -> None:
-        self.shortcut_owner = owner
-        self.show_shortcut()
-
     def show_shortcut(self) -> None:
-        if self.shortcut_owner:
-            self.shortcut_label.config(text=t('shortcut.taken', keys=shortcut.KEYS,
-                                              name=self.shortcut_owner), fg=T["gold"])
-        else:
-            self.shortcut_label.config(text=t('shortcut.line', keys=shortcut.KEYS), fg=T["muted"])
+        self.shortcut_label.config(text=t('shortcut.line', keys=shortcut.KEYS), fg=T["muted"])
 
     # ── the service ──
 

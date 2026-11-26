@@ -33,7 +33,7 @@ URI_SAFE = "/!$&'()*+,;=:@~-._"
 
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but the desktop publishes it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_FILES_SCALE')
     if forced:
@@ -114,12 +114,9 @@ def uri_to_path(uri: str) -> Optional[str]:
 
 
 def terminal_command(folder: str) -> Optional[List[str]]:
-    """Spark Terminal when it's there; then Konsole (kept for one release); then whatever
-    the desktop says is the terminal."""
+    """Spark Terminal when it's there; then whatever the desktop says is the terminal."""
     if shutil.which('spark-terminal'):
         return ['spark-terminal', '--workdir', folder]
-    if shutil.which('konsole'):
-        return ['konsole', '--workdir', folder]
     for name in ('xdg-terminal-exec', 'x-terminal-emulator', 'gnome-terminal', 'xterm'):
         if shutil.which(name):
             return [name]

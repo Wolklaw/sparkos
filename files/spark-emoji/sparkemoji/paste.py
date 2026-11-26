@@ -8,7 +8,7 @@ token) it sends Ctrl+V after the character is on the clipboard. Without that per
 character is only copied and Spark Emoji says so.
 
 The portal calls are plain D-Bus through Gio, so they can be tested against a fake portal
-(tests/test_paste.py); whether KDE's portal accepts them in a real session is what the first
+(tests/test_paste.py); whether the real portal accepts them in a real session is what the first
 test on a real desktop shows.
 """
 

@@ -4,7 +4,7 @@ The SparkOS task manager, for people who press Ctrl+Shift+Esc when something han
 
 It follows the PC's language: French when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 
-Spark Monitor ships in the SparkOS image ([build step](../scripts/spark-monitor.sh)). It also installs for one user without root (`install.sh --user`), the way optional Spark apps will through the future Spark Portal. It replaces Plasma System Monitor, which is not in the image.
+Spark Monitor ships in the SparkOS image ([build step](../scripts/spark-monitor.sh)). It also installs for one user without root (`install.sh --user`), the way optional Spark apps will through the future Spark Portal. It is the task manager and system monitor of the Spark session.
 
 - **Apps:** one row per app, not per process, in three groups: **Apps**, **Background** and **System**. Columns: CPU, memory, GPU (where the driver publishes it) and disk, with the totals in the headings. Click a heading to sort; open a row to see its processes. Select a row and press Delete or **End task**: the app is asked to close (SIGTERM), and if it is still running 5 seconds later it is forced to stop (SIGKILL). The status line says which happened. Steam games get their own row, named from Steam's library, so you can end a game without ending Steam.
 - **Performance:** the last 60 seconds of CPU (total and each thread, clock, temperature), memory (in use, available, cached, swap and zram), each GPU (usage, video memory, clock, temperature, hotspot, power, fan), each disk (active time, read and write, temperature for NVMe, how full it is) and each network adapter (send and receive).
@@ -56,7 +56,7 @@ python3 -m unittest discover -s tests -v
 python3 make_icons.py                     # redraw icons/ after changing the mark
 ```
 
-`--user` needs only what the SparkOS image already has (Python 3 with tkinter). It installs to `~/.local/lib/spark-monitor/`, `~/.local/bin/spark-monitor`, `~/.local/share/applications/`, `~/.local/share/icons/` and `~/.local/share/kglobalaccel/` (a link only KDE's shortcut daemon read; it does nothing in the Spark session), and lists every file it wrote in `~/.local/lib/spark-monitor/installed-files` for `--uninstall`. Settings and the log are left in place by `--uninstall`.
+`--user` needs only what the SparkOS image already has (Python 3 with tkinter). It installs to `~/.local/lib/spark-monitor/`, `~/.local/bin/spark-monitor`, `~/.local/share/applications/` and `~/.local/share/icons/`, and lists every file it wrote in `~/.local/lib/spark-monitor/installed-files` for `--uninstall`. Settings and the log are left in place by `--uninstall`.
 
 `spark-app.json` describes the app for the Spark Portal (ID, name, summary, version, size, what it needs, how to install it).
 
@@ -67,14 +67,14 @@ The tests use a fake `/proc` and `/sys` in `tests/fixtures/root`: a Ryzen 7 7800
 - **Nothing runs until you open the tab.** The Logs tab starts `journalctl -o json -f` when it opens and stops it when you leave; the System tab reads its programs once, on a thread. Spark Monitor still runs nothing in the background.
 - **The journal is capped.** The newest 2000 entries are kept, long messages are cut, and the table shows what matches your filters among those. Boot and level are chosen in `journalctl`, so a quiet level reaches back further; the app and text filters look only at what is loaded.
 - **Read as your user.** The journal needs your account to be in `wheel` or `systemd-journal` (the SparkOS default account is); if it isn't, the tab says so. Memory size and speed come from the udev database (`udevadm info -p /devices/virtual/dmi/id`), which holds what the firmware reported at boot and needs no root. Motherboard fields come from `/sys/class/dmi/id`; fields only root can read (serial numbers on some boards) are shown as not readable.
-- **Programs used, all optional:** `journalctl`, `coredumpctl`, `systemctl --failed`, `rpm-ostree status --json`, `udevadm`, `vulkaninfo` (GPU driver and Mesa version, `glxinfo` as a fallback), `kscreen-doctor`. If one is missing, its rows say so instead of failing. Tests use fixture files in `tests/fixtures/root/commands` instead of the real programs.
+- **Programs used, all optional:** `journalctl`, `coredumpctl`, `systemctl --failed`, `rpm-ostree status --json`, `udevadm`, `vulkaninfo` (GPU driver and Mesa version, `glxinfo` as a fallback). If one is missing, its rows say so instead of failing. Tests use fixture files in `tests/fixtures/root/commands` instead of the real programs.
 - **Unclean shutdown is a guess.** The previous boot is called unclean when its last 300 lines contain none of the shutdown steps. A log cut short for another reason reads the same.
 - **Times** are in the PC's time zone, with the zone shown in copies.
 - **Tried on the real PC:** the owner's all-AMD desktop (Ryzen 7 7800X3D, RX 6800 XT, ASUS PRIME X670-P WIFI) showed the right processor, graphics driver and Mesa version, two memory modules with their rated and running speeds, the board and BIOS, three disks and three displays. The Logs tab loaded this and the previous boot, the crash list and a crash's details. Screenshots could not be taken in that session, so the look was checked in the widget tree and by the width test, not by eye.
 
 ## Known gaps
 
-- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens it from the app menu in the Spark session in a VM, in English and in French, waits for its window, keeps a screenshot and fails on a Python traceback. Ctrl+Shift+Esc is a built-in bind of the Spark compositor (also Super+Esc); nobody has pressed it on hardware yet. `--self-test` still checks `kglobalshortcutsrc` for a clash, which does not exist in the Spark session.
+- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens it from the app menu in the Spark session in a VM, in English and in French, waits for its window, keeps a screenshot and fails on a Python traceback. Ctrl+Shift+Esc is a built-in bind of the Spark compositor (also Super+Esc); nobody has pressed it on hardware yet.
 - **No network column per app.** Linux only counts traffic per process with root-level tools (eBPF), so the Apps tab shows network totals on the Performance tab only.
 - **GPU per app** needs a driver that publishes fdinfo counters (AMD, Intel). NVIDIA's driver publishes nothing in `/sys`, so its usage, memory and temperature show as not readable.
 - Bringing the open window forward on Ctrl+Shift+Esc may only flash it in the taskbar, depending on the compositor's focus rules.

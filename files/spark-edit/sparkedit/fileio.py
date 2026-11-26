@@ -305,7 +305,7 @@ def admin_command(target: str) -> List[str]:
     """dd writes over the existing file, so it keeps its owner and permissions; a new file gets
     the usual 0644. The text goes in through stdin: root never opens a file the user can swap.
     oflag=nofollow refuses a target that turned into a symlink. pkexec asks for the password
-    through Plasma's own prompt."""
+    through the session's own prompt."""
     dd = shutil.which('dd', path='/usr/bin:/bin') or '/usr/bin/dd'
     return [pkexec_path() or 'pkexec', dd, f'of={target}', 'oflag=nofollow', 'bs=64K',
             'status=none']

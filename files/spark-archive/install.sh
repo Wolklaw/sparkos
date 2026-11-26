@@ -12,7 +12,7 @@
 # --deps     system-wide only: install what it needs with dnf first (Fedora; the image build).
 # --no-test  skip the self-test at the end.
 #
-# Besides the app, this installs Dolphin's right-click entries (KIO service menus): Extract
+# Besides the app, this installs the right-click entries (service menu files Spark Files reads): Extract
 # here and Extract to folder on archives, Compress to .zip, .7z, .tar.zst and with a password
 # on anything. And file types for the later parts of multi-part archives (.r00, .z01,
 # .7z.002...), which have none, so Extract shows on those too (shared-mime-info package
@@ -50,9 +50,6 @@ refresh_mime() {   # $1: the mime folder (.../share/mime): rebuild it from its p
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 copy_app() {   # $1: where the code goes
@@ -125,7 +122,7 @@ EOF
   sed "s|^Exec=spark-archive|Exec=$exec_bin|" "$here/$APP_ID.desktop" > "$desktop"
   chmod 0644 "$desktop"
   record "$desktop"
-  # Plasma only runs a service menu from your home folder if the file is executable
+  # a service menu from your home folder is only run if the file is executable
   install -d "$DATA/kio/servicemenus"
   for menu in $MENUS; do
     target="$DATA/kio/servicemenus/$APP_ID.$menu.desktop"
@@ -152,7 +149,7 @@ EOF
   if [ "$TEST" = 1 ]; then
     "$BIN" --self-test
   fi
-  echo "Spark Archive installed for $(id -un) in $LIB. Right-click in Dolphin for Extract"
+  echo "Spark Archive installed for $(id -un) in $LIB. Right-click in Spark Files for Extract"
   echo "and Compress. Remove it with:"
   echo "  bash $here/install.sh --user --uninstall"
   exit 0

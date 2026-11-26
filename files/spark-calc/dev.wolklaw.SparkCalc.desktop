@@ -13,7 +13,6 @@ Categories=Utility;Calculator;
 Keywords=calculator;calc;math;sum;scientific;programmer;hex;binary;percent;calculatrice;calcul;scientifique;programmeur;
 Keywords[fr]=calculatrice;calcul;mathématiques;scientifique;programmeur;hexadécimal;binaire;pourcentage;
 StartupWMClass=SparkCalc
-X-KDE-Shortcuts=Calculator
 Actions=Scientific;Programmer;
 
 [Desktop Action Scientific]

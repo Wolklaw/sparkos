@@ -1,4 +1,4 @@
-"""Desktop notifications through the freedesktop.org Notifications service (what Plasma and
+"""Desktop notifications through the freedesktop.org Notifications service (what Spark Shell and
 every other desktop answers on the session bus), with Stop and Snooze buttons. Needs GObject
 (python3-gobject, in the SparkOS image). Notifier.on_action / on_closed are set by the service."""
 

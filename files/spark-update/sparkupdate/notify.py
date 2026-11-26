@@ -1,4 +1,4 @@
-"""The "SparkOS updated" notification (a Plasma notification through notify-send, with Later
+"""The "SparkOS updated" notification (a desktop notification through notify-send, with Later
 and Restart), how often it may come back, and restarting when you click Restart."""
 
 import os
@@ -58,31 +58,10 @@ def show(offer, apps_ok: bool) -> Optional[str]:
     return answer or None
 
 
-def session_has_ksmserver() -> bool:
-    """Plasma's session manager (org.kde.Shutdown) is on the session bus. It is absent in a
-    session that runs KWin without plasmashell. Asked without starting anything."""
-    if not (which('gdbus') and os.environ.get('DBUS_SESSION_BUS_ADDRESS')):
-        return False
-    code, out, _ = run(['gdbus', 'call', '--session', '--dest', 'org.freedesktop.DBus',
-                        '--object-path', '/org/freedesktop/DBus', '--method',
-                        'org.freedesktop.DBus.NameHasOwner', 'org.kde.Shutdown'], timeout=10)
-    return code == 0 and 'true' in out
-
-
 def restart_pc() -> bool:
-    """Plasma: ask ksmserver to close the apps and restart (apps with unsaved work can still
-    stop it). Any other session (the Spark session has no ksmserver): systemd's reboot, which
-    asks logind; the session's apps get the normal end-of-session signals. Chosen by whether
-    ksmserver is on the bus, not by the desktop's name. Only ever called from a click on
-    Restart."""
+    """Restart through systemd, which asks logind; the session's apps get the normal
+    end-of-session signals. Only ever called from a click on Restart."""
     log.info("restarting: the user clicked Restart")
-    if session_has_ksmserver():
-        code, _, _ = run(['gdbus', 'call', '--session', '--dest', 'org.kde.Shutdown',
-                          '--object-path', '/Shutdown', '--method',
-                          'org.kde.Shutdown.logoutAndReboot'], timeout=30)
-        if code == 0:
-            return True
-        log.warning("ksmserver would not restart the PC; asking systemd")
     code, _, _ = run(['systemctl', 'reboot'], timeout=60)
     return code == 0
 

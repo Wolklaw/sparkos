@@ -1,5 +1,5 @@
 """Spark Monitor: the SparkOS task manager. Ctrl+Shift+Esc opens it. It lists apps grouped the
-way Plasma starts them, ends the ones that stopped responding, graphs the CPU, memory, GPU,
+way the Spark session starts them, ends the ones that stopped responding, graphs the CPU, memory, GPU,
 disks and network, and switches startup apps on and off. It reads /proc and /sys directly and
 runs nothing in the background.
 """

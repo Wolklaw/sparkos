@@ -191,7 +191,7 @@ EN = {
                              "terminal and run it there?",
     'result.failed_title': "Restart failed",
     'result.failed': "Restarting {unit} on {machine} didn't work:\n{message}",
-    'result.no_terminal': "No terminal program found (Spark Terminal, Konsole, xterm…).",
+    'result.no_terminal': "No terminal program found (Spark Terminal, xterm…).",
     'result.no_terminal_title': "No terminal",
     'confirm.update_title': "Update {machine}?",
     'confirm.update_body': "Opens a terminal on {machine} and installs the waiting updates. The "
@@ -287,15 +287,13 @@ EN = {
                             "only Take control without asking (sudo) can reach it.",
     'share.err.no_rdp': "{machine} has no spark-rdp (Spark's screen sharing server), so it "
                         "can't share its screen. Update that machine first.",
-    'share.err.no_krdp': "{machine} has no krdpserver (KDE's RDP server), so it can't share "
-                         "its screen.",
     'share.err.no_tool': "{machine} doesn't have spark-share yet. It comes with the SparkOS "
                          "image; update that machine first.",
     'share.err.no_viewer': "FreeRDP isn't installed on this PC, so there is nothing to show "
                            "the screen with.",
     'share.err.forward': "The SSH forward to {machine} didn't open.",
     'share.err.timeout': "{machine} didn't answer in time.",
-    'share.err.no_terminal': "No terminal program found (Spark Terminal, Konsole, xterm…).",
+    'share.err.no_terminal': "No terminal program found (Spark Terminal, xterm…).",
     'share.err.bad_reply': "spark-share on {machine} answered in a way Spark Connect doesn't "
                            "understand. Update both.",
     'share.err.ssh': "ssh said: {message}",
@@ -493,7 +491,7 @@ FR = {
                              "mot de passe. Ouvrir un terminal pour le faire ?",
     'result.failed_title': "Le redémarrage a échoué",
     'result.failed': "Le redémarrage de {unit} sur {machine} n'a pas marché :\n{message}",
-    'result.no_terminal': "Aucun terminal trouvé (Spark Terminal, Konsole, xterm…).",
+    'result.no_terminal': "Aucun terminal trouvé (Spark Terminal, xterm…).",
     'result.no_terminal_title': "Pas de terminal",
     'confirm.update_title': "Mettre à jour {machine} ?",
     'confirm.update_body': "Ouvre un terminal sur {machine} et installe les mises à jour en "
@@ -597,15 +595,13 @@ FR = {
     'share.err.no_rdp': "{machine} n'a pas spark-rdp (le serveur de partage d'écran de "
                         "Spark) : elle ne peut pas partager son écran. Mettez d'abord cette "
                         "machine à jour.",
-    'share.err.no_krdp': "{machine} n'a pas krdpserver (le serveur RDP de KDE) : elle ne peut "
-                         "pas partager son écran.",
     'share.err.no_tool': "{machine} n'a pas encore spark-share. Il arrive avec l'image "
                          "SparkOS ; mettez d'abord cette machine à jour.",
     'share.err.no_viewer': "FreeRDP n'est pas installé sur ce PC : rien pour afficher "
                            "l'écran.",
     'share.err.forward': "La redirection SSH vers {machine} ne s'est pas ouverte.",
     'share.err.timeout': "{machine} n'a pas répondu à temps.",
-    'share.err.no_terminal': "Aucun terminal trouvé (Spark Terminal, Konsole, xterm…).",
+    'share.err.no_terminal': "Aucun terminal trouvé (Spark Terminal, xterm…).",
     'share.err.bad_reply': "spark-share sur {machine} a répondu d'une façon que Spark "
                            "Connect ne comprend pas. Mettez les deux à jour.",
     'share.err.ssh': "ssh a dit : {message}",

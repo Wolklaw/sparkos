@@ -3,11 +3,9 @@
 The SparkOS tray icons: network, Bluetooth, power, printers and volume. One process, five
 StatusNotifierItem icons. Each icon can be turned off, has a menu, and opens a small popup in the
 SparkOS house style (dark, 3px corners, mono type, a magenta and cyan channel slip as the only
-decoration). Built into the image; live updates on. Stage 2 of "Replacing KDE" in
-[PLAN.md](../../PLAN.md).
+decoration). Built into the image; live updates on. See [PLAN.md](../../PLAN.md).
 
-It replaces plasma-nm, bluedevil, powerdevil's battery applet, plasma-print-manager and
-plasma-pa's volume applet, none of which are in the image. Spark Tray starts at login in the
+It is the image's network, Bluetooth, battery, printer and volume tray. Spark Tray starts at login in the
 Spark session.
 
 ## The icons
@@ -55,10 +53,9 @@ Spark Settings has no switch for these yet; the command line is the only control
 
 - The image ships `/etc/xdg/autostart/dev.wolklaw.SparkTray.desktop` with `OnlyShowIn=Spark;`, so it
   starts in the Spark session and not in other desktops.
-- `spark-tray --enable` writes a per-user autostart file with no `OnlyShowIn`, so it starts in
-  other desktops too. `--disable` writes `Hidden=true`. `--reset` removes the file, back to the default.
-- On a KDE machine next to Plasma's own applets you get two icons for each; turn the Plasma ones
-  off in Plasma's tray settings first.
+- `spark-tray --enable` writes a per-user autostart file with no `OnlyShowIn`, which the
+  `--user` install uses so it starts without the image's system file. `--disable` writes
+  `Hidden=true`. `--reset` removes the file, back to the default.
 
 ## Install
 

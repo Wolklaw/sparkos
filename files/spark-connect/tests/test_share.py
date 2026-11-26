@@ -147,7 +147,7 @@ class Sessions(unittest.TestCase):
 
 @unittest.skipUnless(LINUX and shutil.which('sh'), "needs Linux and sh")
 class XDisplay(unittest.TestCase):
-    """A session with KWin and no plasma-workspace may leave DISPLAY out of the user manager's
+    """A session without a login manager's environment may leave DISPLAY out of the user manager's
     environment; the prompt and the banner (Tk) still need it."""
 
     def test_lowest_socket_of_that_user(self):
@@ -551,7 +551,7 @@ class Confirmations(unittest.TestCase):
 
     def test_errors_have_words_in_both_languages(self):
         m = self.desk()
-        for reason in ('denied', 'locked', 'no_session', 'other_user', 'no_rdp', 'no_krdp', 'no_tool',
+        for reason in ('denied', 'locked', 'no_session', 'other_user', 'no_rdp', 'no_tool',
                        'no_viewer', 'forward', 'timeout', 'bad_reply', 'ssh', 'error',
                        'something_new'):
             text = actions.share_error_text(m, reason, 'x')

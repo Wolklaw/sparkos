@@ -8,8 +8,8 @@
 # self-test or any check below fails.
 #
 # Spark Notes takes Meta+V:
-# - its popup entry (dev.wolklaw.SparkNotes.Clipboard.desktop) carries X-KDE-Shortcuts=Meta+V,
-#   and the Spark compositor reads the shortcuts of the entries linked in /usr/share/kglobalaccel
+# - spark-compositor binds Super+V to `spark-notes --clipboard` (the popup entry,
+#   dev.wolklaw.SparkNotes.Clipboard.desktop, carries no shortcut keys)
 # - the watcher is a user service, enabled for every login (graphical-session.target.wants)
 set -oue pipefail
 
@@ -34,15 +34,8 @@ test -x /usr/bin/wl-copy
 grep -qx 'ExecStart=/usr/bin/spark-notes --watch' "$UNIT"
 test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service
 
-# --- Meta+V : the compositor takes the shortcut from the popup entry linked here
-install -d /usr/share/kglobalaccel
-ln -sfn ../applications/dev.wolklaw.SparkNotes.Clipboard.desktop \
-  /usr/share/kglobalaccel/dev.wolklaw.SparkNotes.Clipboard.desktop
-grep -qx 'X-KDE-Shortcuts=Meta+V' "$POPUP"
-# no other desktop entry may claim Meta+V
-others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?Meta\+V(,|$)' /usr/share/applications/*.desktop \
-  /usr/share/kglobalaccel/*.desktop 2>/dev/null \
-  | grep -v 'dev.wolklaw.SparkNotes.Clipboard.desktop$' || true)
-[ -z "$others" ] || { echo "these also claim Meta+V :"; echo "$others"; exit 1; }
+if grep -q '^X-KDE' "$APP" "$POPUP"; then
+  echo "a Spark Notes desktop entry still has X-KDE keys"; exit 1
+fi
 
-echo "$(/usr/bin/spark-notes --version) installed; it has Meta+V"
+echo "$(/usr/bin/spark-notes --version) installed."

@@ -39,8 +39,6 @@ EN = {
     'button.cancel': "Cancel",
     'toggle.keep': "Keep a replay",
     'shortcut.line': "Save a clip from anywhere with {keys}.",
-    'shortcut.taken': "{keys} is taken by {name}, so it will not save a clip. Change it in "
-                      "System Settings, Shortcuts.",
 
     # problems the service reports
     'problem.missing': "GStreamer is missing parts: {detail}. Install them and restart the "
@@ -183,8 +181,6 @@ FR = {
     'button.cancel': "Annuler",
     'toggle.keep': "Garder un replay",
     'shortcut.line': "Gardez un clip de n'importe où avec {keys}.",
-    'shortcut.taken': "{keys} est pris par {name} : il ne gardera pas de clip. Changez-le "
-                      "dans Configuration du système, Raccourcis.",
 
     'problem.missing': "Il manque des éléments à GStreamer : {detail}. Installez-les et "
                        "redémarrez le service.",

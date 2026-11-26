@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Run inside the SparkOS image by CI: what it has for archives today, so the PR can say what
-# Spark Archive should own and what can leave with Ark. Prints only; never fails.
+# Spark Archive should own and what an old Ark install left. Prints only; never fails.
 rpm -q --qf '%{NAME} %{VERSION} %{SIZE} bytes\n' libarchive 7zip unrar unar ark ark-libs p7zip 2>/dev/null
 for p in libarchive 7zip unrar unar ark ark-libs; do
   echo "--- what needs $p:"

@@ -1,9 +1,9 @@
 # Spark compositor (experimental)
 
 A Wayland compositor on wlroots 0.20, written in C. It runs the Spark session,
-"Spark (experimental compositor)" (`spark-wl`) on the login screen, with Spark Shell and no KDE, Plasma
-or KWin. It has been the owner's daily session since 25 Nov 2026 and is the only session in the image
-(greetd with Spark Greeter starts it; KDE, Plasma and KWin are removed). Read the "Missing" list before you log in to it.
+"Spark (experimental compositor)" (`spark-wl`) on the login screen, with Spark Shell. It has
+been the owner's daily session since 25 Nov 2026 and is the only session in the image
+(greetd with Spark Greeter starts it). Read the "Missing" list before you log in to it.
 
 `spark-wl-windows/` is a small helper that gives Spark Shell the window list (foreign-toplevel) for
 its task list.
@@ -62,8 +62,8 @@ Defaults:
   (reload this file).
 - Apps: Super+Return and Ctrl+Alt+t (terminal), Ctrl+Shift+Esc, Super+Esc and Ctrl+Esc (Spark
   Monitor), Super+e (Spark Files), Super+i (Spark Settings), Super+. (Spark Emoji), Super+v
-  (clipboard history), Super+Alt+g (save a Spark Clips clip), Calculator key (Spark Calc). These are the keys the apps' desktop entries used to register in Plasma;
-  the compositor now binds them itself and the entries' `X-KDE-Shortcuts` lines are not read.
+  (clipboard history), Super+Alt+g (save a Spark Clips clip), Calculator key (Spark Calc). The compositor binds them
+  itself (`set_default_binds`); the apps' desktop entries carry no shortcut lines.
 - Title bars: the compositor draws them (title, minimize, maximize, close)
   on Wayland apps that ask for server-side decorations and on X11 windows that don't draw their
   own. X11 apps that draw their own bar (Battle.net) get none; dragging one by its own bar while

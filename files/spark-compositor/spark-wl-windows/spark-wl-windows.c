@@ -1,5 +1,5 @@
 /*
- * spark-wl-windows: the Spark shell's window list in the Spark compositor session (no KWin).
+ * spark-wl-windows: the Spark shell's window list in the Spark compositor session.
  * Binds zwlr_foreign_toplevel_manager_v1 and wl_output (for output names), prints every
  * change as one JSON line on stdout:
  *   [{"id":"3","title":"..","app":"..","cls":"..","pid":0,"minimized":false,

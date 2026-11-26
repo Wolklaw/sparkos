@@ -57,9 +57,6 @@ SIZES="16 22 24 32 48 64 128 256 512"
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 # The program, and every Spark app's spark-app.json + icon from the sibling folders

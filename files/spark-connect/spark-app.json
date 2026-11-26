@@ -15,7 +15,7 @@
     "python": ">=3.11",
     "python_modules": ["tkinter", "tomllib"],
     "optional": {
-      "spark-terminal": "Open terminal and Failback (Konsole or another terminal program works too)",
+      "spark-terminal": "Open terminal and Failback (another terminal program works too)",
       "sdl-freerdp": "Take control of a SparkOS desktop (xfreerdp works too; mstsc on Windows)",
       "notify-send": "desktop notifications when a machine or site goes wrong"
     },

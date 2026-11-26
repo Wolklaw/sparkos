@@ -15,8 +15,8 @@
 # --deps     system-wide only: install what it needs with dnf first (Fedora; the image build).
 # --no-test  skip the self-test at the end.
 #
-# Taking Meta+V from Klipper and removing Klipper from the panel is the image's job
-# (files/scripts/spark-notes.sh), not this script's. Notes (~/.local/share/spark-notes), settings
+# Meta+V is bound by the Spark compositor in the image (files/scripts/spark-notes.sh sets up the
+# rest), not by this script. Notes (~/.local/share/spark-notes), settings
 # (~/.config/spark-notes) and the log (~/.local/state/spark-notes) are not touched by --uninstall.
 set -euo pipefail
 
@@ -51,9 +51,6 @@ GI_CHECK='import gi; gi.require_version("Gtk", "4.0"); from gi.repository import
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 user_bus() {   # true when systemctl --user can talk to a running user manager
@@ -147,8 +144,8 @@ EOF
   sed -e "s|^Exec=spark-notes|Exec=$exec_bin|" "$here/$APP_ID.desktop" > "$desktop"
   chmod 0644 "$desktop"
   record "$desktop"
-  # the popup entry carries Meta+V; per user it is left out so it can't fight the desktop's own
-  # Meta+V (Klipper) for the key. The app menu action still opens the popup.
+  # the popup entry carries Meta+V; per user it is left out so it can't fight another
+  # desktop's Meta+V for the key. The app menu action still opens the popup.
   for size in $SIZES; do
     target="$DATA/icons/hicolor/${size}x${size}/apps/$APP_ID.png"
     install -Dm 0644 "$here/icons/$SLUG-$size.png" "$target"
@@ -195,7 +192,7 @@ fi
 if [ "$UNINSTALL" = 1 ]; then
   rm -rf -- "$PREFIX"
   rm -f "/usr/share/spark-apps/$SLUG.json" /usr/bin/$SLUG "/usr/share/applications/$APP_ID.desktop" \
-        "/usr/share/applications/$CLIP_ID.desktop" "/usr/share/kglobalaccel/$CLIP_ID.desktop" \
+        "/usr/share/applications/$CLIP_ID.desktop" \
         "/usr/lib/systemd/user/$UNIT" "/usr/lib/systemd/user/graphical-session.target.wants/$UNIT" \
         "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg"
   for size in $SIZES; do

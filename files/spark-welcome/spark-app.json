@@ -10,7 +10,7 @@
     "python": ">=3.9",
     "python_modules": ["tkinter"],
     "programs": ["flatpak", "udisksctl", "lsblk"],
-    "optional_programs": ["xdg-user-dir", "xdg-open", "vulkaninfo", "wpctl", "pw-play", "lpstat", "scanimage", "nmcli", "bluetoothctl", "rpm-ostree", "spark-settings", "systemsettings"],
+    "optional_programs": ["xdg-user-dir", "xdg-open", "vulkaninfo", "wpctl", "pw-play", "lpstat", "scanimage", "nmcli", "bluetoothctl", "rpm-ostree", "spark-settings"],
     "network": "only to install apps the user picks, from Flathub",
     "root": false
   },

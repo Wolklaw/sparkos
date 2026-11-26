@@ -1,4 +1,4 @@
-"""Desktop notifications through the freedesktop.org Notifications service (Plasma answers on
+"""Desktop notifications through the freedesktop.org Notifications service (Spark Shell answers on
 the session bus), with buttons. Needs GObject; without it or without a bus, Notifier() raises
 and the service goes on silently."""
 

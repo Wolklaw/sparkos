@@ -13,8 +13,7 @@
 # --no-test   skip the self-test at the end.
 #
 # System-wide installs also write /etc/xdg/autostart/dev.wolklaw.SparkTray.desktop with
-# OnlyShowIn=Spark, so the tray starts in the Spark session and not in Plasma, which has its own
-# applets. Uninstalling --user also removes the autostart file `spark-tray --enable` wrote.
+# OnlyShowIn=Spark, so the tray starts in the Spark session. Uninstalling --user also removes the autostart file `spark-tray --enable` wrote.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -43,9 +42,6 @@ SIZES="16 22 24 32 48 64 128 256 512"
 
 refresh_menus() {   # $1: the applications folder
   command -v update-desktop-database >/dev/null && update-desktop-database -q "$1" 2>/dev/null || true
-  if command -v kbuildsycoca6 >/dev/null && [ -n "${DBUS_SESSION_BUS_ADDRESS:-}" ]; then
-    kbuildsycoca6 >/dev/null 2>&1 || true
-  fi
 }
 
 copy_app() {   # $1: target folder
@@ -208,5 +204,4 @@ grep -q '^OnlyShowIn=Spark;$' "/etc/xdg/autostart/$APP_ID.desktop"
 if [ "$TEST" = 1 ]; then
   /usr/bin/$SLUG --self-test
 fi
-echo "Spark Tray installed to $PREFIX. It starts at login in the Spark session only;"
-echo "in Plasma, a person turns it on with:  spark-tray --enable"
+echo "Spark Tray installed to $PREFIX. It starts at login in the Spark session."

@@ -213,7 +213,6 @@ EN = {
     'platform.base': "Base system",
     'platform.kernel': "Linux kernel",
     'platform.mesa': "Mesa graphics drivers",
-    'platform.plasma': "KDE Plasma",
     'platform.flatpak': "Flatpak",
 }
 
@@ -436,7 +435,6 @@ FR = {
     'platform.base': "Système de base",
     'platform.kernel': "Noyau Linux",
     'platform.mesa': "Pilotes graphiques Mesa",
-    'platform.plasma': "KDE Plasma",
     'platform.flatpak': "Flatpak",
 }
 

@@ -425,7 +425,7 @@ class TestFormats(Base):
     @unittest.skipUnless(HAS_LA, "libarchive is not installed")
     def test_older_tar_compressions_through_libarchive(self):
         """tar.lzma (Python can make it), and tar.lz4, tar.lz, tar.Z where those commands exist:
-        types Ark opens today."""
+        the types an archive manager opens."""
         plain = io.BytesIO()
         with tarfile.open(fileobj=plain, mode='w') as tf:
             ti = tarfile.TarInfo('old/x.txt')
@@ -1218,7 +1218,7 @@ class TestParts(Base):
                 zf.writestr(n, d)
         return arc
 
-    def test_dolphin_passes_every_part(self):
+    def test_file_manager_passes_every_part(self):
         parts = makers.rar5_volumes(self.arc('set'), SET_FILES, 1000)
         other = self.zip('other.zip', {'a.txt': 'a'})
         self.assertEqual(unique_archives(parts + [other]), [parts[0], other])

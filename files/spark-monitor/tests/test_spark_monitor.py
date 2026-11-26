@@ -3,7 +3,7 @@
     python -m unittest discover -s files/spark-monitor/tests -v
 
 Parsers run against a fake /proc and /sys tree in fixtures/root (an AMD Ryzen with 16 threads,
-an RX 6800 XT and the CPU's own graphics, an NVMe drive, Plasma 6 app scopes, a Flatpak Steam
+an RX 6800 XT and the CPU's own graphics, an NVMe drive, app scopes, a Flatpak Steam
 running a game). They run anywhere, Windows included. End task tests start real processes
 and need Linux. UI tests need a display (on CI: xvfb-run).
 """
@@ -29,9 +29,9 @@ for var in ('XDG_STATE_HOME', 'XDG_CONFIG_HOME', 'XDG_CACHE_HOME'):
 os.environ['SPARK_MONITOR_REDUCED_MOTION'] = '1'
 os.environ.pop('SPARK_MONITOR_ROOT', None)
 
-from sparkmonitor import APP_ID, SHORTCUT, VERSION, core, startup  # noqa: E402
+from sparkmonitor import APP_ID, VERSION, core, startup  # noqa: E402
 from sparkmonitor import system as sysm  # noqa: E402
-from sparkmonitor.cli import self_test, shortcut_owner  # noqa: E402
+from sparkmonitor.cli import self_test  # noqa: E402
 from sparkmonitor.ender import ENDED, FAILED, FORCED, RUNNING, Ender  # noqa: E402
 from sparkmonitor.procs import (APP, BACKGROUND, SYSTEM, ProcSampler, SteamLibrary,  # noqa: E402
                                 classify, desktop_id_from_unit, parse_stat)
@@ -281,7 +281,7 @@ class ProcessTests(FixtureCase):
              'KDE Connect'),
             (u + '/background.slice/kde-baloo.service', BACKGROUND, 'kde-baloo'),
             (u + '/app.slice/app-unknown.thing@1.scope', BACKGROUND, 'unknown.thing'),
-            (u + '/session.slice/plasma-plasmashell.service', SYSTEM, 'plasma-plasmashell'),
+            (u + '/session.slice/spark-shell.service', SYSTEM, 'spark-shell'),
             (u + '/app.slice/xdg-desktop-portal-kde.service', SYSTEM, 'xdg-desktop-portal-kde'),
             (u + '/init.scope', SYSTEM, t('apps.session')),
             ('/user.slice/user-1000.slice/session-2.scope', SYSTEM, t('apps.login_session')),
@@ -318,7 +318,7 @@ class ProcessTests(FixtureCase):
         self.assertEqual(sections[BACKGROUND], {'KDE Connect', 'kde-baloo', 'python3'})
         self.assertEqual(sections[SYSTEM], {
             'systemd', 'NetworkManager', 'sddm', t('apps.login_session'), t('apps.session'),
-            'plasma-kwin_wayland', 'plasma-plasmashell', 'pipewire',
+            'spark-compositor', 'spark-shell', 'pipewire',
             'xdg-desktop-portal-kde'})
         by = self.groups_by_name(p)
         self.assertEqual(sorted(by['Firefox'].pids), [2100, 2101, 2102])
@@ -385,7 +385,7 @@ class ProcessTests(FixtureCase):
         p = self.two_samples()
         self.assertEqual(p.children(2100)[-1], 2100)
         self.assertEqual(sorted(p.children(2100)), [2100, 2101, 2102])
-        self.assertTrue(p.protected_pid(1300))         # kwin
+        self.assertTrue(p.protected_pid(1300))         # the compositor
         self.assertTrue(p.protected_pid(1))
         self.assertFalse(p.protected_pid(2100))
 
@@ -544,30 +544,6 @@ class MiscTests(FixtureCase):
         self.assertIn('AMD Radeon RX 6800 XT', text)
         self.assertIn('self-test passed', text)
 
-    def test_shortcut_conflict_check(self):
-        self.assertIsNone(shortcut_owner(self.src))
-        with open(os.path.join(self.root, 'home/.config/kglobalshortcutsrc'), 'a') as f:
-            f.write('[org.example.other]\nOpen Thing=Shift+Ctrl+Escape\tMeta+T,none,Open\n')
-        self.assertIn('org.example.other', shortcut_owner(self.src))
-
-    def test_shortcut_registration_check(self):
-        from sparkmonitor.cli import shortcut_claimants, shortcut_entry
-        self.assertIsNone(shortcut_entry(self.src))
-        self.assertEqual(shortcut_claimants(self.src), [])     # Konsole's Ctrl+Alt+T isn't it
-        folder = os.path.join(self.root, 'usr/share/kglobalaccel')
-        os.makedirs(folder)
-        shutil.copy(os.path.join(APP_DIR, f'{APP_ID}.desktop'), folder)
-        self.assertTrue(shortcut_entry(self.src).endswith(f'kglobalaccel{os.sep}{APP_ID}.desktop'))
-        with open(os.path.join(self.root, 'usr/share/applications/other.desktop'), 'w') as f:
-            f.write('[Desktop Entry]\nName=Other\nX-KDE-Shortcuts=Meta+X,Shift+Ctrl+Escape\n')
-        self.assertEqual([os.path.basename(p) for p in shortcut_claimants(self.src)],
-                         ['other.desktop'])
-        out = io.StringIO()
-        with redirect_stdout(out):
-            self_test(self.src)
-        self.assertIn('registered by', out.getvalue())
-        self.assertIn('also claimed by', out.getvalue())
-
     def test_metadata(self):
         with open(os.path.join(APP_DIR, 'spark-app.json'), encoding='utf-8') as f:
             meta = json.load(f)
@@ -580,7 +556,6 @@ class MiscTests(FixtureCase):
         self.assertTrue(source / 1024 < meta['installed_size_kb'] < 4 * source / 1024)
         with open(os.path.join(APP_DIR, f'{APP_ID}.desktop'), encoding='utf-8') as f:
             keys = parse_desktop(f.read())
-        self.assertEqual(keys['X-KDE-Shortcuts'], SHORTCUT)
         self.assertEqual(keys['Exec'], 'spark-monitor')
         self.assertEqual(keys['Icon'], APP_ID)
 
@@ -688,9 +663,9 @@ class UITests(unittest.TestCase):
     def test_system_rows_cannot_be_ended_here(self):
         app = self.open(Source(self.root))
         apps = app.views['apps']
-        kwin = [g.key for g in app.procs.groups.values() if g.name == 'plasma-kwin_wayland'][0]
+        comp = [g.key for g in app.procs.groups.values() if g.name == 'spark-compositor'][0]
         apps.tree.item(apps.sections['system'], open=True)
-        apps.tree.selection_set(apps.row_for(kwin))
+        apps.tree.selection_set(apps.row_for(comp))
         self.pump(app, 0.2)
         self.assertFalse(apps.end_button.enabled)
         self.assertEqual(apps.note.cget('text'), t('apps.system_note'))

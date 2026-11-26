@@ -1,5 +1,5 @@
 """A StatusNotifierItem and its dbusmenu, written straight on Gio so any tray that speaks the
-protocol shows it: Plasma's today, the Spark shell's later. One bus name per item
+protocol shows it: the Spark shell's. One bus name per item
 (org.kde.StatusNotifierItem-<pid>-<n>), registered with the StatusNotifierWatcher whenever a
 watcher is there. Hiding an item gives its name back, which removes it from the tray; showing
 it takes the name again.

@@ -1,4 +1,4 @@
-"""Right-click actions other apps add, read from KDE's service menu files
+"""Right-click actions other apps add, read from service menu files (the KDE format)
 (share/kio/servicemenus/*.desktop). That's how Spark Archive's Compress and Extract, Spark
 Link's "Send to phone" and SparkOS's "Open Claude Code here" reach Spark Files too, without
 Spark Files knowing about any of them."""

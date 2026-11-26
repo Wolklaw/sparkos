@@ -1,4 +1,4 @@
-"""Spark Emoji: SparkOS's emoji and symbol picker (replaces Plasma's Emoji Selector).
+"""Spark Emoji: SparkOS's emoji and symbol picker.
 Search in English and French, recently used, categories, skin tones, symbols; Enter or a
 click copies the character and, when pasting is allowed, pastes it into the window that
 was in front."""

@@ -67,7 +67,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="check ssh, the machine list and the probe; connects to nothing")
     parser.add_argument('--status', action='store_true',
                         help="check every machine and website once and print the result as "
-                        "JSON (what the Plasma widget shows); no window")
+                        "JSON (what a status widget would show); no window")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")
     args = parser.parse_args(argv)
     if args.self_test:

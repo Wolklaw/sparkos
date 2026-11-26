@@ -174,7 +174,7 @@ def find_archive(path: str) -> Tuple[str, Optional[vol.Volumes]]:
 
 
 def unique_archives(paths: List[str]) -> List[str]:
-    """The archives among `paths`, a set of parts counted once (Dolphin passes every part
+    """The archives among `paths`, a set of parts counted once (the file manager passes every part
     that was selected)."""
     out, seen = [], set()
     for p in paths:
@@ -754,7 +754,7 @@ class CompressJob(Job):
 
     def _seven(self, tmp: str, items, res: Result) -> None:
         """7z and password-protected zip, with the 7z command, run once per source folder
-        (Dolphin's selection is one folder; a search result can span several)."""
+        (a file manager's selection is one folder; a search result can span several)."""
         leave_out = []
         for path, arc, st in items:
             mode = st.st_mode

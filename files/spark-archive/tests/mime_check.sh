@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # CI: the file types for multi-part archive parts (dev.wolklaw.SparkArchive.xml), as GIO sees
-# them (it reads the same shared-mime-info database as Dolphin's Qt).
+# them (it reads the same shared-mime-info database as Qt).
 #
 #   mime_check.sh before OUT        what each sample file is before installing
 #   mime_check.sh installed BEFORE  the parts have Spark Archive's types; nothing else changed

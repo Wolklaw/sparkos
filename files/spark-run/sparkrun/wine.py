@@ -313,7 +313,7 @@ def _log_file(path: Optional[str], truncate: bool = False):
 
 def _own_desktop(prefix: str) -> None:
     """Wine links the Windows Desktop folder to ~/Desktop, so installers would drop .lnk
-    files on the Plasma desktop. Give each prefix a Desktop of its own instead; Documents,
+    files on the desktop. Give each prefix a Desktop of its own instead; Documents,
     Downloads, Music, Pictures and Videos stay linked to yours."""
     users = os.path.join(prefix, 'drive_c', 'users')
     try:

@@ -5,7 +5,7 @@ One library for every game installed on the computer, whatever launcher it came 
 It ships in SparkOS (the image build runs [files/scripts/spark-games.sh](../scripts/spark-games.sh), which runs `install.sh --deps`). It can also install for one user with no root, which the future Spark Portal can use (see below).
 
 - **Library:** covers or a list, most recently played first (or A–Z), search as you type, a filter per store. Each game shows its cover, store and playtime.
-- **Game page:** big cover, launcher, playtime, last played, install folder (opens in Dolphin), and Play.
+- **Game page:** big cover, launcher, playtime, last played, install folder (opens in Spark Files), and Play.
 - **MangoHud and GameMode:** for games you added, two switches that Spark Games applies when it starts them. Steam games go through Steam's launch options, which Spark Games doesn't touch, so it shows the line to paste (`MANGOHUD=1 gamemoderun %command%`) with a Copy button. For Heroic and Lutris games it says to use those apps' own settings.
 - **Your own games:** "Add a game" takes a Linux program or a Windows `.exe`. Windows games run with Proton through `umu-run`. Without `umu-run` it says so and offers Bottles' Flathub page (Bottles is a separate project).
 - **Playtime:** each launcher's own count. Games started from Spark Games are also recorded in `~/.local/share/spark-games/playtime.json`, so your own games get playtime too.

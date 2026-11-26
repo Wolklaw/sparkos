@@ -19,7 +19,7 @@
     "python_modules": ["tkinter"],
     "optional": {
       "pkexec": "Save as administrator, for system files",
-      "kdialog": "the desktop's own Open and Save dialogs (Tk's are used without it)"
+      "spark-pick": "Spark Files' own Open and Save dialogs (Tk's are used without it)"
     },
     "system": "Linux; any desktop"
   },

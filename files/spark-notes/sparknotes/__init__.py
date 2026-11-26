@@ -1,4 +1,4 @@
-"""Spark Notes: SparkOS's quick notes and clipboard history (replaces Plasma's Klipper).
+"""Spark Notes: SparkOS's quick notes and clipboard history.
 Notes are plain text files; the clipboard history is kept by a small background watcher
 and opens as a popup on Meta+V."""
 

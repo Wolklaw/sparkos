@@ -624,7 +624,7 @@ def fake_site(site):
     return sites.SiteResult(site.name, site.url, status=200, ms=120.0)
 
 
-# ─── --status, what the Plasma widget shows ───────────────────
+# ─── --status, what a status widget shows ───────────────────
 
 class WidgetStatus(unittest.TestCase):
     def setUp(self):

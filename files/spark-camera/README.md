@@ -65,8 +65,7 @@ records a second of test pattern and test tone in every format, into a temporary
 `~/.config/spark-camera/settings.json` (camera, size, microphone, format, sound, mirror, countdown) and
 the log in `~/.local/state/spark-camera`. `SPARK_LANG=fr` or `en` overrides the language; otherwise `LANG`
 decides. `SPARK_CAMERA_FAKE=1` swaps the real devices for a test pattern and a test tone (this is what
-the tests use). `SPARK_CAMERA_REDUCED_MOTION=1` stops the glitch effect; a zero `AnimationDurationFactor` in `~/.config/kdeglobals` (KDE's animation setting) is also
-followed; the Spark session does not write that file, so use the variable.
+the tests use). `SPARK_CAMERA_REDUCED_MOTION=1` stops the glitch effect; turning animations off in Spark Settings (`animations` in `~/.config/spark/appearance.json`) does the same.
 
 ## Installing
 

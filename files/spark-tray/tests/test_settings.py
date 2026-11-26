@@ -93,7 +93,7 @@ class AutostartTest(Home):
     def test_the_spark_session_is_recognised(self):
         self.assertTrue(autostart.in_spark_session({'XDG_CURRENT_DESKTOP': 'Spark'}))
         self.assertTrue(autostart.in_spark_session({'XDG_CURRENT_DESKTOP': 'X-Foo:spark'}))
-        self.assertFalse(autostart.in_spark_session({'XDG_CURRENT_DESKTOP': 'KDE'}))
+        self.assertFalse(autostart.in_spark_session({'XDG_CURRENT_DESKTOP': 'GNOME'}))
         self.assertFalse(autostart.in_spark_session({}))
 
     def test_a_path_with_spaces_is_quoted(self):

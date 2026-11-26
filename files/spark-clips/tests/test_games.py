@@ -21,7 +21,7 @@ class Detect(unittest.TestCase):
     def test_nothing_running(self):
         self.assertIsNone(games.detect({}))
         busy = tree(Proc(1, 0, 'systemd', ['/usr/lib/systemd/systemd']),
-                    Proc(100, 1, 'firefox', ['firefox']), Proc(101, 1, 'konsole', ['konsole']))
+                    Proc(100, 1, 'firefox', ['firefox']), Proc(101, 1, 'spark-terminal', ['spark-terminal']))
         self.assertIsNone(games.detect(busy, names=no_names))
 
     def test_spark_games_track(self):
