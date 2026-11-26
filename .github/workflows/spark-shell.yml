@@ -4,8 +4,8 @@ name: spark-shell
 # fedora:  unit tests (config, tray menu parsing, the notification model, window list, OSD
 #          parsers), the launcher search vectors on the Python copy and on the widget's
 #          JavaScript, and the install layout (install.sh --stage, then --uninstall).
-# sparkos: inside the published SparkOS image, boots the whole session headless: KWin on
-#          three virtual outputs, spark-session, the shell. session_check.py then checks the
+# sparkos: inside the published SparkOS image, boots the whole session headless: the Spark
+#          compositor on three headless outputs and the shell. session_check.py then checks the
 #          panels, wallpapers, tray (a fake StatusNotifierItem), the notification server (a
 #          test notification), the task list (a real window) and the launcher, and the PNGs
 #          the shell renders of its own windows are uploaded. Nothing here is a real screen
@@ -94,10 +94,9 @@ jobs:
       - name: "Boot the session headless on 3 outputs and check it"
         run: |
           mkdir -p shots
-          # kwin_wayland carries a file capability, so the container needs CAP_SYS_NICE
-          sudo podman run --rm --cap-add=SYS_NICE \
+          sudo podman run --rm \
             -v "$PWD/files:/src:ro" -v "$PWD/shots:/shots" spark-shell-test \
-            sh /src/spark-shell/tests/headless.sh 3 /shots
+            bash /src/spark-shell/tests/headless.sh 3 /shots
 
       - name: Upload the screenshots
         if: ${{ !cancelled() }}

@@ -1,52 +1,58 @@
 #!/bin/bash
-# Runs inside `dbus-run-session` with a private XDG_RUNTIME_DIR (lock_test.sh sets both up).
-# Starts a headless KWin, looks for ext-session-lock-v1, locks through org.freedesktop.ScreenSaver,
-# kills the lock screen process, and checks the session stays locked. Prints KEY=VALUE lines.
+# Runs inside `dbus-run-session` with a private XDG_RUNTIME_DIR (run_lock_test.sh sets both up).
+# Starts a headless Spark compositor with three outputs, locks it with the Spark lock screen
+# (spark-shell --lock), kills the lock screen, and checks the session stays locked and a new lock
+# screen can take over. Prints KEY=VALUE lines.
 # Never run this on a desktop: it locks a screen (a private, headless one, but still).
 set -u
-SOCKET=spark-lock-test
 say() { printf '%s\n' "$*"; }
-saver() {   # method [args]: org.freedesktop.ScreenSaver on the private bus
-  dbus-send --session --print-reply --dest=org.freedesktop.ScreenSaver /ScreenSaver \
-    "org.freedesktop.ScreenSaver.$1" 2>/dev/null
-}
-active() { saver GetActive | grep -q 'boolean true'; }
+log=$XDG_RUNTIME_DIR/compositor.log
+cfg=$XDG_RUNTIME_DIR/cfg
+mkdir -p "$cfg"
+printf 'output HEADLESS-1 mode=1920x1080@60 pos=0,0\noutput HEADLESS-2 mode=1920x1080@60 pos=1920,0\noutput HEADLESS-3 mode=1920x1080@60 pos=3840,0\n' >"$cfg/outputs.conf"
+export SPARK_HEADLESS_OUTPUTS=3 WLR_RENDERER=pixman WLR_LIBINPUT_NO_DEVICES=1 SPARK_COMPOSITOR_CONFIG_DIR=$cfg
 
-kwin_wayland --virtual --socket "$SOCKET" --no-global-shortcuts >"$XDG_RUNTIME_DIR/kwin.log" 2>&1 &
-kwin=$!
-trap 'kill "$kwin" 2>/dev/null; wait "$kwin" 2>/dev/null' EXIT
+coproc COMP { spark-compositor -d 2>"$log"; }
+comp=$COMP_PID
+lockers=()
+cleanup() { kill "${lockers[@]}" "$comp" 2>/dev/null; wait 2>/dev/null; }
+trap cleanup EXIT
 
-for _ in $(seq 1 100); do [ -S "$XDG_RUNTIME_DIR/$SOCKET" ] && break; sleep 0.1; done
-[ -S "$XDG_RUNTIME_DIR/$SOCKET" ] || { say "KWIN=did-not-start"; tail -20 "$XDG_RUNTIME_DIR/kwin.log" >&2; exit 1; }
-say "KWIN=$(kwin_wayland --version 2>/dev/null | head -1)"
+read -r -t 20 line <&"${COMP[0]}" || line=
+case "$line" in
+  WAYLAND_DISPLAY=*) export WAYLAND_DISPLAY=${line#WAYLAND_DISPLAY=} ;;
+  *) say "COMPOSITOR=did-not-start"; tail -20 "$log" >&2; exit 1 ;;
+esac
+say "COMPOSITOR=running"
+export GDK_BACKEND=wayland GSK_RENDERER=cairo
 
-globals=$(WAYLAND_DISPLAY=$SOCKET wayland-info 2>/dev/null)
-if grep -q 'ext_session_lock_manager_v1' <<<"$globals"; then say "EXT_SESSION_LOCK=yes"; else say "EXT_SESSION_LOCK=no"; fi
-if grep -q 'ext_idle_notifier_v1' <<<"$globals"; then say "EXT_IDLE_NOTIFY=yes"; else say "EXT_IDLE_NOTIFY=no"; fi
-
-for _ in $(seq 1 100); do saver GetActive >/dev/null && break; sleep 0.1; done
-active && { say "LOCKED_AT_START=yes"; } || say "LOCKED_AT_START=no"
-
-dbus-send --session --print-reply --dest=org.freedesktop.ScreenSaver /ScreenSaver \
-  org.freedesktop.ScreenSaver.Lock >/dev/null 2>&1
-for _ in $(seq 1 100); do active && break; sleep 0.1; done
-active && say "LOCK=locked" || { say "LOCK=not-locked"; exit 1; }
-
-for _ in $(seq 1 100); do pgrep -x kscreenlocker_g >/dev/null && break; sleep 0.1; done
-first=$(pgrep -x kscreenlocker_g | head -1)
-[ -n "$first" ] && say "GREETER=running" || say "GREETER=missing"
-
-if [ -n "$first" ]; then
-  kill -9 "$first"
-  sleep 1
-  active && say "AFTER_GREETER_KILLED=still-locked" || say "AFTER_GREETER_KILLED=UNLOCKED"
-  for _ in $(seq 1 100); do
-    second=$(pgrep -x kscreenlocker_g | head -1)
-    [ -n "$second" ] && [ "$second" != "$first" ] && break
-    sleep 0.1
-  done
-  [ -n "${second:-}" ] && [ "$second" != "$first" ] && say "GREETER_RESTARTED=yes" || say "GREETER_RESTARTED=no"
-  active && say "STILL_LOCKED_AFTER_WAIT=yes" || say "STILL_LOCKED_AFTER_WAIT=NO"
-  echo "--- processes: $(pgrep -a -f 'kscreenlocker|kwin' | tr '\n' ';')" >&2
-  tail -15 "$XDG_RUNTIME_DIR/kwin.log" >&2
+if command -v wayland-info >/dev/null; then
+  grep -q ext_session_lock_manager_v1 <<<"$(wayland-info 2>/dev/null)" \
+    && say "EXT_SESSION_LOCK=yes" || say "EXT_SESSION_LOCK=no"
 fi
+
+count() { grep -c "$1" "$log"; }
+wait_count() {   # pattern n: wait until the log has n lines matching
+  for _ in $(seq 1 150); do [ "$(count "$1")" -ge "$2" ] && return 0; sleep 0.1; done
+  return 1
+}
+
+spark-shell --lock >"$XDG_RUNTIME_DIR/lock1.log" 2>&1 &
+first=$!
+lockers+=("$first")
+wait_count 'session locked' 1 && say "LOCK=locked" || { say "LOCK=not-locked"; tail -20 "$XDG_RUNTIME_DIR/lock1.log" "$log" >&2; exit 1; }
+say "GREETER=running"
+
+kill -9 "$first"
+sleep 1
+if [ "$(count 'session unlocked')" = 0 ] && kill -0 "$comp" 2>/dev/null; then
+  say "AFTER_GREETER_KILLED=still-locked"
+else
+  say "AFTER_GREETER_KILLED=UNLOCKED"
+fi
+
+spark-shell --lock >"$XDG_RUNTIME_DIR/lock2.log" 2>&1 &
+lockers+=("$!")
+wait_count 'session locked' 2 && say "GREETER_RESTARTED=yes" || say "GREETER_RESTARTED=no"
+[ "$(count 'session unlocked')" = 0 ] && say "STILL_LOCKED_AFTER_WAIT=yes" || say "STILL_LOCKED_AFTER_WAIT=NO"
+tail -15 "$log" >&2
