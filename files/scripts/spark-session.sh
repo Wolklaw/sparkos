@@ -14,6 +14,7 @@ test -x /usr/bin/spark-polkit
 test -x /usr/bin/spark-greeter
 test -x /usr/libexec/spark-greeter-session
 test -x /usr/libexec/spark-greeter-ctl
+test -x /usr/libexec/spark-shadow-entry
 test -f /usr/share/spark-session/greetd-config.toml
 test -f /usr/lib/systemd/system/greetd.service.d/10-spark-greeter.conf
 test -f /usr/lib/systemd/system/spark-greeter-fallback.service
