@@ -105,7 +105,7 @@ Base the palette on the wolklaw web tokens: `#0a0919` background, `#141233` surf
 
 ### Phase 5: Real hardware and your games (ongoing)
 - Uninstall the Windows games on E:, back up `Personal Projects`, shrink E:, and install SparkOS into the freed space (see decision 3). At startup, choose SparkOS or Windows from the boot menu.
-- Reinstall the games inside SparkOS, onto its own partition. Secure Boot needs no key for the system (Fedora's signed kernel). SparkOS's extra kernel modules are signed in the image build once the `KMOD_SIGNING_KEY` secret and `secureboot/sparkos-kmods.der` are in place; then run `spark secureboot enroll` once per PC. Until then they don't load with Secure Boot on. **Status (2026-11-24):** signing, the cert path and `spark secureboot` are written but untested: no key made yet, no signed build, no enrollment tried on real firmware.
+- Reinstall the games inside SparkOS, onto its own partition. Secure Boot needs no key for the system (Fedora's signed kernel). SparkOS's extra kernel modules are signed in the image build once the `KMOD_SIGNING_KEY` secret and `secureboot/sparkos-kmods.der` are in place; then run `spark secureboot enroll` once per PC. Until then they don't load with Secure Boot on. **Status (2026-11-26):** key made, `KMOD_SIGNING_KEY` set, certificate committed. Still untested: no enrollment tried on real firmware (the owner's PC runs with Secure Boot off).
 - Work through [docs/switching.md](docs/switching.md): every app and device on this PC, with its SparkOS answer. Settle the **Check** items first.
 - Day-one hardware checks:
   - Print and scan a page on the Canon TR4700.
