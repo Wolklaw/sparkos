@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Spark
-Name[fr]=Spark
-Comment=SparkOS desktop (preview): the Spark shell on KWin
-Comment[fr]=Bureau SparkOS (aperçu) : le shell Spark sur KWin
-Exec=/usr/libexec/plasma-dbus-run-session-if-needed /usr/bin/spark-session
-TryExec=/usr/bin/spark-session
-DesktopNames=Spark;KDE

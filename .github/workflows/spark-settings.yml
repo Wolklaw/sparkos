@@ -33,26 +33,8 @@ jobs:
 
       - name: Install (the image build step)
         run: |
-          # stand-ins for KDE's two tools and the menu entry (the real ones are in the images;
-          # installing Plasma here would pull in half of KDE)
-          printf '#!/bin/sh\necho "real systemsettings $*"\n' > /usr/bin/systemsettings
-          printf '#!/bin/sh\necho "real kcmshell6 $*"\ncase "$1" in --list) echo "kcm_fake - Fake";; esac\n' > /usr/bin/kcmshell6
-          chmod 0755 /usr/bin/systemsettings /usr/bin/kcmshell6
-          mkdir -p /usr/share/applications
-          printf '[Desktop Entry]\nType=Application\nName=System Settings\nExec=systemsettings\n' \
-            > /usr/share/applications/systemsettings.desktop
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-settings.sh
-          grep -q 'spark-settings --route systemsettings' /usr/bin/systemsettings
-          grep -q 'spark-settings --route kcmshell6' /usr/bin/kcmshell6
-          test "$(/usr/libexec/sparkos/kde-settings/kcmshell6 x)" = "real kcmshell6 x"
-          grep -q '^NoDisplay=true' /usr/share/applications/systemsettings.desktop
-          # a module Spark Settings has no page for reaches the real tool; --kde too
-          test "$(kcmshell6 kcm_tablet)" = "real kcmshell6 kcm_tablet"
-          test "$(systemsettings kcm_tablet)" = "real systemsettings kcm_tablet"
-          spark-settings --kde | grep -q "^real systemsettings"
-          # run again: the build step must not wrap its own stand-in
-          CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-settings.sh
-          test "$(kcmshell6 kcm_tablet)" = "real kcmshell6 kcm_tablet"
+          test -x /usr/bin/spark-settings
 
       - name: Self-test
         run: spark-settings --self-test

@@ -7,11 +7,11 @@
 # on a VTE pty and reads its output back); the build fails if that or any check below fails.
 #
 # Spark Terminal becomes the terminal everywhere:
-# - KDE's default terminal: TerminalApplication/TerminalService in /etc/xdg/kdeglobals, which
-#   Dolphin's "Open Terminal Here" and apps with Terminal=true use (files/system)
-# - xdg-terminal-exec's default (/etc/xdg/kde-xdg-terminals.list and xdg-terminals.list)
+# - TerminalApplication/TerminalService in /etc/xdg/kdeglobals, which Spark Settings' Default
+#   apps page reads and changes (files/system)
+# - xdg-terminal-exec's default (/etc/xdg/xdg-terminals.list), for apps with Terminal=true
 # - Ctrl+Alt+T: Spark Terminal's desktop entry takes it
-# - the dock (the look-and-feel layout) and SparkOS's own scripts start spark-terminal
+# - the shell's dock and SparkOS's own scripts start spark-terminal
 # Konsole is removed from the image (sparkos-apps.sh); this script checks nothing starts it.
 set -oue pipefail
 
@@ -29,7 +29,7 @@ test -f "$APP"
 test -f /usr/share/icons/hicolor/scalable/apps/dev.wolklaw.SparkTerminal.svg
 rpm -q vte291-gtk4
 
-# --- Ctrl+Alt+T: Plasma registers the shortcut from the desktop entry linked here
+# --- Ctrl+Alt+T: spark-compositor reads the shortcut from the desktop entry linked here
 install -d /usr/share/kglobalaccel
 ln -sfn ../applications/dev.wolklaw.SparkTerminal.desktop /usr/share/kglobalaccel/dev.wolklaw.SparkTerminal.desktop
 grep -qx 'X-KDE-Shortcuts=Ctrl+Alt+T' "$APP"
@@ -48,11 +48,9 @@ others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?Ctrl\+Alt\+T(,|$)' \
 # --- the default terminal (the files come from files/system)
 grep -qx 'TerminalApplication=spark-terminal' /etc/xdg/kdeglobals
 grep -qx 'TerminalService=dev.wolklaw.SparkTerminal.desktop' /etc/xdg/kdeglobals
-for list in /etc/xdg/kde-xdg-terminals.list /etc/xdg/xdg-terminals.list; do
-  grep -qx 'dev.wolklaw.SparkTerminal.desktop' "$list"
-done
+grep -qx 'dev.wolklaw.SparkTerminal.desktop' /etc/xdg/xdg-terminals.list
 if command -v xdg-terminal-exec >/dev/null; then
-  picked=$(XDG_CURRENT_DESKTOP=KDE HOME=/nonexistent XDG_CONFIG_HOME=/nonexistent xdg-terminal-exec --print-id 2>/dev/null || true)
+  picked=$(XDG_CURRENT_DESKTOP=sparkwl:Spark HOME=/nonexistent XDG_CONFIG_HOME=/nonexistent xdg-terminal-exec --print-id 2>/dev/null || true)
   echo "xdg-terminal-exec picks: ${picked:-(no --print-id in this version)}"
   [ -z "$picked" ] || [ "$picked" = dev.wolklaw.SparkTerminal.desktop ] || { echo "xdg-terminal-exec picks $picked"; exit 1; }
 fi

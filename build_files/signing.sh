@@ -19,7 +19,7 @@ policy=/etc/containers/policy.json
 
 echo "Signing policy for $image (key $key)"
 test -s "$key" || { echo "missing $key (the Containerfile copies cosign.pub there first)"; exit 1; }
-# Fedora Kinoite has no /etc/containers/policy.json, only the containers-common default in
+# Fedora's base-atomic has no /etc/containers/policy.json, only the containers-common default in
 # /usr/share (default "insecureAcceptAnything", which podman and toolbox rely on for other
 # images): start from that one. Its default is changed below.
 seeded=0
@@ -75,7 +75,7 @@ cat "/etc/containers/registries.d/Wolklaw-${name//\//_}.yaml"
 # Install signed: an installer (bootc install, image-builder, Anaconda) then deploys
 # "ostree-image-signed:docker://..." and checks the signature, instead of
 # "ostree-unverified-registry:", which never checks it. Bazzite already sets this in
-# /usr/lib/bootc/install/20-bazzite.toml; plain Fedora Kinoite doesn't, so SparkOS adds its own.
+# /usr/lib/bootc/install/20-bazzite.toml; plain Fedora doesn't, so SparkOS adds its own.
 if grep -qs '^enforce-container-sigpolicy *= *true' /usr/lib/bootc/install/*.toml; then
   echo "bootc install: the base already enforces the signing policy"
 else

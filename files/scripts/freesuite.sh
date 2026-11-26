@@ -48,7 +48,7 @@ cp -a "$root/usr/." /usr/
 # FreeSuite runs under XWayland for now (until FreeSuite shows its window on native Wayland).
 # FreeSuite makes its window hidden and shows it on Electron's ready-to-show, which never comes
 # under native Wayland: the window gets no Wayland role until it is shown, so it is never
-# painted. The boot test saw it (KWin never got a window; WAYLAND_DEBUG showed no
+# painted. The boot test saw it (the compositor never got a window; WAYLAND_DEBUG showed no
 # get_toplevel, the page itself had loaded); with --ozone-platform=x11 the window is there in
 # under a second. Remove this wrapper, and go back to the link
 #   ln -sfn /usr/lib/opt/freesuite/freesuite /usr/bin/freesuite

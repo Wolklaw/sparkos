@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Spark Monitor, the SparkOS task manager (Ctrl+Shift+Esc). Its source lives in this repo at
-# files/spark-monitor. It replaces Plasma System Monitor, which the recipe removes
-# (sparkos-cleanup.sh checks that it's gone and gives Spark Monitor its keys).
+# files/spark-monitor. sparkos-cleanup.sh gives it its keys.
 #
 # install.sh --deps installs it system-wide, links its desktop entry into
-# /usr/share/kglobalaccel so Plasma registers Ctrl+Shift+Esc, and runs --self-test (reads
+# /usr/share/kglobalaccel so spark-compositor binds Ctrl+Shift+Esc, and runs --self-test (reads
 # /proc and /sys of the build container); the build fails if that or any file below is missing.
 set -oue pipefail
 
@@ -24,7 +23,7 @@ test -f /usr/share/icons/hicolor/scalable/apps/dev.wolklaw.SparkMonitor.svg
 report=$(/usr/bin/spark-monitor --self-test)
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
-grep -q '^shortcut:  Ctrl+Shift+Esc registered for Plasma by /usr/share/kglobalaccel/' <<<"$report"
+grep -q '^shortcut:  Ctrl+Shift+Esc registered by /usr/share/kglobalaccel/' <<<"$report"
 if grep -q 'also claimed by' <<<"$report"; then
   echo "Ctrl+Shift+Esc is claimed by another desktop entry; tell the owner"; exit 1
 fi

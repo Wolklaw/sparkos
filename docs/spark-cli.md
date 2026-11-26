@@ -3,7 +3,7 @@
 `spark` is SparkOS's own command for system jobs: updates, rollbacks, kernel arguments, services,
 logs for a bug report. It replaces Universal Blue's `ujust` (Bazzite's `just` recipes), which plain
 Fedora doesn't have (SparkOS was built on Bazzite until 2026-11-23). It's one bash script, [files/system/usr/bin/spark](../files/system/usr/bin/spark),
-with no `just`, built for Fedora Kinoite, SparkOS's base.
+with no `just`, built for Fedora's atomic base (base-atomic), SparkOS's base.
 Tab completion: [files/system/usr/share/bash-completion/completions/spark](../files/system/usr/share/bash-completion/completions/spark).
 
 ```
@@ -103,7 +103,7 @@ arguments for passing a graphics card to a machine): `spark kargs` and `ls-iommu
   `build_files/packages.sh`, and a preset (`10-sparkos.preset`) keeps their sockets off. Layering
   them with rpm-ostree on the PC was the other choice; it makes updates slower and can break when
   the image and Fedora's repositories drift apart, so the image carries them. The cost is disk
-  space only (109 packages, a 59 MiB download on plain Kinoite).
+  space only (109 packages, a 59 MiB download on plain Kinoite, measured before the base changed).
 - **The window is Spark Boxes.** It is a client only: it reaches the host's libvirt at
   `qemu:///system` through python3-libvirt (and shows a machine's screen with spice-gtk3). The
   two libraries add 8 packages, 4 MiB installed. That is why the daemon is on the host, not

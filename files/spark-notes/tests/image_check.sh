@@ -2,7 +2,7 @@
 # Run as root inside the SparkOS image (CI: podman run ... -v .:/repo:ro). The published image
 # may predate Spark Notes, so this does what the image build does first: copies files/system
 # over the image and runs files/scripts/spark-notes.sh (installs the app system-wide with
-# wl-clipboard, gives it Meta+V, takes Klipper out of the tray). Then, as a normal user: the
+# wl-clipboard, gives it Meta+V). Then, as a normal user: the
 # self-test, the unit and window tests on the image's own Python and GTK, and a per-user
 # install and uninstall (notes, history and settings are kept on purpose, so they don't count).
 set -euo pipefail

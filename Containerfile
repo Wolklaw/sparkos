@@ -1,26 +1,25 @@
 # SparkOS: the whole image, built from this file (no BlueBuild since 2026-11-20).
 #
-# Base: Fedora Kinoite (Fedora's atomic KDE Plasma image), since 2026-11-23. The last step removes
-# KDE, Plasma and KWin: SparkOS runs its own session (spark-compositor, Spark Shell, Spark
-# Greeter). Bazzite was the base before that; docs/fedora-base.md has what SparkOS took over from it and how the two compared.
+# Base: Fedora's base-atomic (Fedora's atomic image with no desktop), since 2026-11-26. The desktop
+# is SparkOS's own: spark-compositor, Spark Shell and Spark Greeter; no KDE, Plasma or KWin.
+# Before that it was Fedora Kinoite (2026-11-23, with KDE removed in the last step) and Bazzite;
+# docs/fedora-base.md has what SparkOS took over from them.
 # Built and signed by .github/workflows/build.yml and published as ghcr.io/wolklaw/sparkos:latest.
 # docs/building.md explains each step.
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
 # FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
-# Run, Link, Store, Launcher, Files, Terminal and Update). Every other company's or project's app is removed;
+# Run, Link, Store, Files, Terminal and Update). Every other company's or project's app is removed;
 # people install what they want from Spark Store. What stays is the platform: drivers, printing,
-# scanning, Flatpak. KDE is gone (files/scripts/sparkos-no-kde.sh): the Spark session replaces
-# Plasma and KWin, Spark Greeter replaces Plasma Login Manager, Spark Files replaces Dolphin,
-# Spark Terminal replaces Konsole, Spark Settings replaces System Settings, Spark Monitor replaces
-# Plasma System Monitor and Spark Snip replaces Spectacle. GNOME Keyring keeps passwords until
-# there is a Spark one; Breeze's icon and cursor artwork stays as files. Discover, GNOME Disks,
-# firewall-config and Tailscale are removed too (files/scripts/sparkos-apps.sh).
+# scanning, Flatpak. No KDE (files/scripts/sparkos-no-kde.sh fails the build if any comes in).
+# GNOME Keyring keeps passwords until there is a Spark one; Breeze's icon and cursor artwork is
+# there as files. Firefox and Fedora's third-party repository switch are removed
+# (files/scripts/sparkos-apps.sh).
 #
 # Build it locally (from the repo root, as root, with about 40 GB free):
 #   sudo podman build -t localhost/sparkos:test .
 
-ARG BASE_IMAGE=quay.io/fedora/fedora-kinoite:45
+ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/base-atomic:45
 
 # 0. sparkos-capslock, compiled on the same base so it links against the image's own libevdev.
 #    Only the program is copied into the image (step 3b); the compiler stays in this stage.
@@ -55,7 +54,7 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 
 FROM ${BASE_IMAGE}
 
-ARG BASE_IMAGE=quay.io/fedora/fedora-kinoite:45
+ARG BASE_IMAGE=quay.io/fedora-ostree-desktops/base-atomic:45
 # Where the scripts find the repo's files/ folder (they read CONFIG_DIRECTORY). It's a bind mount:
 # nothing in files/ is copied into the image except what the steps install.
 ARG CONFIG_DIRECTORY=/tmp/files
@@ -112,7 +111,7 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 
 # 5. SparkOS's own scripts (files/scripts), in this order:
 #    - identity: shows "SparkOS" as the system name
-#    - apps: no preinstalled third-party apps (removes Kinoite's RPM apps and first-boot wizard)
+#    - apps: no preinstalled third-party apps (removes the base's Firefox and repository switch)
 #    - fedora-gaming: the device rules Fedora doesn't package (controllers,
 #      not-a-joystick list, wheels; files/device-rules), uinput, gaming sysctls
 #    - fedora-tuning: Bazzite's system tuning as SparkOS config (network sysctls,
@@ -132,13 +131,12 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      and a timer; the timer stays off until a schedule is saved)
 #    - sparkos-security: the closed "sparkos" firewall zone as the default (only what SparkOS
 #      uses is open), Tailscale in the trusted zone, ptrace limited to a program's children
-#    - sparkos-cleanup: Spark Monitor takes Plasma System Monitor's keys, no Tailscale repo, no
-#      usage counting
+#    - sparkos-cleanup: Spark Monitor's keys, no Tailscale repo, no usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
 #    - sparkos-icons: the SparkOS icon theme over Breeze Dark (files/sparkos-icons), the default
-#    - sparkos-theme: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
-#    - sparkos-no-kde, last: removes KDE, Plasma, KWin and Plasma Login Manager; greetd with the
-#      Spark greeter signs you in, GNOME Keyring keeps passwords. Fails if any KDE package is left
+#    - sparkos-theme: boot splash, wallpaper, fonts (rebuilds the initramfs)
+#    - sparkos-no-kde, last: greetd with the Spark greeter signs you in, GNOME Keyring keeps
+#      passwords. Fails if any KDE package came in
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
@@ -207,7 +205,7 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 ARG BUILD_DATE=unknown
 ARG REVISION=unknown
 ARG BASE_DIGEST=unknown
-ARG DESCRIPTION="SparkOS, a desktop for gaming and everyday work, built on Fedora Kinoite."
+ARG DESCRIPTION="SparkOS, a desktop for gaming and everyday work, built on Fedora."
 LABEL org.opencontainers.image.title="${IMAGE_NAME}" \
       org.opencontainers.image.description="${DESCRIPTION}" \
       org.opencontainers.image.source="https://github.com/Wolklaw/sparkos" \

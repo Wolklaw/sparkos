@@ -1,9 +1,7 @@
 #!/usr/bin/env bash
 # Spark Tray, the SparkOS tray icons: network, Bluetooth, power, printers and volume. Its source
-# lives in this repo at files/spark-tray. It replaces plasma-nm, bluedevil, powerdevil's battery
-# applet, plasma-print-manager and plasma-pa's volume applet, one step at a time: the Plasma ones
-# stay in the image and in the Plasma session, and Spark Tray starts only in the `spark` session
-# (/etc/xdg/autostart carries OnlyShowIn=Spark). In Plasma, `spark-tray --enable` turns it on.
+# lives in this repo at files/spark-tray. It starts in the Spark session
+# (/etc/xdg/autostart carries OnlyShowIn=Spark).
 #
 # install.sh --deps installs it system-wide and runs --self-test (no display needed); the build
 # fails if that or any file below is missing.

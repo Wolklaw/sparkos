@@ -1,8 +1,8 @@
 # SparkOS &nbsp; [![build](https://github.com/Wolklaw/sparkos/actions/workflows/build.yml/badge.svg)](https://github.com/Wolklaw/sparkos/actions/workflows/build.yml)
 
-A Linux desktop for gaming and everyday work. It starts from [Fedora Kinoite](https://fedoraproject.org/atomic-desktops/kinoite/) and runs its own desktop on top: the Spark compositor, Spark Shell and the Spark apps. It is built from one [Containerfile](Containerfile) ([how it's built](docs/building.md)).
+A Linux desktop for gaming and everyday work. It starts from Fedora's atomic base image (base-atomic, which has no desktop) and adds its own desktop: the Spark compositor, Spark Shell and the Spark apps. It is built from one [Containerfile](Containerfile) ([how it's built](docs/building.md)).
 
-Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026). Since 25 Nov 2026 that PC runs the Spark desktop session every day. From the 26 Nov 2026 image, KDE, Plasma and KWin are not installed at all. CI boots every build in a VM ([boot-test](.github/workflows/boot-test.yml)) and checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. The roadmap is in [PLAN.md](PLAN.md).
+Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026). Since 25 Nov 2026 that PC runs the Spark desktop session every day. From the 26 Nov 2026 image, the base has no desktop of its own and KDE, Plasma and KWin are not installed at all. CI boots every build in a VM ([boot-test](.github/workflows/boot-test.yml)) and checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. The roadmap is in [PLAN.md](PLAN.md).
 
 On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 11**: 92.4 vs 78.6 FPS on average, with 1% lows of 62.6 vs 48.4. Both used the same settings, with HDR on. The method and the limits are in [docs/benchmarks.md](docs/benchmarks.md). This was measured on the Plasma session, before the Spark compositor.
 
@@ -17,7 +17,7 @@ On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 1
 
 Screenshots from the Spark session, 25 Nov 2026, in a fresh user folder.
 
-SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: Fedora Kinoite ships them, and the last build step removes them ([sparkos-no-kde.sh](files/scripts/sparkos-no-kde.sh)). The build fails if a KDE package is left.
+SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: the base (Fedora base-atomic) has no desktop, and the last build step ([sparkos-no-kde.sh](files/scripts/sparkos-no-kde.sh)) fails the build if a KDE package gets pulled in.
 
 - **Spark Greeter** is the login screen: greetd runs it on the Spark compositor. If it fails to start a few times in a row, greetd switches to a text login by itself, and `spark greeter enable` brings it back.
 - **Spark** (`spark-wl`) is the only session:
@@ -53,7 +53,6 @@ Everything else, Steam included, installs from Spark Store, or by double-clickin
 |---|---|---|---|
 | **Spark compositor** | - | The window manager and display server of the Spark session: title bars, snapping, the Alt+Tab switcher, keyboard shortcuts, monitors from a config file. | [source](files/spark-compositor) |
 | **Spark Shell** | 0.1.0 | The panel, tray, notifications, Spark menu, wallpaper, volume display and lock screen. | [source](files/spark-shell) |
-| **Spark Launcher** | - | The search behind the Spark menu. It searches as you type, answers sums on the first line, and shows pinned apps, recent files and power buttons. | [source](files/spark-launcher) |
 | **Spark Session** | 0.1.0 | The login screen (Spark Greeter, on greetd), the session start-up, and the polkit agent for password prompts. | [source](files/spark-session) |
 | **Spark Files** | 1.3.0 | The file manager. It has tabs and a split view, copies in the background, search, thumbnails, the Trash, your Windows drives and network places (SSH, cloud with rclone). It also provides the Open and Save dialogs for other apps. | [source](files/spark-files) |
 | **Spark Terminal** | 1.1.0 | Tabs, split panes, search in the scrollback and clickable links. Opens with Ctrl+Alt+T. | [source](files/spark-terminal) |
@@ -128,7 +127,7 @@ About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000
 
 **Updates and safety**
 
-- The whole system updates as one image, built every day from the latest Fedora Kinoite.
+- The whole system updates as one image, built every day from the latest Fedora base-atomic.
 - Every image is signed with cosign, and a SparkOS PC only accepts an update signed with SparkOS's key.
 - Every build is installed and booted in a virtual machine on GitHub. The test checks the system and the signature, and opens every app.
 - Updates download in the background and wait while a game runs, on a metered connection or on a low battery. The PC never restarts on its own.
@@ -170,7 +169,7 @@ About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000
 
 - From Fedora: the kernel and current Mesa drivers, systemd, PipeWire, NetworkManager, CUPS driverless printing, SANE scanning and Bluetooth. From wlroots: the compositor's base. From RPM Fusion: full video decoding and encoding.
 - From GNOME: GNOME Keyring for saved passwords, for now. From KDE: Breeze's icon and cursor artwork only.
-- Removed from Fedora Kinoite: all of KDE (Plasma, KWin, Plasma Login Manager, Dolphin, Konsole, Ark, KWallet, System Settings, Discover, KDE Connect and the KDE Frameworks), plus Firefox, GNOME Disks, Btrfs Assistant and firewall-config. Spark apps replace them: Spark Files, Terminal, Archive, Settings, Store, Link, Disks and Firewall. Flathub apps made with KDE still install and run; they bring their own libraries.
+- Not in the image: all of KDE (Plasma, KWin, Plasma Login Manager, Dolphin, Konsole, Ark, KWallet, System Settings, Discover, KDE Connect and the KDE Frameworks; SparkOS was built on Fedora Kinoite until 26 Nov 2026), plus Firefox, GNOME Disks, Btrfs Assistant and firewall-config. Spark apps replace them: Spark Files, Terminal, Archive, Settings, Store, Link, Disks and Firewall. Flathub apps made with KDE still install and run; they bring their own libraries.
 
 Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build. It opens each one from the app menu on a SparkOS desktop in a VM and takes a screenshot. On a real PC they have had only a few days of use, the Spark session one day, and Spark Backup none yet.
 
@@ -194,7 +193,7 @@ CI builds the installer every Monday, boots it in a VM and installs it next to a
 
 ## Switching from another Fedora atomic desktop
 
-SparkOS was built on [Bazzite](https://bazzite.gg) until 23 Nov 2026 and is now built on Fedora Kinoite ([why and what changed](docs/fedora-base.md)). From Bazzite, Kinoite or another Fedora atomic desktop:
+SparkOS was built on [Bazzite](https://bazzite.gg) until 23 Nov 2026 then on Fedora Kinoite until 26 Nov 2026, and is now built on Fedora's base-atomic, with no desktop but its own ([why and what changed](docs/fedora-base.md)). From Bazzite, Kinoite or another Fedora atomic desktop:
 
 1. Switch to the unsigned SparkOS image first. This installs the SparkOS signing key:
    ```
@@ -207,7 +206,7 @@ SparkOS was built on [Bazzite](https://bazzite.gg) until 23 Nov 2026 and is now 
    systemctl reboot
    ```
 
-Updates arrive automatically. A new image is built every day from the latest Fedora Kinoite. If an update breaks something, choose the previous entry in the boot menu.
+Updates arrive automatically. A new image is built every day from the latest Fedora base-atomic. If an update breaks something, choose the previous entry in the boot menu.
 
 ## Verify
 

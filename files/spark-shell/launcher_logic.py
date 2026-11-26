@@ -1,10 +1,6 @@
-"""Spark Launcher's search logic, as Python, for the Spark shell.
-
-This is the same logic as package/contents/code/search.js (the Plasma widget): ranking apps for
-the search box, and deciding when the text is a sum for Spark Calc. The widget keeps its own
-JavaScript copy because QML can't call Python; tests/vectors.json holds cases both copies must
-answer the same way (tests/test_logic.py runs them here, tests/check_js.mjs runs them on the
-JavaScript). Change one, change the other, and add a vector.
+"""The Spark shell launcher's search logic: ranking apps for the search box, and deciding when the
+text is a sum for Spark Calc. tests/vectors.json holds the cases it must answer (tests/test_logic.py
+runs them); add one when you change the logic.
 
 Standard library only."""
 

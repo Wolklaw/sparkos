@@ -219,7 +219,7 @@ def child_env(environ: Optional[Dict[str, str]] = None) -> List[str]:
 
 # ─── The colour scheme ──────────────────────────────────────
 
-# The SparkOS scheme, the same colours as files/system/usr/share/konsole/SparkOS.colorscheme
+# The SparkOS scheme (the colours Konsole had in SparkOS)
 # (Konsole's copy) and the desktop's SparkOS.colors.
 SCHEME = {
     'background': '#05040f',

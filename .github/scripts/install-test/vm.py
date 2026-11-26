@@ -323,7 +323,7 @@ def install(a):
         vm.type(start_cmd)
     else:
         # What a person sees on the live system: the desktop with the installer prompt, or a
-        # sign-in screen (livesys sets up autologin for SDDM; SparkOS uses Plasma Login)
+        # sign-in screen (livesys sets up autologin for SDDM; SparkOS uses greetd)
         def wait_prompt(secs):
             t, end = "", time.time() + secs
             while time.time() < end:
@@ -338,7 +338,7 @@ def install(a):
         if prompt:
             result(a.work, "PASS", "Live session opens the desktop by itself", "no sign-in screen")
         else:
-            # Plasma Login's idle screen shows only a clock: a key shows the password box
+            # the sign-in screen may show only a clock: a key shows the password box
             result(a.work, "FAIL", "Live session opens the desktop by itself",
                    "stops at the sign-in screen (Live System User)")
             vm.keys("ret", delay=4)

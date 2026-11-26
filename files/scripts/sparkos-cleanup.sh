@@ -5,10 +5,8 @@
 # there. Runs after the Spark apps are installed.
 set -oue pipefail
 
-# --- Spark Monitor replaces Plasma System Monitor (removed in the recipe)
-# Spark Monitor keeps Ctrl+Shift+Esc (the Windows key) and also takes the keys Plasma gave its
-# own monitor: Meta+Esc (Plasma 6) and Ctrl+Esc (Plasma 5 and earlier).
-if rpm -q plasma-systemmonitor >/dev/null 2>&1; then echo "plasma-systemmonitor is still installed"; exit 1; fi
+# --- Spark Monitor's keys: Ctrl+Shift+Esc (the Windows key), and Meta+Esc and Ctrl+Esc (the keys
+# KDE gives its monitor, which people coming from KDE know)
 MON=/usr/share/applications/dev.wolklaw.SparkMonitor.desktop
 sed -i --follow-symlinks 's/^X-KDE-Shortcuts=.*/X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc/' "$MON"
 grep -qx 'X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc' /usr/share/kglobalaccel/dev.wolklaw.SparkMonitor.desktop
@@ -37,7 +35,8 @@ done
 if grep -l '^countme=1' /usr/share/dnf5/repos.d/*.repo /etc/yum.repos.d/*.repo 2>/dev/null; then
   echo "countme is still on in the files above"; exit 1
 fi
-# KDE's "Get New Stuff" (store.kde.org) is hidden by [KDE Action Restrictions] in /etc/xdg/kdeglobals
+# KDE's "Get New Stuff" (store.kde.org) in KDE apps from Flathub is hidden by [KDE Action
+# Restrictions] in /etc/xdg/kdeglobals
 grep -qx 'ghns=false' /etc/xdg/kdeglobals
 # Homebrew's update timers: off until `sparkos-dev-setup --brew` (00-sparkos-homebrew.preset)
 for timer in brew-update.timer brew-upgrade.timer; do
@@ -52,18 +51,10 @@ if grep -l '^enabled=1' /etc/yum.repos.d/_copr* 2>/dev/null; then
   echo "a COPR repository is still switched on (above)"; exit 1
 fi
 
-# --- Out of the app menu (still installed; the commands and the platform keep working)
-# KDE Connect, Ark, Discover, Konsole, GNOME Disks, Info Center, Journald Browser, Btrfs
-# Assistant and firewall-config are gone from the image (sparkos-apps.sh), so they are not here.
-# What stays installed because Plasma needs it, and is hidden:
-#   the Emoji Selector (Spark Emoji has Meta+. since spark-emoji.sh) and the Menu Editor
-#   (Spark Launcher is the menu); both are parts of plasma-desktop
+# --- Out of the app menu (still installed; the commands keep working)
 # Command-line tools that need no menu entry (they run in Spark Terminal): btop, nvtop,
-#   Microsoft Edit (msedit), yad's Icon Browser
-# The Foreground Booster's settings
-HIDE=(org.kde.plasma.emojier org.kde.kmenuedit
-      btop nvtop com.microsoft.edit yad-icon-browser org.kde.foreground-booster
-      org.kde.kfontview org.kde.kfontinst)
+# Microsoft Edit (msedit), yad's Icon Browser
+HIDE=(btop nvtop com.microsoft.edit yad-icon-browser)
 for id in "${HIDE[@]}"; do
   entry=/usr/share/applications/$id.desktop
   [ -f "$entry" ] || { echo "--- $id.desktop is not installed, nothing to hide"; continue; }
@@ -76,8 +67,8 @@ for id in "${HIDE[@]}"; do
 done
 echo "--- hid ${#HIDE[@]} menu entries"
 
-# --- The hidden apps are gone from the image (sparkos-apps.sh removes them; nothing installed
-# since may bring one back)
+# --- Other projects' apps stay out of the image (sparkos-apps.sh; nothing installed since may
+# bring one back)
 for pkg in konsole konsole-part ark ark-libs kde-connect kde-connect-libs kdeconnectd \
            plasma-discover plasma-discover-libs plasma-discover-flatpak plasma-discover-kns \
            plasma-discover-rpm-ostree plasma-discover-notifier kinfocenter kjournald \

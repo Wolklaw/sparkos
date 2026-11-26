@@ -1,4 +1,11 @@
-# SparkOS on Fedora Kinoite
+# SparkOS on Fedora
+
+**Since 2026-11-26, the base is `quay.io/fedora-ostree-desktops/base-atomic:45`**, Fedora's atomic
+image with no desktop, instead of Fedora Kinoite: Plasma is gone and the Spark session is the only
+one. Most of this page was written for the move from Bazzite to Kinoite and describes that; what
+it says about the gaming layer, packages.sh and kmods.sh still holds. Where it says Kinoite has
+something, base-atomic may not: [packages.sh](../build_files/packages.sh) installs what SparkOS
+needs from it.
 
 **Since 2026-11-23, SparkOS is built only on Fedora Kinoite 45.** The Bazzite build is gone:
 one image, `ghcr.io/wolklaw/sparkos`, from the [Containerfile](../Containerfile)

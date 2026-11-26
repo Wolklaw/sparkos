@@ -237,27 +237,6 @@ class AppFilesTest(unittest.TestCase):
         self.assertIn('TerminalEmulator;', entry)
         self.assertIn('X-ExecArg=-e', entry)
 
-    def test_scheme_matches_konsole_copy(self):
-        """core.SCHEME and the Konsole colour scheme in the image are the same colours."""
-        path = os.path.join(self.HERE, '..', 'system', 'usr', 'share', 'konsole',
-                            'SparkOS.colorscheme')
-        if not os.path.exists(path):
-            self.skipTest('not in the SparkOS repo')
-        colours = {}
-        section = None
-        with open(path, encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith('['):
-                    section = line[1:-1]
-                elif line.startswith('Color=') and section:
-                    r, g, b = (int(x) for x in line[6:].split(','))
-                    colours[section] = f'#{r:02x}{g:02x}{b:02x}'
-        self.assertEqual(core.SCHEME['background'], colours['Background'])
-        self.assertEqual(core.SCHEME['foreground'], colours['Foreground'])
-        for i in range(8):
-            self.assertEqual(core.SCHEME['palette'][i], colours[f'Color{i}'], i)
-            self.assertEqual(core.SCHEME['palette'][i + 8], colours[f'Color{i}Intense'], i)
 
 
 if __name__ == '__main__':
