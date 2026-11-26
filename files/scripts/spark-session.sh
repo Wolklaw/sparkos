@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The Spark session's security pieces (Containerfile step 5): the polkit agent, the sign-in
 # screen and `spark greeter`'s helper files. Their source lives in this repo at
-# files/spark-session. Plasma stays the default session and Plasma Login Manager the display
-# manager: the build fails if greetd got turned on.
+# files/spark-session. greetd stays off here; sparkos-no-kde.sh, the last step, turns it on
+# once Plasma Login Manager is removed. The build fails if something turned it on earlier.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-session"
@@ -23,7 +23,7 @@ rpm -q greetd
 
 # Nothing may have been turned on, and the display manager must still be the one it was.
 if find /etc/systemd/system -path '*.wants/*' -name 'greetd.service' | grep -q .; then
-  echo "greetd is enabled; it must stay off until the owner runs: spark greeter enable"; exit 1
+  echo "greetd is enabled before sparkos-no-kde.sh; it must stay off until then"; exit 1
 fi
 if [ -L /etc/systemd/system/display-manager.service ]; then
   dm=$(basename "$(readlink /etc/systemd/system/display-manager.service)")
@@ -31,7 +31,7 @@ if [ -L /etc/systemd/system/display-manager.service ]; then
   echo "display-manager.service -> $dm (unchanged)"
 fi
 grep -q '^user = "greetd"$' /usr/share/spark-session/greetd-config.toml
-# The shipped copy of greetd's own config must be the package's, not ours, until enabled
+# The shipped copy of greetd's own config must be the package's until sparkos-no-kde.sh
 if grep -q spark-greeter /etc/greetd/config.toml 2>/dev/null; then
   echo "/etc/greetd/config.toml already points at the Spark greeter"; exit 1
 fi
@@ -53,4 +53,4 @@ for f in org.kde.foreground-booster org.kde.kunifiedpush-distributor org.kde.xwa
   grep -q '^NotShowIn=.*sparkwl;' "$f"
 done
 test -f /etc/pam.d/spark-lock
-echo "Spark session pieces installed; greetd is off."
+echo "Spark session pieces installed; sparkos-no-kde.sh turns greetd on."

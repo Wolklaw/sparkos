@@ -1,14 +1,14 @@
 #!/bin/bash
-# Turns the Spark sign-in screen (greetd + spark-greeter) on or off. `spark greeter` calls this
-# as root; spark-greeter-fallback.service calls `auto-rollback` when the greeter keeps failing.
+# Chooses SparkOS's sign-in screen. greetd always signs you in; this picks what greetd shows.
+# `spark greeter` calls this as root; spark-greeter-fallback.service calls `auto-rollback` when
+# the Spark greeter keeps failing.
 #
-#   spark-greeter-ctl status         what signs you in now, and what is ready
-#   spark-greeter-ctl enable         greetd becomes the display manager at the NEXT restart
-#   spark-greeter-ctl disable        Plasma Login Manager is the display manager again
-#   spark-greeter-ctl auto-rollback  disable, and start Plasma Login Manager now (fallback unit)
+#   spark-greeter-ctl status         what signs you in, and whether everything it needs is there
+#   spark-greeter-ctl enable         the Spark sign-in screen (the default)
+#   spark-greeter-ctl disable        greetd's text sign-in (agreety), which starts the Spark session
+#   spark-greeter-ctl auto-rollback  disable, and start greetd again now (fallback unit)
 #
-# Neither enable nor disable starts or stops anything: the running sign-in screen and your
-# session are left alone, and the change takes effect at the next restart.
+# enable and disable start or stop nothing: the change takes effect at the next restart.
 #
 # For tests: SPARK_GREETER_ROOT=DIR works on a copy of the tree, SPARK_GREETER_SYSTEMCTL=CMD
 # replaces systemctl.
@@ -17,12 +17,9 @@ set -euo pipefail
 ROOT=${SPARK_GREETER_ROOT:-}
 SYSTEMCTL=${SPARK_GREETER_SYSTEMCTL:-systemctl}
 CONFIG=$ROOT/etc/greetd/config.toml
-BACKUP=$ROOT/etc/greetd/config.toml.pre-spark
 OURS=$ROOT/usr/share/spark-session/greetd-config.toml
-STATE_DIR=$ROOT/var/lib/spark-greeter
-STATE=$STATE_DIR/previous-dm
+TEXT=$ROOT/usr/share/spark-session/greetd-text.toml
 DM_LINK=$ROOT/etc/systemd/system/display-manager.service
-DEFAULT_DM=plasmalogin.service
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'spark-greeter-ctl: %s\n' "$*" >&2; exit 1; }
@@ -35,25 +32,21 @@ current_dm() {
   if [ -L "$DM_LINK" ]; then basename "$(readlink "$DM_LINK")"; fi
 }
 
-previous_dm() {
-  local prev=
-  [ -f "$STATE" ] && prev=$(head -n1 "$STATE")
-  case "$prev" in
-    ''|greetd.service) prev=$DEFAULT_DM ;;
-    *[!A-Za-z0-9_.@-]*) prev=$DEFAULT_DM ;;     # never act on a damaged state file
-  esac
-  printf '%s' "$prev"
+mode() {
+  if [ -f "$CONFIG" ] && cmp -s "$CONFIG" "$OURS"; then echo spark
+  elif [ -f "$CONFIG" ] && cmp -s "$CONFIG" "$TEXT"; then echo text
+  else echo other; fi
 }
 
 cmd_status() {
   local dm
   dm=$(current_dm)
-  say "Signs you in now (next restart): ${dm:-nothing found}"
-  if [ "$dm" = greetd.service ]; then
-    say "The Spark sign-in screen is turned on. Turn it off with: spark greeter disable"
-  else
-    say "The Spark sign-in screen is off. Turn it on with: spark greeter enable"
-  fi
+  say "Display manager: ${dm:-nothing found}"
+  case "$(mode)" in
+    spark) say "Sign-in screen: Spark. Switch to the text sign-in with: spark greeter disable" ;;
+    text)  say "Sign-in screen: text (the Spark one failed or was turned off). Back to Spark: spark greeter enable" ;;
+    *)     say "Sign-in screen: /etc/greetd/config.toml was changed by hand. Spark's: spark greeter enable" ;;
+  esac
   local ok=1 f
   for f in /usr/bin/greetd /usr/bin/spark-greeter /usr/libexec/spark-greeter-session; do
     [ -x "$ROOT$f" ] || { say "missing: $f"; ok=0; }
@@ -61,7 +54,14 @@ cmd_status() {
   ls "$ROOT"/usr/share/wayland-sessions/*.desktop >/dev/null 2>&1 \
     && say "Sessions it will offer: $(grep -h '^Name=' "$ROOT"/usr/share/wayland-sessions/*.desktop | cut -d= -f2 | paste -sd, | sed 's/,/, /g')" \
     || { say "no sessions in /usr/share/wayland-sessions"; ok=0; }
-  [ "$ok" = 1 ] && say "Everything the greeter needs is installed." || say "Something is missing: do not turn it on."
+  [ "$ok" = 1 ] && say "Everything the Spark sign-in screen needs is installed." \
+    || say "Something is missing: keep the text sign-in."
+}
+
+use() {   # use FILE: make FILE greetd's config and greetd the display manager
+  mkdir -p "$(dirname "$CONFIG")"
+  install -m 0644 "$1" "$CONFIG"
+  [ "$(current_dm)" = greetd.service ] || $SYSTEMCTL enable --force greetd.service
 }
 
 cmd_enable() {
@@ -73,55 +73,25 @@ cmd_enable() {
   [ -f "$OURS" ] || die "$OURS is missing. Nothing was changed."
   ls "$ROOT"/usr/share/wayland-sessions/*.desktop >/dev/null 2>&1 \
     || die "there are no sessions in /usr/share/wayland-sessions to sign in to. Nothing was changed."
-  $SYSTEMCTL cat "$DEFAULT_DM" >/dev/null 2>&1 \
-    || die "$DEFAULT_DM is not installed, so there would be nothing to go back to. Nothing was changed."
-
-  local dm
-  dm=$(current_dm)
-  if [ "$dm" != greetd.service ]; then
-    mkdir -p "$STATE_DIR"
-    printf '%s\n' "${dm:-$DEFAULT_DM}" > "$STATE"
-  fi
-  mkdir -p "$(dirname "$CONFIG")"
-  if [ -f "$CONFIG" ] && [ ! -f "$BACKUP" ] && ! cmp -s "$CONFIG" "$OURS"; then
-    cp -p "$CONFIG" "$BACKUP"
-  fi
-  install -m 0644 "$OURS" "$CONFIG"
-
-  if [ "$dm" != greetd.service ]; then
-    $SYSTEMCTL disable "$(previous_dm)" || true
-  fi
-  $SYSTEMCTL enable --force greetd.service
-  say "The Spark sign-in screen is on from the next restart. Nothing was stopped; your session"
-  say "keeps running."
-  say "If it does not come up: wait, it puts Plasma Login Manager back by itself after a few"
-  say "failures. Or press Ctrl+Alt+F3, sign in, and run: spark greeter disable"
+  use "$OURS"
+  say "The Spark sign-in screen is on from the next restart. Nothing was stopped."
+  say "If it does not come up, it switches to the text sign-in by itself after a few failures."
 }
 
 cmd_disable() {
   need_root
-  local prev
-  prev=$(previous_dm)
-  $SYSTEMCTL disable greetd.service || true
-  $SYSTEMCTL enable --force "$prev"
-  if [ -f "$BACKUP" ]; then
-    mv -f "$BACKUP" "$CONFIG"
-  elif [ -f "$CONFIG" ] && cmp -s "$CONFIG" "$OURS"; then
-    rm -f "$CONFIG"
-  fi
-  rm -f "$STATE"
-  say "$prev signs you in again from the next restart. Nothing was stopped."
+  [ -f "$TEXT" ] || die "$TEXT is missing. Nothing was changed."
+  use "$TEXT"
+  say "The text sign-in is on from the next restart. Nothing was stopped."
 }
 
 cmd_auto_rollback() {
   need_root
-  # Only when greetd is what is enabled: a failure of some other unit is not our business.
-  [ "$(current_dm)" = greetd.service ] || { say "greetd is not the display manager; nothing to do."; return 0; }
-  local prev
-  prev=$(previous_dm)
-  say "The Spark sign-in screen failed repeatedly; putting $prev back."
+  [ "$(mode)" = spark ] || { say "The Spark sign-in screen is not the one in use; nothing to do."; return 0; }
+  say "The Spark sign-in screen failed repeatedly; switching to the text sign-in."
   cmd_disable
-  $SYSTEMCTL start --no-block "$prev" || true
+  $SYSTEMCTL reset-failed greetd.service || true
+  $SYSTEMCTL start --no-block greetd.service || true
 }
 
 case "${1:-status}" in

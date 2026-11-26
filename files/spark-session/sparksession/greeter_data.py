@@ -71,7 +71,7 @@ def _executable(name):
 
 
 def list_sessions(dirs=SESSION_DIRS):
-    """Spark first when it exists, then the rest by name. Plasma is whatever the files say."""
+    """The Spark session first when it exists, then the rest by name."""
     found = []
     for directory in dirs:
         try:
@@ -86,7 +86,7 @@ def list_sessions(dirs=SESSION_DIRS):
                     continue
                 if session:
                     found.append(session)
-    found.sort(key=lambda s: (s.ident != 'spark', s.name.lower()))
+    found.sort(key=lambda s: (s.ident not in ('spark-wl', 'spark'), s.ident != 'spark-wl', s.name.lower()))
     return found
 
 

@@ -29,7 +29,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | Bluetooth adapter | **Works** | |
 | Realtek 2.5 GbE network | **Works** | |
 | RX 6800 XT | **Works** | Open drivers are built in. **Spark Controller** (in the image) shows temperatures and sets fan curves. For overclocking and undervolting, **LACT** (Flathub) replaces Adrenalin; it isn't in the image because it needs a system service. |
-| Three monitors, mixed refresh rates | **Works** | KDE Plasma on Wayland handles mixed refresh rates, VRR and HDR. Set them up in **Spark Settings**, Displays. |
+| Three monitors, mixed refresh rates | **Works** | The Spark compositor runs each monitor at its own refresh rate. Set them up in **Spark Settings**, Displays. VRR is written but not tried on a real screen, and HDR is not supported yet. |
 | RGB: ASUS Aura, Patriot Viper RAM and SSD, Corsair RAM, Holtek RAM (SignalRGB) | **Partly** | **Spark Controller** (in the image) drives most of these through OpenRGB. RAM lighting sometimes needs one extra setting to work, so check it on day one. |
 | Steam virtual mic and speakers, VB-CABLE | **Replaced** | PipeWire virtual devices. Route audio with **qpwgraph** (from the Store), or run `spark audio-channels on` for Game, Voice, Browser and Music outputs. |
 
@@ -79,7 +79,7 @@ This guide covers what this PC has installed and plugged in, checked on 2026-11-
 | HWiNFO, Task Manager | **Replaced** | **Spark Monitor** (in the image): Ctrl+Shift+Esc, as on Windows (Meta+Esc and Ctrl+Esc work too). For detailed sensor readings like HWiNFO, **Mission Center** is in the Store. |
 | Ryzen Master | **No** | Set PBO and Curve Optimizer in the BIOS instead. They then apply to both systems. |
 | Logitech G HUB, SignalRGB, 8BitDo, Focusrite Control | See Devices above | |
-| Wallpaper Engine | **Partly** | A community KDE plugin plays many Wallpaper Engine scenes. It isn't in the image. |
+| Wallpaper Engine | **No** | The community player is a Plasma plugin, and SparkOS has no Plasma. |
 | Tailscale | **Works** | Not in the image (it's a company's service). To add it, run `sudo curl -fsSLo /etc/yum.repos.d/tailscale.repo https://pkgs.tailscale.com/stable/fedora/tailscale.repo`, then `rpm-ostree install tailscale` and restart. Then `sudo systemctl enable --now tailscaled` and `sudo tailscale up` to sign in. It updates with SparkOS from then on. |
 | hide.me VPN, Hotspot Shield | **Partly** | Both offer Linux command-line clients. Plain WireGuard and OpenVPN connections import in **Spark Settings**, Network. |
 | TeamViewer | **Works** | Download the Linux .rpm from teamviewer.com and double-click it: SparkOS asks, installs it and offers a restart. |

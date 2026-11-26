@@ -18,7 +18,6 @@ echo "$*" >> "$FAKE_LOG"
 root=$SPARK_GREETER_ROOT
 link=$root/etc/systemd/system/display-manager.service
 case "$1" in
-  cat) [ "$2" = plasmalogin.service ] && [ -z "${FAKE_NO_PLM:-}" ] ;;
   disable) [ -L "$link" ] && [ "$(basename "$(readlink "$link")")" = "$2" ] && rm -f "$link"; exit 0 ;;
   enable) shift; [ "$1" = --force ] && shift
           mkdir -p "$(dirname "$link")"; ln -sfn "/usr/lib/systemd/system/$1" "$link" ;;
@@ -34,14 +33,16 @@ class CtlTests(unittest.TestCase):
         self.log = os.path.join(self.root, 'calls.log')
         for rel in ('usr/bin/greetd', 'usr/bin/spark-greeter', 'usr/libexec/spark-greeter-session'):
             self.touch(rel, '#!/bin/sh\n', 0o755)
-        self.touch('usr/share/wayland-sessions/spark.desktop', '[Desktop Entry]\nName=Spark\nExec=spark\n')
-        self.touch('usr/share/wayland-sessions/plasma.desktop', '[Desktop Entry]\nName=Plasma\nExec=p\n')
+        self.touch('usr/share/wayland-sessions/spark-wl.desktop', '[Desktop Entry]\nName=Spark\nExec=spark\n')
         os.makedirs(os.path.join(self.root, 'usr/share/spark-session'))
+        for name in ('greetd-config.toml', 'greetd-text.toml'):
+            shutil.copy(os.path.join(SYSTEM, 'usr/share/spark-session', name),
+                        os.path.join(self.root, 'usr/share/spark-session', name))
+        # As the image ships it: greetd with the Spark greeter
         shutil.copy(os.path.join(SYSTEM, 'usr/share/spark-session/greetd-config.toml'),
-                    os.path.join(self.root, 'usr/share/spark-session/greetd-config.toml'))
-        self.touch('etc/greetd/config.toml', '# fedora default\n[default_session]\ncommand = "agreety"\n')
+                    self.touch('etc/greetd/config.toml', ''))
         os.makedirs(os.path.join(self.root, 'etc/systemd/system'))
-        os.symlink('/usr/lib/systemd/system/plasmalogin.service',
+        os.symlink('/usr/lib/systemd/system/greetd.service',
                    os.path.join(self.root, 'etc/systemd/system/display-manager.service'))
         self.systemctl = self.touch('fake-systemctl', FAKE_SYSTEMCTL, 0o755)
         self.env = dict(os.environ, SPARK_GREETER_ROOT=self.root, SPARK_GREETER_SYSTEMCTL=self.systemctl,
@@ -76,84 +77,67 @@ class CtlTests(unittest.TestCase):
         with open(os.path.join(self.root, rel)) as handle:
             return handle.read()
 
-    def test_status_before(self):
+    def config(self):
+        return self.read('etc/greetd/config.toml')
+
+    def test_status(self):
         result = self.ctl('status')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('plasmalogin.service', result.stdout)
-        self.assertIn('is off', result.stdout)
-        self.assertIn('Plasma, Spark', result.stdout)
+        self.assertIn('greetd.service', result.stdout)
+        self.assertIn('Sign-in screen: Spark', result.stdout)
+        self.assertIn('Sessions it will offer: Spark', result.stdout)
         self.assertEqual(self.calls(), [])
 
-    def test_enable_switches_the_display_manager_without_starting_anything(self):
-        result = self.ctl('enable')
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.dm(), 'greetd.service')
-        calls = self.calls()
-        self.assertIn('disable plasmalogin.service', calls)
-        self.assertIn('enable --force greetd.service', calls)
-        self.assertFalse([c for c in calls if c.startswith(('start', 'stop', 'restart', 'isolate'))
-                          or '--now' in c], calls)
-        self.assertIn('/usr/libexec/spark-greeter-session', self.read('etc/greetd/config.toml'))
-        self.assertIn('fedora default', self.read('etc/greetd/config.toml.pre-spark'))
-        self.assertEqual(self.read('var/lib/spark-greeter/previous-dm').strip(), 'plasmalogin.service')
-
-    def test_disable_is_the_exact_rollback(self):
-        self.ctl('enable')
+    def test_disable_switches_to_the_text_sign_in_without_starting_anything(self):
         result = self.ctl('disable')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.dm(), 'plasmalogin.service')
-        self.assertIn('fedora default', self.read('etc/greetd/config.toml'))
-        self.assertFalse(os.path.exists(os.path.join(self.root, 'etc/greetd/config.toml.pre-spark')))
-        self.assertFalse([c for c in self.calls() if c.startswith(('start', 'stop')) or '--now' in c])
+        self.assertIn('agreety --cmd /usr/bin/spark-wl-session', self.config())
+        self.assertEqual(self.dm(), 'greetd.service')
+        self.assertFalse([c for c in self.calls() if c.startswith(('start', 'stop', 'restart'))
+                          or '--now' in c], self.calls())
+        self.assertIn('Sign-in screen: text', self.ctl('status').stdout)
 
-    def test_enable_twice_keeps_the_way_back(self):
-        self.ctl('enable')
-        self.assertEqual(self.ctl('enable').returncode, 0)
-        self.assertEqual(self.read('var/lib/spark-greeter/previous-dm').strip(), 'plasmalogin.service')
+    def test_enable_puts_the_spark_greeter_back(self):
         self.ctl('disable')
-        self.assertEqual(self.dm(), 'plasmalogin.service')
+        result = self.ctl('enable')
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn('/usr/libexec/spark-greeter-session', self.config())
+        self.assertEqual(self.dm(), 'greetd.service')
+
+    def test_enable_makes_greetd_the_display_manager_when_it_is_not(self):
+        os.unlink(os.path.join(self.root, 'etc/systemd/system/display-manager.service'))
+        self.assertEqual(self.ctl('enable').returncode, 0)
+        self.assertEqual(self.dm(), 'greetd.service')
+        self.assertIn('enable --force greetd.service', self.calls())
 
     def test_missing_greeter_changes_nothing(self):
+        self.ctl('disable')
         os.unlink(os.path.join(self.root, 'usr/bin/spark-greeter'))
         result = self.ctl('enable')
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('Nothing was changed', result.stderr)
-        self.assertEqual(self.dm(), 'plasmalogin.service')
-        self.assertEqual(self.calls(), [])
+        self.assertIn('agreety', self.config())
 
     def test_no_sessions_changes_nothing(self):
-        for name in ('spark.desktop', 'plasma.desktop'):
-            os.unlink(os.path.join(self.root, 'usr/share/wayland-sessions', name))
+        self.ctl('disable')
+        os.unlink(os.path.join(self.root, 'usr/share/wayland-sessions/spark-wl.desktop'))
         self.assertNotEqual(self.ctl('enable').returncode, 0)
-        self.assertEqual(self.dm(), 'plasmalogin.service')
+        self.assertIn('agreety', self.config())
 
-    def test_no_plasma_login_manager_to_go_back_to_changes_nothing(self):
-        env = dict(self.env, FAKE_NO_PLM='1')
-        result = self.ctl('enable', env=env)
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn('nothing to go back to', result.stderr)
-        self.assertEqual(self.dm(), 'plasmalogin.service')
-
-    def test_auto_rollback_puts_plasma_login_manager_back_and_starts_it(self):
-        self.ctl('enable')
-        open(self.log, 'w').close()
+    def test_auto_rollback_switches_to_text_and_restarts_greetd(self):
         result = self.ctl('auto-rollback')
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(self.dm(), 'plasmalogin.service')
-        self.assertIn('start --no-block plasmalogin.service', self.calls())
+        self.assertIn('agreety', self.config())
+        calls = self.calls()
+        self.assertIn('reset-failed greetd.service', calls)
+        self.assertIn('start --no-block greetd.service', calls)
 
-    def test_auto_rollback_when_greetd_is_not_the_manager_does_nothing(self):
+    def test_auto_rollback_leaves_a_hand_made_config_alone(self):
+        self.touch('etc/greetd/config.toml', '# mine\n')
         result = self.ctl('auto-rollback')
         self.assertEqual(result.returncode, 0)
+        self.assertEqual(self.config(), '# mine\n')
         self.assertEqual(self.calls(), [])
-        self.assertEqual(self.dm(), 'plasmalogin.service')
-
-    def test_a_damaged_state_file_falls_back_to_plasma_login_manager(self):
-        self.ctl('enable')
-        self.touch('var/lib/spark-greeter/previous-dm', 'x; rm -rf /\n')
-        self.ctl('disable')
-        self.assertEqual(self.dm(), 'plasmalogin.service')
-        self.assertNotIn('rm -rf', ' '.join(self.calls()))
 
     def test_real_root_needs_admin_rights(self):
         if os.geteuid() == 0:

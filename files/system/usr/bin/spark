@@ -137,7 +137,7 @@ COMMANDS=(
   "Services;"
   "service;NAME [status|on|off|start|stop|restart];Turn a system service on or off"
   "ssh;[status|on|off|once];Allow or stop SSH connections to this PC"
-  "greeter;[status|enable|disable];Turn the Spark sign-in screen (greetd) on or off; Plasma Login Manager comes back with disable"
+  "greeter;[status|enable|disable];The Spark sign-in screen, or greetd's text sign-in"
   "Gaming and sound;"
   "stop-proton;;Stop every Wine and Proton process (a game stuck on close)"
   "audio-restart;;Restart PipeWire, the sound system, for your session"
@@ -591,21 +591,19 @@ cmd_ssh() {
   esac
 }
 
-HELP[greeter]="  status    what signs you in now and whether the Spark sign-in screen is ready (the default)
-  enable    greetd and the Spark greeter replace Plasma Login Manager at the NEXT restart
-  disable   Plasma Login Manager signs you in again at the next restart
+HELP[greeter]="  status    what signs you in and whether the Spark sign-in screen is ready (the default)
+  enable    the Spark sign-in screen from the next restart (what SparkOS uses)
+  disable   greetd's text sign-in from the next restart (type your name and password)
 Neither starts or stops anything now, so your session keeps running. If the Spark sign-in screen
-fails four times in a minute, systemd puts Plasma Login Manager back by itself. If it ever shows
-nothing: Ctrl+Alt+F3, sign in there, run 'spark greeter disable', restart."
+fails four times in a minute, SparkOS switches to the text sign-in by itself."
 cmd_greeter() {
   local action=${1:-status} ctl=/usr/libexec/spark-greeter-ctl
   [ -x "$ctl" ] || die "the Spark sign-in screen isn't in this version of SparkOS."
   case "$action" in
     status) "$ctl" status ;;
-    enable)
-      confirm "Make greetd and the Spark sign-in screen start at the next restart, in place of Plasma Login Manager?"
-      run_root "$ctl" enable ;;
+    enable) run_root "$ctl" enable ;;
     disable)
+      confirm "Use the text sign-in instead of the Spark sign-in screen from the next restart?"
       run_root "$ctl" disable ;;
     *) die "greeter takes status, enable or disable" ;;
   esac

@@ -19,7 +19,7 @@ dnf -y makecache
 # Drive); user mounts through fusermount3, no root and no KIO.
 dnf_install \
   ImageMagick \
-  plasma-print-manager cups-browsed ipp-usb \
+  cups-browsed ipp-usb \
   sane-airscan sane-backends-drivers-scanners \
   libratbag-ratbagd \
   fastfetch jq xdg-terminal-exec \
@@ -180,8 +180,8 @@ dnf_install vkBasalt python3-pyinotify
 
 # From Terra (Fyra Labs, which builds Bazzite's copies), because Fedora doesn't package them:
 # - umu-launcher: umu-run, which Spark Games uses to start Windows games with Proton
-# - dmemcg-booster, plasma-foreground-booster-dmemcg and its library kcgroups-dmemcg: Valve's
-#   and KDE's VRAM protection for the focused game (fedora-tuning.sh turns it on)
+# - dmemcg-booster: Valve's VRAM protection for games (fedora-tuning.sh turns it on). KDE's
+#   foreground booster, which pointed it at the focused window, went with Plasma
 # The Terra repository is used for these packages only (includepkgs) and isn't left on the
 # system, so Terra's Mesa and other builds never replace Fedora's. Its signing key is checked
 # against Terra's fingerprint.
@@ -196,13 +196,13 @@ terra_key=$(gpg --show-keys --with-colons /tmp/terra.asc)
 dnf_install \
   --repofrompath="terra,${terra_url}" --setopt=terra.gpgcheck=1 \
   --setopt=terra.gpgkey=file:///tmp/terra.asc \
-  --setopt=terra.includepkgs=umu-launcher,dmemcg-booster,kcgroups-dmemcg,plasma-foreground-booster-dmemcg \
-  umu-launcher dmemcg-booster plasma-foreground-booster-dmemcg
+  --setopt=terra.includepkgs=umu-launcher,dmemcg-booster \
+  umu-launcher dmemcg-booster
 # dnf imported Terra's key into rpm's keyring; nothing else in the image should trust it
 rpmkeys --delete "${terra_fpr,,}"
 rm -rf /tmp/terra.asc "$GNUPGHOME"
 unset GNUPGHOME
-rpm -q umu-launcher dmemcg-booster plasma-foreground-booster-dmemcg kcgroups-dmemcg
+rpm -q umu-launcher dmemcg-booster
 
 # SparkOS's own list:
 # - python3-liquidctl, openrgb, fwupd: what Spark Controller (files/spark-controller) drives.
@@ -212,7 +212,6 @@ rpm -q umu-launcher dmemcg-booster plasma-foreground-booster-dmemcg kcgroups-dme
 #   hidden (spark-controller.sh): Spark Controller replaces it. Its udev rules come from
 #   openrgb-udev-rules above.
 # - bubblewrap, socat: Claude Code's command sandbox
-# - kdialog: folder picker for sparkos-claude and the install dialogs
 # - fuse and fuse-libs (FUSE 2): AppImages mount themselves
 # - rsms-inter-fonts: Inter, the interface font (Chakra Petch is in files/sparkos-theme/fonts)
 # - python3.13 through libXtst: so Androidbox installs for the user (install.sh --user) with no
@@ -220,7 +219,7 @@ rpm -q umu-launcher dmemcg-booster plasma-foreground-booster-dmemcg kcgroups-dme
 #   SDL and Google's emulator load. Androidbox itself is not in the image.
 dnf_install \
   python3-liquidctl openrgb fwupd \
-  bubblewrap socat kdialog fuse fuse-libs rsms-inter-fonts \
+  bubblewrap socat fuse fuse-libs rsms-inter-fonts \
   python3.13 SDL2 xcb-util-cursor libxkbcommon-x11 libxkbfile \
   mesa-libGL mesa-libEGL mesa-libgbm alsa-lib pulseaudio-libs nss \
   libXcomposite libXcursor libXdamage libXi libXrandr libXtst
@@ -275,10 +274,10 @@ rpm -q gtk4-layer-shell python3-gobject
 test -e /usr/lib64/libgtk4-layer-shell.so.0
 
 # The Spark session's sign-in screen (files/spark-session): greetd, a small login daemon that
-# Spark's greeter talks to. It is installed OFF: Plasma Login Manager stays the display manager
-# until the owner runs `spark greeter enable` (`spark greeter disable` puts it back). Fedora's
-# presets leave the unit disabled; this checks that, and that greetd did not take over
-# display-manager.service (its unit declares that alias).
+# Spark's greeter talks to. Installed off here: sparkos-no-kde.sh, the last step, makes it the
+# display manager once Plasma Login Manager is removed. Fedora's presets leave the unit
+# disabled; this checks that, and that greetd did not take over display-manager.service (its
+# unit declares that alias) while the earlier steps still expect Plasma's.
 dnf_install greetd
 rpm -q greetd
 test -x /usr/bin/greetd

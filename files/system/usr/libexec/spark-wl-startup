@@ -7,9 +7,6 @@
 # The user systemd outlives a logout; when the last session's targets are still up, starting them
 # again does nothing and autostart never runs. Stop them first (also restarts stale services).
 systemctl --user stop xdg-desktop-autostart.target graphical-session.target 2>/dev/null
-# Hand the login password to the wallet before anything asks D-Bus for secrets. Only this
-# process has PAM_KWALLET5_LOGIN, so a systemd unit can't do it.
-[ -n "$PAM_KWALLET5_LOGIN" ] && [ -x /usr/libexec/pam_kwallet_init ] && /usr/libexec/pam_kwallet_init
 # The polkit agent registers for $XDG_SESSION_ID. Without it, polkit guesses the session from
 # the agent's process while this session is still starting, and password prompts go nowhere.
 dbus-update-activation-environment --systemd XDG_SESSION_ID 2>/dev/null

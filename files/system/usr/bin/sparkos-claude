@@ -19,12 +19,12 @@ fi
 
 dir="${1:-}"
 if [ -z "$dir" ]; then
-  if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v kdialog >/dev/null 2>&1; then
+  if [ -n "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ] && command -v spark-ask >/dev/null 2>&1; then
     start=$(cat "$last" 2>/dev/null || true)
     # first time: the projects folder on the Windows drive (sparkos-windows-drives mounts it), else home
     [ -d "$start" ] || start=$(ls -d /var/mnt/*/"Personal Projects" 2>/dev/null | head -1)
     [ -d "$start" ] || start=$HOME
-    dir=$(kdialog --title "Open Claude Code in which folder?" --getexistingdirectory "$start") || exit 0
+    dir=$(spark-ask --title "Open Claude Code in which folder?" --getexistingdirectory "$start") || exit 0
   else
     dir=$PWD
   fi

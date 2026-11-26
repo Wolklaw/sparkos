@@ -76,7 +76,9 @@ DRACUT_NO_XATTR=1 dracut -v --force --reproducible --no-hostonly \
     "/usr/lib/modules/${kernel}/initramfs.img" "${kernel}"
 
 dnf install -y livesys-scripts
-sed -i "s/^livesys_session=.*/livesys_session=kde/" /etc/sysconfig/livesys
+# livesys makes liveuser. Its session scripts are for other desktops (KDE, GNOME, ...): none,
+# titanoboa_hook_postrootfs.sh sets up the Spark session instead.
+sed -i "s/^livesys_session=.*/livesys_session=/" /etc/sysconfig/livesys
 systemctl enable livesys.service livesys-late.service
 
 "$SCRIPT_DIR/titanoboa_hook_postrootfs.sh"

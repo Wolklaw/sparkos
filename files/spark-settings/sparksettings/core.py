@@ -128,6 +128,8 @@ def kwrite(file: str, group: str, key: str, value: str) -> int:
     groups: List[str] = []
     for g in group.split('/'):
         groups += ['--group', g]
+    if not shutil.which('kwriteconfig6'):
+        return _kconfig_write(file, group, key, value)
     return run(['kwriteconfig6', '--file', file, *groups, '--key', key, value])[0]
 
 
@@ -135,8 +137,77 @@ def kread(file: str, group: str, key: str, default: str = '') -> str:
     groups: List[str] = []
     for g in group.split('/'):
         groups += ['--group', g]
+    if not shutil.which('kreadconfig6'):
+        return _kconfig_read(file, group, key, default)
     rc, text, _ = run(['kreadconfig6', '--file', file, *groups, '--key', key, '--default', default])
     return text.strip() if rc == 0 else default
+
+
+# Without KDE (SparkOS has none) the same files are read and written directly. They are plain
+# ini files in ~/.config with [Group][Sub] headers, and some apps (and Spark Files) still read them.
+def _kconfig_path(file: str) -> str:
+    return file if os.path.isabs(file) else os.path.join(xdg_config_home(), file)
+
+
+def _kconfig_header(group: str) -> str:
+    return ''.join(f'[{g}]' for g in group.split('/'))
+
+
+def _kconfig_read(file: str, group: str, key: str, default: str) -> str:
+    want, current = _kconfig_header(group), None
+    try:
+        with open(_kconfig_path(file), encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line.startswith('['):
+                    current = line
+                elif current == want and '=' in line:
+                    k, v = line.split('=', 1)
+                    if k.strip() == key:
+                        return v.strip()
+    except OSError:
+        pass
+    return default
+
+
+def _kconfig_write(file: str, group: str, key: str, value: str) -> int:
+    path, want = _kconfig_path(file), _kconfig_header(group)
+    try:
+        with open(path, encoding='utf-8') as f:
+            lines = f.read().splitlines()
+    except FileNotFoundError:
+        lines = []
+    except OSError:
+        return 1
+    current, end, done = None, None, False
+    for i, line in enumerate(lines):
+        bare = line.strip()
+        if bare.startswith('['):
+            if current == want:
+                break
+            current = bare
+            end = i + 1 if bare == want else end
+        elif current == want and bare:
+            end = i + 1
+            if '=' in bare and bare.split('=', 1)[0].strip() == key:
+                lines[i], done = f'{key}={value}', True
+                break
+    if not done:
+        if end is None:
+            if lines and lines[-1].strip():
+                lines.append('')
+            lines += [want, f'{key}={value}']
+        else:
+            lines.insert(end, f'{key}={value}')
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + '.spark-tmp'
+        with open(tmp, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines) + '\n')
+        os.replace(tmp, path)
+    except OSError:
+        return 1
+    return 0
 
 
 # ── Spark-side settings: ~/.config/spark/<name>.json, which the Spark shell reads too ──

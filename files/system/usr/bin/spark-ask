@@ -1,0 +1,164 @@
+#!/usr/bin/python3 -s
+"""spark-ask: small questions and messages for shell scripts, in the Spark look (GTK 4).
+
+Takes the kdialog options SparkOS's scripts use, with the same exit codes, so a script can switch
+from kdialog by changing the command name:
+
+  --title TEXT  --yes-label TEXT  --no-label TEXT  --cancel-label TEXT
+  --yesno TEXT | --warningyesno TEXT     0 yes, 1 no (or closed)
+  --yesnocancel TEXT                     0 yes, 1 no, 2 cancel (or closed)
+  --error TEXT | --sorry TEXT | --msgbox TEXT   0 once closed
+  --getexistingdirectory [START]         prints the folder; 1 if cancelled
+  --password TEXT                        prints what was typed; 1 if cancelled
+
+As spark-askpass (a symlink), it is SUDO_ASKPASS: the prompt sudo passes is the only argument.
+"""
+import os
+import sys
+
+USAGE = ('usage: spark-ask [--title T] (--yesno|--warningyesno|--yesnocancel|--error|--sorry|--msgbox'
+         '|--password) TEXT')
+
+CSS = b"""
+window, dialog { background: #04090b; color: #d4f1ec; }
+.panel { padding: 22px; }
+.title { font-family: monospace; font-weight: 700; font-size: 9pt; color: #3de8c8; letter-spacing: 1px; }
+.title.warn { color: #ff4d8d; }
+.body { font-size: 11pt; }
+button { border-radius: 3px; padding: 6px 16px; background: #0e1f22; color: #d4f1ec;
+         border: 1px solid #1f6a66; box-shadow: none; }
+button:hover, button:focus-visible { box-shadow: 3px 0 0 #ff2e88, -3px 0 0 #22d8ff; }
+button.primary { background: #3de8c8; color: #02130f; border-color: #3de8c8; font-weight: 700; }
+button.danger { background: #ff4d8d; color: #04090b; border-color: #ff4d8d; font-weight: 700; }
+"""
+
+
+def parse(argv):
+    opts = {'title': 'SparkOS', 'yes': 'Yes', 'no': 'No', 'cancel': 'Cancel'}
+    kind = text = None
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        nxt = argv[i + 1] if i + 1 < len(argv) else None
+        if a in ('--title', '--yes-label', '--no-label', '--cancel-label'):
+            if nxt is None:
+                raise SystemExit(USAGE)
+            opts[{'--title': 'title', '--yes-label': 'yes', '--no-label': 'no',
+                  '--cancel-label': 'cancel'}[a]] = nxt
+            i += 2
+        elif a in ('--yesno', '--warningyesno', '--yesnocancel', '--error', '--sorry', '--msgbox',
+                   '--password'):
+            if nxt is None:
+                raise SystemExit(USAGE)
+            kind, text = a[2:], nxt
+            i += 2
+        elif a == '--getexistingdirectory':
+            kind = 'folder'
+            text = nxt if nxt and not nxt.startswith('--') else os.path.expanduser('~')
+            i += 2 if nxt and not nxt.startswith('--') else 1
+        else:
+            i += 1          # kdialog options SparkOS never uses are ignored
+    if kind is None:
+        raise SystemExit(USAGE)
+    return kind, text, opts
+
+
+def main(argv):
+    if os.path.basename(sys.argv[0]) == 'spark-askpass':
+        argv = ['--title', 'Password', '--password', argv[0] if argv else 'Password:']
+    kind, text, opts = parse(argv)
+    if not (os.environ.get('WAYLAND_DISPLAY') or os.environ.get('DISPLAY')):
+        print(f'{opts["title"]}: {text}', file=sys.stderr)
+        return 1 if kind not in ('error', 'sorry', 'msgbox') else 0
+    import gi
+    gi.require_version('Gtk', '4.0')
+    from gi.repository import Gio, GLib, Gtk
+
+    result = {'code': 1}
+    app = Gtk.Application(application_id=None, flags=Gio.ApplicationFlags.NON_UNIQUE)
+
+    def finish(code, out=None):
+        result['code'] = code
+        if out:
+            print(out)
+        app.quit()
+
+    def folder(win):
+        dlg = Gtk.FileDialog(title=opts['title'], initial_folder=Gio.File.new_for_path(text))
+
+        def done(d, res):
+            try:
+                f = d.select_folder_finish(res)
+            except GLib.Error:
+                return finish(1)
+            finish(0, f.get_path())
+        dlg.select_folder(win, None, done)
+
+    def activate(_app):
+        css = Gtk.CssProvider()
+        css.load_from_data(CSS)
+        from gi.repository import Gdk
+        Gtk.StyleContext.add_provider_for_display(Gdk.Display.get_default(), css,
+                                                  Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        win = Gtk.ApplicationWindow(application=app, title=opts['title'], resizable=False)
+        win.connect('close-request', lambda *_: finish(2 if kind == 'yesnocancel' else
+                                                       (0 if kind in ('error', 'sorry', 'msgbox') else 1)) or False)
+        if kind == 'folder':
+            win.set_default_size(1, 1)
+            win.present()
+            folder(win)
+            return
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=14)
+        box.add_css_class('panel')
+        warn = kind in ('warningyesno', 'error', 'sorry')
+        head = Gtk.Label(label=opts['title'].upper(), xalign=0)
+        head.add_css_class('title')
+        if warn:
+            head.add_css_class('warn')
+        body = Gtk.Label(label=text, xalign=0, wrap=True, max_width_chars=60, selectable=True)
+        body.add_css_class('body')
+        row = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+        if kind in ('yesno', 'warningyesno', 'yesnocancel'):
+            if kind == 'yesnocancel':
+                b = Gtk.Button(label=opts['cancel'])
+                b.connect('clicked', lambda *_: finish(2))
+                row.append(b)
+            no = Gtk.Button(label=opts['no'])
+            no.connect('clicked', lambda *_: finish(1))
+            row.append(no)
+            yes = Gtk.Button(label=opts['yes'])
+            yes.add_css_class('danger' if kind == 'warningyesno' else 'primary')
+            yes.connect('clicked', lambda *_: finish(0))
+            row.append(yes)
+            focus = no if kind == 'warningyesno' else yes
+        elif kind == 'password':
+            entry = Gtk.PasswordEntry(show_peek_icon=True, activates_default=True)
+            entry.connect('activate', lambda *_: finish(0, entry.get_text()))
+            cancel = Gtk.Button(label=opts['cancel'])
+            cancel.connect('clicked', lambda *_: finish(1))
+            ok = Gtk.Button(label='OK')
+            ok.add_css_class('primary')
+            ok.connect('clicked', lambda *_: finish(0, entry.get_text()))
+            row.append(cancel)
+            row.append(ok)
+            box_extra = entry
+            focus = entry
+        else:
+            ok = Gtk.Button(label='OK')
+            ok.add_css_class('primary')
+            ok.connect('clicked', lambda *_: finish(0))
+            row.append(ok)
+            focus = ok
+        for w in (head, body) + ((box_extra,) if kind == 'password' else ()) + (row,):
+            box.append(w)
+        win.set_child(box)
+        win.present()
+        focus.grab_focus()
+
+    app.connect('activate', activate)
+    app.run([])
+    return result['code']
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

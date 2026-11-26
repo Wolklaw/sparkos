@@ -1,23 +1,21 @@
 # SparkOS: the whole image, built from this file (no BlueBuild since 2026-11-20).
 #
-# Base: Fedora Kinoite (Fedora's atomic KDE Plasma image), since 2026-11-23. Bazzite was the base
-# before that; docs/fedora-base.md has what SparkOS took over from it and how the two compared.
+# Base: Fedora Kinoite (Fedora's atomic KDE Plasma image), since 2026-11-23. The last step removes
+# KDE, Plasma and KWin: SparkOS runs its own session (spark-compositor, Spark Shell, Spark
+# Greeter). Bazzite was the base before that; docs/fedora-base.md has what SparkOS took over from it and how the two compared.
 # Built and signed by .github/workflows/build.yml and published as ghcr.io/wolklaw/sparkos:latest.
 # docs/building.md explains each step.
 #
 # App policy (owner's decision, 2026-11-20): SparkOS ships only the owner's own apps (Soot,
 # FreeSuite and the Spark apps: Snip, Media, Welcome, Games, Monitor, Edit, Calc, Archive, Scan,
 # Run, Link, Store, Launcher, Files, Terminal and Update). Every other company's or project's app is removed;
-# people install what they want from Spark Store. What
-# stays is the platform SparkOS needs to work: Plasma, Dolphin, System Settings, Ark (zip
-# support), KDE Connect, the Store, drivers, printing and scanning. Where a Spark app does the job,
-# KDE's own is removed too: Spark Monitor replaces Plasma System Monitor (and takes its shortcuts),
-# Spark Snip replaces Spectacle (it captures through KWin itself), Spark Terminal replaces Konsole
-# (removed from the image) and Spark Files replaces Dolphin:
-# it is the default file manager and answers "Show in folder"; Dolphin stays installed but out of
-# the menu for one release (files/scripts/spark-files.sh). Ark, KDE Connect, Discover, Konsole,
-# GNOME Disks and firewall-config are removed (files/scripts/sparkos-apps.sh). Tailscale, a company's VPN service, is
-# removed too.
+# people install what they want from Spark Store. What stays is the platform: drivers, printing,
+# scanning, Flatpak. KDE is gone (files/scripts/sparkos-no-kde.sh): the Spark session replaces
+# Plasma and KWin, Spark Greeter replaces Plasma Login Manager, Spark Files replaces Dolphin,
+# Spark Terminal replaces Konsole, Spark Settings replaces System Settings, Spark Monitor replaces
+# Plasma System Monitor and Spark Snip replaces Spectacle. GNOME Keyring keeps passwords until
+# there is a Spark one; Breeze's icon and cursor artwork stays as files. Discover, GNOME Disks,
+# firewall-config and Tailscale are removed too (files/scripts/sparkos-apps.sh).
 #
 # Build it locally (from the repo root, as root, with about 40 GB free):
 #   sudo podman build -t localhost/sparkos:test .
@@ -123,7 +121,6 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #    - soot, freesuite: the browser and the office apps, latest releases
 #    - spark-apps, then the Spark apps: signed live updates for them (no reboot; root code
 #      stays in the image). spark-update comes after the others (it lists their versions). Spark
-#      Launcher (the app menu, a Plasma widget) replaces Kickoff in the SparkOS layout. Spark
 #      Update is the one updater: its timer downloads and stages updates daily
 #    - spark-controller: fans (curves, run by a small root service), RGB and firmware; the
 #      sensor-chip module for the motherboard's fan headers loads at boot (modules-load.d)
@@ -135,7 +132,9 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
 #    - sparkos-icons: the SparkOS icon theme over Breeze Dark (files/sparkos-icons), the default
-#    - sparkos-theme, last: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
+#    - sparkos-theme: boot splash, sign-in, desktop, dock, wallpaper, fonts (rebuilds the initramfs)
+#    - sparkos-no-kde, last: removes KDE, Plasma, KWin and Plasma Login Manager; greetd with the
+#      Spark greeter signs you in, GNOME Keyring keeps passwords. Fails if any KDE package is left
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
@@ -171,7 +170,6 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         spark-files.sh \
         spark-settings.sh \
         spark-terminal.sh \
-        spark-launcher.sh \
         spark-shell.sh \
         spark-emoji.sh \
         spark-notes.sh \
@@ -184,7 +182,8 @@ RUN --mount=type=bind,source=files,target=/tmp/files,rw \
         sparkos-cleanup.sh \
         sparkos-defaults.sh \
         sparkos-icons.sh \
-        sparkos-theme.sh
+        sparkos-theme.sh \
+        sparkos-no-kde.sh
 
 # 6. Flathub for the system and for each user, so the Store works; installs no apps.
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \

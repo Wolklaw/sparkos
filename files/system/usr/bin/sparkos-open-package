@@ -123,7 +123,7 @@ appimage_remove() {
   case "$app" in "$APPS_DIR"/*.AppImage) ;; *) app="" ;; esac
   case "$icon" in "$ICON_DIR"/*) ;; *) icon="" ;; esac
   if [ "$yes" != --yes ]; then
-    kdialog --title "Remove $name" --yes-label "Remove" --no-label "Cancel" --warningyesno \
+    spark-ask --title "Remove $name" --yes-label "Remove" --no-label "Cancel" --warningyesno \
 "Remove <b>$name</b> from this PC?<br><br>This deletes ${app:-the app} and its menu entry.
 Its settings in your home folder stay." || return 0
   fi
@@ -145,7 +145,7 @@ open_appimage() {
       run_detached "$added"; return
     fi
   done
-  kdialog --title "Open $name" --yes-label "Add to the app menu" --no-label "Run once" --cancel-label "Cancel" --yesnocancel \
+  spark-ask --title "Open $name" --yes-label "Add to the app menu" --no-label "Run once" --cancel-label "Cancel" --yesnocancel \
 "<b>$name</b> is an AppImage: a whole app in one file, from whoever made it. SparkOS can't check
 what it does, so open it only if you trust where it came from.<br><br>
 <b>Add to the app menu</b> moves it to your Applications folder and adds it to the menu.
@@ -155,10 +155,10 @@ Right-click it there to remove it later. Updates come from the app itself, if it
     0)
       err=$(mktemp)
       if ! entry=$(appimage_add "$file" 2>"$err"); then
-        kdialog --error "$name couldn't be added to the app menu. $(cat "$err")"; rm -f "$err"; return 1
+        spark-ask --error "$name couldn't be added to the app menu. $(cat "$err")"; rm -f "$err"; return 1
       fi
       rm -f "$err"
-      kdialog --title "Added" --yes-label "Open it now" --no-label "Later" --yesno \
+      spark-ask --title "Added" --yes-label "Open it now" --no-label "Later" --yesno \
         "<b>$(entry_key "$entry" Name)</b> is in your app menu." \
         && run_detached "$(entry_key "$entry" X-SparkOS-AppImage)"
       ;;
@@ -166,7 +166,7 @@ Right-click it there to remove it later. Updates come from the app itself, if it
       if [ ! -x "$real" ] && ! chmod +x -- "$real" 2>/dev/null; then
         # A drive that won't take the executable bit: run a copy from a temporary folder
         real="$(mktemp -d)/$name" && cp -- "$file" "$real" && chmod +x -- "$real" \
-          || { kdialog --error "$name couldn't be started."; return 1; }
+          || { spark-ask --error "$name couldn't be started."; return 1; }
       fi
       run_detached "$real"
       ;;
@@ -182,7 +182,7 @@ case "${1:-}" in
 esac
 
 file="${1:-}"
-[ -f "$file" ] || { kdialog --error "File not found: $file"; exit 1; }
+[ -f "$file" ] || { spark-ask --error "File not found: $file"; exit 1; }
 name=$(basename "$file")
 
 open_store() {
@@ -196,7 +196,7 @@ open_store() {
       return
     fi
   done
-  kdialog --sorry "Spark Store isn't installed."
+  spark-ask --sorry "Spark Store isn't installed."
 }
 
 case "${name,,}" in
@@ -209,7 +209,7 @@ case "${name,,}" in
   *.rpm)
     title=$(rpm -qp --qf '%{NAME} %{VERSION}' "$file" 2>/dev/null) || title=$name
     summary=$(rpm -qp --qf '%{SUMMARY}' "$file" 2>/dev/null) || summary=""
-    kdialog --title "Install $title" --yes-label "Install" --no-label "Cancel" --yesno \
+    spark-ask --title "Install $title" --yes-label "Install" --no-label "Cancel" --yesno \
 "<b>$title</b><br>$summary<br><br>SparkOS adds this program to the system. It's ready after you restart.<br><br>
 It won't update by itself. If the program is also in Spark Store, install it from there
 instead: Store apps install without a restart and update automatically." || exit 0
@@ -222,21 +222,21 @@ instead: Store apps install without a restart and update automatically." || exit
     status=$(cat "$status_file" 2>/dev/null); rm -f "$status_file"
 
     if [ "$status" = 0 ]; then
-      kdialog --title "Installed" --yes-label "Restart now" --no-label "Later" --yesno \
+      spark-ask --title "Installed" --yes-label "Restart now" --no-label "Later" --yesno \
         "$title is installed. Restart to start using it." && systemctl reboot
     else
-      kdialog --title "Not installed" --error \
+      spark-ask --title "Not installed" --error \
         "$title wasn't installed. The window that just closed showed the reason.<br>Try Spark Store for this app instead."
     fi
     ;;
   *.deb)
-    kdialog --title "$name" --yes-label "Open the Store" --no-label "Close" --warningyesno \
+    spark-ask --title "$name" --yes-label "Open the Store" --no-label "Close" --warningyesno \
 "<b>$name</b> is an installer for Ubuntu and Debian, not for SparkOS, so it can't be installed by double-clicking.<br><br>
 Most apps are in Spark Store, where they install with one click and update by themselves.
 Search for the app's name there.<br><br>If the app is only offered as a .deb, check its website for a
 Flatpak, AppImage or .rpm download instead." && open_store
     ;;
   *)
-    kdialog --sorry "SparkOS doesn't know how to open $name."
+    spark-ask --sorry "SparkOS doesn't know how to open $name."
     ;;
 esac

@@ -1,0 +1,10 @@
+# greetd's text sign-in, used when the Spark sign-in screen keeps failing (spark-greeter-ctl
+# auto-rollback) or after `spark greeter disable`. Type your user name and password; it starts the
+# Spark session. `spark greeter enable` brings the Spark sign-in screen back.
+
+[terminal]
+vt = 1
+
+[default_session]
+command = "agreety --cmd /usr/bin/spark-wl-session"
+user = "greetd"

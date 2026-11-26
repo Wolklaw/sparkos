@@ -2,26 +2,24 @@
 
 A Linux desktop for gaming and everyday work. It starts from [Fedora Kinoite](https://fedoraproject.org/atomic-desktops/kinoite/) and runs its own desktop on top: the Spark compositor, Spark Shell and the Spark apps. It is built from one [Containerfile](Containerfile) ([how it's built](docs/building.md)).
 
-Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026). Since 25 Nov 2026 that PC runs the Spark desktop session every day, with no KDE, Plasma or KWin running. CI boots every build in a VM ([boot-test](.github/workflows/boot-test.yml)) and checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. The roadmap is in [PLAN.md](PLAN.md).
+Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026). Since 25 Nov 2026 that PC runs the Spark desktop session every day. From the 26 Nov 2026 image, KDE, Plasma and KWin are not installed at all. CI boots every build in a VM ([boot-test](.github/workflows/boot-test.yml)) and checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. The roadmap is in [PLAN.md](PLAN.md).
 
 On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 11**: 92.4 vs 78.6 FPS on average, with 1% lows of 62.6 vs 48.4. Both used the same settings, with HDR on. The method and the limits are in [docs/benchmarks.md](docs/benchmarks.md). This was measured on the Plasma session, before the Spark compositor.
 
 ## The desktop
 
-SparkOS draws its own desktop. The login screen starts the Spark session; Plasma is in its session menu as the fallback.
+SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: Fedora Kinoite ships them, and the last build step removes them ([sparkos-no-kde.sh](files/scripts/sparkos-no-kde.sh)). The build fails if a KDE package is left.
 
-- **Spark** (`spark-wl`) is the default session, and the one the owner's PC uses every day. It runs nothing from KDE, Plasma or KWin:
+- **Spark Greeter** is the login screen: greetd runs it on the Spark compositor. If it fails to start a few times in a row, greetd switches to a text login by itself, and `spark greeter enable` brings it back.
+- **Spark** (`spark-wl`) is the only session:
   - **Spark compositor**: a Wayland compositor on wlroots, written in C ([source](files/spark-compositor)). It draws the title bars and handles snapping and maximizing. Alt+Tab opens a window switcher, and the Windows 7 window keys work (Super+arrows, Super+D, Super+E). The volume and mute keys work, and the screen stays on while a video or game asks for it. X11 apps run through XWayland.
   - **Spark Shell**: the panel, task list, tray, notifications, the Spark menu (Win7-style, above the SPARK button), wallpaper, volume display and lock screen, all in GTK 4 ([source](files/spark-shell)). Old X11 tray icons work too, so Wine and Proton apps such as Battle.net show theirs in the tray.
   - **Spark's own pieces for the rest**: password prompts (polkit agent), Open and Save dialogs for every app (a Spark Files portal), screenshots and screen sharing through the wlroots portal, and the startup sound.
-- **Plasma** is still installed as the fallback. Pick it in the login screen's session menu; the next sign-in starts on Spark again.
 
-Still from KDE in this image:
-- The login screen (Plasma Login Manager). A Spark greeter on greetd is built and installed, but off; `spark greeter enable` turns it on.
-- The password store (KWallet).
-- The Plasma packages kept for the fallback session.
-
-Replacing these is the next step (PLAN.md, "Replacing KDE").
+Not Spark yet:
+- Saved passwords go in GNOME Keyring, unlocked by your login password. It replaces KWallet because it is the store apps already know how to use. Passwords saved in KWallet on an older SparkOS do not move over.
+- The icon set falls back to Breeze's icons and cursors for the icons SparkOS has not drawn yet. Those are image files only; no KDE software is installed.
+- Without KDE, a SparkOS PC cannot be shared through Spark Connect's "Take control" (it used KDE's RDP server, krdpserver), and KDE's foreground booster is gone. The VRAM booster stays.
 
 Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. NVIDIA has not been tried at all.
 
@@ -47,7 +45,7 @@ Everything else, Steam included, installs from Spark Store, or by double-clickin
 | **Spark compositor** | - | The window manager and display server of the Spark session: title bars, snapping, the Alt+Tab switcher, keyboard shortcuts, monitors from a config file. | [source](files/spark-compositor) |
 | **Spark Shell** | 0.1.0 | The panel, tray, notifications, Spark menu, wallpaper, volume display and lock screen. | [source](files/spark-shell) |
 | **Spark Launcher** | - | The search behind the Spark menu. It searches as you type, answers sums on the first line, and shows pinned apps, recent files and power buttons. | [source](files/spark-launcher) |
-| **Spark Session** | 0.1.0 | The polkit agent for password prompts, and a greetd login screen (installed, off for now). | [source](files/spark-session) |
+| **Spark Session** | 0.1.0 | The login screen (Spark Greeter, on greetd), the session start-up, and the polkit agent for password prompts. | [source](files/spark-session) |
 | **Spark Files** | 1.3.0 | The file manager. It has tabs and a split view, copies in the background, search, thumbnails, the Trash, your Windows drives and network places (SSH, cloud with rclone). It also provides the Open and Save dialogs for other apps. | [source](files/spark-files) |
 | **Spark Terminal** | 1.1.0 | Tabs, split panes, search in the scrollback and clickable links. Opens with Ctrl+Alt+T. | [source](files/spark-terminal) |
 | **Spark Settings** | 1.1.0 | Displays, sound, network, Bluetooth, power, default apps, date and language, printers, startup and shortcuts. | [source](files/spark-settings) |
@@ -107,13 +105,13 @@ Lines of code written for SparkOS, not counting blank lines, other people's code
 
 | Part | Lines |
 |---|---:|
-| The Spark desktop (compositor, shell, launcher, session, tray) | 17,200 |
-| The Spark apps | 180,500 |
-| The image, installer, build and CI | 12,200 |
-| **SparkOS repository** | **209,900** |
+| The Spark desktop, which replaces KDE, Plasma and KWin (compositor, shell, sign-in screen, launcher, session, tray) | 17,200 |
+| The Spark apps | 180,600 |
+| The image, installer, build and CI | 12,400 |
+| **SparkOS repository** | **210,200** |
 | Soot (desktop and Android) | 7,900 |
 | FreeSuite | 18,500 |
-| **Everything** | **236,300** |
+| **Everything** | **236,600** |
 
 About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000 lines). The compositor is C (3,800). There are also about 20,000 lines of docs, config and units.
 
@@ -147,7 +145,7 @@ About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000
 **The desktop**
 
 - It has its own look: dark indigo with a mint accent, its own icons, wallpaper, boot splash and startup sound.
-- Its own compositor and shell (above). The KDE tools are replaced by Spark apps: the file manager, terminal, app menu, task manager, screenshot tool, clipboard, emoji picker, firewall tool, polkit agent, notifications and tray.
+- Its own compositor and shell (above). KDE's desktop and tools are replaced by Spark apps: the file manager, terminal, app menu, task manager, screenshot tool, clipboard, emoji picker, firewall tool, polkit agent, notifications and tray.
 - No preinstalled apps from other companies. Fedora's apps are removed, and each one can come back from the Store.
 - The Spark apps follow the system language, English or Quebec French.
 
@@ -159,12 +157,11 @@ About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000
 - VIA keyboard setup and Androidbox work without extra steps.
 - The source can be read on GitHub: the build file, every script and every Spark app.
 
-**Platform (from Fedora, and KDE for now)**
+**Platform (from Fedora)**
 
 - From Fedora: the kernel and current Mesa drivers, systemd, PipeWire, NetworkManager, CUPS driverless printing, SANE scanning and Bluetooth. From wlroots: the compositor's base. From RPM Fusion: full video decoding and encoding.
-- From KDE, for now: the login screen, KWallet, and Plasma as the fallback session.
-- Removed from the image: Konsole, Ark, KDE Connect, Discover, Info Center, Journald Browser, GNOME Disks, Btrfs Assistant and firewall-config. Spark Terminal, Spark Archive, Spark Link, Spark Store, Spark Settings, Spark Disks and Spark Firewall replace them. Dolphin stays out of the menu for one release, behind Spark Files.
-- Removed from Fedora Kinoite: Firefox, Kate/KWrite, Filelight, Plasma System Monitor, Spectacle, Discover's tray notifier and KDE's other small apps. Each can be installed from the Store.
+- From GNOME: GNOME Keyring for saved passwords, for now. From KDE: Breeze's icon and cursor artwork only.
+- Removed from Fedora Kinoite: all of KDE (Plasma, KWin, Plasma Login Manager, Dolphin, Konsole, Ark, KWallet, System Settings, Discover, KDE Connect and the KDE Frameworks), plus Firefox, GNOME Disks, Btrfs Assistant and firewall-config. Spark apps replace them: Spark Files, Terminal, Archive, Settings, Store, Link, Disks and Firewall. Flathub apps made with KDE still install and run; they bring their own libraries.
 
 Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build. It opens each one from the app menu on a SparkOS desktop in a VM and takes a screenshot. On a real PC they have had only a few days of use, the Spark session one day, and Spark Backup none yet.
 

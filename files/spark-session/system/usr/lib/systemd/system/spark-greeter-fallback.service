@@ -1,5 +1,5 @@
 [Unit]
-Description=Put Plasma Login Manager back after the Spark greeter failed
+Description=Switch to the text sign-in after the Spark sign-in screen failed
 # Only ever started by greetd.service's OnFailure=. Never enabled.
 
 [Service]
