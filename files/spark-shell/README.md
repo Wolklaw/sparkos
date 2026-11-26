@@ -1,6 +1,6 @@
 # Spark Shell and the Spark session
 
-SparkOS's desktop: the panel, tray, notifications, menu, wallpaper, lock screen and on-screen bars, as a GTK 4 program in the house style. It took over from Plasma (see [PLAN.md](../../PLAN.md), "Replacing KDE").
+SparkOS's desktop: the panel, tray, notifications, menu, wallpaper, lock screen and on-screen bars, as a GTK 4 program in the house style. See [PLAN.md](../../PLAN.md), "Replacing KDE", for how it came to be.
 
 It runs in one session on the login screen: **Spark** (`spark-wl`), on the [Spark compositor](../spark-compositor), with no KDE, Plasma or KWin. It has been the owner's daily session since 25 Nov 2026 and is the only one in the image. The window list comes from `spark-wl-windows` (wlr-foreign-toplevel), and `spark-wl-startup` starts the session services. The older session that ran the same shell on KWin is gone, and so is its code.
 
