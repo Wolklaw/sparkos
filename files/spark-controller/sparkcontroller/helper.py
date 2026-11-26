@@ -32,10 +32,13 @@ def install_config(text: str, path: str = "") -> int:
         return 2
     config.save(data, path)
     if any(entry["enabled"] for entry in data["fans"].values()):
-        # restart (not just start): the daemon also notices the new file by itself, this
-        # makes sure it is running at all
-        _systemctl("start", SERVICE)
-        _systemctl("kill", "--signal=SIGHUP", SERVICE)
+        # a running daemon re-reads the file on SIGHUP; a stopped one is started and reads
+        # it anyway. Never both: a SIGHUP right after start lands before the daemon set its
+        # handler and ends it quietly (exit by SIGHUP counts as clean, so no restart)
+        if _systemctl("is-active", "--quiet", SERVICE) == 0:
+            _systemctl("kill", "--signal=SIGHUP", SERVICE)
+        else:
+            _systemctl("start", SERVICE)
     else:
         _systemctl("stop", SERVICE)
     return 0
