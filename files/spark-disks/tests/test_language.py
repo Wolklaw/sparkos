@@ -125,6 +125,9 @@ class Window(unittest.TestCase):
 
     def pick(self, app, path):
         view = app.view('drives')
+        end = time.time() + 10          # the list is read in the background; a busy runner is slow
+        while not view.tree.exists(path) and time.time() < end:
+            self.pump(app, 0.05)
         view.tree.selection_set(path)
         self.pump(app, 0.1)
         return view
