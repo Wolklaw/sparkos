@@ -108,7 +108,9 @@ class Launcher(Gtk.Window):
         # Capture phase: the search entry eats Escape once it has text, before a bubble handler
         keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         keys.connect('key-pressed', self._key)
-        self.add_controller(keys)
+        # on the child box, not the window: on a layer-shell window the window's own key
+        # controller never sees the keys (found by the boot test: Escape did nothing)
+        outer.add_controller(keys)
         click = Gtk.GestureClick()
         click.connect('pressed', self._outside, card)
         self.add_controller(click)

@@ -32,7 +32,7 @@ jobs:
           dnf -y --setopt=install_weak_deps=False install gcc make pkgconf-pkg-config wlroots-devel \
             wayland-devel wayland-protocols-devel wlr-protocols-devel libxkbcommon-devel libinput-devel \
             pixman-devel libdrm-devel cairo-devel pango-devel librsvg2-devel xorg-x11-server-Xwayland xterm foot grim wlr-randr swaybg swaylock \
-            wl-clipboard wayland-utils wtype ImageMagick python3 procps-ng fontconfig dejavu-sans-mono-fonts
+            wl-clipboard wayland-utils wtype wlrctl python3-tkinter ImageMagick python3 procps-ng fontconfig dejavu-sans-mono-fonts
 
       - name: Build it
         run: make -C files/spark-compositor && make -C files/spark-compositor/spark-wl-windows

@@ -113,6 +113,31 @@ try:
         xt.wait(10)
         time.sleep(2)
         check(comp.poll() is None, "compositor survives an X11 window closing")
+        # an X11 menu (override-redirect, like a Tk drop-down in Spark Settings) that is clicked,
+        # then closed, then the active window closes: the click put the menu in the window list,
+        # and the next close walked into the freed menu and crashed the session
+        gone = os.path.join(work, "menu-gone")
+        menu = start(["python3", "-c",
+            "import os, tkinter\n"
+            "r = tkinter.Tk(); r.title('x11-menu-owner'); r.geometry('200x100+1200+600')\n"
+            "m = tkinter.Toplevel(r); m.overrideredirect(True); m.geometry('300x200+100+100')\n"
+            "def poll():\n"
+            f"    if os.path.exists({gone!r}): m.destroy(); return\n"
+            "    r.after(200, poll)\n"
+            "poll(); r.mainloop()\n"])
+        check(wait_log(r"mapped x11-unmanaged window", 40), "X11 menu (override-redirect) mapped")
+        if not failed:
+            run(["wlrctl", "pointer", "move", "-6000", "-6000"])
+            run(["wlrctl", "pointer", "move", "250", "250"])
+            run(["wlrctl", "pointer", "click", "left"])
+            time.sleep(1)
+            open(gone, "w").close()
+            time.sleep(2)
+            fx = start(["xterm", "-T", "x11-focus", "-e", "sleep", "60"])
+            check(wait_log(r"mapped x11 window app_id=XTerm title=x11-focus", 40), "window opened after the menu closed")
+            fx.terminate(); fx.wait(10); time.sleep(2)
+            check(comp.poll() is None, "compositor survives a clicked X11 menu closing, then the active window closing")
+        menu.terminate(); menu.wait(10); time.sleep(1)
         # one left open: at logout the compositor stops with X11 windows still up, and their
         # surfaces go before the X11 side (it crashed in xw_dissociate on every logout)
         left = subprocess.Popen(["xterm", "-T", "x11-left", "-e", "sleep", "120"], env=cenv,
