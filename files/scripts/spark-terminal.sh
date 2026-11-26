@@ -10,7 +10,7 @@
 # - TerminalApplication/TerminalService in /etc/xdg/kdeglobals, which Spark Settings' Default
 #   apps page reads and changes (files/system)
 # - xdg-terminal-exec's default (/etc/xdg/xdg-terminals.list), for apps with Terminal=true
-# - Ctrl+Alt+T: Spark Terminal's desktop entry takes it
+# - Ctrl+Alt+T and Super+Return: spark-compositor binds them (the desktop entry has no keys)
 # - the shell's dock and SparkOS's own scripts start spark-terminal
 # This script also checks nothing SparkOS ships starts Konsole.
 set -oue pipefail
@@ -29,15 +29,9 @@ test -f "$APP"
 test -f /usr/share/icons/hicolor/scalable/apps/dev.wolklaw.SparkTerminal.svg
 rpm -q vte291-gtk4
 
-# --- Ctrl+Alt+T: spark-compositor reads the shortcut from the desktop entry linked here
-install -d /usr/share/kglobalaccel
-ln -sfn ../applications/dev.wolklaw.SparkTerminal.desktop /usr/share/kglobalaccel/dev.wolklaw.SparkTerminal.desktop
-grep -qx 'X-KDE-Shortcuts=Ctrl+Alt+T' "$APP"
-
-others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?Ctrl\+Alt\+T(,|$)' \
-  /usr/share/applications/*.desktop /usr/share/kglobalaccel/*.desktop 2>/dev/null \
-  | grep -v 'dev.wolklaw.SparkTerminal.desktop$' || true)
-[ -z "$others" ] || { echo "these also claim Ctrl+Alt+T:"; echo "$others"; exit 1; }
+if grep -q '^X-KDE' "$APP"; then
+  echo "the Spark Terminal desktop entry still has X-KDE keys"; exit 1
+fi
 
 # --- the default terminal (the files come from files/system)
 grep -qx 'TerminalApplication=spark-terminal' /etc/xdg/kdeglobals

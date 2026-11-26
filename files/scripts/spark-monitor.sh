@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # Spark Monitor, the SparkOS task manager (Ctrl+Shift+Esc). Its source lives in this repo at
-# files/spark-monitor. sparkos-cleanup.sh gives it its keys.
+# files/spark-monitor. spark-compositor binds Ctrl+Shift+Esc, Super+Esc and Ctrl+Esc to it.
 #
-# install.sh --deps installs it system-wide, links its desktop entry into
-# /usr/share/kglobalaccel so spark-compositor binds Ctrl+Shift+Esc, and runs --self-test (reads
+# install.sh --deps installs it system-wide and runs --self-test (reads
 # /proc and /sys of the build container); the build fails if that or any file below is missing.
 set -oue pipefail
 
@@ -14,17 +13,14 @@ bash "$SRC/install.sh" --deps
 
 test -x /usr/bin/spark-monitor
 test -f /usr/share/applications/dev.wolklaw.SparkMonitor.desktop
-test -L /usr/share/kglobalaccel/dev.wolklaw.SparkMonitor.desktop
-grep -q '^X-KDE-Shortcuts=Ctrl+Shift+Esc$' /usr/share/applications/dev.wolklaw.SparkMonitor.desktop
+if grep -q '^X-KDE' /usr/share/applications/dev.wolklaw.SparkMonitor.desktop; then
+  echo "the Spark Monitor desktop entry still has X-KDE keys"; exit 1
+fi
 test -f /usr/share/icons/hicolor/scalable/apps/dev.wolklaw.SparkMonitor.svg
 
-# The self-test (also what the boot test runs) must find the shortcut registered, and no other
-# installed desktop entry claiming Ctrl+Shift+Esc.
+# The self-test is also what the boot test runs
 report=$(/usr/bin/spark-monitor --self-test)
 echo "$report"
 grep -q '^self-test passed' <<<"$report"
-grep -q '^shortcut:  Ctrl+Shift+Esc registered by /usr/share/kglobalaccel/' <<<"$report"
-if grep -q 'also claimed by' <<<"$report"; then
-  echo "Ctrl+Shift+Esc is claimed by another desktop entry; tell the owner"; exit 1
-fi
+grep -q '^shortcut:  Ctrl+Shift+Esc opens this window' <<<"$report"
 echo "$(/usr/bin/spark-monitor --version) installed."

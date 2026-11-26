@@ -5,17 +5,6 @@
 # there. Runs after the Spark apps are installed.
 set -oue pipefail
 
-# --- Spark Monitor's keys: Ctrl+Shift+Esc (the Windows key), and Meta+Esc and Ctrl+Esc (the keys
-# KDE gives its monitor, which people coming from KDE know)
-MON=/usr/share/applications/dev.wolklaw.SparkMonitor.desktop
-sed -i --follow-symlinks 's/^X-KDE-Shortcuts=.*/X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc/' "$MON"
-grep -qx 'X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc' /usr/share/kglobalaccel/dev.wolklaw.SparkMonitor.desktop
-# No other desktop entry may claim those keys
-others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)(,|$)' \
-  /usr/share/applications/*.desktop /usr/share/kglobalaccel/*.desktop 2>/dev/null \
-  | grep -v 'dev.wolklaw.SparkMonitor.desktop$' || true)
-[ -z "$others" ] || { echo "these also claim Spark Monitor's keys:"; echo "$others"; exit 1; }
-
 # --- Tailscale (removed in the recipe): its package repository and any unit left enabled
 if rpm -q tailscale >/dev/null 2>&1; then echo "tailscale is still installed"; exit 1; fi
 rm -fv /etc/yum.repos.d/tailscale.repo

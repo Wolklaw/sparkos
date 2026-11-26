@@ -8,8 +8,7 @@
 # and runs --self-test; the build fails if that or any check below fails.
 #
 # Spark Emoji takes Meta+. (Windows key and full stop):
-# its desktop entry carries X-KDE-Shortcuts=Meta+., and spark-compositor reads the link in
-# /usr/share/kglobalaccel; no other entry may claim the key.
+# spark-compositor binds it; the desktop entry carries no shortcut keys.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-emoji"
@@ -28,14 +27,8 @@ test -f /usr/lib/spark-emoji/sparkemoji/data/emoji.json
 test -f /usr/lib/spark-emoji/sparkemoji/data/symbols.json
 fc-list ':charset=1f600' family | grep -q . || { echo "no installed font has emoji (U+1F600)"; exit 1; }
 
-# --- Meta+. : spark-compositor reads the shortcut from the desktop entry linked here
-install -d /usr/share/kglobalaccel
-ln -sfn ../applications/dev.wolklaw.SparkEmoji.desktop /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop
-grep -qx 'X-KDE-Shortcuts=Meta+.' "$APP"
+if grep -q '^X-KDE' "$APP"; then
+  echo "the Spark Emoji desktop entry still has X-KDE keys"; exit 1
+fi
 
-others=$(grep -lF 'Meta+.' /usr/share/applications/*.desktop /usr/share/kglobalaccel/*.desktop 2>/dev/null \
-  | xargs -r grep -lE '^X-KDE-Shortcuts=(.*,)?Meta\+\.(,|$)' \
-  | grep -v 'dev.wolklaw.SparkEmoji.desktop$' || true)
-[ -z "$others" ] || { echo "these also claim Meta+. :"; echo "$others"; exit 1; }
-
-echo "$(/usr/bin/spark-emoji --version) installed; it has Meta+."
+echo "$(/usr/bin/spark-emoji --version) installed."
