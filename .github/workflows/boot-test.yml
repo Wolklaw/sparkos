@@ -365,11 +365,9 @@ jobs:
       - name: Check Spark Snip
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          # Installed, shortcuts registered (Spark's own entries, read by the compositor), Spectacle gone
-          $SSH 'set -e; spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
-          $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop' | tee "$WORK/shortcuts.txt"
-          grep -q 'SparkSnip.desktop:X-KDE-Shortcuts=Print,Meta+Shift+S' "$WORK/shortcuts.txt"
-          if $SSH 'rpm -q spectacle'; then echo "::error::Spectacle is back in the image"; exit 1; fi
+          # Installed, with no KDE keys in its desktop entry (the compositor binds the keys)
+          $SSH 'set -e; spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/applications/dev.wolklaw.SparkSnip.desktop'
+          if $SSH 'grep -q "^X-KDE" /usr/share/applications/dev.wolklaw.SparkSnip.desktop'; then echo "::error::Spark Snip's desktop entry has X-KDE keys"; exit 1; fi
           # OCR in English and French, and a test video through each installed encoder
           $SSH 'spark-snip --self-test' 2>&1 | tee "$WORK/spark-snip-self-test.txt"
           [ "${PIPESTATUS[0]}" = 0 ] || { echo "::error::Spark Snip's self-test failed"; exit 1; }

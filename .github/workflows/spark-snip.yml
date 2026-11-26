@@ -1,14 +1,14 @@
 name: spark-snip
-# Spark Snip reads the screen itself (KWin's ScreenShot2 D-Bus interface, then the XDG portal)
-# and records through the ScreenCast portal, so neither job has Spectacle installed.
+# Spark Snip reads the screen with grim (wlr-screencopy), then the XDG portal, and records
+# through the ScreenCast portal. No job needs a compositor: grim and the portal are faked.
 #
 # fedora:  installs Spark Snip in a plain Fedora container and checks it there: the install
-#          script, the self-test (OCR in English and French, capture without Spectacle, a test
-#          video through each encoder), the unit and UI tests under Xvfb, and the D-Bus capture
-#          tests against a stand-in KWin and portal on a private bus.
-# sparkos: the same inside the published SparkOS image, with Spectacle removed first: installs
-#          this version over the image's copy, then runs the self-test and every test as a
-#          normal user on the image's own Python.
+#          script, the self-test (OCR in English and French, the capture order, a test video
+#          through each encoder), the unit and UI tests under Xvfb, and the D-Bus capture
+#          tests against a stand-in portal on a private bus.
+# sparkos: the same inside the published SparkOS image: installs this version over the
+#          image's copy, then runs the self-test and every test as a normal user on the
+#          image's own Python.
 on:
   push:
     paths:
@@ -33,15 +33,10 @@ jobs:
       - name: Install
         run: bash files/spark-snip/install.sh --deps
 
-      - name: Spectacle is not installed
-        run: |
-          if rpm -q spectacle || command -v spectacle; then echo "Spectacle is installed"; exit 1; fi
-          echo "no Spectacle"
-
       - name: Self-test
         run: |
           spark-snip --self-test | tee self-test.json
-          python3 -c 'import json,sys; c=json.load(open("self-test.json"))["capture"]; sys.exit(0 if c["passed"] and not c["spectacle_installed"] and c["desktop_entries"] else 1)'
+          python3 -c 'import json,sys; c=json.load(open("self-test.json"))["capture"]; sys.exit(0 if c["passed"] and c["desktop_entries"] else 1)'
 
       - name: Tests (Xvfb, private D-Bus)
         env:
@@ -83,13 +78,9 @@ jobs:
           for i in 1 2 3 4 5; do sudo podman pull -q "$IMAGE" && break; echo "pull failed, retry $i"; sleep $((i*30)); done
           sudo podman image inspect "$IMAGE" --format '{{.Digest}} {{.Created}}'
 
-      - name: Without Spectacle, install and test as a normal user
+      - name: Install and test as a normal user
         run: |
           sudo podman run --rm -v "$PWD/files/spark-snip:/src:ro" "$IMAGE" bash -euo pipefail -c '
-            echo "--- remove Spectacle, as the next SparkOS image will"
-            if rpm -q spectacle; then rpm -e --nodeps spectacle; fi
-            if command -v spectacle; then echo "Spectacle is still there"; exit 1; fi
-
             echo "--- test tools the image does not ship (Xvfb, a private D-Bus daemon)"
             need=()
             command -v xvfb-run >/dev/null || need+=(xorg-x11-server-Xvfb)
@@ -101,9 +92,10 @@ jobs:
 
             echo "--- install this version over the image'"'"'s copy (runs the self-test as root)"
             bash /src/install.sh
-            grep -q "^X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2$" \
-              /usr/share/applications/dev.wolklaw.SparkSnip.desktop
-            test -L /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop
+            test -f /usr/share/applications/dev.wolklaw.SparkSnip.desktop
+            if grep -q "^X-KDE" /usr/share/applications/dev.wolklaw.SparkSnip.desktop; then
+              echo "the desktop entry still has X-KDE keys"; exit 1
+            fi
 
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)
@@ -117,9 +109,9 @@ jobs:
 
             echo "--- self-test as a normal user"
             as "set -o pipefail; spark-snip --self-test | tee ~/self-test.json"
-            python3 -c "import json,sys; c=json.load(open(sys.argv[1]))[\"capture\"]; sys.exit(0 if c[\"passed\"] and not c[\"spectacle_installed\"] else 1)" "$home/self-test.json"
+            python3 -c "import json,sys; c=json.load(open(sys.argv[1]))[\"capture\"]; sys.exit(0 if c[\"passed\"] else 1)" "$home/self-test.json"
 
             echo "--- unit, UI and D-Bus tests on the image'"'"'s Python"
             as "cd ~/spark-snip && xvfb-run -a -s \"-screen 0 1920x1080x24\" python3 -m unittest discover -s tests -v"
-            echo "Spark Snip works on SparkOS with no Spectacle installed"
+            echo "Spark Snip installs and passes its tests on SparkOS"
           '

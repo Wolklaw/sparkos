@@ -39,7 +39,7 @@ BUTTON_LABELS = {mode: t(f'btn.{mode}') for mode in MODES}
 
 
 def detect_scale(root: tk.Tk) -> float:
-    """UI scale. Tk ignores the desktop's scaling on Linux, but Plasma publishes it to X
+    """UI scale. Tk ignores the desktop's scaling on Linux, but a desktop may publish it to X
     programs as Xft.dpi, so read that."""
     forced = os.environ.get('SPARK_SNIP_SCALE')
     if forced:
@@ -681,7 +681,7 @@ def self_test(skip_record: bool = False) -> int:
                 report["reads"].append({"lang": lang, "error": str(exc), "passed": False})
             ok = ok and passed
     report["ocr_passed"] = ok
-    # screenshots through KWin or the portal; Spectacle is only ever a fallback
+    # screenshots through grim (wlr-screencopy), then the portal
     from .capture import self_check
     report["capture"] = self_check()
     report["pygobject"] = report["capture"]["dbus"].startswith("PyGObject")
@@ -707,18 +707,18 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument('--from', dest='from_file', metavar='FILE',
                         help="pick from an image file instead of the screen (for testing)")
     parser.add_argument('--self-test', action='store_true',
-                        help="read samples with Tesseract, check screen capture needs no "
-                             "Spectacle, encode a test video, print a report and exit; "
+                        help="read samples with Tesseract, check the capture order and "
+                             "desktop entry, encode a test video, print a report and exit; "
                              "needs no display")
     parser.add_argument('--skip-record', action='store_true',
                         help="with --self-test: leave out the recording check")
     parser.add_argument('--capture-test', metavar='FILE',
-                        help="on a running Plasma session: take one full-screen screenshot "
-                             "through KWin only, save it to FILE as PNG, print a report, and "
+                        help="in the Spark session: take one full-screen screenshot "
+                             "through grim only, save it to FILE as PNG, print a report, and "
                              "exit 1 if it failed")
     parser.add_argument('--capture-check', nargs='?', const='', metavar='FOLDER',
                         help="on a running desktop: take a screenshot every way Spark Snip "
-                             "can (KWin workspace, screen, window, area, then the portal), "
+                             "can (grim, then the portal), "
                              "save them to FOLDER (default ~/.cache/spark-snip/capture-check) "
                              "and print a report")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")

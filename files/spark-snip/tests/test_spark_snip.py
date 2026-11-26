@@ -121,7 +121,7 @@ class LogicTests(unittest.TestCase):
         self.assertTrue(recorder.stream_matches(mon, {}))
         self.assertTrue(recorder.stream_matches(mon, {'position': (2560, 180),
                                                       'size': (1920, 1080)}))
-        # Plasma at 150%: the portal speaks logical pixels
+        # an output scaled to 150%: the portal speaks logical pixels
         self.assertTrue(recorder.stream_matches(Monitor('DP-1', 2880, 0, 2880, 1620),
                                                 {'position': (1920, 0), 'size': (1920, 1080)}))
         self.assertFalse(recorder.stream_matches(mon, {'position': (0, 0), 'size': (2560, 1440)}))
@@ -174,69 +174,27 @@ class RecorderPidTests(unittest.TestCase):
 
 
 class CaptureLogicTests(unittest.TestCase):
-    """Reading the screen without needing Spectacle: decoding, order, desktop entry."""
-
-    def test_raw_rgbx_with_padded_rows(self):
-        width, height, stride = 3, 2, 3 * 4 + 4
-        data = b''.join(bytes(b for x in range(width) for b in (x * 50, y * 100, 7, 255))
-                        + bytes(4) for y in range(height))
-        image = capture.image_from_raw(data, width, height, stride, 16)
-        self.assertEqual(image.mode, 'RGB')
-        self.assertEqual(image.size, (3, 2))
-        self.assertEqual(image.getpixel((2, 1)), (100, 100, 7))
-
-    def test_raw_argb32_is_bgra_in_memory(self):
-        image = capture.image_from_raw(bytes([30, 20, 10, 255]), 1, 1, 4, 4)
-        self.assertEqual(image.getpixel((0, 0)), (10, 20, 30))
-
-    def test_raw_premultiplied_window(self):
-        image = capture.image_from_raw(bytes([50, 25, 0, 128]), 1, 1, 4, 18)
-        red, green, _blue, alpha = image.getpixel((0, 0))
-        self.assertEqual(alpha, 128)
-        self.assertLessEqual(abs(red - 100), 1)
-        self.assertLessEqual(abs(green - 50), 1)
-
-    def test_raw_rejects_short_data_and_unknown_formats(self):
-        with self.assertRaises(capture.ScreenReadError):
-            capture.image_from_raw(bytes(10), 2, 2, 8, 16)
-        with self.assertRaises(capture.ScreenReadError):
-            capture.image_from_raw(bytes(16), 2, 2, 8, 9999)
+    """Reading the screen in the Spark session: capture order and desktop entry."""
 
     @unittest.skipIf(os.name == 'nt', "Windows always uses Pillow")
-    def test_spectacle_is_only_a_fallback(self):
+    def test_spark_session_reads_with_grim_then_the_portal(self):
         orders = capture.orders_by_desktop()
-        self.assertEqual(orders['plasma'], ['kwin', 'spectacle', 'portal'])
-        for desktop, order in orders.items():
-            self.assertIn('portal', order, desktop)
-            if 'spectacle' in order:
-                self.assertIn(order[0], ('kwin', 'pil'), desktop)
+        self.assertEqual(orders['spark'], ['grim', 'portal'])
+        self.assertEqual(orders['wlroots'], ['grim', 'portal'])
+        self.assertEqual(orders['gnome'], ['gnome-screenshot', 'portal'])
+        self.assertEqual(orders['x11'], ['pil', 'portal'])
 
     @unittest.skipIf(os.name == 'nt', "Windows always uses Pillow")
-    def test_session_without_plasma_picks_by_the_bus_not_the_name(self):
+    def test_unnamed_wayland_desktop_uses_grim(self):
         env = {'XDG_SESSION_TYPE': 'wayland', 'WAYLAND_DISPLAY': 'wayland-0',
-               'XDG_CURRENT_DESKTOP': 'Spark'}
+               'XDG_CURRENT_DESKTOP': ''}
         with mock.patch.dict(os.environ, env):
             os.environ.pop('SPARK_SNIP_CAPTURE', None)
-            with mock.patch.dict(os.environ, {'SPARK_SNIP_KWIN': '1'}):
-                self.assertEqual(core.capture_order(), ['kwin', 'portal'])
-            with mock.patch.dict(os.environ, {'SPARK_SNIP_KWIN': '0'}):
-                self.assertEqual(core.capture_order(), ['grim', 'portal'])
-            with mock.patch.object(capture, 'kwin_screenshot_offered', return_value=True):
-                os.environ.pop('SPARK_SNIP_KWIN', None)
-                self.assertEqual(core.capture_order(), ['kwin', 'portal'])
-            with mock.patch.object(capture, 'kwin_screenshot_offered',
-                                   side_effect=capture.ScreenReadError("no bus")):
-                self.assertEqual(core.capture_order(), ['grim', 'portal'])
+            self.assertEqual(core.capture_order(), ['grim', 'portal'])
 
-    def test_plasma_and_gnome_orders_do_not_ask_the_bus(self):
-        with mock.patch.object(capture, 'kwin_screenshot_offered',
-                               side_effect=AssertionError("asked")):
-            for desktop, first in (('KDE', 'kwin'), ('GNOME', 'gnome-screenshot')):
-                with mock.patch.dict(os.environ, {'XDG_SESSION_TYPE': 'wayland',
-                                                  'WAYLAND_DISPLAY': 'w',
-                                                  'XDG_CURRENT_DESKTOP': desktop}):
-                    os.environ.pop('SPARK_SNIP_CAPTURE', None)
-                    self.assertEqual(core.capture_order()[0], first)
+    def test_no_other_screenshot_tool_is_known(self):
+        self.assertEqual(set(core.CAPTURE_TOOLS), {'grim', 'gnome-screenshot'})
+        self.assertEqual(core.BUILT_IN_CAPTURE, ('portal', 'pil'))
 
     def test_unknown_capture_method_is_refused(self):
         with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'nosuchtool'}):
@@ -244,15 +202,93 @@ class CaptureLogicTests(unittest.TestCase):
                 core.grab_screen()
         self.assertIn("not a capture method", str(caught.exception))
 
-    def test_desktop_entry_declares_kwin_and_owns_the_keys(self):
+    def test_grim_runs_and_is_returned(self):
+        def fake_run(cmd, **_kw):
+            Image.new('RGB', (40, 30), (9, 8, 7)).save(cmd[-1], 'PPM')
+            return subprocess.CompletedProcess(cmd, 0, b'', b'')
+        with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'grim'}), \
+                mock.patch.object(core.shutil, 'which', return_value='/usr/bin/grim'), \
+                mock.patch.object(core.subprocess, 'run', fake_run), \
+                mock.patch.object(core, 'close_spark_menu'):
+            shot, tool = core.grab_screen()
+        self.assertEqual(tool, 'grim')
+        self.assertEqual(shot.size, (40, 30))
+        self.assertEqual(shot.getpixel((0, 0)), (9, 8, 7))
+
+    def test_grim_failure_is_reported_with_its_reason(self):
+        def fake_run(cmd, **_kw):
+            return subprocess.CompletedProcess(cmd, 1, b'', b'compositor doesn\'t support screencopy\n')
+        with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'grim'}), \
+                mock.patch.object(core.shutil, 'which', return_value='/usr/bin/grim'), \
+                mock.patch.object(core.subprocess, 'run', fake_run), \
+                mock.patch.object(core, 'close_spark_menu'):
+            with self.assertRaises(core.CaptureError) as caught:
+                core.grab_screen()
+        self.assertIn("grim: compositor doesn't support screencopy", str(caught.exception))
+
+    def test_missing_grim_is_reported(self):
+        with mock.patch.dict(os.environ, {'SPARK_SNIP_CAPTURE': 'grim'}), \
+                mock.patch.object(core.shutil, 'which', return_value=None), \
+                mock.patch.object(core, 'close_spark_menu'):
+            with self.assertRaises(core.CaptureError) as caught:
+                core.grab_screen()
+        self.assertIn("grim: not installed", str(caught.exception))
+
+    def test_desktop_entry_has_the_actions_and_no_shortcut_keys(self):
         path = os.path.join(os.path.dirname(HERE), capture.DESKTOP_FILE)
         report = capture.check_desktop_entry(path)
         self.assertTrue(report['passed'], report)
-        self.assertEqual(report['restricted_interfaces'], ['org.kde.KWin.ScreenShot2'])
+        self.assertEqual(report['actions'], capture.ACTIONS)
+        self.assertFalse(report['has_shortcut_keys'])
 
-    def test_install_script_does_not_pull_spectacle(self):
+    def test_self_check_passes(self):
+        # look only at the source's desktop entry, not at a copy installed on this machine
+        empty = tempfile.mkdtemp()
+        with mock.patch.dict(os.environ, {'XDG_DATA_HOME': empty, 'XDG_DATA_DIRS': empty}):
+            report = capture.self_check()
+        self.assertTrue(report['spark_uses_grim'], report)
+        self.assertTrue(report['desktop_entries'])
+        self.assertTrue(report['passed'], report)
+
+    def test_capture_test_with_grim(self):
+        import json
+        out = os.path.join(tempfile.mkdtemp(), 'snip.png')
+
+        def fake_run(cmd, **_kw):
+            img = Image.new('RGB', (50, 40), (0, 0, 0))
+            img.putpixel((3, 3), (255, 255, 255))
+            img.save(cmd[-1], 'PPM')
+            return subprocess.CompletedProcess(cmd, 0, b'', b'')
+        with mock.patch.object(core.shutil, 'which', return_value='/usr/bin/grim'), \
+                mock.patch.object(core.subprocess, 'run', fake_run):
+            report = capture.capture_test(out)
+        json.dumps(report)
+        self.assertTrue(report['passed'], report)
+        self.assertEqual(report['size'], [50, 40])
+        with Image.open(out) as image:
+            self.assertEqual(image.size, (50, 40))
+
+    def test_capture_test_fails_on_a_blank_picture_and_without_grim(self):
+        out = os.path.join(tempfile.mkdtemp(), 'snip.png')
+
+        def blank_run(cmd, **_kw):
+            Image.new('RGB', (50, 40)).save(cmd[-1], 'PPM')
+            return subprocess.CompletedProcess(cmd, 0, b'', b'')
+        with mock.patch.object(core.shutil, 'which', return_value='/usr/bin/grim'), \
+                mock.patch.object(core.subprocess, 'run', blank_run):
+            report = capture.capture_test(out)
+        self.assertFalse(report['passed'])
+        self.assertTrue(report['single_colour'])
+        with mock.patch.object(capture.shutil, 'which', return_value=None):
+            report = capture.capture_test(out)
+        self.assertFalse(report['passed'])
+        self.assertIn("not installed", report['error'])
+
+    def test_install_script_has_no_desktop_environment_steps(self):
         with open(os.path.join(os.path.dirname(HERE), 'install.sh'), encoding='utf-8') as f:
-            self.assertNotIn('spectacle', f.read().lower())
+            text = f.read().lower()
+        for word in ('kglobalaccel', 'spectacle', 'kwin'):
+            self.assertNotIn(word, text)
 
 
 DBUS_CONFIG = """<!DOCTYPE busconfig PUBLIC "-//freedesktop//DTD D-Bus Bus Configuration 1.0//EN"
@@ -277,8 +313,8 @@ if os.environ.get('SPARK_SNIP_REQUIRE_DBUS_TESTS') == '1' and not HAVE_DBUS:
 
 @unittest.skipUnless(HAVE_DBUS, NEEDS_DBUS)
 class DBusCaptureTests(unittest.TestCase):
-    """The real D-Bus client against a stand-in KWin and portal (tests/fake_desktop.py) on a
-    private bus: fd passing, the raw pixel read, and the fallback order."""
+    """The real D-Bus client against a stand-in portal (tests/fake_desktop.py) on a private
+    bus: the Screenshot call, and the fallback from grim to the portal."""
 
     @classmethod
     def setUpClass(cls):
@@ -295,7 +331,7 @@ class DBusCaptureTests(unittest.TestCase):
             raise RuntimeError("dbus-daemon gave no address")
         cls.env = mock.patch.dict(os.environ, {
             'DBUS_SESSION_BUS_ADDRESS': cls.address, 'XDG_SESSION_TYPE': 'wayland',
-            'WAYLAND_DISPLAY': 'wayland-test', 'XDG_CURRENT_DESKTOP': 'KDE'})
+            'WAYLAND_DISPLAY': 'wayland-test', 'XDG_CURRENT_DESKTOP': 'sparkwl:Spark'})
         cls.env.start()
         os.environ.pop('SPARK_SNIP_CAPTURE', None)
 
@@ -331,130 +367,48 @@ class DBusCaptureTests(unittest.TestCase):
         with open(os.path.join(self.folder, 'calls.txt'), encoding='utf-8') as f:
             return f.read()
 
-    def test_kwin_offered_only_while_something_owns_the_name(self):
-        self.assertFalse(capture.kwin_screenshot_offered())
-        self.start_fake()
-        self.assertTrue(capture.kwin_screenshot_offered())
-        with mock.patch.dict(os.environ, {'XDG_CURRENT_DESKTOP': 'Spark'}):
-            os.environ.pop('SPARK_SNIP_CAPTURE', None)
-            self.assertEqual(core.capture_order(), ['kwin', 'portal'])
-
-    def test_kwin_workspace_pixels(self):
-        self.start_fake()
-        with capture.KWinScreenShot() as kwin:
-            self.assertEqual(kwin.version(), 5)
-            image = kwin.workspace()
-        self.assertEqual(image.size, (300, 200))
-        self.assertEqual(image.getpixel((10, 20)), (10, 20, 77))
-        self.assertEqual(image.getpixel((299, 199)), (299 % 256, 199, 77))
-        self.assertIn("CaptureWorkspace ({'include-cursor': False, 'native-resolution': True},)",
-                      self.calls())
-
-    def test_kwin_screen_window_and_area(self):
-        self.start_fake()
-        with capture.KWinScreenShot() as kwin:
-            self.assertEqual(kwin.screen('DP-1').size, (300, 200))
-            self.assertEqual(kwin.active_screen().size, (300, 200))
-            self.assertEqual(kwin.active_window().size, (300, 200))
-            area = kwin.area(5, 6, 64, 32)
-        self.assertEqual(area.size, (64, 32))
-        calls = self.calls()
-        self.assertIn("CaptureScreen ('DP-1',", calls)
-        self.assertIn("'include-decoration': True", calls)
-        self.assertIn("CaptureArea (5, 6, 64, 32,", calls)
-
-    def test_plasma_capture_goes_through_kwin(self):
-        self.start_fake()
-        shot, tool = core.grab_screen()
-        self.assertEqual(tool, 'kwin')
-        self.assertEqual(shot.size, (300, 200))
-
-    def without_spectacle(self):
+    def without_grim(self):
         real = shutil.which
         return mock.patch.object(core.shutil, 'which',
-                                 lambda name, *a, **k: None if name == 'spectacle'
+                                 lambda name, *a, **k: None if name == 'grim'
                                  else real(name, *a, **k))
 
-    def fake_spectacle(self):
-        """A 'spectacle' on PATH that writes a 90 x 60 picture where --output says."""
-        bin_dir = os.path.join(self.folder, 'bin')
-        os.makedirs(bin_dir)
-        script = os.path.join(bin_dir, 'spectacle')
-        with open(script, 'w', encoding='utf-8') as f:
-            f.write(f"#!{sys.executable}\n"
-                    "import sys\n"
-                    "from PIL import Image\n"
-                    "out = sys.argv[sys.argv.index('--output') + 1]\n"
-                    "Image.new('RGB', (90, 60), (4, 5, 6)).save(out, 'PNG')\n")
-        os.chmod(script, 0o755)
-        return mock.patch.dict(os.environ, {'PATH': bin_dir + os.pathsep + os.environ['PATH']})
+    def test_portal_pixels(self):
+        self.start_fake()
+        image = capture.portal_screenshot()
+        self.assertEqual(image.size, (120, 80))
+        self.assertEqual(image.getpixel((0, 0)), (1, 2, 3))
+        self.assertIn("portal Screenshot interactive=False", self.calls())
 
-    def test_falls_back_to_spectacle_while_it_is_installed(self):
-        self.start_fake('--kwin-refuses')
-        with self.fake_spectacle():
-            shot, tool = core.grab_screen()
-        self.assertEqual(tool, 'spectacle')
-        self.assertEqual(shot.size, (90, 60))
-        self.assertNotIn("portal Screenshot", self.calls())
-
-    def test_falls_back_to_the_portal_when_kwin_refuses(self):
-        self.start_fake('--kwin-refuses')
-        with self.without_spectacle():
+    def test_falls_back_to_the_portal_without_grim(self):
+        self.start_fake()
+        with self.without_grim(), mock.patch.object(core, 'close_spark_menu'):
             shot, tool = core.grab_screen()
         self.assertEqual(tool, 'portal')
         self.assertEqual(shot.getpixel((0, 0)), (1, 2, 3))
-        self.assertIn("portal Screenshot interactive=False", self.calls())
 
     def test_reports_every_failure_clearly(self):
-        self.start_fake('--no-kwin', '--no-portal')
-        with self.without_spectacle(), self.assertRaises(core.CaptureError) as caught:
+        self.start_fake('--no-portal')
+        with self.without_grim(), mock.patch.object(core, 'close_spark_menu'), \
+                self.assertRaises(core.CaptureError) as caught:
             core.grab_screen()
         message = str(caught.exception)
         self.assertTrue(message.startswith(t('cap.failed', why='')), message)
-        self.assertIn("KWin CaptureWorkspace", message)
-        self.assertIn("spectacle: not installed", message)
+        self.assertIn("grim: not installed", message)
         self.assertIn("portal:", message)
 
-    def run_capture_test(self):
-        """spark-snip --capture-test FILE, exactly as the boot test runs it."""
-        import json
-        out = os.path.join(self.folder, 'snip.png')
-        proc = subprocess.run([sys.executable, os.path.join(os.path.dirname(HERE),
-                                                            'spark_snip.py'),
-                               '--capture-test', out],
-                              capture_output=True, text=True, timeout=60)
-        return proc.returncode, json.loads(proc.stdout), out
-
-    def test_capture_test_command_passes(self):
+    def test_capture_check_saves_both_paths(self):
         self.start_fake()
-        code, report, out = self.run_capture_test()
-        self.assertEqual(code, 0, report)
-        self.assertTrue(report['passed'])
-        self.assertEqual(report['size'], [300, 200])
-        self.assertEqual(report['kwin_version'], 5)
-        with Image.open(out) as image:
-            self.assertEqual(image.size, (300, 200))
+        out = os.path.join(self.folder, 'check')
 
-    def test_capture_test_command_fails_when_kwin_refuses(self):
-        self.start_fake('--kwin-refuses')
-        with self.fake_spectacle():          # KWin only: Spectacle must not rescue it
-            code, report, out = self.run_capture_test()
-        self.assertEqual(code, 1, report)
-        self.assertIn("NoAuthorized", report['error'])
-        self.assertFalse(os.path.exists(out))
-
-    def test_capture_test_command_fails_on_a_blank_picture(self):
-        self.start_fake('--kwin-blank')
-        code, report, _out = self.run_capture_test()
-        self.assertEqual(code, 1, report)
-        self.assertTrue(report['single_colour'])
-
-    def test_capture_check_saves_every_path(self):
-        self.start_fake()
-        report = capture.capture_check(os.path.join(self.folder, 'check'))
+        def fake_run(cmd, **_kw):
+            Image.new('RGB', (60, 40), (5, 5, 5)).save(cmd[-1], 'PPM')
+            return subprocess.CompletedProcess(cmd, 0, b'', b'')
+        with mock.patch.object(core.shutil, 'which', return_value='/usr/bin/grim'), \
+                mock.patch.object(core.subprocess, 'run', fake_run):
+            report = capture.capture_check(out)
         self.assertTrue(report['passed'], report)
-        for name in ('kwin-workspace', 'kwin-active-screen', 'kwin-active-window', 'kwin-area',
-                     'portal'):
+        for name in ('grim', 'portal'):
             self.assertTrue(os.path.isfile(report[name]['file']), name)
 
 
