@@ -1,8 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=SparkOS icons
-Comment=Moves your icons from Breeze Dark to SparkOS's own, once
-Exec=/usr/libexec/sparkos-icons-default
-OnlyShowIn=KDE;
-X-KDE-autostart-phase=1
-NoDisplay=true

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Boot test, inside the signed-in Spark session: Spark Files is the file manager.
 #   - folders (inode/directory) open in Spark Files
-#   - "Show in folder" (org.freedesktop.FileManager1.ShowItems, what Soot, FreeSuite, KDE's
+#   - "Show in folder" (org.freedesktop.FileManager1.ShowItems, what Soot, FreeSuite, desktop
 #     notifications and most other apps call) starts Spark Files through D-Bus and shows the
 #     file's folder with the file selected
 #   - xdg-open on a folder reaches the same Spark Files (one process per session)
@@ -55,7 +55,6 @@ echo "Spark Files processes: $count"
 [ "$count" = 1 ] || { echo "expected one Spark Files process, found $count"; exit 1; }
 
 echo "== no other file manager"
-! rpm -q dolphin >/dev/null 2>&1 && echo "Dolphin is not installed"
 if grep -lx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/*.service | grep -v SparkFiles; then
   echo "another FileManager1 provider is still there"; exit 1
 fi

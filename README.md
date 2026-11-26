@@ -28,7 +28,7 @@ SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: the
 Not Spark yet:
 - Saved passwords go in GNOME Keyring, unlocked by your login password. It replaces KWallet because it is the store apps already know how to use. Passwords saved in KWallet on an older SparkOS do not move over.
 - The icon set falls back to Breeze's icons and cursors for the icons SparkOS has not drawn yet. Those are image files only; no KDE software is installed.
-- Spark Connect's "Take control" now runs on spark-rdp, SparkOS's own RDP server for the Spark session (it used KDE's krdpserver before). KDE's foreground booster is gone. The VRAM booster stays.
+- Spark Connect's "Take control" now runs on spark-rdp, SparkOS's own RDP server for the Spark session (it used KDE's krdpserver before). The foreground booster is gone with it. The VRAM booster stays.
 
 Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. NVIDIA has not been tried at all.
 

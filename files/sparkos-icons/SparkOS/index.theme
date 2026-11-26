@@ -6,7 +6,7 @@ Comment[fr]=Les icônes de SparkOS. Ce qui n'est pas encore dessiné vient de Br
 Inherits=breeze-dark,hicolor
 Example=folder
 DisplayDepth=32
-# The symbolic icons carry KDE's ColorScheme-Text class, so Plasma recolours them to the text colour.
+# The symbolic icons carry KDE's ColorScheme-Text class, so Qt and GTK apps recolour them to the text colour.
 FollowsColorScheme=true
 
 Directories=apps/16,apps/22,apps/24,apps/scalable,apps/symbolic,places/16,places/22,places/24,places/scalable,places/symbolic,mimetypes/16,mimetypes/22,mimetypes/24,mimetypes/scalable,status/16,status/22,status/24,status/symbolic

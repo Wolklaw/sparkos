@@ -35,8 +35,8 @@ done
 if grep -l '^countme=1' /usr/share/dnf5/repos.d/*.repo /etc/yum.repos.d/*.repo 2>/dev/null; then
   echo "countme is still on in the files above"; exit 1
 fi
-# KDE's "Get New Stuff" (store.kde.org) in KDE apps from Flathub is hidden by [KDE Action
-# Restrictions] in /etc/xdg/kdeglobals
+# KDE's "Get New Stuff" (store.kde.org) in KDE apps installed from Flathub is hidden by [KDE Action
+# Restrictions] in /etc/xdg/kdeglobals (no KDE in the image itself; sparkos-no-kde.sh)
 grep -qx 'ghns=false' /etc/xdg/kdeglobals
 # Homebrew's update timers: off until `sparkos-dev-setup --brew` (00-sparkos-homebrew.preset)
 for timer in brew-update.timer brew-upgrade.timer; do
@@ -69,15 +69,12 @@ echo "--- hid ${#HIDE[@]} menu entries"
 
 # --- Other projects' apps stay out of the image (sparkos-apps.sh; nothing installed since may
 # bring one back)
-for pkg in konsole konsole-part ark ark-libs kde-connect kde-connect-libs kdeconnectd \
-           plasma-discover plasma-discover-libs plasma-discover-flatpak plasma-discover-kns \
-           plasma-discover-rpm-ostree plasma-discover-notifier kinfocenter kjournald \
-           gnome-disk-utility btrfs-assistant firewall-config spectacle plasma-systemmonitor; do
+# (KDE's own packages are sparkos-no-kde.sh's to check)
+for pkg in gnome-disk-utility btrfs-assistant firewall-config; do
   if rpm -q "$pkg" >/dev/null 2>&1; then echo "$pkg is back in the image"; exit 1; fi
 done
-for id in org.kde.konsole org.kde.ark org.kde.discover org.kde.kdeconnect.app org.kde.kinfocenter \
-          org.kde.kjournaldbrowser org.gnome.DiskUtility gnome-disk-image-mounter \
-          gnome-disk-image-writer btrfs-assistant firewall-config; do
+for id in org.gnome.DiskUtility gnome-disk-image-mounter gnome-disk-image-writer \
+          btrfs-assistant firewall-config; do
   if [ -e "/usr/share/applications/$id.desktop" ]; then echo "$id.desktop is back"; exit 1; fi
 done
 echo "--- the hidden apps are gone"

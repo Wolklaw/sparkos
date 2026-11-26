@@ -3,7 +3,8 @@ name: sparkos-icons
 #
 # check:  index.theme parses, every directory it lists exists, every SVG is valid and renders at
 #         16, 22, 32, 48 and 256 px with rsvg-convert (files/sparkos-icons/check.py), then the
-#         image build step runs in a plain Fedora container with Breeze installed. The contact
+#         image build step runs in a plain Fedora container with Breeze's icons installed
+#         (the image keeps them as files, no KDE software). The contact
 #         sheet (every icon at 16 to 128 px, on dark and on light) is uploaded as the
 #         "sparkos-icons-contact-sheet" artifact so the owner can look at it before merging.
 on:
@@ -11,15 +12,11 @@ on:
     paths:
       - "files/sparkos-icons/**"
       - "files/scripts/sparkos-icons.sh"
-      - "files/system/usr/libexec/sparkos-icons-default"
-      - "files/system/etc/xdg/autostart/sparkos-icons-default.desktop"
       - ".github/workflows/sparkos-icons.yml"
   pull_request:
     paths:
       - "files/sparkos-icons/**"
       - "files/scripts/sparkos-icons.sh"
-      - "files/system/usr/libexec/sparkos-icons-default"
-      - "files/system/etc/xdg/autostart/sparkos-icons-default.desktop"
       - ".github/workflows/sparkos-icons.yml"
   workflow_dispatch:
 
@@ -48,22 +45,7 @@ jobs:
         run: |
           # what files/system puts in place before the scripts run (Containerfile step 3)
           install -D -m 0644 files/system/etc/xdg/kdeglobals /etc/xdg/kdeglobals
-          # copied 0644 on purpose: the build step must set the mode itself, as in the image
-          install -D -m 0644 files/system/usr/libexec/sparkos-icons-default /usr/libexec/sparkos-icons-default
-          install -D -m 0644 files/system/etc/xdg/autostart/sparkos-icons-default.desktop /etc/xdg/autostart/sparkos-icons-default.desktop
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/sparkos-icons.sh
-          test -x /usr/libexec/sparkos-icons-default
           test -L /usr/share/icons/SparkOS/places/scalable/inode-directory.svg
           test -L /usr/share/icons/SparkOS/mimetypes/scalable/application-zip.svg
           test -s /usr/share/icons/SparkOS/mimetypes/16/package-x-generic.svg
-
-      - name: Per-user switch from Breeze Dark
-        run: |
-          dnf -y install --setopt=install_weak_deps=False kf6-kconfig util-linux shadow-utils
-          useradd -m tester
-          su tester -c 'mkdir -p ~/.config && printf "[Icons]\nTheme=breeze-dark\n\n[General]\nx=1\n" > ~/.config/kdeglobals'
-          su tester -c '/usr/libexec/sparkos-icons-default; test -e ~/.local/state/sparkos/icons-default-1'
-          [ "$(su tester -c 'kreadconfig6 --group Icons --key Theme')" = "SparkOS" ]
-          # a later, deliberate choice sticks: the switch runs once only
-          su tester -c 'kwriteconfig6 --file kdeglobals --group Icons --key Theme breeze-dark; /usr/libexec/sparkos-icons-default'
-          [ "$(su tester -c 'kreadconfig6 --group Icons --key Theme')" = "breeze-dark" ]

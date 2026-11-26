@@ -1,5 +1,5 @@
 name: spark-files
-# Spark Files, the SparkOS file manager (in place of Dolphin). files/scripts/spark-files.sh is
+# Spark Files, the SparkOS file manager. files/scripts/spark-files.sh is
 # the image build step.
 #
 # fedora:  runs the image build step in a plain Fedora container (default for folders checked

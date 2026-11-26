@@ -3,8 +3,8 @@
 # office format it opens (Word, Excel, PowerPoint, old and new, OpenDocument, RTF, CSV), and
 # Spark Media for photos, videos and music (every type its desktop entry lists).
 # Lines are added to /etc/xdg/mimeapps.list so its other entries stay.
-# Plain text, Markdown, code and config files open in Spark Edit; archives in Spark Archive (Ark
-# stays installed for now, but is no longer the default); folders in Spark Files (Dolphin too).
+# Plain text, Markdown, code and config files open in Spark Edit; archives in Spark Archive; folders in
+# Spark Files.
 # A user's own choices still win.
 set -oue pipefail
 
@@ -80,7 +80,7 @@ add freesuite-slides.desktop \
 test -f /usr/share/applications/dev.wolklaw.SparkEdit.desktop || { echo "Spark Edit is not installed (spark-edit.sh runs first)"; exit 1; }
 add dev.wolklaw.SparkEdit.desktop   text/plain text/markdown text/x-log text/x-readme text/x-python text/x-python3   application/x-shellscript text/x-shellscript application/json application/yaml application/x-yaml   application/toml text/x-ini text/x-systemd-unit text/x-dbus-service text/javascript   application/typescript text/css text/x-scss application/xml text/xml text/x-csrc text/x-chdr   text/x-c++src text/x-c++hdr text/rust text/x-go text/x-makefile text/x-cmake text/x-patch text/x-diff
 
-# Folders: Spark Files (Dolphin stays installed for one release, hidden; spark-files.sh)
+# Folders: Spark Files
 test -f /usr/share/applications/dev.wolklaw.SparkFiles.desktop || { echo "Spark Files is not installed (spark-files.sh runs first)"; exit 1; }
 add dev.wolklaw.SparkFiles.desktop   inode/directory x-scheme-handler/trash
 

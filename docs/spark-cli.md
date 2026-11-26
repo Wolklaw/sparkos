@@ -44,7 +44,7 @@ restarts) ask "Continue?" first.
 | **Services** | | |
 | `spark service NAME [status\|on\|off\|start\|stop\|restart]` | Any system service | (new) |
 | `spark ssh [status\|on\|off\|once]` | SSH into this PC | `ssh` |
-| `spark greeter [status\|enable\|disable]` | The Spark sign-in screen (greetd with `spark-greeter`). Off by default. `enable` makes it the display manager at the next restart and starts nothing now; `disable` puts Plasma Login Manager back. Needs admin rights. See [files/spark-session](../files/spark-session) | (new) |
+| `spark greeter [status\|enable\|disable]` | The Spark sign-in screen (greetd with `spark-greeter`). It is the display manager. `status` shows what signs you in and whether the Spark sign-in screen is ready. `enable` and `disable` switch between it and greetd's text sign-in at the next restart and start nothing now. Needs admin rights. See [files/spark-session](../files/spark-session) | (new) |
 | **Gaming and sound** | | |
 | `spark stop-proton` | Kill your Wine/Proton processes (a game stuck on close) | `fix-proton-hang` |
 | `spark audio-restart` | Restart PipeWire for your session | `restart-pipewire` |
@@ -103,7 +103,7 @@ arguments for passing a graphics card to a machine): `spark kargs` and `ls-iommu
   `build_files/packages.sh`, and a preset (`10-sparkos.preset`) keeps their sockets off. Layering
   them with rpm-ostree on the PC was the other choice; it makes updates slower and can break when
   the image and Fedora's repositories drift apart, so the image carries them. The cost is disk
-  space only (109 packages, a 59 MiB download on plain Kinoite, measured before the base changed).
+  space only (109 packages, a 59 MiB download on the old Kinoite base, measured before the base changed).
 - **The window is Spark Boxes.** It is a client only: it reaches the host's libvirt at
   `qemu:///system` through python3-libvirt (and shows a machine's screen with spice-gtk3). The
   two libraries add 8 packages, 4 MiB installed. That is why the daemon is on the host, not

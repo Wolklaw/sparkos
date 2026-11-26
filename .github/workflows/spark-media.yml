@@ -40,7 +40,7 @@ jobs:
       - name: Tests (Xvfb)
         shell: bash
         run: |
-          # a session bus for the MPRIS tests (gdbus calls Spark Media like Plasma does), and
+          # a session bus for the MPRIS tests (gdbus calls Spark Media like a desktop shell does), and
           # heif-enc to make an AVIF here
           dnf -y install --setopt=install_weak_deps=False xorg-x11-server-Xvfb xorg-x11-xauth \
             mesa-dri-drivers shared-mime-info dbus-daemon dbus-tools glib2 libheif-tools
