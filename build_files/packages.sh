@@ -138,7 +138,10 @@ dnf_install \
 dnf_install alsa-firmware alsa-tools-firmware pipewire-module-filter-chain-sofa ladspa-caps-plugins
 # - AMD GPU compute: ROCm's OpenCL (Blender, DaVinci Resolve, Darktable, AI tools), with
 #   rocm-clinfo, rocm-smi and amdsmi to check the GPU. Fedora lets every user open /dev/kfd.
-dnf_install rocm-opencl rocm-clinfo rocm-smi amdsmi
+#   The Nvidia image (GPU=nvidia) has CUDA and Nvidia's OpenCL instead (build_files/nvidia.sh).
+if [ "${GPU:-amd}" != nvidia ]; then
+  dnf_install rocm-opencl rocm-clinfo rocm-smi amdsmi
+fi
 # - fonts Bazzite ships: Fira Code, Lato, Twemoji, and Noto for Balinese, Javanese, Sundanese
 #   and Egyptian hieroglyphs (Noto CJK is already in Kinoite, as variable fonts; named here
 #   because Spark Run maps Windows CJK fonts to "Noto Sans CJK SC/TC/JP/KR")

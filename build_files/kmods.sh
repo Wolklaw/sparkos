@@ -173,6 +173,12 @@ build() {
   cp "$rpms"/kmod-v4l2loopback-"$kver"-*.rpm "$out/rpms/"
   rm -rf "$rpms"
 
+  # The Nvidia image (GPU=nvidia) also gets Nvidia's driver modules (build_files/nvidia.sh)
+  echo "${GPU:-amd}" >"$out/GPU"
+  if [ "${GPU:-amd}" = nvidia ]; then
+    "$(dirname "$0")/nvidia.sh" build "$out" "$kver"
+  fi
+
   # Every module must be for this kernel
   for ko in "$out"/extra/*/*.ko; do
     vm=$(modinfo -F vermagic "$ko")
@@ -186,7 +192,9 @@ build() {
   # modules or the akmod's.
   local rpmdir
   rpmdir=$(mktemp -d)
-  (cd "$rpmdir" && rpm2cpio "$out"/rpms/kmod-v4l2loopback-*.rpm | cpio -idm --quiet)
+  for rpm in "$out"/rpms/kmod-*.rpm; do
+    (cd "$rpmdir" && rpm2cpio "$rpm" | cpio -idm --quiet)
+  done
   while IFS= read -r ko; do
     if [ "${ko%.xz}" != "$ko" ]; then
       xz -dc "$ko" >"$rpmdir/check.ko"
@@ -194,7 +202,9 @@ build() {
       cp "$ko" "$rpmdir/check.ko"
     fi
     sections=$(readelf -S -W "$rpmdir/check.ko")   # not piped: grep -q stopping early fails pipefail
-    if grep -q '\.BTF' <<<"$sections"; then
+    # Exactly ".BTF": Nvidia's nvidia.ko also has ".BTF_ids" (a table of BTF ids), which the
+    # kernel doesn't check without a .BTF section
+    if grep -qE '\] \.BTF +' <<<"$sections"; then
       echo "kmods.sh: $ko has a .BTF section; the kernel may refuse to load it" >&2
       exit 1
     fi
@@ -209,7 +219,8 @@ SIGN_KEY=/run/secrets/kmod_signing_key
 SIGN_CERT=/tmp/secureboot/sparkos-kmods.der
 signing_on() { [ -s "$SIGN_KEY" ]; }
 
-# Sign every module under extra/ (the ones built from source and v4l2loopback's), in place. The
+# Sign every module under extra/ (the ones built from source, v4l2loopback's and, in the Nvidia
+# image, Nvidia's), in place. The
 # signature goes on the uncompressed module, then it's compressed again, as the kernel expects.
 sign_modules() { # kernel-version
   local kver=$1 ko raw n=0
@@ -218,13 +229,17 @@ sign_modules() { # kernel-version
   [ "$(openssl pkey -in "$SIGN_KEY" -pubout 2>/dev/null)" = "$(openssl x509 -inform DER -in "$SIGN_CERT" -pubkey -noout)" ] ||
     { echo "kmods.sh: the signing key does not match secureboot/sparkos-kmods.der" >&2; exit 1; }
   while IFS= read -r -d '' ko; do
-    raw=$(mktemp)
-    xz -dc "$ko" >"$raw"
-    /tmp/kmods/tools/sign-file sha256 "$SIGN_KEY" "$SIGN_CERT" "$raw"
-    xz -C crc32 --lzma2=dict=1MiB -c "$raw" >"$ko"
-    rm -f "$raw"
+    if [ "${ko%.xz}" = "$ko" ]; then
+      /tmp/kmods/tools/sign-file sha256 "$SIGN_KEY" "$SIGN_CERT" "$ko"
+    else
+      raw=$(mktemp)
+      xz -dc "$ko" >"$raw"
+      /tmp/kmods/tools/sign-file sha256 "$SIGN_KEY" "$SIGN_CERT" "$raw"
+      xz -C crc32 --lzma2=dict=1MiB -c "$raw" >"$ko"
+      rm -f "$raw"
+    fi
     n=$((n + 1))
-  done < <(find "/usr/lib/modules/$kver/extra" -name '*.ko.xz' -print0)
+  done < <(find "/usr/lib/modules/$kver/extra" \( -name '*.ko.xz' -o -name '*.ko' \) -print0)
   [ "$n" -gt 0 ] || { echo "kmods.sh: found no modules to sign" >&2; exit 1; }
   echo "kmods.sh: signed $n modules with the SparkOS module-signing key"
 }
@@ -282,6 +297,20 @@ EOF
   cp -r "$in"/licenses/. /usr/share/licenses/sparkos-kmods/
   cp "$in/SOURCES" /usr/share/licenses/sparkos-kmods/SOURCES
 
+  # The Nvidia image: Nvidia's modules and driver (build_files/nvidia.sh). The stage must have been
+  # built for the same image.
+  local gpu_built
+  gpu_built=$(cat "$in/GPU")
+  if [ "$gpu_built" != "${GPU:-amd}" ]; then
+    echo "kmods.sh: modules were built with GPU=$gpu_built but this image is GPU=${GPU:-amd}" >&2
+    exit 1
+  fi
+  local extra_names=""
+  if [ "${GPU:-amd}" = nvidia ]; then
+    /tmp/build_files/nvidia.sh install "$in" "$kver"
+    extra_names="nvidia nvidia-modeset nvidia-drm nvidia-uvm"
+  fi
+
   # The public certificate, for "spark secureboot enroll". It's public, so it ships even when
   # this build has no key to sign with.
   if [ -s "$SIGN_CERT" ]; then
@@ -298,7 +327,7 @@ EOF
 
   # Every module is where modprobe finds it, and for this kernel
   for name in zenergy ryzen_smu v4l2loopback vhba xone_dongle xone_gip xone_gip_gamepad \
-    hid-fanatec hid-logitech-new hid-tmff-new hid-tminit-new usb-tminit-new; do
+    hid-fanatec hid-logitech-new hid-tmff-new hid-tminit-new usb-tminit-new $extra_names; do
     vm=$(modinfo -k "$kver" -F vermagic "$name")
     [ "${vm%% *}" = "$kver" ] || { echo "kmods.sh: $name is for '${vm%% *}', not $kver" >&2; exit 1; }
     echo "$name: $(modinfo -k "$kver" -F filename "$name")"

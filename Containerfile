@@ -21,6 +21,10 @@
 #   sudo podman build -t localhost/sparkos:test .
 
 ARG BASE_IMAGE=quay.io/fedora/fedora-kinoite:45
+# Which GPU driver: amd (the main image, ghcr.io/wolklaw/sparkos: AMD and Intel GPUs with Mesa)
+# or nvidia (ghcr.io/wolklaw/sparkos-nvidia: Nvidia's driver too, build_files/nvidia.sh).
+#   sudo podman build --build-arg GPU=nvidia --build-arg IMAGE_NAME=sparkos-nvidia -t localhost/sparkos-nvidia:test .
+ARG GPU=amd
 
 # 0. sparkos-capslock, compiled on the same base so it links against the image's own libevdev.
 #    Only the program is copied into the image (step 3b); the compiler stays in this stage.
@@ -45,10 +49,11 @@ RUN --mount=type=bind,source=files/spark-compositor,target=/src \
     make -C /build/spark-rdp && install -Dm755 /build/spark-rdp/spark-rdp /spark-rdp
 
 # 0b. The out-of-tree kernel modules Fedora's kernel doesn't have (zenergy, ryzen_smu,
-#     v4l2loopback, xone, the racing wheel drivers, vhba), compiled here against kernel-devel of
+#     v4l2loopback, xone, the racing wheel drivers, vhba, and Nvidia's when GPU=nvidia), compiled here against kernel-devel of
 #     the exact kernel in the base, from pinned, checksummed sources (build_files/kmods.sh).
 #     Step 4b puts them in the image.
 FROM ${BASE_IMAGE} AS kmods-build
+ARG GPU
 RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     /tmp/build_files/kmods.sh build
@@ -61,6 +66,7 @@ ARG BASE_IMAGE=quay.io/fedora/fedora-kinoite:45
 ARG CONFIG_DIRECTORY=/tmp/files
 ARG IMAGE_REGISTRY=ghcr.io/wolklaw
 ARG IMAGE_NAME=sparkos
+ARG GPU
 
 # 1. The public key that signed updates are checked against, named after the image.
 COPY cosign.pub /etc/pki/containers/${IMAGE_NAME}.pub

@@ -22,6 +22,9 @@ on:
     - cron: "0 10 * * 0" # Sundays, after the daily image build
   workflow_call:
     inputs:
+      image:
+        type: string
+        default: sparkos
       image_tag:
         type: string
         default: latest
@@ -34,6 +37,11 @@ on:
         description: Run every check, not just the quick set
         type: boolean
         default: true
+      image:
+        description: Which image (sparkos-nvidia boots without an Nvidia GPU in the VM, so its driver isn't exercised)
+        type: choice
+        options: [sparkos, sparkos-nvidia]
+        default: sparkos
       image_tag:
         description: Image tag to test (a branch build is br-<branch>-<Fedora version>)
         type: string
@@ -50,7 +58,7 @@ on:
 concurrency:
   # One queue per branch: main's runs (after builds, Sundays) never cancel a branch test waiting
   # in line, or the other way round
-  group: boot-test-${{ github.ref }}
+  group: boot-test-${{ github.ref }}-${{ inputs.image || 'sparkos' }}
   cancel-in-progress: false # a newer build waits for the running test instead of killing it
 
 jobs:
@@ -63,8 +71,8 @@ jobs:
       packages: read
     env:
       # inputs.* are empty after a build (workflow_run) and on Sundays (schedule): sparkos:latest
-      REPO: ghcr.io/wolklaw/sparkos
-      IMAGE: ghcr.io/wolklaw/sparkos:${{ inputs.image_tag || 'latest' }}
+      REPO: ghcr.io/wolklaw/${{ inputs.image || 'sparkos' }}
+      IMAGE: ghcr.io/wolklaw/${{ inputs.image || 'sparkos' }}:${{ inputs.image_tag || 'latest' }}
       UPDATE_FROM: ${{ inputs.update_from || '' }}
       SPARK_UPDATE_TEST: ${{ inputs.spark_update_test == true }}
       WORK: /mnt/boot-test

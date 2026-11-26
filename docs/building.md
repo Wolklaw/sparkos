@@ -1,8 +1,16 @@
 # How SparkOS is built
 
-SparkOS is one container image, `ghcr.io/wolklaw/sparkos:latest`, built from SparkOS's own
-[Containerfile](../Containerfile) with plain `podman build`, signed with SparkOS's key, and
-published by [build.yml](../.github/workflows/build.yml). Every SparkOS PC updates from it.
+SparkOS is two container images built from SparkOS's own [Containerfile](../Containerfile) with
+plain `podman build`, signed with SparkOS's key, and published by
+[build.yml](../.github/workflows/build.yml):
+
+- `ghcr.io/wolklaw/sparkos:latest` for AMD and Intel graphics (the kernel's own drivers and Mesa)
+- `ghcr.io/wolklaw/sparkos-nvidia:latest` for Nvidia graphics: the same image plus Nvidia's driver
+  (build-arg `GPU=nvidia`, see [nvidia.sh](../build_files/nvidia.sh)). It needs a GTX 16, RTX 20 or
+  newer card, because it ships Nvidia's open kernel modules. It hasn't been tried on a real Nvidia
+  PC yet.
+
+Every SparkOS PC updates from the image it was installed with.
 
 Until 2026-11-20 the image was built by [BlueBuild](https://blue-build.org) from a recipe. BlueBuild
 was one more project SparkOS depended on ([PLAN.md, Independence roadmap](../PLAN.md)), and what it
@@ -15,13 +23,13 @@ builds ran side by side and were compared (see [Before the switch](#before-the-s
 | # | Step | What it does |
 |---|---|---|
 | 0 | `FROM … AS capslock-build` | compiles [sparkos-capslock](../files/sparkos-capslock) (Caps Lock toggles when pressed) on the same base with `gcc` and `libevdev-devel`; only the program goes into the image, in step 4 |
-| 0b | `FROM … AS kmods-build` | builds the out-of-tree kernel modules ([kmods.sh](../build_files/kmods.sh): Xbox wireless, racing wheels, zenergy, ryzen_smu, v4l2loopback, vhba) against the base's kernel, from pinned commits |
+| 0b | `FROM … AS kmods-build` | builds the out-of-tree kernel modules ([kmods.sh](../build_files/kmods.sh): Xbox wireless, racing wheels, zenergy, ryzen_smu, v4l2loopback, vhba) against the base's kernel, from pinned commits; for the Nvidia image also Nvidia's open modules from RPM Fusion's akmod ([nvidia.sh](../build_files/nvidia.sh)) |
 | 1 | `FROM quay.io/fedora/fedora-kinoite@sha256:…` | the base, Fedora Kinoite 45: the workflow resolves the Containerfile's `BASE_IMAGE` tag to a digest when the build starts and records it in the labels. Until 2026-11-23 it was Bazzite ([fedora-base.md](fedora-base.md)) |
 | 2 | `COPY cosign.pub` | the public key updates are checked against, as `/etc/pki/containers/sparkos.pub` (named after the image) |
 | 3 | [pre-build.sh](../build_files/pre-build.sh) | makes `/opt` a link to `/usr/lib/opt` during the build, so things installed in `/opt` land in the image |
 | 4 | [copy-files.sh](../build_files/copy-files.sh) | copies `files/system/*` into the image root, then `sparkos-capslock` from step 0 to `/usr/libexec` |
-| 5 | [packages.sh](../build_files/packages.sh) | installs what Kinoite lacks for gaming and everyday use (printing, scanning, the gaming layer, tools, fonts), RPM Fusion's full FFmpeg and Mesa video drivers, umu-launcher from Terra, and SparkOS's own list; the script says why each one is there |
-| 5b | [kmods.sh](../build_files/kmods.sh) `install` | puts the modules from step 0b in `/usr/lib/modules/<kernel>/extra` with their firmware and udev rules; stops the build if the kernel changed in between |
+| 5 | [packages.sh](../build_files/packages.sh) | installs what Kinoite lacks for gaming and everyday use (printing, scanning, the gaming layer, tools, fonts), RPM Fusion's full FFmpeg and Mesa video drivers, umu-launcher from Terra, and SparkOS's own list (ROCm only in the AMD image); the script says why each one is there |
+| 5b | [kmods.sh](../build_files/kmods.sh) `install` | puts the modules from step 0b in `/usr/lib/modules/<kernel>/extra` with their firmware and udev rules; stops the build if the kernel changed in between; the Nvidia image also gets the driver's userspace of the same version, the nouveau blacklist and `nvidia-drm.modeset=1` |
 | 6 | [run-scripts.sh](../build_files/run-scripts.sh) | runs SparkOS's scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files`: identity, removing Kinoite's apps, the gaming device rules and kernel settings, tuning, Homebrew's shell setup, the parity tools, then Soot, FreeSuite, the Spark apps and the theme |
 | 7 | [flathub.sh](../build_files/flathub.sh) | two services, `system-flatpak-setup` and `user-flatpak-setup`, that add Flathub at boot and at login ([flathub-setup](../build_files/flathub-setup), 40 lines of shell); installs no apps |
 | 8 | [signing.sh](../build_files/signing.sh) | the `sigstoreSigned` entry for `ghcr.io/wolklaw/sparkos` in `/etc/containers/policy.json`, and `registries.d/Wolklaw-sparkos.yaml`; and `/usr/lib/bootc/install/20-sparkos.toml`, so installs deploy the image as signed |
@@ -36,7 +44,8 @@ list in step 6, in the right place (apps before `spark-update.sh`, `sparkos-them
 
 ## Tags
 
-The same tags BlueBuild used, so the boot test, the installer and every PC keep working:
+The same tags BlueBuild used, so the boot test, the installer and every PC keep working. Both images
+get the same tags, each in its own repository (`sparkos` and `sparkos-nvidia`):
 
 | Build | Tags |
 |---|---|
@@ -103,6 +112,8 @@ From the repo root on any Linux machine with podman (SparkOS has it):
 
 ```bash
 sudo podman build -t localhost/sparkos:test .
+# the Nvidia image
+sudo podman build --build-arg GPU=nvidia --build-arg IMAGE_NAME=sparkos-nvidia -t localhost/sparkos-nvidia:test .
 ```
 
 Building as root is simplest (the steps install packages and set file ownership). It downloads the
