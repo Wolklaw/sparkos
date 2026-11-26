@@ -1,12 +1,12 @@
 name: spark-terminal
-# Spark Terminal, the SparkOS terminal (replaces Konsole), on VTE for GTK 4.
+# Spark Terminal, the SparkOS terminal (SparkOS's own), on VTE for GTK 4.
 #
 # fedora:  runs the image build step's install in a plain Fedora container, then the self-test,
 #          the unit tests, and the window tests under Xvfb as a normal user (a tab runs echo,
 #          tabs and splits open and close, --workdir, -e and --hold, search, vim and less), in
 #          English and French, with screenshots, and measures start-up.
 # sparkos: inside the published SparkOS image, runs files/scripts/spark-terminal.sh the way the
-#          image build does (adds VTE, makes it the default terminal, hides Konsole), then the
+#          image build does (adds VTE, makes it the default terminal), then the
 #          same tests on the image's own Python and GTK, and a per-user install and uninstall.
 on:
   push:

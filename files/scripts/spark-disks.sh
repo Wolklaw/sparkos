@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
-# Spark Disks: drives, partitions, SMART health and USB image writing (replaces GNOME Disks and
-# KDE Partition Manager). Its source lives in this repo at files/spark-disks.
+# Spark Disks: drives, partitions, SMART health and USB image writing (replaces GNOME Disks). Its source lives in this repo at files/spark-disks.
 #
 # install.sh --deps installs it system-wide with udisks2, polkit, smartmontools and the mkfs
 # tools. It talks to udisks over D-Bus as the user, so there is no service or root helper. The

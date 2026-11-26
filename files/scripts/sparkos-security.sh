@@ -6,7 +6,7 @@
 # to 65535 from the local network, so any program that listens is reachable by every device on
 # it. The sparkos zone opens only what SparkOS uses: DHCPv6, mDNS (finding devices), Samba as a
 # client, Spark Link, Nova's phone ports (files/system/usr/lib/firewalld/services/nova.xml;
-# nothing listens there unless Nova is installed), KDE Connect, Steam Remote Play and Steam's local transfers. Anything else
+# nothing listens there unless Nova is installed), Steam Remote Play and Steam's local transfers. Anything else
 # is a switch or a port in Spark Firewall. A network given its own zone in NetworkManager keeps it.
 #
 # Tailscale's interface goes to the trusted zone: every device there is one the owner signed in

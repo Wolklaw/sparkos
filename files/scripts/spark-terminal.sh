@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spark Terminal, the SparkOS terminal (replaces Konsole). Its source lives in this repo at
+# Spark Terminal, the SparkOS terminal (SparkOS's own terminal). Its source lives in this repo at
 # files/spark-terminal; the terminal emulation comes from VTE, the library GNOME's terminals
 # use (vte291-gtk4 from Fedora, added here; see THIRD-PARTY.md).
 #
@@ -12,7 +12,7 @@
 # - xdg-terminal-exec's default (/etc/xdg/xdg-terminals.list), for apps with Terminal=true
 # - Ctrl+Alt+T: Spark Terminal's desktop entry takes it
 # - the shell's dock and SparkOS's own scripts start spark-terminal
-# Konsole is removed from the image (sparkos-apps.sh); this script checks nothing starts it.
+# This script also checks nothing SparkOS ships starts Konsole.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-terminal"
@@ -34,12 +34,6 @@ install -d /usr/share/kglobalaccel
 ln -sfn ../applications/dev.wolklaw.SparkTerminal.desktop /usr/share/kglobalaccel/dev.wolklaw.SparkTerminal.desktop
 grep -qx 'X-KDE-Shortcuts=Ctrl+Alt+T' "$APP"
 
-# --- Konsole is gone from new images; an older image (the app's own CI runs this script on the
-# published one) still has it, so it gives up the shortcut there
-for entry in /usr/share/applications/org.kde.konsole.desktop /usr/share/kglobalaccel/org.kde.konsole.desktop; do
-  [ -f "$entry" ] || continue
-  sed -i --follow-symlinks '/^X-KDE-Shortcuts=/d' "$entry"
-done
 others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?Ctrl\+Alt\+T(,|$)' \
   /usr/share/applications/*.desktop /usr/share/kglobalaccel/*.desktop 2>/dev/null \
   | grep -v 'dev.wolklaw.SparkTerminal.desktop$' || true)

@@ -1,11 +1,10 @@
 #!/usr/bin/env bash
 # Spark Link, SparkOS's own phone link (the phone side is in Soot's Android app). Its source
 # lives in this repo at files/spark-link; the protocol is docs/spark-link-protocol.md.
-# KDE Connect stays in the image next to it for now; when it leaves is the owner's call.
 #
 # install.sh --deps installs it system-wide: the window, the background service as a systemd
 # user unit (switched on per user by the window at the first pairing, so nobody who never
-# pairs a phone has it running or listening), Dolphin's "Send to phone", and the firewalld
+# pairs a phone has it running or listening), the "Send to phone" menu entry in Spark Files, and the firewalld
 # service definition. Then this opens TCP 47100 in the default firewalld zone, unless that zone
 # already allows it (Fedora's desktop zone allows ports 1025-65535). The build fails if the
 # self-test or any file below is missing.

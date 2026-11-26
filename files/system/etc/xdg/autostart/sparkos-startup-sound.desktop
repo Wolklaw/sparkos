@@ -4,6 +4,5 @@ Name=SparkOS startup sound
 Comment=Plays the SparkOS startup sound when you sign in
 Exec=sparkos-startup-sound
 Icon=audio-volume-high
-OnlyShowIn=KDE;Spark;
-X-KDE-autostart-phase=1
+OnlyShowIn=Spark;
 NoDisplay=false

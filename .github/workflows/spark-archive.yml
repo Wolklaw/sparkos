@@ -1,6 +1,6 @@
 name: spark-archive
 # Spark Archive: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, also in several parts and with
-# passwords, with Dolphin's Extract and Compress menu. Build step
+# passwords, with Extract and Compress in Spark Files' right-click menu. Build step
 # files/scripts/spark-archive.sh; also installs per user without root, the way optional Spark
 # apps will through the future Spark Portal.
 #

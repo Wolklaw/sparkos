@@ -163,8 +163,7 @@ def test_hook():
 
 def find_x_display(folder='/tmp/.X11-unix', want_uid=None):
     """':0' for the lowest X socket in the folder (owned by want_uid when given), or None. A
-    session that starts KWin without plasma-workspace may not put DISPLAY in the user
-    manager's environment, and the prompt and banner (Tk) need it."""
+    session may not put DISPLAY in the user manager's environment, and the prompt and banner (Tk) need it."""
     try:
         names = os.listdir(folder)
     except OSError:

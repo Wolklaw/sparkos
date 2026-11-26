@@ -249,7 +249,7 @@ glyph("unknown", 16, MUTED,
       [R(6, 6, 4, 1), R(5, 7, 1, 1), R(10, 7, 1, 2), R(8, 9, 2, 2), R(8, 12, 2, 2)])
 
 # ----------------------------------------------------------------------------------------------
-# aliases: the icon names Spark Files, Plasma and Breeze use -> the icon above.
+# aliases: the icon names Spark Files and Breeze use -> the icon above.
 # Breeze draws most of these, and an icon theme's own names win over the generic fallback, so every
 # name Breeze has in a family has to point at ours or Breeze's file would show.
 # ----------------------------------------------------------------------------------------------

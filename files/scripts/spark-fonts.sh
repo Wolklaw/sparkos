@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Spark Fonts: see, install and remove fonts. Its source lives in this repo at
-# files/spark-fonts. Replaces KDE's Font Management page and font viewer (the two menu
-# entries are hidden by sparkos-cleanup.sh), and sparkos-defaults.sh makes it open font files.
+# files/spark-fonts. sparkos-defaults.sh makes it open font files.
 #
 # install.sh --deps installs it system-wide (and python3-pillow, which draws the previews), and
 # runs --self-test (no display needed, changes no fonts). The build fails if that or any file

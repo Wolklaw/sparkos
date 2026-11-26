@@ -469,25 +469,21 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           # The file manager: installed, self-test passes, the only org.freedesktop.FileManager1
-          # provider ("Show in folder"), folders open in it, and Dolphin is not in the image
+          # provider ("Show in folder"), and folders open in it
           $SSH 'set -e; spark-files --version; ls -l /usr/bin/spark-files /usr/share/applications/dev.wolklaw.SparkFiles.desktop /usr/share/dbus-1/services/dev.wolklaw.SparkFiles*.service'
           $SSH 'spark-files --self-test' 2>&1 | tee "$WORK/spark-files-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-files-self-test.txt"
-          $SSH 'grep -lx "Name=org.freedesktop.FileManager1" /usr/share/dbus-1/services/*.service; xdg-mime query default inode/directory; rpm -q dolphin >/dev/null 2>&1 && echo dolphin-installed; test -e /usr/share/applications/org.kde.dolphin.desktop && echo dolphin-entry; true' | tee "$WORK/spark-files-takeover.txt"
+          $SSH 'grep -lx "Name=org.freedesktop.FileManager1" /usr/share/dbus-1/services/*.service; xdg-mime query default inode/directory' | tee "$WORK/spark-files-takeover.txt"
           [ "$(grep -c 'FileManager1' "$WORK/spark-files-takeover.txt")" = 1 ] || { echo "::error::more than one FileManager1 provider"; exit 1; }
           grep -qx '/usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service' "$WORK/spark-files-takeover.txt"
-          if grep -q '^dolphin-' "$WORK/spark-files-takeover.txt"; then echo "::error::Dolphin is still in the image"; exit 1; fi
           grep -qx 'dev.wolklaw.SparkFiles.desktop' "$WORK/spark-files-takeover.txt" || { echo "::error::folders don't open in Spark Files"; exit 1; }
 
       - name: Check Spark Settings
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # The settings app: installed, self-test passes with every tool each page runs, and
-          # KDE's System Settings is gone with its stand-ins (sparkos-no-kde.sh removes them)
+          # The settings app: installed, and its self-test passes with every tool each page runs
           $SSH 'set -e; spark-settings --version; spark-settings --self-test --strict' 2>&1 | tee "$WORK/spark-settings-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-settings-self-test.txt"
-          $SSH 'for f in /usr/bin/systemsettings /usr/bin/kcmshell6 /usr/libexec/sparkos/kde-settings /usr/share/applications/systemsettings.desktop; do test -e $f && echo "left: $f"; done; rpm -q plasma-systemsettings >/dev/null 2>&1 && echo "left: plasma-systemsettings"; true' | tee "$WORK/spark-settings-takeover.txt"
-          if grep -q '^left: ' "$WORK/spark-settings-takeover.txt"; then echo "::error::KDE's System Settings is still in the image"; exit 1; fi
 
       - name: Check the SparkOS icon theme
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
@@ -517,11 +513,11 @@ jobs:
           $SSH 'ls /usr/share/kio/servicemenus/ | grep -i -E "spark"' | tee "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.compress.desktop' "$WORK/servicemenus.txt"
-          # Spark Terminal is the default terminal; Konsole is gone
-          $SSH 'sed -n "/^\[General\]/,/^\[/s/^TerminalApplication=//p" /etc/xdg/kdeglobals; xdg-terminal-exec --print-id; ! rpm -q konsole >/dev/null; test ! -e /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
+          # Spark Terminal is the default terminal
+          $SSH 'sed -n "/^\[General\]/,/^\[/s/^TerminalApplication=//p" /etc/xdg/kdeglobals; xdg-terminal-exec --print-id' | tee "$WORK/terminal.txt"
           diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n') "$WORK/terminal.txt"
           # Spark Emoji has Meta+. and no other entry claims it
-          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -l "^X-KDE-Shortcuts=\(.*,\)\?Meta+\.\(,\|$\)" /usr/share/applications/*.desktop | grep -v SparkEmoji | wc -l; test -e /usr/share/applications/org.kde.plasma.emojier.desktop && echo emojier-left; true' | tee "$WORK/emoji.txt"
+          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -l "^X-KDE-Shortcuts=\(.*,\)\?Meta+\.\(,\|$\)" /usr/share/applications/*.desktop | grep -v SparkEmoji | wc -l' | tee "$WORK/emoji.txt"
           diff <(printf '1\nlinked\n0\n') "$WORK/emoji.txt" || { echo "::error::Meta+. is not Spark Emoji's"; exit 1; }
           # Spark Notes has Meta+V and its watcher is enabled for every login 
           $SSH 'grep -c "^X-KDE-Shortcuts=Meta+V$" /usr/share/applications/dev.wolklaw.SparkNotes.Clipboard.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkNotes.Clipboard.desktop && echo linked; test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service && echo watcher-enabled; test -x /usr/bin/wl-paste && echo wl-paste' | tee "$WORK/notes.txt"
@@ -550,9 +546,8 @@ jobs:
       - name: Check the Release 2 cleanup
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # Spark Monitor has Ctrl+Shift+Esc, Meta+Esc and Ctrl+Esc, and Plasma System Monitor is not there
-          $SSH 'rpm -q plasma-systemmonitor 2>&1; grep -H "^X-KDE-Shortcuts=" /usr/share/kglobalaccel/*.desktop' | tee "$WORK/cleanup-monitor.txt"
-          grep -q 'package plasma-systemmonitor is not installed' "$WORK/cleanup-monitor.txt" || { echo "::error::plasma-systemmonitor is installed"; exit 1; }
+          # Spark Monitor has Ctrl+Shift+Esc, Meta+Esc and Ctrl+Esc, and no other entry has them
+          $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/kglobalaccel/*.desktop' | tee "$WORK/cleanup-monitor.txt"
           grep -q 'dev.wolklaw.SparkMonitor.desktop:X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc$' "$WORK/cleanup-monitor.txt"
           if grep -v 'SparkMonitor' "$WORK/cleanup-monitor.txt" | grep -E 'X-KDE-Shortcuts=(.*,)?(Ctrl\+Shift\+Esc|Meta\+Esc|Ctrl\+Esc)(,|$)'; then
             echo "::error::another app claims Spark Monitor's keys"; exit 1
@@ -562,7 +557,7 @@ jobs:
           grep -q 'package tailscale is not installed' "$WORK/cleanup-tailscale.txt" || { echo "::error::tailscale is installed"; exit 1; }
           if grep -i 'tailscale' "$WORK/cleanup-tailscale.txt" | grep -v 'is not installed'; then echo "::error::Tailscale leftovers"; exit 1; fi
           # No calling home: usage counting off (timer and DNF), Get New Stuff off in SparkOS's
-          # kdeglobals (KDE is gone, but Qt apps still read the file).
+          # kdeglobals (Spark apps and Qt apps from Flathub read the file).
           # The connectivity check is printed only: it stays until the owner decides.
           $SSH 'echo "countme timer: $(systemctl is-enabled rpm-ostree-countme.timer 2>&1)"
                 echo "countme last run: $(systemctl show -P LastTriggerUSec rpm-ostree-countme.timer)"
@@ -713,8 +708,8 @@ jobs:
           for id in btop nvtop; do
             if grep -qx "$id.desktop" "$WORK/menu.txt"; then echo "::error::$id is still in the app menu"; exit 1; fi
           done
-          # The hidden apps are gone from the image, not just from the menu (stage 1 of replacing KDE)
-          $SSH 'for p in konsole konsole-part ark ark-libs kde-connect kde-connect-libs kdeconnectd plasma-discover plasma-discover-libs plasma-discover-flatpak plasma-discover-rpm-ostree plasma-discover-kns plasma-discover-notifier kinfocenter kjournald gnome-disk-utility btrfs-assistant firewall-config spectacle plasma-systemmonitor; do if rpm -q $p >/dev/null 2>&1; then echo "$p is still installed"; exit 1; fi; done; echo "removed apps are gone"'
+          # The hidden apps are gone from the image, not just from the menu (the KDE ones are checked below)
+          $SSH 'for p in gnome-disk-utility btrfs-assistant firewall-config; do if rpm -q $p >/dev/null 2>&1; then echo "$p is still installed"; exit 1; fi; done; echo "removed apps are gone"'
           # No KDE at all (sparkos-no-kde.sh): no Plasma, KWin, Plasma Login Manager, KDE Frameworks,
           # Dolphin, Konsole or KWallet; greetd with the Spark Greeter signs in; spark-wl is the
           # only session; GNOME Keyring keeps passwords

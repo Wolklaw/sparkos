@@ -139,7 +139,7 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #      uses is open), Tailscale in the trusted zone, ptrace limited to a program's children
 #    - sparkos-cleanup: Spark Monitor's keys, no Tailscale repo, no usage counting
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
-#    - sparkos-icons: the SparkOS icon theme over Breeze Dark (files/sparkos-icons), the default
+#    - sparkos-icons: the SparkOS icon theme over Breeze Dark's artwork (files/sparkos-icons), the default
 #    - sparkos-theme: boot splash, wallpaper, fonts (rebuilds the initramfs)
 #    - sparkos-no-kde, last: greetd with the Spark greeter signs you in, GNOME Keyring keeps
 #      passwords. Fails if any KDE package came in

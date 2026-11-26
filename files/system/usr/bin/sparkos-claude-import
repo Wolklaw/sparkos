@@ -4,7 +4,7 @@
 #
 #   sparkos-claude-import [PATH-TO-WINDOWS-.claude]
 #
-# Without a path it looks on mounted Windows drives (open the drive in Dolphin first to mount it).
+# Without a path it looks on mounted Windows drives (open the drive in Spark Files first to mount it).
 # Windows settings.json is copied as settings.windows.json for reference only, because its
 # permissions and shell commands are written for Windows.
 set -euo pipefail
@@ -13,7 +13,7 @@ src="${1:-}"
 if [ -z "$src" ]; then
   mapfile -t found < <(find /run/media/"$USER" /var/mnt /mnt -maxdepth 5 -type d -path '*/Users/*/.claude' 2>/dev/null)
   if [ "${#found[@]}" -eq 0 ]; then
-    echo "No Windows .claude folder found. Open the Windows drive (C:) in Dolphin so it mounts," >&2
+    echo "No Windows .claude folder found. Open the Windows drive (C:) in Spark Files so it mounts," >&2
     echo "then run this again, or give the path: sparkos-claude-import /path/to/Users/<you>/.claude" >&2
     exit 1
   fi
