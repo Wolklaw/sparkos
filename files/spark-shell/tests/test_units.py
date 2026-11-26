@@ -173,7 +173,7 @@ class Notifications(unittest.TestCase):
 
 class Windows(unittest.TestCase):
     def test_update_parses_and_ignores_junk(self):
-        tracker = windows.WindowTracker(None, runtime_dir='/tmp')
+        tracker = windows.WindowTracker()
         seen = []
         tracker.on_changed = seen.append
         tracker.update('not json')
@@ -217,24 +217,6 @@ class OsdParsers(unittest.TestCase):
             os.makedirs(os.path.join(root, 'broken'))
             self.assertEqual(osd.read_backlights(root), [('amdgpu_bl0', 40, 255)])
         self.assertEqual(osd.read_backlights('/nonexistent-backlight-dir'), [])
-
-    def test_osd_service_brightness(self):
-        class FakeOsd:
-            def __init__(self):
-                self.shown, self.hidden = [], 0
-
-            def show_level(self, kind, fraction, muted=False):
-                self.shown.append((kind, fraction))
-
-            def hide_now(self):
-                self.hidden += 1
-        fake = FakeOsd()
-        osd.osd_service_call(fake, 'brightnessChanged', (40,))
-        osd.osd_service_call(fake, 'screenBrightnessChanged', (130, (0, 0, 2560, 1440)))
-        osd.osd_service_call(fake, 'keyboardBrightnessChanged', (-5,))
-        osd.osd_service_call(fake, 'hide', ())
-        self.assertEqual(fake.shown, [('brightness', 0.4), ('brightness', 1.0), ('keyboard', 0.0)])
-        self.assertEqual(fake.hidden, 1)
 
 
 class FakeTracker:
@@ -310,7 +292,7 @@ class SignOutTest(unittest.TestCase):
         self.assertEqual(out, [40])
 
     def test_the_compositor_binary_is_found_not_its_wrapper(self):
-        exes = {10: 'plasmalogin-helper', 11: 'spark-compositor.bin', 12: 'tee', 13: 'bash'}
+        exes = {10: 'greetd', 11: 'spark-compositor.bin', 12: 'tee', 13: 'bash'}
         self.assertEqual(ending.compositors(sorted(exes), exe=exes.get), [11])
 
 

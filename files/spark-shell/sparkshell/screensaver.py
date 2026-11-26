@@ -1,8 +1,7 @@
-"""org.freedesktop.ScreenSaver and org.freedesktop.PowerManagement.Inhibit for the Spark
-compositor session.
+"""org.freedesktop.ScreenSaver and org.freedesktop.PowerManagement.Inhibit for the Spark session.
 
 Steam, Chrome, Discord and most video players ask one of these D-Bus services to keep the
-screen on; in Plasma, KDE answered them. Here the shell does: while any app holds an inhibit,
+screen on. The shell answers them: while any app holds an inhibit,
 the flag file $XDG_RUNTIME_DIR/spark-wl/idle-inhibit exists, and the compositor's idle timer
 treats it like a Wayland idle inhibitor (no lock, no screen off, no suspend). An app that
 quits without letting go loses its inhibits when it leaves the bus."""

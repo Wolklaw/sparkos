@@ -2,9 +2,7 @@
 
 Volume goes through PipeWire's wpctl (the same server Spark Audio drives). Brightness keys move
 every backlight in /sys/class/backlight through logind's SetBrightness, which needs no admin
-rights for the signed-in seat. External monitors without a backlight device are left alone.
-On a KDE machine powerdevil reports its own changes to org.kde.plasmashell /org/kde/osdService,
-which the shell also answers with this display."""
+rights for the signed-in seat. External monitors without a backlight device are left alone."""
 
 import logging
 import os
@@ -92,33 +90,6 @@ def _run(argv, callback):
             return
         callback(out if ok and p.get_exit_status() == 0 else None)
     proc.communicate_utf8_async(None, None, done)
-
-
-# What powerdevil calls on org.kde.plasmashell (Plasma's osdService). Only the brightness calls
-# are answered; plasma-pa's and KWin's calls never come, since the shell does volume itself.
-OSD_SERVICE_XML = """
-<node>
-  <interface name="org.kde.osdService">
-    <method name="brightnessChanged"><arg type="i" name="percent" direction="in"/></method>
-    <method name="screenBrightnessChanged">
-      <arg type="i" name="percent" direction="in"/>
-      <arg type="(iiii)" name="screenRect" direction="in"/>
-    </method>
-    <method name="keyboardBrightnessChanged"><arg type="i" name="percent" direction="in"/></method>
-    <method name="hide"/>
-  </interface>
-</node>
-"""
-
-
-def osd_service_call(osd, method, args):
-    """One org.kde.osdService call -> the Spark display. Percent is 0-100."""
-    if method in ('brightnessChanged', 'screenBrightnessChanged'):
-        osd.show_level('brightness', max(0, min(100, int(args[0]))) / 100)
-    elif method == 'keyboardBrightnessChanged':
-        osd.show_level('keyboard', max(0, min(100, int(args[0]))) / 100)
-    elif method == 'hide':
-        osd.hide_now()
 
 
 class Osd(Gtk.Window):

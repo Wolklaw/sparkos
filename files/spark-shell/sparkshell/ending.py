@@ -1,9 +1,9 @@
 """Sign out, restart and shut down without killing open apps.
 
-Plasma's ksmserver asks every app to close before the session ends; the Spark session has no
-ksmserver. So the shell does the part that matters: it asks KWin to close every window (the same
-close as the title bar's button, so an app can save or ask about unsaved work), waits for the
-window list to empty, then runs the command. If windows are still open when the wait is over,
+Nothing else asks the apps to close before the session ends, so the shell does it: it asks the
+compositor, through spark-wl-windows, to close every window (the same close as the title bar's
+button, so an app can save or ask about unsaved work), waits for the window list to empty, then
+runs the command. If windows are still open when the wait is over,
 nothing is run: on_stuck(titles) lets the person choose to go anyway or stay."""
 
 import logging
