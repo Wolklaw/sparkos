@@ -2,7 +2,7 @@
 
     spark-link                       the window
     spark-link --service             the background service (the systemd user unit runs this)
-    spark-link --send FILE...        send files to the connected phone (Dolphin's "Send to phone")
+    spark-link --send FILE...        send files to the connected phone (Spark Files' "Send to phone")
     spark-link --send-url URL        send a link (Soot's "send this tab to phone" can call this)
     spark-link --ring                make the phone ring
     spark-link --status              what the service is doing, as text
@@ -65,7 +65,7 @@ def self_test() -> int:
     d = Desktop()
     print(f"d-bus:     {'session bus through Gio' if d.bus else 'no Gio session bus; gdbus command: ' + ('yes' if shutil.which('gdbus') else 'no')}")
     print(f"links:     {'soot' if shutil.which('soot') else 'xdg-open' if shutil.which('xdg-open') else 'NOTHING to open links with'}")
-    print(f"clipboard: {d.clipboard_backend() or 'not reachable here (needs Plasma: Klipper, or wl-clipboard)'}")
+    print(f"clipboard: {d.clipboard_backend() or 'not reachable here (needs wl-clipboard)'}")
     try:
         from .desktop import Bus
         Bus(system=True).call('org.freedesktop.Avahi', '/', 'org.freedesktop.Avahi.Server',

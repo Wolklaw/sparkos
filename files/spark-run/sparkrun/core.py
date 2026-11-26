@@ -178,7 +178,7 @@ def name_from_file(filename: str) -> str:
 # ─── Numbers for people ──────────────────────────────────────
 
 def _size(n: Optional[float], digits: int = 0) -> str:
-    """Bytes, in the units Windows and Dolphin show (1 MB = 1024 KB)."""
+    """Bytes, in the units Windows and Spark Files show (1 MB = 1024 KB)."""
     if n is None:
         return "—"
     for unit in ("B", "KB", "MB", "GB", "TB"):
@@ -191,5 +191,5 @@ def _size(n: Optional[float], digits: int = 0) -> str:
 
 
 def size(n: Optional[float], digits: int = 0) -> str:
-    """Bytes, in the units Windows and Dolphin show (1 MB = 1024 KB)."""
+    """Bytes, in the units Windows and Spark Files show (1 MB = 1024 KB)."""
     return local_units(_size(n, digits))

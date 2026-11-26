@@ -13,7 +13,7 @@
 # --no-test  skip the self-test at the end.
 #
 # Installs the window, the background service as a systemd user unit (not switched on: the
-# window enables it for you the first time you pair a phone), Dolphin's "Send to phone", and
+# window enables it for you the first time you pair a phone), Spark Files' "Send to phone", and
 # (system-wide) the firewalld service definition. Keys, paired phones and settings
 # (~/.local/share/spark-link, ~/.config/spark-link) are not touched by --uninstall.
 set -euo pipefail
@@ -133,7 +133,7 @@ EOF
   sed "s|^Exec=spark-link|Exec=$exec_bin|" "$here/$APP_ID.desktop" > "$desktop"
   chmod 0644 "$desktop"
   record "$desktop"
-  # Dolphin's right-click "Send to phone" (KF6 wants a user's service menus executable)
+  # Spark Files' right-click "Send to phone" (a service menu; kept executable as KDE's format asks)
   menu="$DATA/kio/servicemenus/$APP_ID.send.desktop"
   install -d "$DATA/kio/servicemenus"
   sed "s|^Exec=spark-link|Exec=$exec_bin|" "$here/$APP_ID.send.desktop" > "$menu"

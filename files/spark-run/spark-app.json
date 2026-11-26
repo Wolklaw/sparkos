@@ -19,7 +19,7 @@
     "python_modules": ["tkinter"],
     "optional": {
       "PIL": "program icons as PNG (else the .ico is used as is)",
-      "kdialog": "Plasma's file dialog for Run a program",
+      "spark-pick": "the Spark Files picker for Run a program (else Tk's own dialog)",
       "xdg-open": "opening C: folders, the log and the switching guide"
     },
     "downloads_on_first_use": [

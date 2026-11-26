@@ -73,7 +73,7 @@ against recorded output, not the devices.
 
 ## Known limits
 
-- Displays go through `wlr-randr` in the Spark session (`displays.py`); `kscreen-doctor` is only used where it exists.
+- Displays go through `wlr-randr` (`displays.py`); each change is also written to the compositor's `outputs.conf`, and HDR is set there for the next sign-in.
 - Input: pointer and touchpad settings are written to the compositor config and reloaded; button mapping, calibration, tablets and touchscreens are not set here. The keyboard layout reads `kxkbrc` as its fallback when no Spark setting exists.
 - The Plasma-file writes in `plasma.py` (KWin effects, powerdevil timers, kscreenlocker) do nothing in the Spark session; the Spark settings in `~/.config/spark/*.json` are what takes effect.
 - Users: no passwords here, and no picture upload beyond choosing a file.

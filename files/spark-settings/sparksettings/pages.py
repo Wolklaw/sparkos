@@ -20,7 +20,7 @@ def clear(frame: tk.Misc) -> None:
 
 # ──────────────────────────── Displays ────────────────────────────
 class DisplaysPage(Page):
-    key, title, tool = 'displays', "Displays", 'kscreen-doctor'
+    key, title, tool = 'displays', "Displays", 'wlr-randr'
     REVERT_SECONDS = 15
     index = [("Resolution", "size pixels 4k 1080p 1440p"),
              ("Refresh rate", "hz hertz fps 144 165 60"),
@@ -28,7 +28,6 @@ class DisplaysPage(Page):
              ("Rotation", "portrait landscape orientation turn"),
              ("Variable refresh rate", "vrr freesync gsync adaptive sync"),
              ("HDR", "high dynamic range"),
-             ("Primary display", "main monitor screen"),
              ("Arrange monitors", "layout position screens left right")]
 
     def __init__(self, app):
@@ -43,9 +42,8 @@ class DisplaysPage(Page):
         app.closers.append(self.revert_now)
 
     def build(self, f):
-        from . import displays as _d
-        if not (_d.on_sparkwl() and core.have('wlr-randr')) and not core.have('kscreen-doctor'):
-            self.missing(f, 'kscreen-doctor', _("show your monitors"))
+        if not core.have('wlr-randr'):
+            self.missing(f, 'wlr-randr', _("show your monitors"))
             self.canvas = None
             return
         self.bar = tk.Frame(f, bg=T["gold"], padx=14, pady=8)
@@ -75,8 +73,7 @@ class DisplaysPage(Page):
             return
         self.outputs = outputs or []
         if not any(o.name == self.selected for o in self.outputs):
-            first = next((o for o in self.outputs if o.priority == 1), None) or \
-                (self.outputs[0] if self.outputs else None)
+            first = self.outputs[0] if self.outputs else None
             self.selected = first.name if first else None
         self.draw()
         self.show_detail()
@@ -118,8 +115,7 @@ class DisplaysPage(Page):
             c.create_rectangle(x0 - 3, y0, x1 - 3, y1, outline=T["ch_b"] if on else '', fill='')
             c.create_rectangle(x0, y0, x1, y1, fill=T["panel2"],
                                outline=T["accent"] if on else T["line2"], width=2)
-            name = o.name + ("  ★" if o.priority == 1 else '')
-            c.create_text((x0 + x1) / 2, (y0 + y1) / 2 - 8, text=name, fill=T["text"],
+            c.create_text((x0 + x1) / 2, (y0 + y1) / 2 - 8, text=o.name, fill=T["text"],
                           font=self.app.font(10))
             m = o.mode
             sub = f"{m.res} @ {m.rate} Hz" if m else ''
@@ -180,10 +176,6 @@ class DisplaysPage(Page):
         Toggle(r, _("On"), o.enabled, lambda v, o=o: self.enable(o, v), f9).pack(anchor='w')
         if not o.enabled:
             return
-        r = self.row(d, _("Primary display"))
-        Toggle(r, _("Primary"), o.priority == 1,
-               lambda v, o=o: self.change([o.name], [displays.a_primary(o)]) if v else self.refresh(),
-               f9).pack(anchor='w')
         res = o.resolutions()
         m = o.mode
         if m:
@@ -204,15 +196,13 @@ class DisplaysPage(Page):
                    (_("Upside down"), 'inverted')], o.rotation,
                lambda v, o=o: self.change([o.name], [displays.a_rotation(o, v)]),
                self.app.font(10), 22).pack(anchor='w')
-        if o.vrr is not None:
-            r = self.row(d, _("Variable refresh rate"))
-            Choice(r, [(_("Never"), 'never'), (_("Always"), 'always'), (_("When needed"), 'automatic')],
-                   o.vrr, lambda v, o=o: self.change([o.name], [displays.a_vrr(o, v)]),
-                   self.app.font(10), 22).pack(anchor='w')
-        if o.hdr is not None:
-            r = self.row(d, _("HDR"))
-            Toggle(r, _("On"), o.hdr, lambda v, o=o: self.change([o.name], [displays.a_hdr(o, v)]),
-                   f9).pack(anchor='w')
+        r = self.row(d, _("Variable refresh rate"))
+        Toggle(r, _("On"), o.vrr == 'always',
+               lambda v, o=o: self.change([o.name], [displays.a_vrr(o, 'always' if v else 'never')]),
+               f9).pack(anchor='w')
+        r = self.row(d, _("HDR"))
+        Toggle(r, _("On from the next sign-in"), o.hdr,
+               lambda v, o=o: self.change([o.name], [displays.a_hdr(o, v)]), f9).pack(anchor='w')
 
     def set_resolution(self, o, res):
         cur = o.mode

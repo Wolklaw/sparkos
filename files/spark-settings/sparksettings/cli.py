@@ -59,8 +59,8 @@ def self_test(strict: bool = False) -> int:
         bad.append("nmcli")
     if sound.parse_status("Audio\n ├─ Sinks:\n │  *   52. Speakers [vol: 0.40]\n").sinks[0].id != 52:
         bad.append("wpctl")
-    if displays.parse('{"outputs": []}') != []:
-        bad.append("kscreen")
+    if displays.parse('[]') != [] or displays.parse('not json') != []:
+        bad.append("wlr-randr")
     if kcms.route_for('kcm_kscreen') != 'displays':
         bad.append("routes")
     if bad:

@@ -841,6 +841,5 @@ class App:
 
 
 def picker():
-    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
-    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
-    return shutil.which('spark-pick') or shutil.which('kdialog')
+    """The file dialog to run: spark-pick (Spark Files' picker). None: use Tk's own dialog."""
+    return shutil.which('spark-pick')

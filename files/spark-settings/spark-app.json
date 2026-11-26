@@ -23,7 +23,7 @@
       "tkinter"
     ],
     "optional": {
-      "kscreen-doctor": "Displays",
+      "wlr-randr": "Displays",
       "wpctl": "Sound",
       "nmcli": "Network",
       "bluetoothctl": "Bluetooth",

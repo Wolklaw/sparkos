@@ -35,8 +35,7 @@ os.environ.update({
     # test_dbus.py swaps in private fake buses for its own classes
     'DBUS_SYSTEM_BUS_ADDRESS': 'unix:path=/nonexistent/system',
     'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/nonexistent/session',
-    # The tests follow the Plasma code paths (kscreen-doctor and friends, all faked). Run from the
-    # spark-wl session they would otherwise take its paths and change the real displays.
+    # The tests follow the Plasma code paths that are left (all faked).
     'XDG_CURRENT_DESKTOP': 'KDE',
 })
 os.environ.pop('DBUS_STARTER_ADDRESS', None)
@@ -77,26 +76,42 @@ class Parsers(unittest.TestCase):
         a = outs[0]
         self.assertEqual(a.mode.res, '2560x1440')
         self.assertEqual(a.mode.rate, '143.91')
-        self.assertEqual(a.vrr, 'automatic')
+        self.assertEqual(a.vrr, 'always')
+        self.assertEqual(outs[1].vrr, 'never')
+        self.assertEqual(a.label, 'DP-1: Acme Panel One')
         self.assertEqual(a.rates('1920x1080')[0].hz, 119.98)
         self.assertEqual(displays.parse('not json'), [])
 
     def test_display_commands(self):
         o = displays.parse(open(os.path.join(FIX, 'displays.json')).read())[1]
-        self.assertEqual(displays.a_mode(o, '3'), 'output.DP-2.mode.3')
+        self.assertEqual(displays.a_mode(o, '1920x1080@60.000'), 'output.DP-2.mode.1920x1080@60.000')
         self.assertEqual(displays.a_scale(o, 1.25), 'output.DP-2.scale.1.25')
         self.assertEqual(displays.a_rotation(o, 'left'), 'output.DP-2.rotation.left')
         self.assertEqual(displays.a_hdr(o, True), 'output.DP-2.hdr.enable')
-        self.assertEqual(displays.a_primary(o), 'output.DP-2.priority.1')
         self.assertEqual(displays.a_position(o, 10, 20), 'output.DP-2.position.10,20')
 
     def test_restore(self):
         outs = displays.parse(open(os.path.join(FIX, 'displays.json')).read())
         args = displays.restore_args(outs, ['DP-1'])
-        self.assertIn('output.DP-1.mode.3', args)
+        self.assertIn('output.DP-1.mode.2560x1440@143.910', args)
         self.assertIn('output.DP-1.position.0,0', args)
-        self.assertIn('output.DP-1.priority.1', args)
+        self.assertIn('output.DP-1.vrrpolicy.always', args)
         self.assertFalse([a for a in args if 'DP-2' in a])
+
+    def test_hdr_goes_to_outputs_conf(self):
+        conf = displays._conf_path()
+        if os.path.exists(conf):
+            os.remove(conf)
+        o = displays.load()[0]
+        reset_calls()
+        self.assertTrue(displays.apply([displays.a_hdr(o, True)]))
+        self.assertEqual(calls(), ['wlr-randr --json'])
+        text = open(conf).read()
+        self.assertIn('output DP-1 mode=2560x1440@143.910 scale=1 transform=normal pos=0,0 vrr=on hdr=on', text)
+        self.assertTrue(displays.load()[0].hdr)
+        self.assertFalse(displays.load()[1].hdr)
+        displays.apply([displays.a_hdr(o, False)])
+        self.assertNotIn('hdr=on', open(conf).read())
 
     def test_sound(self):
         st = sound.parse_status(open(os.path.join(FIX, 'wpctl-status.txt')).read())
@@ -505,15 +520,15 @@ class Window(unittest.TestCase):
         reset_calls()
         page.change([o.name], [displays.a_scale(o, 1.5)])
         self.app.idle(3)
-        self.assertEqual(calls()[0], 'kscreen-doctor output.DP-2.scale.1.5')
+        self.assertEqual(calls()[0], 'wlr-randr --output DP-2 --scale 1.5')
         self.assertIsNotNone(page.pending)
         reset_calls()
         for _ in range(page.REVERT_SECONDS):
             page.tick()
         self.app.idle(3)
         self.assertIsNone(page.pending)
-        back = [c for c in calls() if c.startswith('kscreen-doctor ')]
-        self.assertTrue(back and 'output.DP-2.scale.1' in back[0] and 'output.DP-2.mode.1' in back[0], back)
+        back = [c for c in calls() if c.startswith('wlr-randr --output')]
+        self.assertTrue(back and '--scale 1 ' in back[0] and '--mode 1920x1080@119.980Hz' in back[0], back)
         self.assertNotIn('DP-1', back[0])
 
     def test_display_change_kept(self):
