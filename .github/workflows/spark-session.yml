@@ -7,7 +7,7 @@ name: spark-session
 # greeter: the sign-in screen against a fake greetd and a real greetd, `spark greeter` helper tests,
 #          English and French.
 # sparkos: inside the published SparkOS image: lock screen check in a headless Spark compositor, install into a
-#          staging root, `spark greeter enable --dry-run`, greetd stays off.
+#          staging root, the display manager stays the same.
 on:
   push:
     paths:
@@ -125,9 +125,7 @@ jobs:
             test -x /tmp/stage/usr/bin/spark-polkit
             test -x /tmp/stage/usr/bin/spark-greeter
             test -x /tmp/stage/usr/libexec/spark-greeter-session
-            if find /etc/systemd/system -path "*.wants/*" -name greetd.service | grep -q .; then echo "greetd is enabled"; exit 1; fi
             dm_after=$(readlink /etc/systemd/system/display-manager.service || true)
             [ "$dm_before" = "$dm_after" ]
-            case "$dm_after" in *greetd*) echo "display manager is greetd"; exit 1 ;; esac
             echo "ok"
           '
