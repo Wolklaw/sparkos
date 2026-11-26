@@ -16,7 +16,8 @@
 #   greenboot               Bazzite's settings, and its two services on: a PC that fails to boot
 #                           an update three times goes back to the previous system by itself
 #   open                    a shell alias for xdg-open, as on Bazzite (/etc/profile.d/open.sh)
-#   SUDO_ASKPASS            KDE's password window for `sudo -A`, as on Bazzite (askpass.sh)
+#   SUDO_ASKPASS            a password window for `sudo -A`, as on Bazzite (askpass.sh); Bazzite
+#                           uses KDE's, SparkOS uses spark-ask's (spark-askpass)
 #   podman.socket           on for every user, as on Bazzite: the Docker-compatible socket that
 #                           docker-compose, VS Code's container tools and similar talk to
 set -oue pipefail
@@ -73,9 +74,10 @@ cat > /etc/profile.d/open.sh <<'EOS'
 alias open="xdg-open &>/dev/null"
 EOS
 cat > /etc/profile.d/askpass.sh <<'EOS'
-# SparkOS: `sudo -A` asks for the password in a KDE window
-[ -x /usr/bin/ksshaskpass ] && export SUDO_ASKPASS=/usr/bin/ksshaskpass
+# SparkOS: `sudo -A` asks for the password in a Spark window
+[ -x /usr/bin/spark-askpass ] && export SUDO_ASKPASS=/usr/bin/spark-askpass
 EOS
+ln -sfn spark-ask /usr/bin/spark-askpass
 
 # Podman's Docker-compatible socket, on for every user as on Bazzite
 systemctl --global enable podman.socket
@@ -88,12 +90,12 @@ mkdir -p "${out%/*}"
   echo "Symbols Nerd Font ${nf_ver}"
   echo "commands: ls-iommu boot-windows protontricks protontricks-launch pulseaudio edit"
   echo "greenboot: $(rpm -q greenboot), checks off: dns, update platforms"
-  echo "shell: open alias, SUDO_ASKPASS=ksshaskpass; podman.socket on for every user"
+  echo "shell: open alias, SUDO_ASKPASS=spark-askpass; podman.socket on for every user"
 } >"$out"
 for f in /usr/bin/winetricks /usr/bin/ls-iommu /usr/bin/boot-windows /usr/bin/protontricks \
          /usr/bin/protontricks-launch /usr/bin/pulseaudio /usr/bin/edit \
          /usr/share/fonts/nerd-fonts/SymbolsNerdFont-Regular.ttf /etc/fonts/conf.d/10-nerd-font-symbols.conf \
-         /etc/profile.d/open.sh /etc/profile.d/askpass.sh /usr/bin/ksshaskpass; do
+         /etc/profile.d/open.sh /etc/profile.d/askpass.sh /usr/bin/spark-askpass; do
   test -e "$f" || { echo "missing: $f"; exit 1; }
 done
 [[ $(fc-list : family) == *'Symbols Nerd Font'* ]] || { echo "Symbols Nerd Font not found by fontconfig"; exit 1; }

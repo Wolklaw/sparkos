@@ -182,6 +182,28 @@ def umu_env(slug: str, prefix: str, options: Optional[Dict[str, Any]] = None) ->
     return env
 
 
+OWN_FRAMES = ('\n[Software\\\\Wine\\\\X11 Driver]\n'
+              '"Decorated"="N"\n')
+
+
+def own_frames(prefix: str) -> None:
+    """The launchers draw their own title bar. When maximized they still ask Windows for a
+    caption, so Wine hands the title bar to the window manager: a second bar on top, and Wine
+    keeps the old width for the launcher's own bar (a black band). "Decorated"="N" makes Wine
+    leave frames alone. Written while Wine is stopped (Wine keeps the registry in memory and
+    rewrites the file on exit), so it is checked again at every launch."""
+    reg = os.path.join(prefix, 'user.reg')
+    try:
+        with open(reg, encoding='utf-8', errors='replace') as f:
+            text = f.read()
+        if '[Software\\\\Wine\\\\X11 Driver]' in text:
+            return                                   # set by us, or by the user: leave it
+        with open(reg, 'a', encoding='utf-8') as f:
+            f.write(OWN_FRAMES)
+    except OSError as exc:
+        log.info("could not set Wine frames in %s: %s", prefix, exc)
+
+
 def detect_exe(slug: str, prefix: str) -> str:
     for rel in LAUNCHERS[slug]['exes']:
         path = os.path.join(prefix, *rel.split('/'))
@@ -310,8 +332,11 @@ def plan(game: Game, options: Dict[str, Any], which: Callable[[str], Optional[st
     umu = which('umu-run')
     if not umu:
         raise LaunchError('no_umu')
-    env = umu_env(info.get('store') or game.source, info.get('prefix') or game.install_dir,
-                  options)
+    slug = info.get('store') or game.source
+    prefix = info.get('prefix') or game.install_dir
+    env = umu_env(slug, prefix, options)
+    if slug in LAUNCHERS and not native(slug) and prefix:
+        own_frames(prefix)
     gamemode = ['gamemoderun'] if options.get('gamemode') and which('gamemoderun') else []
     return Plan(gamemode + [umu, exe], env=env, cwd=os.path.dirname(exe),
                 session=session(info.get('store') or game.source,

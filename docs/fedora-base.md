@@ -372,7 +372,7 @@ packages. Nothing changes on the Bazzite base.
 | `memlock` 2 GiB (`/etc/security/limits.d/memlock.conf`) | `/etc/security/limits.d/90-sparkos-memlock.conf` | Fedora's limit is 8 MiB; emulators (RPCS3) and some VR and anti-cheat software need more. |
 | btrfs reclaim (`btrfs-reclaim.conf`) | `/usr/lib/tmpfiles.d/sparkos-btrfs-reclaim.conf` | The root disk is btrfs; reclaiming half-empty data chunks avoids "disk full" while space is free. |
 | fstrim drop-in (`workaround-no-root-trim.conf`) | `/usr/lib/systemd/system/fstrim.service.d/50-sparkos-mounted.conf` | `/` is read-only in `/etc/fstab` on an image system; trim what's mounted instead (Fedora Atomic tracker issue 81). |
-| `dmemcg-booster`, `plasma-foreground-booster-dmemcg`, `kcgroups-dmemcg` | **From Terra** (build time only, like `umu-launcher`), `dmemcg-booster-system` and `-user` enabled | Running on the owner's PC today: when VRAM is full, the focused app keeps its video memory and background apps are moved out first (and get less CPU). Fedora's kernel supports it as is: `CONFIG_CGROUP_DMEM=y`, amdgpu registers its VRAM and TTM has the protection code. Fedora doesn't package the two programs; writing SparkOS's own would mean a D-Bus/cgroup daemon plus a KWin window tracker, so Terra's packages (1 MiB) are used. Fedora's `plasma-workspace.target` already starts the foreground booster. |
+| `dmemcg-booster` (and, until 2026-11-26, `plasma-foreground-booster-dmemcg`, `kcgroups-dmemcg`) | **From Terra** (build time only, like `umu-launcher`), `dmemcg-booster-system` and `-user` enabled | Running on the owner's PC today: when VRAM is full, the focused app keeps its video memory and background apps are moved out first (and get less CPU). Fedora's kernel supports it as is: `CONFIG_CGROUP_DMEM=y`, amdgpu registers its VRAM and TTM has the protection code. Fedora doesn't package the two programs; writing SparkOS's own would mean a D-Bus/cgroup daemon plus a KWin window tracker, so Terra's packages (1 MiB) are used. Fedora's `plasma-workspace.target` started the foreground booster; it went with Plasma on 2026-11-26 (no KDE in the image), so background apps are no longer moved out by focus. dmemcg-booster still runs. |
 | `ds-inhibit` (Universal Blue COPR) | Copied into `files/ds-inhibit` (Valve, BSD-2-Clause), `ds-inhibit.service` enabled | While Steam has a DualShock 4 or DualSense open, the touchpad stops moving the mouse pointer. A 170-line Python script; `python3-pyinotify` is Fedora's. |
 | `vkBasalt` | Fedora's package | 1.8 MiB, off unless `ENABLE_VKBASALT=1`. Reaches games started from Spark Games (`umu-run` on the system); Flatpak Steam, Heroic and Lutris use Flathub's VulkanLayer extensions instead. |
 | `obs-studio-plugin-vkcapture` (hook libraries) | **Skipped** | In Fedora, but its weak dependencies pull in OBS, CEF and WebKit (about 500 MiB); OBS isn't installed, and Flatpak games use Flathub's OBS capture layer. |
@@ -407,8 +407,7 @@ RAM and stops at 16384 MB on 64 GiB; the tmpfiles lines parse; `bluetooth` has t
 `disable_ertm` option; `ds-inhibit` starts.
 
 **Needs the real PC:** that kyber is active on the NVMe and SATA drives, `/dev/zram0` is 16 GiB
-zstd, `sysctl net.ipv4.tcp_congestion_control` says `bbr`, `dmemcg-booster` and the foreground
-booster run and `/sys/fs/cgroup/dmem.capacity` lists the GPU's VRAM, a DualSense's touchpad
+zstd, `sysctl net.ipv4.tcp_congestion_control` says `bbr`, `dmemcg-booster` runs and `/sys/fs/cgroup/dmem.capacity` lists the GPU's VRAM, a DualSense's touchpad
 stops moving the pointer while Steam is open, and that no SELinux `execmem` denials show up.
 
 ## Package parity
@@ -451,7 +450,7 @@ before this).
 | nerd-fonts (COPR) | Symbols Nerd Font 3.5.1 from upstream, SHA-256 checked, with Nerd Fonts' fontconfig file | Prompt icons (Starship, oh-my-posh, `eza --icons`) in any monospace font. The same files as Bazzite's (same SHA-256). |
 | tesseract-langpack-* (ces, chi_sim, chi_tra and their _vert, deu, ell, ita, jpn, jpn_vert, nld, pol, por, rus, spa, tur) | Fedora's packages, 45 MiB | Text recognition in those languages. English and French come with Spark Scan. |
 | `ls-iommu` (Terra) | `files/fedora-parity/ls-iommu`, a small script | Lists IOMMU groups for GPU passthrough. |
-| `/etc/profile.d/open.sh`, `askpass.sh`; `podman.socket` on for every user (Bazzite's loose files and preset) | The same, from `fedora-parity.sh` (added 2026-11-23) | `open FILE` in a terminal opens it in its app; `sudo -A` asks for the password in KDE's window; Podman's Docker-compatible socket for docker-compose and editors' container tools. |
+| `/etc/profile.d/open.sh`, `askpass.sh`; `podman.socket` on for every user (Bazzite's loose files and preset) | The same, from `fedora-parity.sh` (added 2026-11-23) | `open FILE` in a terminal opens it in its app; `sudo -A` asks for the password in a Spark window (spark-askpass); Podman's Docker-compatible socket for docker-compose and editors' container tools. |
 | `boot-windows`, `protontricks`, `protontricks-launch`, `pulseaudio` (link to `true`), `edit` (link to msedit) (loose files) | SparkOS's own: `boot-windows` runs `spark windows`; the protontricks commands run Flathub's Protontricks or say how to get it; the two links as on Bazzite | Names people type. `pulseaudio --check` succeeds for games and launchers that look for it (PipeWire plays its part). |
 | ntfs-3g, ntfsprogs, exfatprogs, dosfstools; kernel `ntfs3` | Already in Kinoite | The owner's NTFS drives mount with the kernel's `ntfs3` on Bazzite today; Fedora's kernel has `ntfs3.ko` too. |
 | Nova's libraries (llama-server with Vulkan, PySide6 with Qt WebEngine) | Nothing missing | `ldd` over every program and library in Nova's install, run in the Fedora image, finds the same short list of unresolved optional Qt plugins (SQL drivers, Wayland compositor, PDF) as in the Bazzite image. |
@@ -538,7 +537,7 @@ README say so. Unit tests cover it; the VM test checks it for real.
 
 ## What still ties the prototype to someone else
 
-- **Fedora**: the base image, kernel, Mesa, firmware, Plasma. That's the goal of Release 3: one
+- **Fedora**: the base image, kernel, Mesa, firmware (Plasma until 2026-11-26; the image has no KDE since). That's the goal of Release 3: one
   big, stable upstream instead of Fedora plus Bazzite plus the repositories Bazzite pulls in.
 - **Cisco's OpenH264**, through Fedora's own repository, for H.264.
 - **Valve's `ds-inhibit`**, copied into `files/ds-inhibit`.
@@ -547,8 +546,7 @@ README say so. Unit tests cover it; the VM test checks it for real.
 - **Flathub**, for every app users install. Same as today.
 - **RPM Fusion free**, for FFmpeg and Mesa video decode (H.265, and H.264/H.265 on the GPU). In the
   image since 2026-11-22.
-- **Terra**, for `umu-launcher` and the VRAM booster (`dmemcg-booster`,
-  `plasma-foreground-booster-dmemcg`, `kcgroups-dmemcg`) only (Fedora doesn't package them), at build time; the repository
+- **Terra**, for `umu-launcher` and the VRAM booster (`dmemcg-booster`) only (Fedora doesn't package them), at build time; the repository
   isn't left on the system, so updates to it come with each image build.
 - **RPM Fusion free** also for `akmod-v4l2loopback`, built into a kmod package for the image's kernel.
 - **The kernel modules' own projects** (zenergy, ryzen_smu, xonedo, hid-fanatecff, new-lg4ff,

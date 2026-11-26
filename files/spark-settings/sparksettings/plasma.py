@@ -207,3 +207,41 @@ def baloo_set(on: bool) -> bool:
     if tool:
         run([tool, 'enable' if on else 'disable'], timeout=30)
     return bool(ok)
+
+
+# ── spark-wl: no KWin, Plasma or KDE daemons in that session ──
+# Every function above turns into a no-op that reports success, and the readers give the
+# defaults, so pages save only to ~/.config/spark (and the compositor / shell read from there).
+# Nothing in the spark-wl session reads a KDE rc file, and writing them would only leave stale
+# state behind for the Plasma session.
+import os as _os
+if 'sparkwl' in _os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+    def _ok(*_a, **_k) -> bool:
+        return True
+    kwin_reconfigure = libinput_write = keyboard_write = lock_set = apply_colorscheme = _ok
+    apply_wallpaper = apply_cursor = powerdevil_set = notify_set = _ok
+    localerc_write = localerc_write_time = baloo_set = _ok
+
+    # Except the animation switch: every Spark app reads AnimationDurationFactor from
+    # ~/.config/kdeglobals (a plain ini file, written here without any KDE tool), so turning
+    # animations off has to land there for the apps to stop their glitch effects.
+    def kwin_effects_set(animations: Optional[bool] = None, blur: Optional[bool] = None) -> bool:
+        if animations is None:
+            return True
+        return kwrite('kdeglobals', 'KDE', 'AnimationDurationFactor', '1' if animations else '0') == 0
+
+    def kwin_effects_get() -> Dict[str, object]:
+        try:
+            speed = float(kread('kdeglobals', 'KDE', 'AnimationDurationFactor', '1'))
+        except ValueError:
+            speed = 1.0
+        return {'animations': speed > 0, 'blur': True}
+    lock_get = lambda: {'autolock': True, 'minutes': 5, 'on_resume': True}  # noqa: E731
+    colorscheme_now = lambda: ''                                        # noqa: E731
+    # a desktop that games: screens off after 10 minutes, no sleep unless asked for
+    powerdevil_get = lambda profile='AC': {'screen_off_s': 600, 'sleep_s': 0,  # noqa: E731
+                                           'sleep_action': 0, 'power_button': 8}
+    notify_get = lambda: {'timeout_ms': 5000, 'position': '', 'sounds_muted': False}  # noqa: E731
+    localerc_read = lambda key: ''                                      # noqa: E731
+    localerc_time = lambda default: default                             # noqa: E731
+    baloo_enabled = lambda: None                                        # noqa: E731

@@ -127,7 +127,9 @@ class Page:
         col = tk.Frame(r, bg=T["panel"], width=190)
         col.pack(side='left', anchor='n')
         col.pack_propagate(False)
-        label(col, text, self.app.font(10)).pack(anchor='w', fill='x')
+        name = label(col, text, self.app.font(10))
+        name.pack(anchor='w', fill='x')
+        col.configure(height=name.winfo_reqheight())   # a fixed-width column has no height of its own
         right = tk.Frame(r, bg=T["panel"])
         right.pack(side='left', fill='x', expand=True)
         if hint:

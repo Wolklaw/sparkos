@@ -1,6 +1,6 @@
 # Spark Notes
 
-The SparkOS quick notes and clipboard history. It replaces Plasma's Klipper on Meta+V (Windows key and
+The SparkOS quick notes and clipboard history. It replaces KDE's Klipper on Meta+V (Windows key and
 V). Version 0.1.0. No account, no cloud: everything stays in your home folder.
 
 ## Using it
@@ -72,10 +72,9 @@ keeps your notes, history and settings (`~/.local/share/spark-notes`, `~/.config
 
 ## Honest limits
 
-- Wayland with a compositor that has the data-control protocol (KDE's KWin does). Without it the
+- Wayland with a compositor that has the data-control protocol (the Spark compositor does). Without it the
   history stays empty and the notes still work. X11 is untested.
-- The Meta+V takeover and Klipper's removal from the tray are tested only as files (syntax and CI
-  checks), not on a booted SparkOS. If Meta+V still opens Klipper after the update, log out and in.
+- Meta+V is a built-in bind of the Spark compositor; there is no Klipper in the image. It is tested only as files and CI, not on hardware.
 
 ## Tests
 

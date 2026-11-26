@@ -62,7 +62,7 @@ Measured by CI on 2026-11-20 (GitHub runner: 4 vCPUs of an Intel Xeon 6975P-C, F
 First paint counts from the moment the process started, Python's own start-up included. A search over all apps takes about 8 ms. It hasn't been measured on the owner's Ryzen yet; `spark-store --bench 10` measures it on any PC.
 
 - The window, the Spark apps and the header are drawn first; the catalog index, the installed list and the update check load in threads. Icons load a few per idle moment.
-- When nothing is running, nothing is scheduled: the window only polls while a background job or the queue is busy. The idle 0.2% is the glitch on the title (every 7-12 s); it's off when Plasma's animations are off, and then the Store uses no CPU.
+- When nothing is running, nothing is scheduled: the window only polls while a background job or the queue is busy. The idle 0.2% is the glitch on the title (every 7-12 s); it's off when `SPARK_STORE_REDUCED_MOTION` or a zero `AnimationDurationFactor` in `kdeglobals` says so (the Spark session does not write that file), and then the Store uses no CPU.
 
 ## Install, run, test
 
@@ -90,7 +90,7 @@ Keys: Ctrl+F search, Enter open the first result, Esc clear the search or go bac
 
 ## Not done yet
 
-- Opened on a real SparkOS desktop in CI, not used by hand yet. The boot test opens it from the app menu in a Plasma 6.8 session in a VM, in English and in French, keeps a screenshot and fails on a Python traceback. CI also covers the window under Xvfb (with a fake flatpak for most tests, and one real Flathub app installed and removed through the window), and the real queue inside the SparkOS image.
+- Opened on a real SparkOS desktop in CI, not used by hand yet. The boot test opens it from the app menu in the Spark session in a VM, in English and in French, keeps a screenshot and fails on a Python traceback. CI also covers the window under Xvfb (with a fake flatpak for most tests, and one real Flathub app installed and removed through the window), and the real queue inside the SparkOS image.
 - Apps from sources other than Flathub aren't in the catalog: they install from their own `.flatpakref` links.
 - Installs are always for you only; apps installed for everyone can be updated and removed (with a password), not installed.
 - No ratings or download counts: those need Flathub's web API, which the brief rules out.

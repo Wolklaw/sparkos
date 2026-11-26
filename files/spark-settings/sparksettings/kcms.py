@@ -74,7 +74,9 @@ def all_modules() -> List[Kcm]:
 
 
 def more_settings() -> List[Kcm]:
-    """Every module that doesn't have its own Spark page."""
+    """Every module that doesn't have its own Spark page (none in the Spark compositor session)."""
+    if 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+        return []
     return [k for k in all_modules() if k.id not in ROUTES]
 
 

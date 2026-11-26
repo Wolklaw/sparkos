@@ -27,8 +27,7 @@ notification that has Open and Show in folder.
 
 A systemd user service (`spark-clips.service`) holds the buffer and listens on a control socket in
 `$XDG_RUNTIME_DIR`. The window, `--save` and the shortcut all talk to it. The shortcut is the desktop entry's
-`save` action with `X-KDE-Shortcuts=Meta+Alt+G`; KDE's kglobalaccel reads it. If another program already
-owns that key, the window says which.
+`save` action with `X-KDE-Shortcuts=Meta+Alt+G`, which only KDE's kglobalaccel read. In the Spark session the compositor binds Super+Alt+G to `spark-clips --save` itself; `bind Super+Alt+g none` in its config turns that off.
 
 The screen comes from the desktop's screen-share portal (xdg-desktop-portal ScreenCast) and PipeWire. The
 first time, the portal asks which screen to share: click it once. Spark Clips keeps the permission, so later

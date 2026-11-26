@@ -1,8 +1,6 @@
-# greetd's settings for the Spark sign-in screen. `spark greeter enable` copies this file to
-# /etc/greetd/config.toml; `spark greeter disable` puts the original back.
-#
-# greetd is not turned on by default. Plasma Login Manager is what signs you in until you run
-# `spark greeter enable` and restart.
+# greetd's settings for the Spark sign-in screen. The image installs this as
+# /etc/greetd/config.toml; `spark greeter disable` swaps in greetd-text.toml (text sign-in) and
+# `spark greeter enable` puts this one back.
 
 [terminal]
 # The greeter is a graphical program, so greetd takes the first free VT for it.

@@ -9,7 +9,10 @@ name: boot-test
 # Update test (by hand, "update_from"): installs that tag, updates it to the tested one the way
 # a PC does (signed rebase, reboot), then runs the checks on the updated system.
 #
-# SparkOS is built on Fedora Kinoite (since 2026-11-23; on Bazzite before that).
+# SparkOS is built on Fedora Kinoite (since 2026-11-23; on Bazzite before that), with KDE taken
+# out at the end of the build (files/scripts/sparkos-no-kde.sh): no Plasma, KWin or KDE apps.
+# greetd with the Spark Greeter signs in, and the Spark session (spark-compositor + Spark Shell)
+# is the desktop.
 on:
   workflow_run:
     workflows: [build]
@@ -295,7 +298,7 @@ jobs:
       - name: Check printing, scanning and devices
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          $SSH 'rpm -q plasma-print-manager cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd fuse-sshfs rclone' | tee "$WORK/devices.txt"
+          $SSH 'rpm -q cups cups-browsed ipp-usb sane-airscan sane-backends-drivers-scanners libratbag-ratbagd fuse-sshfs rclone' | tee "$WORK/devices.txt"
           if grep -q 'not installed' "$WORK/devices.txt"; then
             echo "::error::a printing, scanning or device package is not installed"; exit 1
           fi
@@ -336,13 +339,12 @@ jobs:
       - name: Check Claude Code setup
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          $SSH 'rpm -q socat bubblewrap kdialog vte291-gtk4 && test -x /usr/bin/spark-terminal' | tee "$WORK/claude-deps.txt"
+          $SSH 'rpm -q socat bubblewrap vte291-gtk4 && test -x /usr/bin/spark-terminal && test -x /usr/bin/spark-ask' | tee "$WORK/claude-deps.txt"
           if [ "${PIPESTATUS[0]}" != 0 ] || grep -q 'not installed' "$WORK/claude-deps.txt"; then
-            echo "::error::a package Claude Code needs is not installed, or Spark Terminal is missing"; exit 1
+            echo "::error::a package Claude Code needs is not installed, or Spark Terminal or spark-ask is missing"; exit 1
           fi
           $SSH 'set -e; for f in /usr/bin/sparkos-claude /usr/bin/sparkos-claude-import /usr/bin/sparkos-dev-setup; do test -x $f || { echo "missing $f"; exit 1; }; done
                 test -f /usr/share/applications/sparkos-claude-code.desktop
-                test -f /usr/share/kio/servicemenus/sparkos-claude-code.desktop
                 command -v desktop-file-validate >/dev/null && desktop-file-validate /usr/share/applications/sparkos-claude-code.desktop
                 echo "launchers present"'
           # Install Claude Code the way a user would, then run it (no sign-in needed for --version)
@@ -363,7 +365,7 @@ jobs:
       - name: Check Spark Snip
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
-          # Installed, shortcuts registered, Spectacle gone (Spark Snip captures through KWin)
+          # Installed, shortcuts registered (Spark's own entries, read by the compositor), Spectacle gone
           $SSH 'set -e; spark-snip --version; ls -l /usr/bin/spark-snip /usr/share/kglobalaccel/dev.wolklaw.SparkSnip.desktop'
           $SSH 'grep -H "^X-KDE-Shortcuts=" /usr/share/applications/dev.wolklaw.SparkSnip.desktop' | tee "$WORK/shortcuts.txt"
           grep -q 'SparkSnip.desktop:X-KDE-Shortcuts=Print,Meta+Shift+S' "$WORK/shortcuts.txt"
@@ -460,33 +462,33 @@ jobs:
       - name: Check Spark Files
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # The file manager in Dolphin's place: installed, self-test passes, the only
-          # org.freedesktop.FileManager1 provider ("Show in folder"), Dolphin out of the menu
+          # The file manager: installed, self-test passes, the only org.freedesktop.FileManager1
+          # provider ("Show in folder"), folders open in it, and Dolphin is not in the image
           $SSH 'set -e; spark-files --version; ls -l /usr/bin/spark-files /usr/share/applications/dev.wolklaw.SparkFiles.desktop /usr/share/dbus-1/services/dev.wolklaw.SparkFiles*.service'
           $SSH 'spark-files --self-test' 2>&1 | tee "$WORK/spark-files-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-files-self-test.txt"
-          $SSH 'grep -lx "Name=org.freedesktop.FileManager1" /usr/share/dbus-1/services/*.service; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.dolphin.desktop; xdg-mime query default inode/directory' | tee "$WORK/spark-files-takeover.txt"
+          $SSH 'grep -lx "Name=org.freedesktop.FileManager1" /usr/share/dbus-1/services/*.service; xdg-mime query default inode/directory; rpm -q dolphin >/dev/null 2>&1 && echo dolphin-installed; test -e /usr/share/applications/org.kde.dolphin.desktop && echo dolphin-entry; true' | tee "$WORK/spark-files-takeover.txt"
           [ "$(grep -c 'FileManager1' "$WORK/spark-files-takeover.txt")" = 1 ] || { echo "::error::more than one FileManager1 provider"; exit 1; }
           grep -qx '/usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service' "$WORK/spark-files-takeover.txt"
-          grep -qx '1' "$WORK/spark-files-takeover.txt" || { echo "::error::Dolphin is still in the menu"; exit 1; }
+          if grep -q '^dolphin-' "$WORK/spark-files-takeover.txt"; then echo "::error::Dolphin is still in the image"; exit 1; fi
           grep -qx 'dev.wolklaw.SparkFiles.desktop' "$WORK/spark-files-takeover.txt" || { echo "::error::folders don't open in Spark Files"; exit 1; }
 
       - name: Check Spark Settings
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # The settings app in System Settings' place: installed, self-test passes with every
-          # tool each page runs, Plasma's systemsettings and kcmshell6 go through it, and KDE's
-          # own entry is out of the menu but still installed (files/scripts/spark-settings.sh)
+          # The settings app: installed, self-test passes with every tool each page runs, and
+          # KDE's System Settings is gone with its stand-ins (sparkos-no-kde.sh removes them)
           $SSH 'set -e; spark-settings --version; spark-settings --self-test --strict' 2>&1 | tee "$WORK/spark-settings-self-test.txt"
           grep -q '^self-test passed' "$WORK/spark-settings-self-test.txt"
-          $SSH 'grep -c "spark-settings --route" /usr/bin/systemsettings /usr/bin/kcmshell6; test -x /usr/libexec/sparkos/kde-settings/systemsettings; test -x /usr/libexec/sparkos/kde-settings/kcmshell6; rpm -q plasma-systemsettings >/dev/null; grep -c "^NoDisplay=true" /usr/share/applications/systemsettings.desktop' | tee "$WORK/spark-settings-takeover.txt"
-          [ "$(grep -c ':1$\|^1$' "$WORK/spark-settings-takeover.txt")" = 3 ] || { echo "::error::systemsettings, kcmshell6 or the menu entry is not set up"; exit 1; }
+          $SSH 'for f in /usr/bin/systemsettings /usr/bin/kcmshell6 /usr/libexec/sparkos/kde-settings /usr/share/applications/systemsettings.desktop; do test -e $f && echo "left: $f"; done; rpm -q plasma-systemsettings >/dev/null 2>&1 && echo "left: plasma-systemsettings"; true' | tee "$WORK/spark-settings-takeover.txt"
+          if grep -q '^left: ' "$WORK/spark-settings-takeover.txt"; then echo "::error::KDE's System Settings is still in the image"; exit 1; fi
 
       - name: Check the SparkOS icon theme
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # installed, over Breeze Dark, and the default for a new user (files/scripts/sparkos-icons.sh)
-          $SSH 'kreadconfig6 --group Icons --key Theme; sed -n "s/^Inherits=//p" /usr/share/icons/SparkOS/index.theme; test -s /usr/share/icons/SparkOS/places/scalable/folder.svg && echo folder' | tee "$WORK/icons.txt"
+          # installed, over Breeze Dark's artwork, and the default for a new user
+          # (files/scripts/sparkos-icons.sh; no kreadconfig6 without KDE, so the file is read directly)
+          $SSH 'sed -n "/^\[Icons\]/,/^\[/s/^Theme=//p" /etc/xdg/kdeglobals; sed -n "s/^Inherits=//p" /usr/share/icons/SparkOS/index.theme; test -s /usr/share/icons/SparkOS/places/scalable/folder.svg && echo folder' | tee "$WORK/icons.txt"
           diff <(printf 'SparkOS\nbreeze-dark,hicolor\nfolder\n') "$WORK/icons.txt" || { echo "::error::SparkOS is not the icon theme"; exit 1; }
 
       - name: Check the other Spark apps
@@ -498,26 +500,25 @@ jobs:
             $SSH "set -e; $app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
           done
-          # spark-share (Spark Connect's Take control, on the target): self-test checks krdpserver is
-          # there and allowed to use the Plasma screen-sharing interfaces
-          $SSH 'spark-share --self-test' 2>&1 | tee "$WORK/spark-share-self-test.txt"
-          grep -q '^self-test passed' "$WORK/spark-share-self-test.txt" || { echo "::error::spark-share self-test failed"; exit 1; }
+          # spark-share (Spark Connect's Take control) is not checked: it ran on krdpserver and
+          # Plasma's screen-sharing interfaces, which went with KDE. Its self-test comes back when
+          # it has a spark-wl backend.
           # Optional Spark apps: only their sources ship, for the Store to install per user
           grep -q '(not installed, can install from /usr/share/spark-store/sources/spark-space)$' "$WORK/spark-store-self-test.txt" || { echo "::error::Spark Space's source isn't in the image"; exit 1; }
           $SSH 'test ! -e /usr/bin/spark-space && echo "Spark Space: source only, not installed"'
-          # Extract/Compress in Dolphin's right-click menu; Send to phone too
+          # Extract/Compress right-click entries (SparkOS's own files in the kio servicemenus folder)
           $SSH 'ls /usr/share/kio/servicemenus/ | grep -i -E "spark"' | tee "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.extract.desktop' "$WORK/servicemenus.txt"
           grep -q 'dev.wolklaw.SparkArchive.compress.desktop' "$WORK/servicemenus.txt"
           # Spark Terminal is the default terminal; Konsole is gone
-          $SSH 'kreadconfig6 --group General --key TerminalApplication; xdg-terminal-exec --print-id; ! rpm -q konsole >/dev/null; test ! -e /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
+          $SSH 'sed -n "/^\[General\]/,/^\[/s/^TerminalApplication=//p" /etc/xdg/kdeglobals; xdg-terminal-exec --print-id; ! rpm -q konsole >/dev/null; test ! -e /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
           diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n') "$WORK/terminal.txt"
-          # Spark Emoji has Meta+. and Plasma's Emoji Selector is hidden and gave the key up
-          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -c "^NoDisplay=true" /usr/share/applications/org.kde.plasma.emojier.desktop; grep -c "^X-KDE-Shortcuts=" /usr/share/applications/org.kde.plasma.emojier.desktop || true' | tee "$WORK/emoji.txt"
-          diff <(printf '1\nlinked\n1\n0\n') "$WORK/emoji.txt" || { echo "::error::Meta+. is not Spark Emoji's"; exit 1; }
-          # Spark Notes has Meta+V, its watcher is enabled for every login, and Klipper is not in the tray's default layout
-          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+V$" /usr/share/applications/dev.wolklaw.SparkNotes.Clipboard.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkNotes.Clipboard.desktop && echo linked; test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service && echo watcher-enabled; test -x /usr/bin/wl-paste && echo wl-paste; test -f /usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/sparkos-no-klipper.js && echo update-script' | tee "$WORK/notes.txt"
-          diff <(printf '1\nlinked\nwatcher-enabled\nwl-paste\nupdate-script\n') "$WORK/notes.txt" || { echo "::error::Meta+V is not Spark Notes'"; exit 1; }
+          # Spark Emoji has Meta+., no other entry claims it, and Plasma's Emoji Selector is gone
+          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -l "^X-KDE-Shortcuts=\(.*,\)\?Meta+\.\(,\|$\)" /usr/share/applications/*.desktop | grep -v SparkEmoji | wc -l; test -e /usr/share/applications/org.kde.plasma.emojier.desktop && echo emojier-left; true' | tee "$WORK/emoji.txt"
+          diff <(printf '1\nlinked\n0\n') "$WORK/emoji.txt" || { echo "::error::Meta+. is not Spark Emoji's"; exit 1; }
+          # Spark Notes has Meta+V and its watcher is enabled for every login (no Klipper without Plasma)
+          $SSH 'grep -c "^X-KDE-Shortcuts=Meta+V$" /usr/share/applications/dev.wolklaw.SparkNotes.Clipboard.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkNotes.Clipboard.desktop && echo linked; test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service && echo watcher-enabled; test -x /usr/bin/wl-paste && echo wl-paste' | tee "$WORK/notes.txt"
+          diff <(printf '1\nlinked\nwatcher-enabled\nwl-paste\n') "$WORK/notes.txt" || { echo "::error::Meta+V is not Spark Notes'"; exit 1; }
           # Text and code open in Spark Edit, archives in Spark Archive
           $SSH 'for m in text/plain text/markdown application/json text/x-python application/zip application/x-7z-compressed application/x-compressed-tar application/vnd.rar application/x-cd-image; do printf "%s -> " $m; xdg-mime query default $m; done' | tee "$WORK/edit-archive-defaults.txt"
           for m in text/plain text/markdown application/json text/x-python; do
@@ -553,12 +554,13 @@ jobs:
           $SSH 'rpm -q tailscale 2>&1; ls /etc/yum.repos.d/; echo "== units"; systemctl list-unit-files --no-legend "tailscale*"' | tee "$WORK/cleanup-tailscale.txt"
           grep -q 'package tailscale is not installed' "$WORK/cleanup-tailscale.txt" || { echo "::error::tailscale is installed"; exit 1; }
           if grep -i 'tailscale' "$WORK/cleanup-tailscale.txt" | grep -v 'is not installed'; then echo "::error::Tailscale leftovers"; exit 1; fi
-          # No calling home: usage counting off (timer and DNF), KDE's Get New Stuff hidden.
+          # No calling home: usage counting off (timer and DNF), Get New Stuff off in SparkOS's
+          # kdeglobals (KDE is gone, but Qt apps still read the file).
           # The connectivity check is printed only: it stays until the owner decides.
           $SSH 'echo "countme timer: $(systemctl is-enabled rpm-ostree-countme.timer 2>&1)"
                 echo "countme last run: $(systemctl show -P LastTriggerUSec rpm-ostree-countme.timer)"
                 echo "dnf countme on: $(grep -l "^countme=1" /usr/share/dnf5/repos.d/*.repo /etc/yum.repos.d/*.repo 2>/dev/null | wc -l)"
-                echo "ghns: $(kreadconfig6 --file kdeglobals --group "KDE Action Restrictions" --key ghns)"
+                echo "ghns: $(sed -n "/^\[KDE Action Restrictions\]/,/^\[/s/^ghns=//p" /etc/xdg/kdeglobals)"
                 echo "== connectivity check"; grep -h "^uri=" /usr/lib/NetworkManager/conf.d/*.conf /etc/NetworkManager/conf.d/*.conf 2>/dev/null; nmcli networking connectivity
                 echo "== enabled timers"; systemctl list-unit-files --type=timer --state=enabled --no-legend --no-pager
                 echo "== active timers"; systemctl list-timers --no-pager' | tee "$WORK/cleanup-calls.txt"
@@ -615,7 +617,7 @@ jobs:
           grep -q '^icon ' "$WORK/appimage-run.txt"
           grep -q '^appimagetool, ' "$WORK/appimage-run.txt" || { echo "::error::the AppImage didn't run"; exit 1; }
           grep -q '^all removed' "$WORK/appimage-run.txt"
-          # The double-click path itself, with a stand-in kdialog that gives set answers (exit 0 is
+          # The double-click path itself, with a stand-in spark-ask that gives set answers (exit 0 is
           # the first button, 1 the second, 2 Cancel) and stand-in AppImages that leave a mark when run
           cat > "$WORK/appimage-dialogs.sh" <<'EOF'
           #!/bin/bash
@@ -623,13 +625,13 @@ jobs:
           fail=0
           check() { if eval "$2"; then echo "ok: $1"; else echo "FAIL: $1"; fail=1; fi; }
           mkdir -p /tmp/fakebin ~/Downloads
-          cat > /tmp/fakebin/kdialog <<'K'
+          cat > /tmp/fakebin/spark-ask <<'K'
           #!/bin/sh
-          echo "kdialog $*" >> /tmp/kdialog.log
+          echo "spark-ask $*" >> /tmp/spark-ask.log
           code=$(head -1 /tmp/answers); sed -i 1d /tmp/answers
           exit "${code:-2}"
           K
-          chmod +x /tmp/fakebin/kdialog
+          chmod +x /tmp/fakebin/spark-ask
           make_app() { # like a fresh download: not executable
           cat > "$1" <<'A'
           #!/bin/sh
@@ -647,7 +649,7 @@ jobs:
           }
           open() { printf '%s\n' "$@" > /tmp/answers; PATH=/tmp/fakebin:$PATH sparkos-open-package "$F"; sleep 2; }
           entry=~/.local/share/applications/sparkos-appimage-Dialog_Test.desktop
-          rm -f /tmp/appimage-ran /tmp/kdialog.log
+          rm -f /tmp/appimage-ran /tmp/spark-ask.log
 
           echo "== Add to the app menu, then Open it now"
           F=~/Downloads/Dialog_Test.AppImage; make_app "$F"; open 0 0
@@ -657,8 +659,8 @@ jobs:
           check "opened after adding" 'grep -q "^ran .*/Applications/Dialog_Test.AppImage$" /tmp/appimage-ran'
 
           echo "== Opened again from ~/Applications: runs with no question"
-          n=$(wc -l < /tmp/kdialog.log); F=~/Applications/Dialog_Test.AppImage; open
-          check "no new question" '[ "$(wc -l < /tmp/kdialog.log)" = "$n" ]'
+          n=$(wc -l < /tmp/spark-ask.log); F=~/Applications/Dialog_Test.AppImage; open
+          check "no new question" '[ "$(wc -l < /tmp/spark-ask.log)" = "$n" ]'
           check "ran again" '[ "$(grep -c Dialog_Test /tmp/appimage-ran)" = 2 ]'
 
           echo "== Remove from this PC (the menu entry's action), answered Remove"
@@ -675,7 +677,7 @@ jobs:
           F=~/Downloads/Cancel.AppImage; make_app "$F"; open 2
           check "nothing ran or moved" '! grep -q Cancel /tmp/appimage-ran && [ -e "$F" ] && [ ! -x "$F" ]'
 
-          echo "== questions asked"; cat /tmp/kdialog.log
+          echo "== questions asked"; cat /tmp/spark-ask.log
           [ "$fail" = 0 ] && echo "ALL PASSED"
           EOF
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
@@ -701,13 +703,32 @@ jobs:
                 done' | tee "$WORK/menu.txt"
           SHOWN=$(grep -vE '^(dev\.wolklaw\.|soot|freesuite|sparkos-)' "$WORK/menu.txt" || true)
           [ -z "$SHOWN" ] || echo "::warning::in the app menu but not SparkOS's own: $(echo $SHOWN)"
-          for id in org.kde.plasma.emojier btop nvtop; do
+          for id in btop nvtop; do
             if grep -qx "$id.desktop" "$WORK/menu.txt"; then echo "::error::$id is still in the app menu"; exit 1; fi
           done
           # The hidden apps are gone from the image, not just from the menu (stage 1 of replacing KDE)
           $SSH 'for p in konsole konsole-part ark ark-libs kde-connect kde-connect-libs kdeconnectd plasma-discover plasma-discover-libs plasma-discover-flatpak plasma-discover-rpm-ostree plasma-discover-kns plasma-discover-notifier kinfocenter kjournald gnome-disk-utility btrfs-assistant firewall-config spectacle plasma-systemmonitor; do if rpm -q $p >/dev/null 2>&1; then echo "$p is still installed"; exit 1; fi; done; echo "removed apps are gone"'
-          # What stays: the platform SparkOS needs, and the owner's apps
-          $SSH "rpm -q dolphin plasma-systemsettings >/dev/null" && $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && test -x /usr/bin/spark-disks && test -x /usr/bin/spark-emoji && test -x /usr/bin/spark-notes && test -x /usr/bin/spark-boxes && test -x /usr/bin/spark-audio && test -x /usr/bin/spark-backup && for a in spark-edit spark-calc spark-fonts spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
+          # No KDE at all (sparkos-no-kde.sh): no Plasma, KWin, Plasma Login Manager, KDE Frameworks,
+          # Dolphin, Konsole or KWallet; greetd with the Spark Greeter signs in; spark-wl is the
+          # only session; GNOME Keyring keeps passwords
+          $SSH 'set -u
+                rpm -qa --qf "%{NAME}\n" | grep -E "^(plasma|kwin|kf6-|kde|kwallet|kscreen|dolphin|konsole|plasmalogin|kdialog|xdg-desktop-portal-kde|polkit-kde)" | sed "s/^/kde package: /"
+                for f in /usr/bin/plasmashell /usr/bin/kwin_wayland /usr/bin/plasmalogin /usr/bin/kwalletd6 /usr/bin/kreadconfig6 /usr/bin/kdialog /usr/share/plasma; do test -e $f && echo "kde file: $f"; done
+                echo "display manager: $(basename "$(readlink /etc/systemd/system/display-manager.service)")"
+                grep -qx "command = \"/usr/libexec/spark-greeter-session\"" /etc/greetd/config.toml && echo "greeter: spark"
+                echo "sessions: $(ls /usr/share/wayland-sessions/ /usr/share/xsessions/ 2>/dev/null | grep "\.desktop$" | paste -sd,)"
+                rpm -q gnome-keyring pinentry-gnome3 >/dev/null && echo "keyring: gnome-keyring"
+                grep -qx "org.freedesktop.impl.portal.Secret=gnome-keyring" /usr/share/xdg-desktop-portal/sparkwl-portals.conf && echo "secret portal: gnome-keyring"
+                test -x /usr/libexec/spark-wl-windows && command -v grim spark-compositor spark-shell spark-greeter >/dev/null && echo "session tools present"' | tee "$WORK/no-kde.txt"
+          if grep -q '^kde ' "$WORK/no-kde.txt"; then echo "::error::KDE is still in the image"; exit 1; fi
+          grep -qx 'display manager: greetd.service' "$WORK/no-kde.txt" || { echo "::error::greetd is not the display manager"; exit 1; }
+          grep -qx 'greeter: spark' "$WORK/no-kde.txt" || { echo "::error::greetd does not run the Spark Greeter"; exit 1; }
+          grep -qx 'sessions: spark-wl.desktop' "$WORK/no-kde.txt" || { echo "::error::spark-wl is not the only session"; exit 1; }
+          grep -qx 'keyring: gnome-keyring' "$WORK/no-kde.txt" || { echo "::error::GNOME Keyring or pinentry-gnome3 is missing"; exit 1; }
+          grep -qx 'secret portal: gnome-keyring' "$WORK/no-kde.txt" || { echo "::error::the Secret portal is not GNOME Keyring"; exit 1; }
+          grep -qx 'session tools present' "$WORK/no-kde.txt" || { echo "::error::a Spark session program is missing"; exit 1; }
+          # What stays: SparkOS's own apps and the owner's
+          $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && test -x /usr/bin/spark-disks && test -x /usr/bin/spark-emoji && test -x /usr/bin/spark-notes && test -x /usr/bin/spark-boxes && test -x /usr/bin/spark-audio && test -x /usr/bin/spark-backup && for a in spark-edit spark-calc spark-fonts spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
 
       - name: Check installing apps the Windows way
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
@@ -724,7 +745,7 @@ jobs:
           grep -q 'application/vnd.debian.binary-package -> sparkos-open-package.desktop' "$WORK/install-defaults.txt"
           # The Store and the guided package installer are there, and what the installer uses exists
           $SSH "ls /usr/share/applications/$STORE.desktop /var/lib/flatpak/exports/share/applications/$STORE.desktop 2>/dev/null | head -1 | grep -q . && echo 'Store ($STORE) present'"
-          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec kdialog spark-terminal gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub set up for the Store"'
+          $SSH 'test -x /usr/bin/sparkos-open-package && test -f /usr/share/applications/sparkos-open-package.desktop && command -v rpm-ostree pkexec spark-ask spark-terminal gio flatpak >/dev/null && flatpak remotes --system | grep -q flathub && echo "installer helper ready, Flathub set up for the Store"'
           $SSH 'grep -A2 "\*.exe|\*.msi)" /usr/bin/sparkos-open-package | grep -q "exec spark-run" && command -v spark-run && echo ".exe and .msi open in Spark Run"'
 
       # SparkOS's own Flathub setup (build_files/flathub.sh): Flathub for the system 30 s after
@@ -775,7 +796,6 @@ jobs:
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
           $SSH 'set -e
-            echo "== defaults"; grep -E "^(LookAndFeelPackage|ColorScheme)=" /etc/xdg/kdeglobals
             echo "== fonts"; fc-list : family | grep -E "^(Chakra Petch|Inter)$" | sort -u
             echo "== wallpaper"; ls -l /usr/share/wallpapers/SparkOS/contents/images/
             echo "== boot splash"; grep "^Theme=" /etc/plymouth/plymouthd.conf
@@ -783,7 +803,6 @@ jobs:
             echo "== kernel options"; cat /proc/cmdline
             echo "== boots"; journalctl --list-boots --no-pager | tail -3
             echo "== plymouth this boot"; journalctl -b -o short-monotonic --no-pager 2>/dev/null | grep -i plymouth | head -25' | tee "$WORK/look.txt"
-          grep -q "LookAndFeelPackage=dev.wolklaw.sparkos.desktop" "$WORK/look.txt"
           grep -qx "Chakra Petch" "$WORK/look.txt"
           grep -qx "Inter" "$WORK/look.txt"
           # Chakra Petch is the copy kept in this repo (files/sparkos-theme/fonts), not a build-time download
@@ -793,68 +812,101 @@ jobs:
           if grep -nwE 'curl|wget' files/scripts/sparkos-theme.sh; then echo "::error::sparkos-theme.sh downloads something"; exit 1; fi
           grep -q "Theme=sparkos" "$WORK/look.txt"
           grep -q "Name=SparkOS" "$WORK/look.txt"
-          # Sign in as the test user the way a person does: the password typed into the sign-in
-          # screen (through QEMU's keyboard), so the real PAM stack runs and pam_kwallet opens the
-          # wallet. Autologin only if that fails, because it leaves KWallet without a wallet.
+
+      # Sign in as the test user the way a person does: greetd shows the Spark Greeter (on its own
+      # spark-compositor, as the greetd user) with the only user picked and the password box
+      # focused, so the password is typed through QEMU's keyboard and the real PAM stack runs
+      # (pam_gnome_keyring unlocks the keyring). greetd autologin ([initial_session]) only if that
+      # fails, because the keyring stays locked then.
+      - name: Sign in to the Spark session
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        timeout-minutes: 8
+        run: |
           sendkeys() { for k in "$@"; do echo "sendkey $k" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null; sleep 0.2; done; }
-          plasma_up() { $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1; }
-          sendkeys shift; sleep 3
-          echo "screendump $WORK/shots/3a-sign-in.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+          shot() { echo "screendump $WORK/shots/$1.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null || true; sleep 1; }
+          # -f with ^ so the pattern never matches the remote shell running pgrep
+          session_up() { $SSH 'pgrep -u spark -f "^(/usr/bin/)?spark-compositor" >/dev/null && pgrep -u spark -f "[s]park_shell.py" >/dev/null'; }
+          # The greeter is up: greetd active, the greeter's compositor running as greetd
+          for i in $(seq 1 24); do
+            $SSH 'systemctl is-active --quiet greetd && pgrep -u greetd -f "^(/usr/bin/)?spark-compositor" >/dev/null' && break
+            sleep 5
+          done
+          $SSH 'systemctl status greetd --no-pager -l | head -20; pgrep -a -u greetd; /usr/libexec/spark-greeter-ctl status' 2>&1 | tee "$WORK/greeter.txt" || true
+          grep -q 'spark-greeter' "$WORK/greeter.txt" || { echo "::error::the Spark Greeter is not running (see greeter.txt)"; shot 3a-sign-in; exit 1; }
+          sleep 5
+          shot 3a-sign-in
           sendkeys s p a r k o s minus b o o t minus t e s t ret
           SIGNIN=password
-          for i in $(seq 1 18); do plasma_up && break; sleep 5; done
-          if ! plasma_up; then
-            echo "::warning::signing in with the password at the sign-in screen didn't start Plasma; using autologin (KWallet has no wallet then)"
-            echo "screendump $WORK/shots/3b-sign-in-failed.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
+          for i in $(seq 1 24); do session_up && break; sleep 5; done
+          if ! session_up; then
+            echo "::warning::signing in with the password at the Spark Greeter didn't start the Spark session; using greetd autologin (the keyring stays locked then)"
+            shot 3b-sign-in-failed
+            $SSH 'journalctl -b --no-pager -o cat -u greetd | tail -30' 2>&1 | tee "$WORK/greeter-journal.txt" || true
             SIGNIN=autologin
-            $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "printf \"[Autologin]\nUser=spark\nSession=plasma.desktop\n\" > /etc/plasmalogin.conf.d/zz-boot-test.conf && systemctl restart plasmalogin"'
-            for i in $(seq 1 18); do plasma_up && break; sleep 5; done
+            $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "printf \"\n[initial_session]\ncommand = \\\"/usr/bin/spark-wl-session\\\"\nuser = \\\"spark\\\"\n\" >> /etc/greetd/config.toml && systemctl restart greetd"'
+            for i in $(seq 1 24); do session_up && break; sleep 5; done
           fi
           echo "SIGNIN=$SIGNIN" >> "$GITHUB_ENV"
           echo "Signed in by $SIGNIN"
-          sleep 25
-          echo "screendump $WORK/shots/3-desktop.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" || true
-          $SSH 'pgrep -u spark -a plasmashell; cat ~/.config/plasma-org.kde.plasma.desktop-appletsrc' > "$WORK/desktop-layout.txt" || true
-          # The SparkOS layout: Spark Launcher in both bars, a floating dock with pinned apps
-          grep -q "plasmashell" "$WORK/desktop-layout.txt" || { echo "::error::Plasma did not start for the test user"; exit 1; }
-          grep -q "org.kde.plasma.icontasks" "$WORK/desktop-layout.txt"
-          grep -q "menuLabel=SPARKOS" "$WORK/desktop-layout.txt" || { echo "::error::the SparkOS layout was not used"; exit 1; }
-          [ "$(grep -c "^plugin=dev.wolklaw.sparklauncher$" "$WORK/desktop-layout.txt")" = 2 ] || { echo "::error::Spark Launcher is not in both bars"; exit 1; }
-          if grep -q "^plugin=org.kde.plasma.kickoff$" "$WORK/desktop-layout.txt"; then echo "::error::Kickoff is still in the layout"; exit 1; fi
-          grep -E "^launchers=" "$WORK/desktop-layout.txt" || true
-          # Spark Snip captures through KWin in a real Plasma session.
-          # Required: Spectacle is gone, so this is how Print works.
-          if $SSH 'DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus WAYLAND_DISPLAY=wayland-0 XDG_RUNTIME_DIR=/run/user/$(id -u) spark-snip --capture-test /tmp/snip.png' 2>&1 | tee "$WORK/spark-snip-capture.txt"; then
-            echo "Spark Snip captured the desktop through KWin"
-            $SSH 'cat /tmp/snip.png' > "$WORK/shots/4-spark-snip-capture.png" || true
-          else
-            echo "::error::Spark Snip's KWin capture failed in the Plasma session (see spark-snip-capture.txt)"; exit 1
+          session_up || { echo "::error::the Spark session did not start for the test user"; $SSH 'cat ~/.local/state/spark-wl/*.log 2>/dev/null | tail -40; journalctl -b --no-pager -o cat --user | tail -40' || true; exit 1; }
+          # How the later steps reach the session from SSH: the shell's environment (the compositor
+          # sets WAYLAND_DISPLAY with setenv, so its own /proc environ doesn't show it)
+          cat > "$WORK/session-env.sh" <<'EOF'
+          pid=$(pgrep -u "$(id -u)" -f '[s]park_shell.py' | head -1)
+          if [ -n "$pid" ]; then
+            while IFS= read -r -d '' kv; do
+              case "$kv" in
+                WAYLAND_DISPLAY=*|DISPLAY=*|XDG_RUNTIME_DIR=*|DBUS_SESSION_BUS_ADDRESS=*|XDG_CURRENT_DESKTOP=*|XDG_SESSION_TYPE=*|XDG_DATA_DIRS=*) export "$kv" ;;
+              esac
+            done < /proc/$pid/environ
           fi
+          export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+          export DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS:-unix:path=$XDG_RUNTIME_DIR/bus}
+          if [ -z "${WAYLAND_DISPLAY:-}" ]; then
+            WAYLAND_DISPLAY=$(cd "$XDG_RUNTIME_DIR" && ls wayland-* 2>/dev/null | grep -v '\.lock$' | head -1)
+            export WAYLAND_DISPLAY
+          fi
+          EOF
+          scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
+            "$WORK/session-env.sh" spark@127.0.0.1:/tmp/session-env.sh
+          sleep 20
+          shot 3-desktop
+          # The session: compositor and Spark Shell for the test user, the desktop and the startup
+          # environment, GNOME Keyring for secrets
+          $SSH '. /tmp/session-env.sh
+                echo "compositor: $(pgrep -u spark -a -f "^(/usr/bin/)?spark-compositor")"
+                echo "shell: $(pgrep -u spark -a -f "[s]park_shell.py")"
+                echo "desktop: ${XDG_CURRENT_DESKTOP:-}"
+                echo "display: ${WAYLAND_DISPLAY:-none}"
+                echo "secrets: $(busctl --user status org.freedesktop.secrets 2>&1 | grep -m1 -E "^(Comm|PID)=" || echo none)"
+                echo "keyrings: $(ls ~/.local/share/keyrings/ 2>&1 | tr "\n" " ")"
+                echo "== windows"; (sleep 2) | timeout 10 /usr/libexec/spark-wl-windows | head -1
+                echo "== screenshot"; grim /tmp/session.png && echo "grim ok"' 2>&1 | tee "$WORK/session.txt"
+          grep -q '^desktop: sparkwl' "$WORK/session.txt" || { echo "::error::the session is not the Spark session (XDG_CURRENT_DESKTOP)"; exit 1; }
+          grep -qx 'grim ok' "$WORK/session.txt" || { echo "::error::grim could not capture the Spark session (wlr-screencopy)"; exit 1; }
+          $SSH 'cat /tmp/session.png' > "$WORK/shots/4-session-grim.png" || true
 
-      # Spark Launcher (files/spark-launcher), SparkOS's app menu: the Meta key, pressed on QEMU's
-      # keyboard, must open it. .github/scripts/launcher-open.py compares the screen before and
-      # after (the open launcher fills at least 640x520 with its background colour). Then a sum
-      # typed into it, answered by Spark Calc. Screenshots: 5-launcher-*.png
-      - name: Open Spark Launcher with the Meta key
+      # The Meta key, pressed on QEMU's keyboard, must open Spark Shell's launcher (the compositor
+      # runs a lone Super tap's bind, like the Windows key). .github/scripts/launcher-open.py
+      # compares the screen before and after (the open launcher fills at least 640x520 with its
+      # background colour, #04090b, the same in Spark Shell's theme). Then a sum typed into it,
+      # answered by Spark Calc. Screenshots: 5-launcher-*.png
+      - name: Open the launcher with the Meta key
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         timeout-minutes: 5
         run: |
           sendkeys() { for k in "$@"; do echo "sendkey $k" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null; sleep 0.2; done; }
           shot() { echo "screendump $WORK/shots/$1.png -f png" | socat - UNIX-CONNECT:"$WORK/qmon" >/dev/null; sleep 1; }
-          for i in $(seq 1 24); do $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break; sleep 5; done
-          $SSH 'echo sparkos-boot-test | sudo -S -p "" loginctl unlock-sessions' || true
-          $SSH 'ls /usr/share/plasma/plasmoids/dev.wolklaw.sparklauncher/contents/ui/' | tee "$WORK/spark-launcher-files.txt"
-          $SSH 'bash -s -- --self-test' < files/spark-launcher/install.sh | tee "$WORK/spark-launcher-self-test.txt"
-          grep -q '^self-test passed' "$WORK/spark-launcher-self-test.txt"
+          for i in $(seq 1 24); do $SSH 'pgrep -u spark -f "[s]park_shell.py"' >/dev/null 2>&1 && break; sleep 5; done
           sleep 5
           shot 5a-launcher-closed
           sendkeys meta_l
           sleep 4
           shot 5b-launcher-meta
           if python3 .github/scripts/launcher-open.py "$WORK/shots/5a-launcher-closed.png" "$WORK/shots/5b-launcher-meta.png"; then
-            echo "The Meta key opened Spark Launcher" | tee -a "$GITHUB_STEP_SUMMARY"
+            echo "The Meta key opened the launcher" | tee -a "$GITHUB_STEP_SUMMARY"
           else
-            echo "::error::the Meta key did not open Spark Launcher (see 5b-launcher-meta.png)"
+            echo "::error::the Meta key did not open the launcher (see 5b-launcher-meta.png)"
             exit 1
           fi
           # A sum: Spark Calc answers it in the launcher
@@ -865,32 +917,28 @@ jobs:
           sleep 2
           shot 5d-launcher-closed-again
           if python3 .github/scripts/launcher-open.py "$WORK/shots/5a-launcher-closed.png" "$WORK/shots/5d-launcher-closed-again.png"; then
-            echo "::error::Escape did not close Spark Launcher (see 5d-launcher-closed-again.png)"; exit 1
+            echo "::error::Escape did not close the launcher (see 5d-launcher-closed-again.png)"; exit 1
           fi
 
-      # Every preinstalled app opened on the real desktop, in the session the step above signed
-      # in to: started from its menu entry the way Plasma's menu does, KWin must show a window,
-      # no Python traceback, a screenshot of the screen through KWin, then closed. Once in the
-      # session's language, once more in French (Spark apps). .github/scripts/desktop-smoke.py
+      # Every preinstalled app opened in the Spark session the sign-in step started: launched
+      # from its menu entry (gio launch), a new window must show up in the compositor's window
+      # list (spark-wl-windows, wlr-foreign-toplevel), no Python traceback, a screenshot through
+      # grim, then closed through the same list. Spark apps once more in French.
       - name: Open every app on the desktop
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         timeout-minutes: 20
         run: |
-          for i in $(seq 1 24); do $SSH 'pgrep -u spark -x plasmashell' >/dev/null 2>&1 && break; sleep 5; done
-          # Plasma locks the screen after 5 idle minutes; the helper then holds the lock off
-          $SSH 'echo sparkos-boot-test | sudo -S -p "" loginctl unlock-sessions' || true
-          # Apps that keep passwords (FreeSuite) ask KWallet; say what the session has
-          $SSH 'export DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus
-                echo "signed in by: '"$SIGNIN"'"
-                echo "kwallet: $(busctl --user call org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet networkWallet 2>&1)"
-                echo "kwallet open: $(busctl --user call org.kde.kwalletd6 /modules/kwalletd6 org.kde.KWallet isOpen s kdewallet 2>&1)"
-                echo "wallet files: $(ls ~/.local/share/kwalletd/ 2>&1 | tr "\n" " ")"
-                journalctl -b --no-pager -o cat -t pam_kwallet5 -t plasmalogin -t kwalletd6 -t ksecretd 2>/dev/null | grep -i -E "kwallet|secret|wallet" | tail -8' 2>&1 | tee "$WORK/kwallet.txt" || true
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
             .github/scripts/desktop-smoke.py spark@127.0.0.1:/tmp/desktop-smoke.py
+          # Apps that keep passwords (FreeSuite) use GNOME Keyring; say what the session has
+          $SSH '. /tmp/session-env.sh
+                echo "signed in by: '"$SIGNIN"'"
+                echo "secret service: $(busctl --user status org.freedesktop.secrets 2>&1 | grep -m1 "^Comm=" || echo none)"
+                echo "keyring files: $(ls ~/.local/share/keyrings/ 2>&1 | tr "\n" " ")"
+                journalctl -b --no-pager -o cat 2>/dev/null | grep -i -E "gnome-keyring|pam_gnome_keyring" | tail -8' 2>&1 | tee "$WORK/keyring.txt" || true
           EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkFiles,dev.wolklaw.SparkUpdate,dev.wolklaw.SparkSettings,dev.wolklaw.SparkController,dev.wolklaw.SparkDisks,dev.wolklaw.SparkBackup,dev.wolklaw.Soot,freesuite
           set +e
-          timeout 900 $SSH "rm -rf /tmp/desktop-smoke; python3 /tmp/desktop-smoke.py --out /tmp/desktop-smoke --passes en,fr --expect $EXPECT" 2>&1 | tee "$WORK/desktop-smoke.txt"
+          timeout 900 $SSH ". /tmp/session-env.sh; rm -rf /tmp/desktop-smoke; python3 /tmp/desktop-smoke.py --out /tmp/desktop-smoke --passes en,fr --expect $EXPECT" 2>&1 | tee "$WORK/desktop-smoke.txt"
           status=${PIPESTATUS[0]}
           set -e
           mkdir -p "$WORK/desktop-screenshots"
@@ -899,7 +947,7 @@ jobs:
           import json, sys
           data = json.load(open(sys.argv[1]))
           cell = lambda s: str(s).replace('|', '\\|').replace('\n', ' ')
-          print('### Apps opened on the Plasma desktop (test VM)')
+          print('### Apps opened in the Spark session (test VM)')
           print(f"Started from their menu entries with {data['launcher']}; screenshots in the desktop-screenshots artifact.\n")
           print('| App | Language | Window title | Seconds to open | Result |')
           print('|---|---|---|---|---|')
@@ -910,7 +958,7 @@ jobs:
                   result += f' ({notes})'
               print(f"| {cell(r['name'])} | {r['pass']} | {cell(r['title'])} | {r['seconds'] if r['seconds'] is not None else '-'} | {cell(result)} |")
           EOF
-          echo "Signed in to Plasma by $SIGNIN. $(grep '^kwallet open' "$WORK/kwallet.txt" 2>/dev/null)" >> "$GITHUB_STEP_SUMMARY"
+          echo "Signed in to the Spark session by $SIGNIN. $(grep '^secret service' "$WORK/keyring.txt" 2>/dev/null)" >> "$GITHUB_STEP_SUMMARY"
           if [ "$status" != 0 ]; then
             grep -E '^-- |^   FAIL' "$WORK/desktop-smoke.txt" | grep -B1 '^   FAIL' | grep '^-- ' | sed 's/^-- /::error::did not open cleanly on the desktop: /' || true
             echo "::error::desktop app check failed (exit $status); see desktop-smoke.txt and the summary"
@@ -938,7 +986,8 @@ jobs:
       - name: Check Caps Lock turns on and off when pressed
         # sparkos-capslock runs for the VM's PS/2 keyboard (started by udev) and the desktop reads its
         # copy. QEMU presses Caps Lock and holds it 1.5 s, twice; .github/scripts/caps-lock/caps_test.py
-        # in the VM watches the copy and the keyboard's Caps Lock light, which KWin sets: the light
+        # in the VM watches the copy and the keyboard's Caps Lock light, which spark-compositor sets
+        # in the Spark session (not yet seen passing there): the light
         # must be on during the first hold and off during the second (Linux alone turns it off only
         # when the key comes up). The sign-in above typed the password through the same keyboard.
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}

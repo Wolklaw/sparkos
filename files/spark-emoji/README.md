@@ -1,6 +1,6 @@
 # Spark Emoji
 
-The SparkOS emoji and symbol picker. It replaces Plasma's Emoji Selector on Meta+. (Windows key and
+The SparkOS emoji and symbol picker. It replaces the Emoji Selector of KDE Plasma, which SparkOS no longer ships, on Meta+. (Windows key and
 full stop): a small popup where you type to search, in English and French at once, and Enter or a click
 copies the character. Version 0.1.0.
 
@@ -30,7 +30,7 @@ that a pick also presses Ctrl+V (Ctrl+Shift+V is available for terminals in the 
 the picker yet). If the desktop says no, or has no such portal, Spark Emoji copies and says "Press
 Ctrl+V to paste it".
 
-What has been tested: the portal calls, against a fake portal. What has not: KDE's real portal and
+What has been tested: the portal calls, against a fake portal. What has not: a real portal and
 its permission dialog. 
 
 ## The command line
@@ -56,8 +56,7 @@ bash install.sh --user --uninstall
 sudo bash install.sh --deps         the whole system (the image build does this)
 ```
 
-In the SparkOS image, `files/scripts/spark-emoji.sh` also gives the app Meta+. and takes it from
-Plasma's Emoji Selector, which is hidden.
+In the SparkOS image, `files/scripts/spark-emoji.sh` also gives the app Meta+. (the Spark compositor binds it).
 
 ## Data
 

@@ -1,0 +1,159 @@
+#!/usr/bin/python3
+"""spark-pick: the Open, Save and folder dialog for Spark apps.
+
+It asks the desktop portal (org.freedesktop.portal.FileChooser) for a file, so in SparkOS the
+dialog is Spark Files' picker, the same one Firefox and Flatpak apps get. It takes the subset of
+kdialog's arguments the Spark apps use, so a Spark app can call it where it used to call kdialog:
+
+  spark-pick --getopenfilename START [FILTER] [--multiple --separate-output] [--title T]
+  spark-pick --getsavefilename START_PATH [FILTER] [--title T]
+  spark-pick --getexistingdirectory START [--title T]
+
+FILTER is "*.a *.b|Label". The chosen paths are printed one per line. Exit 0 when something was
+picked, 1 when the dialog was cancelled, 2 when there is no portal to ask (no session bus)."""
+
+import os
+import secrets
+import sys
+from typing import List, Optional, Tuple
+from urllib.parse import unquote, urlparse
+
+USAGE = __doc__.split('\n\n')[1]
+
+
+def parse(argv: List[str]) -> Optional[dict]:
+    """kdialog-style arguments -> {mode, start, filter, multiple, title}; None if unusable."""
+    req = {'mode': '', 'start': '', 'filter': '', 'multiple': False, 'title': ''}
+    modes = {'--getopenfilename': 'open', '--getsavefilename': 'save',
+             '--getexistingdirectory': 'folder'}
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in modes:
+            req['mode'] = modes[a]
+            rest = []
+            while i + 1 < len(argv) and not argv[i + 1].startswith('--') and len(rest) < 2:
+                i += 1
+                rest.append(argv[i])
+            if rest:
+                req['start'] = rest[0]
+            if len(rest) > 1:
+                req['filter'] = rest[1]
+        elif a == '--title' and i + 1 < len(argv):
+            i += 1
+            req['title'] = argv[i]
+        elif a == '--multiple':
+            req['multiple'] = True
+        elif a == '--separate-output':
+            pass
+        else:
+            return None
+        i += 1
+    return req if req['mode'] else None
+
+
+def filters(text: str) -> List[Tuple[str, List[Tuple[int, str]]]]:
+    """"*.png *.jpg|Pictures" -> [("Pictures", [(0, "*.png"), (0, "*.jpg")])]; several filters
+    may be given one per line, the way kdialog takes them."""
+    out = []
+    for line in text.splitlines():
+        patterns, _, label = line.partition('|')
+        globs = [(0, p) for p in patterns.split() if p]
+        if globs:
+            out.append((label.strip() or patterns.strip(), globs))
+    return out
+
+
+def options(req: dict, token: str) -> Tuple[str, str, dict]:
+    """(method, title, options as (type, value) pairs) for the portal call."""
+    opts = {'handle_token': ('s', token), 'modal': ('b', True)}
+    start = os.path.expanduser(req['start']) if req['start'] else os.path.expanduser('~')
+    folder, name = start, ''
+    if req['mode'] == 'save' and not os.path.isdir(start):
+        folder, name = os.path.split(start)
+    if folder and os.path.isdir(folder):
+        opts['current_folder'] = ('ay', os.fsencode(os.path.abspath(folder)) + b'\0')
+    if req['mode'] == 'save':
+        if name:
+            opts['current_name'] = ('s', name)
+    elif req['multiple']:
+        opts['multiple'] = ('b', True)
+    if req['mode'] == 'folder':
+        opts['directory'] = ('b', True)
+    found = filters(req['filter'])
+    if found:
+        opts['filters'] = ('a(sa(us))', found)
+    method = 'SaveFile' if req['mode'] == 'save' else 'OpenFile'
+    title = req['title'] or {'open': 'Open', 'save': 'Save', 'folder': 'Choose a folder'}[req['mode']]
+    return method, title, opts
+
+
+def uri_path(uri: str) -> str:
+    u = urlparse(uri)
+    return unquote(u.path) if u.scheme == 'file' else uri
+
+
+def ask(req: dict) -> Tuple[int, List[str]]:
+    """(exit code, paths) after asking the portal."""
+    try:
+        import gi
+        gi.require_version('Gio', '2.0')
+        from gi.repository import Gio, GLib
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+    except Exception as exc:                            # noqa: BLE001 - no gi, no bus
+        print(f"spark-pick: no session bus: {exc}", file=sys.stderr)
+        return 2, []
+    token = 'spark_pick_' + secrets.token_hex(6)
+    sender = bus.get_unique_name()[1:].replace('.', '_')
+    loop = GLib.MainLoop()
+    got = {'code': 2, 'uris': []}
+
+    def response(_conn, _sender, _path, _iface, _signal, params, *_a):
+        code, results = params.unpack()
+        got['code'], got['uris'] = code, list(results.get('uris', []))
+        loop.quit()
+
+    def listen(path: str) -> int:
+        return bus.signal_subscribe('org.freedesktop.portal.Desktop',
+                                    'org.freedesktop.portal.Request', 'Response', path, None,
+                                    Gio.DBusSignalFlags.NONE, response)
+
+    expected = f'/org/freedesktop/portal/desktop/request/{sender}/{token}'
+    sub = listen(expected)
+    method, title, opts = options(req, token)
+    variant = {k: GLib.Variant(t, v) for k, (t, v) in opts.items()}
+    try:
+        reply = bus.call_sync('org.freedesktop.portal.Desktop', '/org/freedesktop/portal/desktop',
+                              'org.freedesktop.portal.FileChooser', method,
+                              GLib.Variant('(ssa{sv})', ('', title, variant)),
+                              GLib.VariantType('(o)'), Gio.DBusCallFlags.NONE, -1, None)
+    except GLib.Error as exc:
+        print(f"spark-pick: the portal did not answer: {exc.message}", file=sys.stderr)
+        return 2, []
+    handle = reply.unpack()[0]
+    if handle != expected:                              # a portal older than handle_token
+        bus.signal_unsubscribe(sub)
+        listen(handle)
+    loop.run()
+    if got['code'] != 0:
+        return 1, []
+    paths = [uri_path(u) for u in got['uris']]
+    return (0, paths) if paths else (1, [])
+
+
+def main(argv: List[str]) -> int:
+    if argv[:1] in (['-h'], ['--help']):
+        print(USAGE)
+        return 0
+    req = parse(argv)
+    if req is None:
+        print(USAGE, file=sys.stderr)
+        return 2
+    code, paths = ask(req)
+    for p in paths:
+        print(p)
+    return code
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

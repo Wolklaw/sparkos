@@ -1,8 +1,8 @@
 [Desktop Entry]
-Name=Spark (experimental compositor)
-Name[fr]=Spark (compositeur expérimental)
-Comment=Spark compositor with no KDE. Experimental; Plasma stays the default session.
-Comment[fr]=Compositeur Spark sans KDE. Expérimental ; Plasma reste la session par défaut.
+Name=Spark
+Name[fr]=Spark
+Comment=The Spark desktop: spark-compositor and Spark Shell.
+Comment[fr]=Le bureau Spark : spark-compositor et Spark Shell.
 Exec=/usr/bin/spark-wl-session
 TryExec=/usr/bin/spark-compositor
 Type=Application

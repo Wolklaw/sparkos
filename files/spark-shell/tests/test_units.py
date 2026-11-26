@@ -11,7 +11,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..'))
 
-from sparkshell import config, ending, notifyd, osd, tray, windows  # noqa: E402
+from sparkshell import config, ending, notifyd, osd, screensaver, tray, windows, xembed  # noqa: E402
 
 
 class Config(unittest.TestCase):
@@ -82,6 +82,16 @@ class TrayParsing(unittest.TestCase):
         self.assertTrue(root.children[2].has_submenu)
         self.assertEqual(root.children[2].children[0].toggle, ('radio', True))
         self.assertTrue(root.children[0].visible and root.children[0].enabled)
+
+
+class XembedPixels(unittest.TestCase):
+    def test_bgra_to_argb_big_endian(self):
+        # one pixel: B=1 G=2 R=3 A=4, as X11 ZPixmap hands it over
+        self.assertEqual(xembed.to_argb_be(bytes([1, 2, 3, 4]), 32), bytes([4, 3, 2, 1]))
+
+    def test_24_bit_is_opaque(self):
+        self.assertEqual(xembed.to_argb_be(bytes([1, 2, 3, 0, 5, 6, 7, 0]), 24),
+                         bytes([255, 3, 2, 1, 255, 7, 6, 5]))
 
 
 class Notifications(unittest.TestCase):
@@ -155,6 +165,7 @@ class Notifications(unittest.TestCase):
 
     def test_history_persists(self):
         self.send(summary='keep me')
+        self.srv.flush()
         again = notifyd.NotificationServer(None, self.srv.history_path)
         self.assertEqual([h.summary for h in again.history], ['keep me'])
         self.assertGreater(again.next_id, 1)
@@ -188,6 +199,24 @@ class OsdParsers(unittest.TestCase):
         self.assertEqual(osd.parse_wpctl_volume('Volume: 1.00 [MUTED]'), (1.0, True))
         self.assertIsNone(osd.parse_wpctl_volume('nothing'))
         self.assertIsNone(osd.parse_wpctl_volume(None))
+
+    def test_next_brightness(self):
+        self.assertEqual(osd.next_brightness(50, 100, True), 55)
+        self.assertEqual(osd.next_brightness(98, 100, True), 100)
+        self.assertEqual(osd.next_brightness(3, 100, False), 1)      # never fully dark
+        self.assertEqual(osd.next_brightness(120000, 120000, False), 114000)
+        self.assertEqual(osd.next_brightness(4, 7, True), 5)         # tiny ranges still move
+        self.assertEqual(osd.next_brightness(4, 0, True), 4)
+
+    def test_read_backlights(self):
+        with tempfile.TemporaryDirectory() as root:
+            os.makedirs(os.path.join(root, 'amdgpu_bl0'))
+            for name, text in (('brightness', '40\n'), ('max_brightness', '255\n')):
+                with open(os.path.join(root, 'amdgpu_bl0', name), 'w') as f:
+                    f.write(text)
+            os.makedirs(os.path.join(root, 'broken'))
+            self.assertEqual(osd.read_backlights(root), [('amdgpu_bl0', 40, 255)])
+        self.assertEqual(osd.read_backlights('/nonexistent-backlight-dir'), [])
 
     def test_osd_service_brightness(self):
         class FakeOsd:
@@ -267,6 +296,24 @@ class SessionEndTest(unittest.TestCase):
         self.assertEqual(self.ran, [['poweroff']])
 
 
+class SignOutTest(unittest.TestCase):
+    # 10 helper -> 11 compositor -> 12 tee; 20 session runner -> 21 shell -> 22 sign-out,
+    # 21 -> 23 window list; 30 Xwayland; 40 Wine -> 41 Battle.net
+    TREE = {10: 1, 11: 10, 12: 11, 20: 1, 21: 20, 22: 21, 23: 21, 30: 1, 40: 1, 41: 40}
+
+    def test_apps_go_compositor_and_shell_stay(self):
+        out = ending.leftovers(sorted(self.TREE), 22, 10, parent=lambda p: self.TREE.get(p, 0))
+        self.assertEqual(out, [23, 30, 40, 41])
+
+    def test_no_leader_known_keeps_only_the_shell(self):
+        out = ending.leftovers([20, 21, 22, 40], 22, 0, parent=lambda p: self.TREE.get(p, 0))
+        self.assertEqual(out, [40])
+
+    def test_the_compositor_binary_is_found_not_its_wrapper(self):
+        exes = {10: 'plasmalogin-helper', 11: 'spark-compositor.bin', 12: 'tee', 13: 'bash'}
+        self.assertEqual(ending.compositors(sorted(exes), exe=exes.get), [11])
+
+
 class PreloadTest(unittest.TestCase):
     """Apps started from the shell must not inherit gtk4-layer-shell (GTK 3 apps abort)."""
     def test_dropped_once_loaded(self):
@@ -285,3 +332,35 @@ class PreloadTest(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class ScreenSaverTest(unittest.TestCase):
+    def test_flag_follows_first_and_last_inhibit(self):
+        changes = []
+        inh = screensaver.Inhibitors(changes.append)
+        a = inh.add(':1.5', 'Steam', 'game')
+        b = inh.add(':1.6', 'mpv', 'video')
+        self.assertNotEqual(a, b)
+        self.assertFalse(inh.remove(a, sender=':1.6'))     # not yours
+        self.assertTrue(inh.remove(a, sender=':1.5'))
+        self.assertEqual(changes, [True])
+        inh.drop_sender(':1.6')                             # mpv left the bus
+        self.assertEqual(changes, [True, False])
+        self.assertFalse(inh.active)
+
+    def test_write_flag(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, 'spark-wl', 'idle-inhibit')
+            screensaver.write_flag(True, path)
+            self.assertTrue(os.path.exists(path))
+            screensaver.write_flag(False, path)
+            self.assertFalse(os.path.exists(path))
+            screensaver.write_flag(False, path)             # already gone is fine
+
+
+class MediaKeysTest(unittest.TestCase):
+    def test_playing_player_wins(self):
+        self.assertEqual(osd.choose_player([('a', 'Paused'), ('b', 'Playing'), ('c', 'Stopped')]), 'b')
+        self.assertEqual(osd.choose_player([('a', 'Stopped'), ('b', 'Paused')]), 'b')
+        self.assertEqual(osd.choose_player([('a', 'Stopped')]), 'a')
+        self.assertIsNone(osd.choose_player([]))

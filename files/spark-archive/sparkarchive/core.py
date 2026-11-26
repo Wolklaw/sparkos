@@ -187,13 +187,13 @@ def keep_both_name(name: str, taken) -> str:
 # ─── The desktop ──────────────────────────────────────────────
 
 def pick_archive(start: str) -> Optional[str]:
-    """The desktop's own file dialog (kdialog on Plasma), Tk's as a fallback."""
+    """The desktop's own file dialog (spark-pick: Spark Files through the desktop portal), Tk's as a fallback."""
     from .text import t
     # first parts of multi-part sets too: photos.7z.001, photos.r00, photos.z01
     pattern = ' '.join(f'*{s}' for s in ARCHIVE_SUFFIXES + ('.001', '.r00', '.z01'))
-    if shutil.which('kdialog') and os.name != 'nt':
+    if picker() and os.name != 'nt':
         try:
-            result = subprocess.run(['kdialog', '--getopenfilename', start,
+            result = subprocess.run([picker(), '--getopenfilename', start,
                                      f"{pattern}|{t('dialog.archives')}", '--title', APP_NAME],
                                     capture_output=True, text=True)
             return result.stdout.strip() or None
@@ -206,9 +206,9 @@ def pick_archive(start: str) -> Optional[str]:
 
 
 def pick_files(start: str) -> List[str]:
-    if shutil.which('kdialog') and os.name != 'nt':
+    if picker() and os.name != 'nt':
         try:
-            result = subprocess.run(['kdialog', '--getopenfilename', start, '--multiple',
+            result = subprocess.run([picker(), '--getopenfilename', start, '--multiple',
                                      '--separate-output', '--title', APP_NAME],
                                     capture_output=True, text=True)
             return [line for line in result.stdout.splitlines() if line.strip()]
@@ -219,9 +219,9 @@ def pick_files(start: str) -> List[str]:
 
 
 def pick_folder(start: str) -> Optional[str]:
-    if shutil.which('kdialog') and os.name != 'nt':
+    if picker() and os.name != 'nt':
         try:
-            result = subprocess.run(['kdialog', '--getexistingdirectory', start,
+            result = subprocess.run([picker(), '--getexistingdirectory', start,
                                      '--title', APP_NAME], capture_output=True, text=True)
             return result.stdout.strip() or None
         except OSError:
@@ -244,3 +244,9 @@ def show_in_file_manager(path: str) -> None:
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     except OSError as exc:
         log.warning("could not open %s: %s", path, exc)
+
+
+def picker():
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
+    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
+    return shutil.which('spark-pick') or shutil.which('kdialog')

@@ -22,9 +22,8 @@ lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,PARTLABEL,SERIAL,MOUNTPOINTS
 efibootmgr -v
 echo "--- live session setup"
 loginctl list-sessions --no-legend
-grep -n -i -A3 "autologin\|sddm\|plasmalogin" /usr/libexec/livesys/sessions.d/livesys-kde | head -40
-ls -la /etc/plasmalogin* /etc/sddm* /usr/lib/plasmalogin* 2>&1 | head -20
-cat /etc/plasmalogin.conf /etc/plasmalogin.conf.d/* /etc/sddm.conf /etc/sddm.conf.d/* 2>/dev/null | head -40
+cat /etc/greetd/config.toml 2>&1 | head -40
+pgrep -a -f 'spark-compositor|spark-shell|liveinst' | cut -c1-120 || true
 
 data=$(lsblk -dn -o NAME,SERIAL | awk '$2=="SPARKDATA"{print $1}')
 if [ -z "$data" ]; then

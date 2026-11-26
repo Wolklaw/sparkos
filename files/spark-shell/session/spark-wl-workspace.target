@@ -10,4 +10,6 @@ BindsTo=graphical-session.target
 Before=graphical-session.target
 Before=xdg-desktop-autostart.target
 Wants=spark-polkit-agent.service
+# old X11 tray icons (Wine, Battle.net) into the Spark tray; Plasma has xembedsniproxy
+Wants=spark-xembed.service
 Wants=xdg-desktop-autostart.target

@@ -416,9 +416,13 @@ class BluetoothItem(TrayItem):
                                 lambda: self.bt.scan(s.adapter, not s.discovering,
                                                      self.say_error)), False, False, 0)
         body.pack_start(scan, False, False, 0)
-        if not s.devices:
+        # Leave out nearby strangers nobody can pair with on purpose: no name (only a MAC
+        # address) or no device type (BlueZ gives headsets, mice, pads and phones an icon;
+        # LED strips and beacons next door have none).
+        devices = [d for d in s.devices if d.paired or d.connected or (d.named and d.icon)]
+        if not devices:
             body.pack_start(ui.label(t('bt.no_devices'), 'muted', wrap=True), False, False, 0)
-        for d in s.devices[:14]:
+        for d in devices[:14]:
             body.pack_start(self._device_row(s, d), False, False, 0)
 
     def _device_row(self, s, d) -> Gtk.Box:
@@ -668,6 +672,7 @@ class VolumeItem(TrayItem):
         self.vol = audio.Volume(self.changed, ctx.fake_dir)
         self._scale: Optional[Gtk.Scale] = None
         self._setting = False
+        self._shown = None
 
     def start(self) -> bool:
         return self.vol.start()
@@ -714,7 +719,9 @@ class VolumeItem(TrayItem):
         """Move the slider in place: rebuilding it would drop a drag in progress."""
         if not self.popup_open():
             return
-        if self._scale is not None and self.vol.level() is not None:
+        n = self.vol.output()
+        shown = (n.id if n else None, tuple(x.id for x in self.vol.outputs()))
+        if self._scale is not None and self.vol.level() is not None and shown == self._shown:
             self._setting = True
             self._scale.set_value(round((self.vol.level() or 0) * 100))
             self._setting = False
@@ -725,6 +732,7 @@ class VolumeItem(TrayItem):
     def fill(self, body: Gtk.Box) -> None:
         n = self.vol.output()
         self._scale = None
+        self._shown = (n.id if n else None, tuple(x.id for x in self.vol.outputs()))
         if not n:
             body.pack_start(ui.label(t('vol.no_output'), 'muted'), False, False, 0)
             return

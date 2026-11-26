@@ -166,3 +166,150 @@ def snap(moving: Output, x: int, y: int, others: List[Output], limit: int = 120)
         x = best_x if best_x is not None else x
         y = best_y if best_y is not None else y
     return max(0, x), max(0, y)
+
+
+# ── Spark compositor session: wlr-randr, no kscreen ──
+# The same Output objects and the same "output.NAME.KEY.VALUE" change strings, so the page and
+# the 15 second revert work unchanged. Each apply also writes the compositor's outputs.conf, so
+# the layout is what the compositor sets up at the next login.
+import os  # noqa: E402
+
+WL_ROT = {'normal': 'normal', '90': 'left', '180': 'inverted', '270': 'right'}
+WL_TRANSFORM = {v: k for k, v in WL_ROT.items()}
+
+
+def on_sparkwl() -> bool:
+    return 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
+
+
+def _wl_mode_id(m: Dict[str, Any]) -> str:
+    return f"{m['width']}x{m['height']}@{float(m['refresh']):.3f}"
+
+
+def parse_wlr(text: str) -> List[Output]:
+    try:
+        data = json.loads(text)
+    except ValueError:
+        return []
+    outs = []
+    for d in data if isinstance(data, list) else []:
+        modes, current, seen = [], '', set()
+        for m in d.get('modes', []):
+            mid = _wl_mode_id(m)
+            if m.get('current'):
+                current = mid
+            if mid in seen:
+                continue
+            seen.add(mid)
+            modes.append({'id': mid, 'size': {'width': m['width'], 'height': m['height']},
+                          'refreshRate': m['refresh']})
+        pos = d.get('position') or {}
+        o = Output({'name': d.get('name', ''), 'enabled': d.get('enabled', False),
+                    'pos': pos, 'scale': d.get('scale', 1.0), 'modes': modes,
+                    'currentModeId': current, 'model': d.get('model', ''),
+                    'vendor': d.get('make', ''),
+                    'vrrPolicy': 1 if d.get('adaptive_sync') else 0})
+        o.rotation = WL_ROT.get(str(d.get('transform', 'normal')), 'normal')
+        outs.append(o)
+    return outs
+
+
+def _wl_args(args: List[str]) -> List[List[str]]:
+    """kscreen-style change strings to one wlr-randr argument list per output."""
+    per: Dict[str, List[str]] = {}
+    for a in args:
+        parts = a.split('.', 3)
+        if len(parts) < 3 or parts[0] != 'output':
+            continue
+        name, key = parts[1], parts[2]
+        val = a.split('.', 3)[3] if len(parts) == 4 else ''
+        if key in ('mode', 'scale', 'rotation', 'position', 'vrrpolicy'):
+            # values may hold dots (1.25, 59.940): take everything after "output.NAME.KEY."
+            val = a[len(f"output.{name}.{key}."):]
+        flags = per.setdefault(name, ['--output', name])
+        if key == 'enable':
+            flags.append('--on')
+        elif key == 'disable':
+            flags.append('--off')
+        elif key == 'mode':
+            flags += ['--mode', val.replace('@', '@') + 'Hz' if '@' in val else val]
+        elif key == 'scale':
+            flags += ['--scale', val]
+        elif key == 'rotation':
+            flags += ['--transform', WL_TRANSFORM.get(val, 'normal')]
+        elif key == 'position':
+            flags += ['--pos', val]
+        elif key == 'vrrpolicy':
+            flags += ['--adaptive-sync', 'disabled' if val == 'never' else 'enabled']
+        # priority (primary) and hdr: the compositor has neither yet
+    return [f for f in per.values() if len(f) > 2]
+
+
+def _conf_path() -> str:
+    base = os.environ.get('XDG_CONFIG_HOME') or os.path.expanduser('~/.config')
+    return os.path.join(base, 'spark', 'compositor', 'outputs.conf')
+
+
+# Keys this page does not edit (HDR) are carried over from the existing file.
+_KEEP_KEYS = ('hdr', 'sdr_white')
+
+
+def _kept_keys() -> dict:
+    kept = {}
+    try:
+        with open(_conf_path(), encoding='utf-8') as f:
+            for line in f:
+                parts = line.split()
+                if len(parts) >= 2 and parts[0] == 'output':
+                    extra = [kv for kv in parts[2:] if kv.split('=', 1)[0] in _KEEP_KEYS]
+                    if extra:
+                        kept[parts[1]] = ' ' + ' '.join(extra)
+    except OSError:
+        pass
+    return kept
+
+
+def save_conf(outs: List[Output]) -> None:
+    kept = _kept_keys()
+    lines = ['# Written by Spark Settings > Displays. Read by spark-compositor at login.']
+    for o in outs:
+        if not o.enabled:
+            lines.append(f"output {o.name} enabled=off")
+            continue
+        m = o.mode
+        mode = f" mode={m.w}x{m.h}@{m.hz:.3f}" if m else ''
+        rot = WL_TRANSFORM.get(o.rotation, 'normal')
+        lines.append(f"output {o.name}{mode} scale={o.scale:g} transform={rot} "
+                     f"pos={o.x},{o.y}" + (' vrr=on' if o.vrr == 'always' else '')
+                     + kept.get(o.name, ''))
+    path = _conf_path()
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        f.write('\n'.join(lines) + '\n')
+    os.replace(tmp, path)
+
+
+_kscreen_load, _kscreen_apply = load, apply
+
+
+def load() -> List[Output]:  # noqa: F811
+    if not on_sparkwl():
+        return _kscreen_load()
+    rc, text, _ = run(['wlr-randr', '--json'], timeout=10)
+    return parse_wlr(text) if rc == 0 else []
+
+
+def apply(args: List[str]) -> bool:  # noqa: F811
+    if not on_sparkwl():
+        return _kscreen_apply(args)
+    groups = _wl_args(args)
+    if not groups:
+        return False
+    flat = [x for g in groups for x in g]
+    ok = run(['wlr-randr', *flat], timeout=15)[0] == 0
+    if ok:
+        outs = load()
+        if outs:
+            save_conf(outs)
+    return ok

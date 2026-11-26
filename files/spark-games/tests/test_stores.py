@@ -775,6 +775,26 @@ class LauncherTests(StoreCase):
             self.assertTrue(launchers.host_allowed(slug, info['url']), slug)
             self.assertTrue(info['exes'])
 
+    def test_own_frames_set_once_and_user_choice_kept(self):
+        prefix = os.path.join(self.tmp, 'pfx')
+        os.makedirs(prefix)
+        reg = os.path.join(prefix, 'user.reg')
+        launchers.own_frames(prefix)                     # no registry yet: nothing to do
+        self.assertFalse(os.path.exists(reg))
+        with open(reg, 'w') as f:
+            f.write('WINE REGISTRY Version 2\n')
+        launchers.own_frames(prefix)
+        launchers.own_frames(prefix)
+        with open(reg) as f:
+            text = f.read()
+        self.assertEqual(text.count('[Software\\\\Wine\\\\X11 Driver]'), 1)
+        self.assertIn('"Decorated"="N"', text)
+        with open(reg, 'w') as f:
+            f.write('[Software\\\\Wine\\\\X11 Driver] 1\n"Decorated"="Y"\n')
+        launchers.own_frames(prefix)
+        with open(reg) as f:
+            self.assertNotIn('"N"', f.read())
+
     def fake_install(self, slug):
         exe = os.path.join(launchers.prefix_dir(slug), *launchers.LAUNCHERS[slug]['exes'][0].split('/'))
         os.makedirs(os.path.dirname(exe), exist_ok=True)

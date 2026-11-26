@@ -1,11 +1,13 @@
 """Volume and brightness: the volume keys' actions and the on-screen display.
 
-Volume goes through PipeWire's wpctl (the same server Spark Audio drives). Brightness belongs to
-powerdevil, which the Spark session runs for the screen-off and sleep timers and the power
-button: it takes the brightness keys, drives every monitor (backlight or DDC) and reports each
-change to org.kde.plasmashell /org/kde/osdService, which the shell answers with this display."""
+Volume goes through PipeWire's wpctl (the same server Spark Audio drives). Brightness keys move
+every backlight in /sys/class/backlight through logind's SetBrightness, which needs no admin
+rights for the signed-in seat. External monitors without a backlight device are left alone.
+On a KDE machine powerdevil reports its own changes to org.kde.plasmashell /org/kde/osdService,
+which the shell also answers with this display."""
 
 import logging
+import os
 import re
 
 import gi
@@ -26,6 +28,52 @@ def parse_wpctl_volume(text: str):
     if not m:
         return None
     return float(m.group(1)), '[MUTED]' in text
+
+
+BACKLIGHT_DIR = '/sys/class/backlight'
+
+
+def next_brightness(current: int, maximum: int, up: bool) -> int:
+    """One key press: STEP percent of the range, never fully dark, never past the maximum."""
+    if maximum <= 0:
+        return current
+    step = max(1, round(maximum * STEP / 100))
+    floor = max(1, round(maximum / 100))
+    return min(maximum, current + step) if up else max(floor, current - step)
+
+
+def read_backlights(root=BACKLIGHT_DIR):
+    """[(device name, brightness, max_brightness)] for every backlight that can be read."""
+    found = []
+    try:
+        names = sorted(os.listdir(root))
+    except OSError:
+        return found
+    for name in names:
+        try:
+            with open(os.path.join(root, name, 'brightness')) as f:
+                cur = int(f.read().strip())
+            with open(os.path.join(root, name, 'max_brightness')) as f:
+                top = int(f.read().strip())
+        except (OSError, ValueError):
+            continue
+        found.append((name, cur, top))
+    return found
+
+
+MPRIS_PREFIX = 'org.mpris.MediaPlayer2.'
+MPRIS_PATH = '/org/mpris/MediaPlayer2'
+MEDIA_METHODS = {'play-pause': 'PlayPause', 'next': 'Next', 'previous': 'Previous',
+                 'stop': 'Stop'}
+
+
+def choose_player(players):
+    """[(bus name, PlaybackStatus)] -> the bus name a media key goes to."""
+    for wanted in ('Playing', 'Paused'):
+        for name, status in players:
+            if status == wanted:
+                return name
+    return players[0][0] if players else None
 
 
 def _run(argv, callback):
@@ -134,6 +182,63 @@ class Controls:
             return
         if name.startswith('volume') or name == 'mute':
             self._volume(name)
+        elif name in ('brightness-up', 'brightness-down'):
+            self._brightness(name == 'brightness-up')
+        elif name in MEDIA_METHODS:
+            self._media(MEDIA_METHODS[name])
+
+    # brightness: every backlight, through logind (no admin rights needed) ------------------
+    def _brightness(self, up):
+        lights = read_backlights()
+        if not lights:
+            log.info('brightness key: no backlight device')
+            return
+        try:
+            system = Gio.bus_get_sync(Gio.BusType.SYSTEM, None)
+        except GLib.Error as e:
+            log.warning('brightness key: %s', e.message)
+            return
+        shown = None
+        for name, cur, top in lights:
+            value = next_brightness(cur, top, up)
+            try:
+                system.call_sync('org.freedesktop.login1', '/org/freedesktop/login1/session/auto',
+                                 'org.freedesktop.login1.Session', 'SetBrightness',
+                                 GLib.Variant('(ssu)', ('backlight', name, value)), None,
+                                 Gio.DBusCallFlags.NONE, 1000, None)
+            except GLib.Error as e:
+                log.warning('brightness %s: %s', name, e.message)
+                continue
+            if shown is None:
+                shown = value / top
+        if shown is not None:
+            self.osd.show_level('brightness', shown)
+
+    # media keys: the MPRIS player that is playing, else the one paused, else the first ---------
+    def _media(self, method):
+        try:
+            names = self.conn.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
+                                        'org.freedesktop.DBus', 'ListNames', None, None,
+                                        Gio.DBusCallFlags.NONE, 1000, None).unpack()[0]
+        except GLib.Error as e:
+            log.warning('media key: %s', e.message)
+            return
+        players = []
+        for n in sorted(x for x in names if x.startswith(MPRIS_PREFIX)):
+            try:
+                status = self.conn.call_sync(
+                    n, MPRIS_PATH, 'org.freedesktop.DBus.Properties', 'Get',
+                    GLib.Variant('(ss)', (MPRIS_PREFIX.rstrip('.') + '.Player', 'PlaybackStatus')),
+                    None, Gio.DBusCallFlags.NONE, 500, None).unpack()[0]
+            except GLib.Error:
+                status = ''
+            players.append((n, status))
+        target = choose_player(players)
+        if not target:
+            log.info('media key %s: no player', method)
+            return
+        self.conn.call(target, MPRIS_PATH, MPRIS_PREFIX.rstrip('.') + '.Player', method, None,
+                       None, Gio.DBusCallFlags.NONE, 2000, None, None)
 
     # volume ------------------------------------------------------------------------------
     def _volume(self, name):

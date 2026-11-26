@@ -103,14 +103,14 @@ def load_image(root: tk.Misc, source, px: int) -> Optional[tk.PhotoImage]:
 
 
 def pick_file(parent: tk.Misc, callback: Callable[[Optional[str]], None]) -> None:
-    """Plasma's own file dialog when there is one (kdialog), else Tk's. Doesn't block."""
+    """Spark's own file dialog (spark-pick, Spark Files through the desktop portal), else Tk's. Doesn't block."""
     start = os.path.expanduser('~/Downloads')
     if not os.path.isdir(start):
         start = os.path.expanduser('~')
-    if shutil.which('kdialog'):
+    if picker():
         try:
             proc = subprocess.Popen(
-                ['kdialog', '--title', t('pick.file'), '--getopenfilename', start,
+                [picker(), '--title', t('pick.file'), '--getopenfilename', start,
                  f"*.exe *.msi *.EXE *.MSI|{t('pick.filter')}"],
                 stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True)
         except OSError:
@@ -1035,3 +1035,9 @@ def run_window(file: Optional[str]) -> int:
 def show_error(name: str, problem: Problem, log_path: str = '', install: bool = False) -> None:
     ui = Window(error=(name, problem, log_path, install))
     ui.root.mainloop()
+
+
+def picker():
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
+    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
+    return shutil.which('spark-pick') or shutil.which('kdialog')

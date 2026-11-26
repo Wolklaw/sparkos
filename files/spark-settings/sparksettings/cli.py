@@ -12,12 +12,11 @@ from . import APP_NAME, APP_SLUG, VERSION
 
 # the tools each page uses: (command, what for, needed in the image)
 TOOLS = [
-    ('kscreen-doctor', "Displays", True), ('wpctl', "Sound", True), ('pw-play', "Sound test tone", True),
+    ('wlr-randr', "Displays", True), ('wpctl', "Sound", True), ('pw-play', "Sound test tone", True),
     ('nmcli', "Network", True), ('bluetoothctl', "Bluetooth", True),
     ('busctl', "Time, users, power, input and shortcuts (D-Bus)", True), ('xdg-mime', "Default apps", True),
     ('timedatectl', "Date and time", True), ('localectl', "Language", True),
-    ('kwriteconfig6', "Saving KDE settings", True), ('kreadconfig6', "Reading KDE settings", True),
-    ('kcmshell6', "More settings (KDE modules)", True), ('lsblk', "Storage", False),
+    ('lsblk', "Storage", False),
     ('lpstat', "Printers", True), ('lpadmin', "Printers (add)", True), ('lpinfo', "Printers (find)", True),
     ('lp', "Printers (test page)", True), ('rpm-ostree', "About (image)", True),
     ('pw-metadata', "Sound sample rate", False), ('pactl', "Live sound updates", False), ('lspci', "About (graphics)", False),

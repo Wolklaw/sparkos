@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# Boot test, inside the signed-in Plasma session: Spark Files is the file manager.
+# Boot test, inside the signed-in Spark session: Spark Files is the file manager.
 #   - folders (inode/directory) open in Spark Files
 #   - "Show in folder" (org.freedesktop.FileManager1.ShowItems, what Soot, FreeSuite, KDE's
 #     notifications and most other apps call) starts Spark Files through D-Bus and shows the
 #     file's folder with the file selected
 #   - xdg-open on a folder reaches the same Spark Files (one process per session)
-# Run as the session's user over SSH; it borrows plasmashell's environment.
+# Run as the session's user over SSH; it borrows Spark Shell's environment.
 set -euo pipefail
 
-pid=$(pgrep -u "$(id -u)" -x plasmashell | head -1)
-[ -n "$pid" ] || { echo "no plasmashell for $(id -un)"; exit 1; }
+pid=$(pgrep -u "$(id -u)" -f '[s]park_shell.py' | head -1)
+[ -n "$pid" ] || { echo "no Spark Shell for $(id -un)"; exit 1; }
 while IFS= read -r -d '' kv; do
   case "$kv" in
-    DBUS_SESSION_BUS_ADDRESS=*|XDG_RUNTIME_DIR=*|WAYLAND_DISPLAY=*|DISPLAY=*|XDG_CURRENT_DESKTOP=*|KDE_SESSION_VERSION=*|KDE_FULL_SESSION=*|LANG=*|XDG_DATA_DIRS=*)
+    DBUS_SESSION_BUS_ADDRESS=*|XDG_RUNTIME_DIR=*|WAYLAND_DISPLAY=*|DISPLAY=*|XDG_CURRENT_DESKTOP=*|LANG=*|XDG_DATA_DIRS=*)
       export "${kv?}" ;;
   esac
 done < "/proc/$pid/environ"
-echo "session: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} DISPLAY=${DISPLAY:-} KDE_SESSION_VERSION=${KDE_SESSION_VERSION:-} LANG=${LANG:-}"
+echo "session: WAYLAND_DISPLAY=${WAYLAND_DISPLAY:-} DISPLAY=${DISPLAY:-} XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-} LANG=${LANG:-}"
 
 LOG=${XDG_STATE_HOME:-$HOME/.local/state}/spark-files/spark-files.log
 wait_log() {   # $1: text to find in the log, $2: seconds
@@ -54,8 +54,8 @@ count=$(pgrep -u "$(id -u)" -f -c 'spark_files.py' || true)
 echo "Spark Files processes: $count"
 [ "$count" = 1 ] || { echo "expected one Spark Files process, found $count"; exit 1; }
 
-echo "== Dolphin out of the way"
-grep -q '^NoDisplay=true' /usr/share/applications/org.kde.dolphin.desktop && echo "Dolphin hidden from the menu"
+echo "== no other file manager"
+! rpm -q dolphin >/dev/null 2>&1 && echo "Dolphin is not installed"
 if grep -lx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/*.service | grep -v SparkFiles; then
   echo "another FileManager1 provider is still there"; exit 1
 fi

@@ -67,8 +67,17 @@ def cursor_themes() -> List[str]:
     return sorted(names, key=str.lower)
 
 
+SPARKWL = 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
+
+
 def get() -> Dict[str, object]:
     saved = core.spark_load('appearance')
+    if SPARKWL:      # the shell draws the wallpaper from shell.json; no KDE files to fall back to
+        return {'scheme': saved.get('scheme') or '', 'accent': saved.get('accent', ''),
+                'wallpaper': core.spark_load('shell').get('wallpaper') or saved.get('wallpaper', ''),
+                'cursor': saved.get('cursor') or os.environ.get('XCURSOR_THEME', ''),
+                'cursor_size': int(saved.get('cursor_size') or os.environ.get('XCURSOR_SIZE') or 24),
+                'animations': saved.get('animations', True), 'blur': saved.get('blur', True)}
     fx = plasma.kwin_effects_get()
     return {'scheme': saved.get('scheme') or plasma.colorscheme_now(),
             'accent': saved.get('accent', ''), 'wallpaper': saved.get('wallpaper', ''),
@@ -87,11 +96,16 @@ def set_wallpaper(path: str) -> bool:
     if not os.path.isfile(path):
         return False
     ok = core.spark_save('appearance', wallpaper=path)
+    if SPARKWL:      # the shell watches shell.json and redraws every screen at once
+        return core.spark_save('shell', wallpaper=path) and ok
     return plasma.apply_wallpaper(path) and ok
 
 
 def set_cursor(theme: str, size: int) -> bool:
     ok = core.spark_save('appearance', cursor=theme, cursor_size=size)
+    if SPARKWL:      # the compositor draws the cursor: a cursor line in compositor.conf, then SIGHUP
+        from . import inputdev
+        return inputdev.compositor_cursor(theme, size) and ok
     return plasma.apply_cursor(theme, size) and ok
 
 

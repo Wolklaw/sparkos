@@ -125,10 +125,10 @@ def accounts_dir() -> str:
 
 
 def pick_folder(start: str) -> Optional[str]:
-    """The desktop's folder dialog (kdialog on Plasma), Tk's as a fallback."""
-    if which('kdialog') and os.name != 'nt':
+    """The desktop's folder dialog (spark-pick: Spark Files through the desktop portal), Tk's as a fallback."""
+    if picker() and os.name != 'nt':
         try:
-            result = subprocess.run(['kdialog', '--getexistingdirectory', start, '--title',
+            result = subprocess.run([picker(), '--getexistingdirectory', start, '--title',
                                      APP_NAME], capture_output=True, text=True)
             return result.stdout.strip() or None
         except OSError:
@@ -248,10 +248,10 @@ def flatpak_installed(app_id: str) -> bool:
 
 
 def pick_program(start: str) -> Optional[str]:
-    """The desktop's file dialog (kdialog on Plasma), Tk's as a fallback."""
-    if which('kdialog') and os.name != 'nt':
+    """The desktop's file dialog (spark-pick: Spark Files through the desktop portal), Tk's as a fallback."""
+    if picker() and os.name != 'nt':
         try:
-            result = subprocess.run(['kdialog', '--getopenfilename', start, '--title', APP_NAME],
+            result = subprocess.run([picker(), '--getopenfilename', start, '--title', APP_NAME],
                                     capture_output=True, text=True)
             return result.stdout.strip() or None
         except OSError:
@@ -268,3 +268,9 @@ def is_windows_program(path: str) -> bool:
 
 def now() -> int:
     return int(time.time())
+
+
+def picker():
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
+    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
+    return shutil.which('spark-pick') or shutil.which('kdialog')

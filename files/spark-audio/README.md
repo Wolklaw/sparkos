@@ -1,6 +1,6 @@
 # Spark Audio
 
-The SparkOS sound mixer. It lists every output and input with a name you can read, sets the default, changes volume and mute with a live level meter, sets the volume of each app and moves an app to another output, tests the microphone, adds a simple equalizer to an output, and has a page for Focusrite Scarlett interfaces. It replaces Focusrite Control and a separate mixer. Plasma's volume applet stays in the tray.
+The SparkOS sound mixer. It lists every output and input with a name you can read, sets the default, changes volume and mute with a live level meter, sets the volume of each app and moves an app to another output, tests the microphone, adds a simple equalizer to an output, and has a page for Focusrite Scarlett interfaces. It replaces Focusrite Control and a separate mixer. Spark Tray's volume icon uses the same PipeWire code.
 
 It follows the PC's language: French (Quebec) when the system language is French (`LANG=fr_CA.UTF-8`, for example), English otherwise; `SPARK_LANG=fr` or `SPARK_LANG=en` picks one for a single run.
 
@@ -18,15 +18,15 @@ Version 0.1.0. It ships in the SparkOS image ([build step](../scripts/spark-audi
 
 Tabs: Ctrl+1 to Ctrl+5 (a missing Scarlett tab is skipped), Ctrl+W closes. A second `spark-audio` brings the open window forward.
 
-## How it opens from Plasma's volume applet
+## How it opens
 
-The tray applet stays as it is. Its **Configure Audio Devices...** entry opens Plasma's own Sound page (`systemsettings kcm_pulseaudio`), and it is not rewired: the applet is compiled into `plasma-pa`, so redirecting that action would mean patching KDE's package or hiding its settings page, and that is more than this app should do on its own. Open Spark Audio from the app menu (type "audio" or "sound"), from the dock, or with `spark-audio`. The menu entry also has right-click shortcuts to Outputs, Inputs and EQ. If the owner wants the applet to open it, say so and it can be done as a separate change with its cost written down.
+Open Spark Audio from the app menu (type "audio" or "sound"), from the dock, with `spark-audio`, or from the Spark Tray volume icon. The menu entry also has right-click shortcuts to Outputs, Inputs and EQ.
 
 ## How it works
 
 - **Reading.** One long-running `pw-dump --monitor` process: the first message is the whole graph, later ones are partial updates (`info: null` means removed). Nothing is polled. The window sleeps on a pipe and wakes only when the graph changes; rows are matched by node ID and updated, never rebuilt, and a slider you are dragging is left alone.
 - **Writing.** `wpctl set-volume`, `set-mute` and `set-default`, and `pactl move-sink-input`, `move-source-output` and `set-card-profile`. Slider drags are coalesced so a fast drag sends a few commands, not hundreds.
-- **Volume scale.** The slider is the cube root of PipeWire's channel volume, the same scale as Plasma's applet and `wpctl`, so 50% here is 50% there.
+- **Volume scale.** The slider is the cube root of PipeWire's channel volume, the same scale as Spark Tray's volume icon and `wpctl`, so 50% here is 50% there.
 - **Meters.** `pw-record --raw` on the default output's monitor (`stream.capture.sink=true`) or the default input, at a low rate, only for the visible tab's default device and only while the window is shown. Hidden or minimized: all meters stop. Spark Audio's own streams are named `spark-audio-...` and left out of the lists.
 - **Equalizer.** A second PipeWire process, run as the user unit `spark-audio-eq.service` (`pipewire -c ~/.config/spark-audio/eq.conf`), holds one filter-chain per EQ'd output: a pre-amp that lowers the level by the largest boost (so boosts do not clip) and five biquad bands. Each shows up as an output named after the real one with "(EQ)" at the end, and the real output is routed through it. Sliders change the running chain through `pw-cli`, without restarting. **Remove EQ** (or **Remove every EQ**) puts the default back on the real output, stops and disables the unit, and deletes `eq.conf` and the unit file, so nothing is left. `spark-audio --remove-eq` does the same from a terminal, and `install.sh --uninstall` runs it.
 - **Scarlett.** `amixer -c N contents` to read and `amixer -c N cset numid=X value` to write, polled every 2 seconds only while the Scarlett tab is visible. Cards are found from `/proc/asound/cards` and kept when at least two control names match the `scarlett2` driver's. `amixer` is in `alsa-utils`, which the image build step installs.

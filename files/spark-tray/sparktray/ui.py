@@ -188,13 +188,15 @@ class Popup(Gtk.Window):
             self.open_at(x, y)
 
     def open_at(self, x: int = 0, y: int = 0) -> None:
-        self.show_all()
         display = Gdk.Display.get_default()
         on_wayland = 'Wayland' in type(display).__name__
-        if on_wayland and GtkLayerShell is not None and GtkLayerShell.is_supported():
+        # a layer surface has to be set up before the window is first shown; after, GTK refuses
+        # ("custom_shell_surface_init: assertion '!gtk_widget_get_mapped'") and nothing appears
+        layer = on_wayland and GtkLayerShell is not None and GtkLayerShell.is_supported()
+        if layer:
             self._layer_place()
-        elif not on_wayland and (x or y):
-            self.show_all()
+        self.show_all()
+        if not on_wayland and (x or y):
             w, h = self.get_size()
             mon = display.get_monitor_at_point(x, y).get_workarea()
             px = min(max(mon.x, x - w // 2), mon.x + mon.width - w)

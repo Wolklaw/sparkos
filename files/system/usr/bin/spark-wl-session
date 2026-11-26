@@ -1,7 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 # Session for the experimental Spark compositor (spark-wl). Never the default; picked on the
 # login screen. Runs spark-compositor, which runs spark-wl-startup once it is up.
-export XDG_CURRENT_DESKTOP=sparkwl
+# sparkwl first (the portals pick their backends from it), Spark too so OnlyShowIn=Spark
+# autostarts (Spark Tray) run
+export XDG_CURRENT_DESKTOP=sparkwl:Spark
 export XDG_SESSION_DESKTOP=spark-wl
 export XDG_SESSION_TYPE=wayland
 export MOZ_ENABLE_WAYLAND=1
@@ -19,4 +21,13 @@ if [ -d "$dev" ]; then
   [ -x "$dev/spark-compositor" ] && comp="$dev/spark-compositor"
   [ -x "$dev/spark-wl-startup" ] && startup="$dev/spark-wl-startup"
 fi
+# Every session's output is kept in ~/.local/state/spark-wl/logs (the last 10): the login
+# screen truncates its own log at the next login, which is when a crash gets looked at.
+logs="${XDG_STATE_HOME:-$HOME/.local/state}/spark-wl/logs"
+if mkdir -p "$logs" 2>/dev/null; then
+  ls -1t "$logs"/session-*.log 2>/dev/null | tail -n +10 | xargs -r rm -f
+  log="$logs/session-$(date +%Y%m%d-%H%M%S).log"
+  exec > >(tee -a "$log") 2>&1 || true
+fi
+echo "spark-wl session start $(date -Is)"
 exec "$comp" -s "$startup"

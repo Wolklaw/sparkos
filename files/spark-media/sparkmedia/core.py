@@ -267,14 +267,14 @@ def move_to_trash(path: str) -> Optional[str]:
 
 
 def pick_files(kind: Optional[str], start: str) -> List[str]:
-    """The desktop's own file dialog (kdialog on Plasma), Tk's as a fallback. Empty if cancelled."""
+    """The desktop's own file dialog (spark-pick: Spark Files through the desktop portal), Tk's as a fallback. Empty if cancelled."""
     exts = {'photo': PHOTO_EXT, 'video': VIDEO_EXT, 'music': MUSIC_EXT | {'m3u', 'm3u8'}}
     chosen = [exts[kind]] if kind else list(exts.values())
     pattern = ' '.join(f'*.{e}' for group in chosen for e in sorted(group))
-    if shutil.which('kdialog') and os.name != 'nt':
+    if picker() and os.name != 'nt':
         try:
             result = subprocess.run(
-                ['kdialog', '--getopenfilename', start, f"{pattern}|{tr('dialog.media_files')}",
+                [picker(), '--getopenfilename', start, f"{pattern}|{tr('dialog.media_files')}",
                  '--multiple', '--separate-output', '--title', APP_NAME],
                 capture_output=True, text=True)
             return [line for line in result.stdout.splitlines() if line.strip()]
@@ -288,9 +288,9 @@ def pick_files(kind: Optional[str], start: str) -> List[str]:
 
 
 def pick_folder(start: str) -> Optional[str]:
-    if shutil.which('kdialog') and os.name != 'nt':
+    if picker() and os.name != 'nt':
         try:
-            result = subprocess.run(['kdialog', '--getexistingdirectory', start,
+            result = subprocess.run([picker(), '--getexistingdirectory', start,
                                      '--title', APP_NAME], capture_output=True, text=True)
             return result.stdout.strip() or None
         except OSError:
@@ -603,3 +603,9 @@ def image_formats() -> Dict[str, bool]:
     out['avif'] = out['avif'] or found['avif']
     out['heic'] = out['heic'] or found['heic']
     return out
+
+
+def picker():
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
+    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
+    return shutil.which('spark-pick') or shutil.which('kdialog')

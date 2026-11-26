@@ -50,7 +50,7 @@ Settings are in `~/.config/spark-welcome/`, the log in `~/.local/state/spark-wel
 
 ## Known gaps
 
-- Opened on a real SparkOS desktop in CI, not used by hand yet. The boot test signs in to Plasma 6.8 in a VM, where it opens by itself at the first sign-in, then opens it from the app menu in English and in French, keeps a screenshot and fails on a Python traceback. The pages were checked on Windows with a fake Windows drive; the checks and installs are covered by tests with sample outputs and a fake flatpak, not on real hardware.
+- Opened on a real SparkOS desktop in CI, not used by hand yet. The boot test signs in to the Spark session in a VM, where it opens by itself at the first sign-in, then opens it from the app menu in English and in French, keeps a screenshot and fails on a Python traceback. The pages were checked on Windows with a fake Windows drive; the checks and installs are covered by tests with sample outputs and a fake flatpak, not on real hardware.
 - The "fresh user account gets the window once at first login" part is covered by the `--first-login` tests and the autostart entry, not by a real login yet. The boot test doesn't cover it until Spark Welcome is added there.
 - English and Quebec French, picked from the PC's language (`LC_ALL`, `LC_MESSAGES` or `LANG`; `SPARK_LANG=en|fr` overrides it). It no longer reads `LANGUAGE`.
 - Programs from Windows: only what Windows lists as installed; portable programs aren't found. The answers are a fixed list in `switch.py`.

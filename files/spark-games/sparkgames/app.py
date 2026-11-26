@@ -780,7 +780,7 @@ def self_test() -> int:
               required=False)
     print("optional:")
     for name in ('flatpak', 'steam', 'lutris', 'bottles-cli', 'minecraft-launcher', 'prismlauncher',
-                 'gamemoderun', 'mangohud', 'umu-run', 'kdialog'):
+                 'gamemoderun', 'mangohud', 'umu-run', 'spark-pick'):
         check(name, bool(which(name)), required=False)
     if failures:
         print("FAILED: " + ", ".join(failures))

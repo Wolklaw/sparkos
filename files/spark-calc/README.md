@@ -28,7 +28,7 @@ SparkOS has had no calculator since KCalc went. Spark Calc is an optional Spark 
 | Ctrl+M, Ctrl+P, Ctrl+Q, Ctrl+R, Ctrl+L | MS, M+, M−, MR, MC |
 | Ctrl+W | Close |
 
-The desktop entry carries `X-KDE-Shortcuts=Calculator`, so on Plasma a keyboard's Calculator key opens Spark Calc.
+The Spark compositor binds the keyboard's Calculator key (`XF86Calculator`) to Spark Calc; change it in Spark Settings > Shortcuts. The desktop entry's `X-KDE-Shortcuts=Calculator` line is left over from KCalc and nothing reads it in the Spark session.
 
 ## How it counts
 
@@ -91,7 +91,7 @@ python3 -m unittest discover -s tests -v
 python3 make_icons.py                     # redraw icons/ after changing the mark (needs Pillow)
 ```
 
-`--user` needs only what the SparkOS image already has (Python 3 with tkinter). It installs to `~/.local/lib/spark-calc/`, `~/.local/bin/spark-calc`, `~/.local/share/applications/`, `~/.local/share/icons/` and `~/.local/share/kglobalaccel/` (that link is how Plasma picks up the Calculator key), and lists every file it wrote in `~/.local/lib/spark-calc/installed-files` for `--uninstall`. Settings (`~/.config/spark-calc/`) and history (`~/.local/state/spark-calc/`) are left in place by `--uninstall`.
+`--user` needs only what the SparkOS image already has (Python 3 with tkinter). It installs to `~/.local/lib/spark-calc/`, `~/.local/bin/spark-calc`, `~/.local/share/applications/`, `~/.local/share/icons/` and `~/.local/share/kglobalaccel/` (a link only KDE's shortcut daemon read; it does nothing in the Spark session), and lists every file it wrote in `~/.local/lib/spark-calc/installed-files` for `--uninstall`. Settings (`~/.config/spark-calc/`) and history (`~/.local/state/spark-calc/`) are left in place by `--uninstall`.
 
 `spark-app.json` describes the app for the Spark Portal (ID, name, summary, version, size, what it needs, how to install it).
 
@@ -99,7 +99,7 @@ The tests ([tests/](tests)) cover the parser (order of operations, implicit mult
 
 ## Known gaps
 
-- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens it from the app menu in a Plasma 6.8 session in a VM, in English and in French, waits for its window, keeps a screenshot and fails on a Python traceback. Whether Plasma 6.8 gives it the Calculator key the way it did KCalc (`X-KDE-Shortcuts=Calculator`) hasn't been tried on hardware; a `--user` install may need a log out and back in first.
+- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens it from the app menu in the Spark session in a VM, in English and in French, waits for its window, keeps a screenshot and fails on a Python traceback. The Calculator key goes through the compositor's `XF86Calculator` bind; that hasn't been tried on hardware.
 - **English and Quebec French**, picked from the PC's language (`SPARK_LANG=en|fr` overrides it). In French, numbers are typed and shown with a decimal comma (0,5) and spaces between thousands; every sentence is in `sparkcalc/text.py`.
 - **No complex numbers**, so √−1 is an error. No unit conversion, graphing or date arithmetic.
 - **Programmer mode** has no grid of clickable bits, and is always signed (two's complement); there is no unsigned DEC view.

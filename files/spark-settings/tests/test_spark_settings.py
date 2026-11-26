@@ -35,8 +35,15 @@ os.environ.update({
     # test_dbus.py swaps in private fake buses for its own classes
     'DBUS_SYSTEM_BUS_ADDRESS': 'unix:path=/nonexistent/system',
     'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/nonexistent/session',
+    # The tests follow the Plasma code paths (kscreen-doctor and friends, all faked). Run from the
+    # spark-wl session they would otherwise take its paths and change the real displays.
+    'XDG_CURRENT_DESKTOP': 'KDE',
 })
 os.environ.pop('DBUS_STARTER_ADDRESS', None)
+# Windows only open on CI's Xvfb, never on the desktop someone is using
+os.environ.pop('WAYLAND_DISPLAY', None)
+if not os.environ.get('CI'):
+    os.environ.pop('DISPLAY', None)
 
 from sparksettings import (bluetooth, clock, core, defaults, displays, kcms, network,  # noqa: E402
                            power, printers, sound, startup, sysinfo)

@@ -2,8 +2,11 @@
 Description=Spark polkit agent
 PartOf=graphical-session.target
 After=spark-workspace.target spark-wl-workspace.target
+# it is restarted until the session id reaches the user manager (see spark-wl-startup)
+StartLimitIntervalSec=0
 
 [Service]
 ExecStart=/usr/libexec/spark-session-polkit
 Restart=on-failure
+RestartSec=2
 Slice=background.slice

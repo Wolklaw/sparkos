@@ -7,7 +7,7 @@ import gi
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, GLib, Graphene, Gtk  # noqa: E402
 
 from .strings import tr  # noqa: E402
 
@@ -39,6 +39,28 @@ def item_paintable_or_name(item, display):
     if name:
         return 'name', name
     return None, None
+
+
+def screen_point(widget: Gtk.Widget) -> tuple:
+    """The middle of a widget in the compositor's global coordinates, for items that open their
+    own menu where they're clicked (old X11 icons through spark-xembed). The panel is a layer
+    surface: its monitor's geometry plus the edge it sits on place it. (0, 0) when unknown."""
+    try:
+        from . import layer
+        root = widget.get_root()
+        surface = root.get_surface()
+        monitor = widget.get_display().get_monitor_at_surface(surface)
+        geo = monitor.get_geometry()
+        ok, pt = widget.compute_point(root, Graphene.Point().init(widget.get_width() / 2,
+                                                                   widget.get_height() / 2))
+        if not ok:
+            return 0, 0
+        top = 0
+        if layer.LS is not None and not layer.LS.get_anchor(root, layer.LS.Edge.TOP):
+            top = geo.height - root.get_height()        # anchored at the bottom
+        return int(geo.x + pt.x), int(geo.y + top + pt.y)
+    except Exception:                                   # noqa: BLE001 - X11 shell, tests
+        return 0, 0
 
 
 def set_item_icon(image: Gtk.Image, item, display):
@@ -152,10 +174,12 @@ class TrayView(Gtk.Box):
         button.add_css_class('spark-flat')
         image = Gtk.Image()
         button.set_child(image)
+        # left click: the button's own "clicked". A GestureClick on a Gtk.Button never sees a
+        # left release (the button's internal gesture claims it), so only middle/right go there.
+        button.connect('clicked', lambda b, i=item: self._primary(i, b))
         click = Gtk.GestureClick(button=0)
         click.connect('released', self._clicked, item, button)
         button.add_controller(click)
-        # the button's own "clicked" would fire on the primary button too; the gesture does it all
         button.set_focusable(True)
         scroll = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
         scroll.connect('scroll', lambda _c, _dx, dy: (item.scroll(int(dy * 120)), True)[1])
@@ -182,18 +206,20 @@ class TrayView(Gtk.Box):
         if entry:
             self.remove(entry[0])
 
+    @staticmethod
+    def _primary(item, button):
+        if item.item_is_menu and item.menu():
+            show_menu(button, item.menu())
+        else:
+            item.activate(*screen_point(button))
+
     def _clicked(self, gesture, n_press, x, y, item, button):
         which = gesture.get_current_button()
-        if which == 1:
-            if item.item_is_menu and item.menu():
-                show_menu(button, item.menu())
-            else:
-                item.activate(0, 0)
-        elif which == 2:
-            item.secondary_activate(0, 0)
+        if which == 2:
+            item.secondary_activate(*screen_point(button))
         elif which == 3:
             menu = item.menu()
             if menu:
                 show_menu(button, menu)
             else:
-                item.context_menu(0, 0)
+                item.context_menu(*screen_point(button))

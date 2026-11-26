@@ -12,6 +12,7 @@ no plasmashell. The brightness keys are powerdevil's (see osd.py)."""
 import json
 import logging
 import os
+import shutil
 
 from gi.repository import Gio, GLib
 
@@ -112,6 +113,9 @@ def _safe_id(window_id: str) -> str:
     return cleaned
 
 
+SNIP_OVERLAY_TITLE = 'Spark Snip capture'
+
+
 class WindowTracker:
     """Loads the tracker script into KWin and keeps `windows` current.
     on_changed(windows) is called after every update."""
@@ -119,14 +123,56 @@ class WindowTracker:
     def __init__(self, conn, runtime_dir=None):
         self.conn = conn
         self.windows = []
+        self.all_ids = set()
         self.on_changed = lambda windows: None
         base = runtime_dir or os.environ.get('XDG_RUNTIME_DIR') or '/tmp'
         self.dir = os.path.join(base, 'spark-shell')
         self._action_seq = 0
         self.loaded = False
 
+    # Spark compositor session: no KWin, spark-wl-windows reads wlr-foreign-toplevel -------
+    @staticmethod
+    def _helper():
+        if 'sparkwl' not in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+            return None
+        return shutil.which('spark-wl-windows') or (
+            '/usr/libexec/spark-wl-windows' if os.access('/usr/libexec/spark-wl-windows', os.X_OK)
+            else None)
+
+    def _start_helper(self, path):
+        self._proc = Gio.Subprocess.new(
+            [path], Gio.SubprocessFlags.STDIN_PIPE | Gio.SubprocessFlags.STDOUT_PIPE)
+        self._stdin = self._proc.get_stdin_pipe()
+        out = Gio.DataInputStream.new(self._proc.get_stdout_pipe())
+        self.loaded = True
+        log.info('window tracker: %s', path)
+
+        def got(stream, result):
+            try:
+                line, _len = stream.read_line_finish_utf8(result)
+            except GLib.Error:
+                line = None
+            if line is None:
+                # the helper died (compositor restart?): try again shortly
+                self.loaded = False
+                self._stdin = None
+                GLib.timeout_add_seconds(2, lambda: self._start_helper(path) and False)
+                return
+            self.update(line)
+            stream.read_line_async(GLib.PRIORITY_DEFAULT, None, got)
+        out.read_line_async(GLib.PRIORITY_DEFAULT, None, got)
+
     # script loading ----------------------------------------------------------------------
     def start(self):
+        self._stdin = None
+        helper = self._helper()
+        if helper:
+            self._start_helper(helper)
+            return
+        if 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+            # never fall back to KWin in the Spark session: it isn't there
+            log.error('window tracker: spark-wl-windows not found, taskbar stays empty')
+            return
         os.makedirs(self.dir, mode=0o700, exist_ok=True)
         path = os.path.join(self.dir, 'tracker.js')
         with open(path, 'w', encoding='utf-8') as f:
@@ -171,6 +217,8 @@ class WindowTracker:
              '', (), ran)
 
     def stop(self):
+        if getattr(self, '_stdin', None) is not None:
+            return
         call(self.conn, KWIN, '/Scripting', 'org.kde.kwin.Scripting', 'unloadScript', 's',
              (SCRIPT_NAME,))
 
@@ -181,8 +229,13 @@ class WindowTracker:
         except ValueError:
             return
         windows = []
-        for row in rows if isinstance(rows, list) else []:
+        rows = rows if isinstance(rows, list) else []
+        # every window, the hidden ones too: a new one closes the open menu
+        self.all_ids = {str(r['id']) for r in rows if isinstance(r, dict) and r.get('id')}
+        for row in rows:
             if isinstance(row, dict) and row.get('id'):
+                if row.get('title') == SNIP_OVERLAY_TITLE:
+                    continue        # Spark Snip's frozen-screen overlay is not a task
                 windows.append({
                     'id': str(row['id']), 'title': str(row.get('title', '')),
                     'app': str(row.get('app', '')), 'cls': str(row.get('cls', '')),
@@ -195,6 +248,14 @@ class WindowTracker:
 
     # actions -----------------------------------------------------------------------------
     def act(self, action: str, window_id: str):
+        if getattr(self, '_stdin', None) is not None:
+            if action in ('activate', 'minimize', 'close') and str(window_id).isdigit():
+                try:
+                    self._stdin.write_all(('%s %s\n' % (action, window_id)).encode(), None)
+                    self._stdin.flush(None)
+                except GLib.Error as e:
+                    log.error('window action failed: %s', e.message)
+            return
         template = ACTIONS_JS.get(action)
         wid = _safe_id(window_id)
         if not template or not wid:

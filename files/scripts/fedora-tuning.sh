@@ -3,7 +3,7 @@
 # and tuning") lists every Bazzite tweak and why each one is here or left out.
 #
 # Packages for this are installed by build_files/packages.sh: vkBasalt and python3-pyinotify
-# (Fedora), dmemcg-booster and plasma-foreground-booster-dmemcg (Terra, build time only).
+# (Fedora), dmemcg-booster (Terra, build time only).
 # The gaming sysctls (split lock, max_map_count, inotify) are in fedora-gaming.sh.
 set -oue pipefail
 
@@ -106,15 +106,15 @@ install -m 0644 "$SRC/ds-inhibit/ds-inhibit.service" /usr/lib/systemd/system/ds-
 install -Dm 0644 -t /usr/share/licenses/sparkos-ds-inhibit "$SRC/ds-inhibit/LICENSE" "$SRC/ds-inhibit/SOURCE"
 systemctl enable ds-inhibit.service
 
-# VRAM for the game in front (Valve's dmemcg-booster with KDE's foreground booster, as on
-# Bazzite and SteamOS): when video memory runs out, the focused window's app keeps its VRAM and
-# background apps are moved out first. Fedora's kernel has the dmem cgroup controller with
-# amdgpu support. plasma-workspace.target already starts the foreground booster.
+# VRAM for games (Valve's dmemcg-booster, as on SteamOS): when video memory runs out, games
+# keep theirs and other apps are moved out first. Fedora's kernel has the dmem cgroup controller
+# with amdgpu support. KDE's foreground booster, which also favoured the focused window, went
+# with Plasma (sparkos-no-kde.sh).
 systemctl enable dmemcg-booster-system.service
 systemctl --global enable dmemcg-booster-user.service
 
 # Fail the build if the tuning layer is incomplete
-rpm -q vkBasalt python3-pyinotify dmemcg-booster plasma-foreground-booster-dmemcg kcgroups-dmemcg
+rpm -q vkBasalt python3-pyinotify dmemcg-booster
 python3 -c 'import pyinotify'
 for f in /usr/lib/sysctl.d/75-sparkos-network.conf /usr/lib/udev/rules.d/60-sparkos-io-scheduler.rules \
   /usr/lib/systemd/zram-generator.conf.d/50-sparkos.conf /usr/lib/tmpfiles.d/sparkos-btrfs-reclaim.conf \
@@ -136,12 +136,10 @@ for unit in ds-inhibit.service dmemcg-booster-system.service; do
 done
 [ "$(systemctl --global is-enabled dmemcg-booster-user.service)" = enabled ] \
   || { echo "dmemcg-booster-user.service not enabled"; exit 1; }
-grep -q '^Wants=plasma-foreground-booster.service' /usr/lib/systemd/user/plasma-workspace.target \
-  || { echo "plasma-workspace.target no longer starts the foreground booster"; exit 1; }
 
 # A record for docs/fedora-base.md and the boot test
 {
-  rpm -q vkBasalt dmemcg-booster plasma-foreground-booster-dmemcg kcgroups-dmemcg tuned tuned-ppd \
+  rpm -q vkBasalt dmemcg-booster tuned tuned-ppd \
     zram-generator --qf '%{NAME} %{VERSION}-%{RELEASE} (%{VENDOR})\n'
   echo "sysctl: $(grep -hv '^#' /usr/lib/sysctl.d/75-sparkos-network.conf | paste -sd ' ')"
   echo "zram: $(grep -v '^[#[]' /usr/lib/systemd/zram-generator.conf.d/50-sparkos.conf | paste -sd ' ')"

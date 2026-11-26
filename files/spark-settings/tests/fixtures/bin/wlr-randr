@@ -1,0 +1,3 @@
+#!/bin/sh
+# Stand-in so no test ever changes the real displays under spark-wl. Logs the call only.
+printf "%s\n" "wlr-randr $*" >> "${FAKE_LOG:-/dev/null}"

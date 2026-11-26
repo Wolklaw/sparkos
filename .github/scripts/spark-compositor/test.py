@@ -9,7 +9,8 @@ client, a lock screen, clipboard tools, a virtual keyboard), takes screenshots t
 wlr-screencopy and writes them to outdir. Exits 1 on the first failed check, after
 printing the compositor log.
 """
-import os, re, shutil, subprocess, sys, tempfile, time
+import os
+import signal, re, shutil, subprocess, sys, tempfile, time
 
 BIN, OUT = sys.argv[1], sys.argv[2]
 os.makedirs(OUT, exist_ok=True)
@@ -23,7 +24,9 @@ with open(os.path.join(cfg, "outputs.conf"), "w") as f:
             "output HEADLESS-2 mode=1920x1080@60 scale=1.5 pos=2560,0\n"
             "output HEADLESS-3 mode=1920x1080@60 transform=90 pos=4480,0\n")
 with open(os.path.join(cfg, "compositor.conf"), "w") as f:
-    f.write(f"bind Super+t exec touch {work}/bind-ran\n")
+    f.write(f"bind Super+t exec grep SigBlk /proc/self/status > {work}/bind-ran\n"
+            f"bind Super+y exec touch {work}/y-ran\n"
+            "bind Super+y none\n")
 
 env = dict(os.environ, XDG_RUNTIME_DIR=rt, SPARK_HEADLESS_OUTPUTS="3", WLR_RENDERER="pixman",
            SPARK_COMPOSITOR_CONFIG_DIR=cfg, HOME=work, WLR_LIBINPUT_NO_DEVICES="1")
@@ -110,12 +113,35 @@ try:
         xt.wait(10)
         time.sleep(2)
         check(comp.poll() is None, "compositor survives an X11 window closing")
+        # one left open: at logout the compositor stops with X11 windows still up, and their
+        # surfaces go before the X11 side (it crashed in xw_dissociate on every logout)
+        left = subprocess.Popen(["xterm", "-T", "x11-left", "-e", "sleep", "120"], env=cenv,
+                                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        check(wait_log(r"mapped x11 window app_id=XTerm title=x11-left", 40), "second XWayland client mapped, left open")
     else:
         check(False, "XWayland started")
+
+    # 6a. the Spark shell's window list (spark-wl-windows, optional third argument)
+    helper = sys.argv[3] if len(sys.argv) > 3 else ""
+    if helper:
+        try:
+            r = subprocess.run([helper], input="", env=cenv, capture_output=True, text=True, timeout=10)
+            out = r.stdout
+        except subprocess.TimeoutExpired as e:
+            out = (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+        check('"app":"spark-test"' in out,
+              f"spark-wl-windows lists the open windows ({out.strip()[:120]!r})")
 
     # 6. clipboard and primary selection through data-control
     start(["wl-copy", "--foreground", "spark-clip"]); time.sleep(1)
     check(run(["wl-paste", "-n"]).stdout == "spark-clip", "clipboard round trip (wl-copy / wl-paste)")
+    # X11 apps (Electron chat apps, Wine) paste what a Wayland app copied, through XWayland
+    if "DISPLAY" in cenv and shutil.which("xclip"):
+        r = run(["xclip", "-selection", "clipboard", "-o"])
+        check(r.stdout == "spark-clip", f"an X11 app reads the Wayland clipboard ({r.stdout!r} {r.stderr.strip()!r})")
+        subprocess.run(["xclip", "-selection", "clipboard", "-i"], input="from-x11", text=True, env=cenv,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10); time.sleep(1)
+        check(run(["wl-paste", "-n"]).stdout == "from-x11", "a Wayland app reads the X11 clipboard")
     start(["wl-copy", "--foreground", "-p", "spark-primary"]); time.sleep(1)
     check(run(["wl-paste", "-p", "-n"]).stdout == "spark-primary", "primary selection round trip")
 
@@ -123,6 +149,52 @@ try:
     run(["wtype", "-M", "logo", "t", "-m", "logo"])
     time.sleep(1)
     check(os.path.exists(os.path.join(work, "bind-ran")), "Super+T runs its exec binding")
+    run(["wtype", "-M", "logo", "y", "-m", "logo"])
+    time.sleep(0.5)
+    check(not os.path.exists(os.path.join(work, "y-ran")), "a later 'bind KEY none' turns a binding off")
+    # programs the compositor starts must not inherit its blocked signals: a shell that ignores
+    # SIGTERM outlives the logout and takes over the next session (black screens on relogin)
+    blk = open(os.path.join(work, "bind-ran")).read().split()[-1] if os.path.exists(os.path.join(work, "bind-ran")) else "?"
+    check(blk.strip("0") == "", f"started programs have no blocked signals (SigBlk {blk})")
+
+    # 7b. Windows 7 window keys: Super+Left/Right snap, Super+D hides and brings back
+    def windows_json():
+        if not helper:
+            return ""
+        try:
+            return subprocess.run([helper], input="", env=cenv, capture_output=True, text=True, timeout=10).stdout
+        except subprocess.TimeoutExpired as e:
+            return (e.stdout or b"").decode() if isinstance(e.stdout, bytes) else (e.stdout or "")
+    run(["wtype", "-M", "logo", "-k", "Left", "-m", "logo"])
+    check(wait_log(r"window app_id=\S+ snapped left", 5), "Super+Left snaps the focused window to the left half")
+    run(["wtype", "-M", "logo", "-k", "Right", "-m", "logo"])
+    time.sleep(0.5)
+    check(log().count("snapped") == 1, "Super+Right on a left-snapped window brings it back (no new snap)")
+    if helper:
+        run(["wtype", "-M", "logo", "d", "-m", "logo"]); time.sleep(1)
+        out = windows_json()
+        check('"minimized":false' not in out and '"minimized":true' in out, f"Super+D minimizes every window ({out.strip()[:300]!r})")
+        run(["wtype", "-M", "logo", "d", "-m", "logo"]); time.sleep(1)
+        out = windows_json()
+        check('"minimized":true' not in out, "Super+D again brings them back")
+
+    # 7c. Alt+Tab switcher: shown while Alt is held, letting go of Alt switches
+    def picks():
+        return re.findall(r"switcher: picked (app_id=\S+ title=.*)", log())
+    p = start(["wtype", "-M", "alt", "-k", "Tab", "-s", "1500", "-m", "alt"])
+    time.sleep(0.8)
+    check(not picks(), "Alt+Tab waits for Alt to come up before switching")
+    run(["grim", os.path.join(OUT, "switcher.png")])
+    p.wait(timeout=10); time.sleep(0.5)
+    first = picks()
+    check(len(first) == 1, f"letting go of Alt switches window ({first})")
+    run(["wtype", "-M", "alt", "-k", "Tab", "-m", "alt"]); time.sleep(0.5)
+    run(["wtype", "-M", "alt", "-k", "Tab", "-m", "alt"]); time.sleep(0.5)
+    got = picks()
+    check(len(got) == 3 and got[2] == got[0] and got[1] != got[0],
+          f"Alt+Tab twice goes back to the same window, most recent first ({got})")
+    run(["wtype", "-M", "alt", "-k", "Tab", "-k", "Escape", "-m", "alt"]); time.sleep(0.5)
+    check(len(picks()) == 3, "Escape closes the switcher without switching")
 
     # 8. screenshots through screencopy
     time.sleep(1)
@@ -138,6 +210,12 @@ try:
     px = run(["convert", os.path.join(OUT, "HEADLESS-2.png"), "-format", "%[hex:p{5,5}]", "info:"]).stdout
     check(px.upper().startswith("FF00FF"), f"the layer-shell background shows in the screenshot (pixel {px})")
 
+    # 8b. an output going away and coming back: its windows move off, then return
+    run(["wlr-randr", "--output", "HEADLESS-1", "--off"])
+    check(wait_log(r"window app_id=spark-test moved to HEADLESS-"), "windows leave an output that is turned off")
+    run(["wlr-randr", "--output", "HEADLESS-1", "--on", "--pos", "0,0"])
+    check(wait_log(r"window app_id=spark-test back on HEADLESS-1"), "windows go back when the output returns")
+
     # 9. lock screen (ext-session-lock): lock, see it, unlock
     lock = start(["swaylock", "-c", "000000"]) if shutil.which("swaylock") else None
     if lock:
@@ -146,6 +224,13 @@ try:
         run(["grim", "-o", "HEADLESS-1", os.path.join(OUT, "locked.png")])
         lp = run(["convert", os.path.join(OUT, "locked.png"), "-format", "%[hex:p{300,300}]", "info:"]).stdout
         check(lp.upper().startswith("000000"), f"locked screen is black (pixel {lp})")
+        # a monitor reconnecting while locked: the lock client adds a surface for it, and the
+        # compositor must not send "locked" a second time (wlroots aborts; it ended a session)
+        run(["wlr-randr", "--output", "HEADLESS-2", "--off"])
+        time.sleep(1)
+        run(["wlr-randr", "--output", "HEADLESS-2", "--on", "--pos", "2560,0"])
+        time.sleep(2)
+        check(comp.poll() is None, "compositor survives a monitor coming back while locked")
         print(f"     swaylock status before unlock signal: {lock.poll()}")
         for _ in range(5):  # SIGUSR1 unlocks swaylock
             lock.send_signal(10)
@@ -157,15 +242,38 @@ try:
     subprocess.run(["montage"] + [os.path.join(OUT, f"{n}.png") for n in ("HEADLESS-1", "HEADLESS-2", "HEADLESS-3")]
                    + ["-tile", "3x1", "-geometry", "800x800+8+8", "-background", "#08080c", os.path.join(OUT, "montage.png")],
                    capture_output=True)
+
+    # 11. idle: screens go off after the configured time without input, and input wakes them
+    with open(os.path.join(cfg, "compositor.conf"), "a") as f:
+        f.write("idle screen_off=30\n")
+    comp.send_signal(signal.SIGHUP)               # reload, as Spark Settings does
+    check(wait_log(r"screens off \(idle\)", 45), "idle: screens turn off after 30 s without input")
+    check("Enabled: no" in run(["wlr-randr"]).stdout, "idle: outputs report off while blank")
+    run(["wtype", "-k", "Escape"])
+    check(wait_log(r"screens on", 10), "idle: a key press turns the screens back on")
+    check("Enabled: no" not in run(["wlr-randr"]).stdout, "idle: every output is on again")
+
+    # 11b. an app holding org.freedesktop.ScreenSaver (the shell keeps this file) keeps them on
+    flag = os.path.join(rt, "spark-wl", "idle-inhibit")
+    os.makedirs(os.path.dirname(flag), exist_ok=True)
+    open(flag, "w").write("1\n")
+    off_before = log().count("screens off (idle)")
+    time.sleep(40)
+    check(log().count("screens off (idle)") == off_before, "idle: the D-Bus inhibit file keeps the screens on")
+    os.remove(flag)
+    check(wait_log(r"screens off \(idle\)[\s\S]*screens off \(idle\)", 45), "idle: screens go off once it is gone")
 finally:
     for p in procs:
         if p.poll() is None:
             p.terminate()
     comp.terminate()
     try:
-        comp.wait(10)
+        code = comp.wait(10)
+        # a logout ends it the same way; a crash here leaves a core dump on every logout
+        check(code == 0, f"compositor exits cleanly when told to stop (exit code {code})")
     except subprocess.TimeoutExpired:
         comp.kill()
+        check(False, "compositor exits when told to stop")
     shutil.rmtree(work, ignore_errors=True)
 
 if failed:

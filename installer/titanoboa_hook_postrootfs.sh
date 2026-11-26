@@ -113,20 +113,26 @@ EOF
     true # a service missing from this image is fine; never fail the build here
 )
 
-# Open the live desktop without a sign-in screen. livesys makes liveuser, but it only turns
-# on autologin by editing a "#User=" line in /etc/plasmalogin.conf, and SparkOS's own
-# plasmalogin.conf has none, so the live session stopped at the sign-in screen.
-# This is the live image's /etc only: the installed system comes from the SparkOS image
-# and keeps its sign-in screen.
-if grep -q '^\[Autologin\]' /etc/plasmalogin.conf 2>/dev/null; then
-    echo "::warning::/etc/plasmalogin.conf already has an [Autologin] group; relying on plasmalogin.conf.d"
-else
-    printf '\n# Live installer only (installer/titanoboa_hook_postrootfs.sh)\n[Autologin]\nUser=liveuser\nSession=plasma\n' >>/etc/plasmalogin.conf
-fi
-mkdir -p /etc/plasmalogin.conf.d
-printf '[Autologin]\nUser=liveuser\nSession=plasma\n' >/etc/plasmalogin.conf.d/zz-sparkos-live-autologin.conf
-cat /etc/plasmalogin.conf
-test -f /usr/share/wayland-sessions/plasma.desktop || { echo "plasma.desktop session not found"; exit 1; }
+# Open the live desktop without a sign-in screen: greetd signs liveuser (made by livesys at
+# boot) straight into the Spark session once, and the installer opens by itself. livesys has no
+# Spark session script (installer/build.sh turns its session setup off), so it is done here.
+# This is the live image's /etc only: the installed system comes from the SparkOS image and
+# keeps the Spark sign-in screen.
+test -f /usr/share/wayland-sessions/spark-wl.desktop || { echo "spark-wl.desktop session not found"; exit 1; }
+grep -q '^command = "/usr/libexec/spark-greeter-session"$' /etc/greetd/config.toml \
+    || { echo "/etc/greetd/config.toml is not the Spark one"; exit 1; }
+printf '\n# Live installer only (installer/titanoboa_hook_postrootfs.sh)\n[initial_session]\ncommand = "/usr/bin/spark-wl-session"\nuser = "liveuser"\n' >>/etc/greetd/config.toml
+cat /etc/greetd/config.toml
+sed -i 's/^NoDisplay=true/NoDisplay=false/' /usr/share/applications/liveinst.desktop
+mkdir -p /etc/xdg/autostart
+cat >/etc/xdg/autostart/sparkos-liveinst.desktop <<'AUTOSTART'
+[Desktop Entry]
+Type=Application
+Name=Install SparkOS
+Exec=liveinst
+OnlyShowIn=sparkwl;
+X-GNOME-Autostart-enabled=true
+AUTOSTART
 
 rm -f /usr/bin/rpm-ostree # never run on the live ISO
 

@@ -7,7 +7,7 @@ import threading
 from typing import Dict, Optional, Tuple
 
 import tkinter as tk
-from tkinter import filedialog
+from . import pickdialog as filedialog
 
 from . import imagewrite, safety
 from .dialogs import Ask, Field, ask

@@ -1,7 +1,7 @@
 #!/bin/bash
-# What greetd runs as its greeter (see /usr/share/spark-session/greetd-config.toml): KWin as a
-# bare compositor with spark-greeter as its only window. KWin exits when the greeter does, and
-# greetd then starts the session that was chosen (or the greeter again).
+# What greetd runs as its greeter (see /usr/share/spark-session/greetd-config.toml):
+# spark-compositor with spark-greeter as its only window. When the greeter exits it stops the
+# compositor, and greetd then starts the session that was chosen (or the greeter again).
 #
 # Everything here is for the sign-in screen only. It runs as the `greetd` user, never as you.
 set -u
@@ -18,14 +18,22 @@ export XDG_SESSION_TYPE=wayland
 export XDG_CURRENT_DESKTOP=SparkGreeter
 export GTK_A11Y=none            # no accessibility bus on the sign-in screen
 export SPARK_GREETER_CACHE=${SPARK_GREETER_CACHE:-/var/cache/spark-greeter}
+# The compositor's own settings (outputs, keyboard) for the sign-in screen: none from a home
+# folder, so it never reads the greetd user's files.
+export SPARK_COMPOSITOR_CONFIG_DIR=${SPARK_COMPOSITOR_CONFIG_DIR:-/usr/share/spark-session/greeter-compositor}
 
 greeter=${SPARK_GREETER_BIN:-/usr/bin/spark-greeter}
-# SPARK_GREETER_KWIN_ARGS is for the tests (--virtual runs KWin without a screen); greetd never sets it.
-# shellcheck disable=SC2206
-kwin=(kwin_wayland --no-lockscreen --no-global-shortcuts --no-kactivities ${SPARK_GREETER_KWIN_ARGS:-}
-      --exit-with-session "$greeter")
+compositor=${SPARK_GREETER_COMPOSITOR:-/usr/bin/spark-compositor}
+
+run() {
+  # The subshell's PID becomes the compositor's (exec keeps it), so the startup command knows
+  # which process to stop when the greeter is done.
+  ( exec "$compositor" -s "$greeter; kill -TERM $BASHPID" )
+}
 
 if command -v dbus-run-session >/dev/null 2>&1; then
-  exec dbus-run-session -- "${kwin[@]}"
+  export -f run
+  export greeter compositor
+  exec dbus-run-session -- bash -c run
 fi
-exec "${kwin[@]}"
+run

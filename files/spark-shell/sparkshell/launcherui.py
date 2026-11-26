@@ -37,7 +37,7 @@ class Launcher(Gtk.Window):
         self.ending = SessionEnd(shell.tracker, apps.run, self._still_open)
         self._forcing = None
         self.set_decorated(False)
-        self.add_css_class('spark-scrim')
+        self.add_css_class('spark-transparent')
         layer.setup(self, 'overlay', ('top', 'bottom', 'left', 'right'), 'spark-launcher',
                     exclusive=-1, keyboard='exclusive')
         self.set_default_size(1280, 800)
@@ -45,7 +45,17 @@ class Launcher(Gtk.Window):
         self.answer = ''
         self._sum_token = 0
 
-        outer = Gtk.Box(halign=Gtk.Align.CENTER, valign=Gtk.Align.CENTER)
+        # the menu opens from the Spark button, in the panel's corner (not centred). The window
+        # stays full screen and see-through, so a click anywhere else closes it.
+        from .panel import PANEL_HEIGHT
+        top = shell.config.get('panel_position') == 'top'
+        outer = Gtk.Box(halign=Gtk.Align.START,
+                        valign=Gtk.Align.START if top else Gtk.Align.END)
+        outer.set_margin_start(6)
+        if top:
+            outer.set_margin_top(PANEL_HEIGHT + 4)
+        else:
+            outer.set_margin_bottom(PANEL_HEIGHT + 4)
         self.set_child(outer)
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
         card.add_css_class('spark-launcher')
@@ -104,7 +114,6 @@ class Launcher(Gtk.Window):
     # showing ------------------------------------------------------------------------------
     def show_launcher(self):
         self._confirming = None
-        self.shell.catalog.reload()
         self.entry.set_text('')
         self.confirm.set_visible(False)
         self._fill_default()
@@ -262,7 +271,9 @@ class Launcher(Gtk.Window):
         self.hide_launcher()
         if key == 'sign_out':
             import os
-            command = ['loginctl', 'terminate-session', os.environ.get('XDG_SESSION_ID', '')]
+            import sys
+            # apps first, then the session (see ending.sign_out)
+            command = [sys.executable, os.path.abspath(sys.argv[0]), '--sign-out']
         if not ask:
             apps.run(command)
             return

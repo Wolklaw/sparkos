@@ -50,14 +50,26 @@ class ClockButton(Gtk.Button):
         self.label.add_css_class('spark-clock')
         self.set_child(self.label)
         self.connect('clicked', self._open)
+        self._timer = 0
         self._tick()
-        GLib.timeout_add_seconds(1, self._tick)
+        self.connect('unrealize', self._stop)
+
+    def _stop(self, *_):
+        if self._timer:
+            GLib.source_remove(self._timer)
+            self._timer = 0
 
     def _tick(self):
-        now = time.localtime()
-        self.label.set_text(time.strftime('%H:%M', now))
-        self.set_tooltip_text(time.strftime('%A %d %B %Y', now))
-        return True
+        """Update the label, then wake again just after the next minute starts."""
+        now = time.time()
+        local = time.localtime(now)
+        text = time.strftime('%H:%M', local)
+        if self.label.get_text() != text:
+            self.label.set_text(text)
+            self.set_tooltip_text(time.strftime('%A %d %B %Y', local))
+        wait = int((60 - now % 60) * 1000) + 50
+        self._timer = GLib.timeout_add(wait, self._tick)
+        return False
 
     def _open(self, *_):
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -82,15 +94,26 @@ class ClockButton(Gtk.Button):
 class TaskList(Gtk.Box):
     """Pinned apps first, then other open windows, one button per app."""
 
-    def __init__(self, shell, monitor_name):
+    def __init__(self, shell, monitor_name, home=False):
         super().__init__(spacing=2)
         self.shell = shell
         self.monitor_name = monitor_name
+        self.home = home      # also shows windows whose screen is unknown
+        self._shown = None
         self.refresh()
+
+    def _mine(self, w):
+        """Windows live on the taskbar of the screen they are on, like Windows does."""
+        out = w.get('output') or ''
+        if out == self.monitor_name:
+            return True
+        if not self.home:
+            return False
+        return out not in {p.connector for p in self.shell.panels}
 
     def groups(self):
         """[(AppInfo or None, key, [windows])] in display order."""
-        windows = self.shell.tracker.windows
+        windows = [w for w in self.shell.tracker.windows if self._mine(w)]
         used = set()
         rows = []
         for desktop_id in self.shell.config['pinned']:
@@ -113,12 +136,21 @@ class TaskList(Gtk.Box):
         return rows
 
     def refresh(self):
+        rows = self.groups()
+        # The helper sends the whole list on every change (titles change all the time);
+        # rebuild only when something this taskbar shows is different.
+        shown = [(key, id(info), tuple((w['id'], w['title'][:24] if len(wins) == 1 else '',
+                  w['active'], w['attention'], w['minimized']) for w in wins))
+                 for info, key, wins in rows]
+        if shown == self._shown:
+            return
+        self._shown = shown
         child = self.get_first_child()
         while child is not None:
             nxt = child.get_next_sibling()
             self.remove(child)
             child = nxt
-        for info, key, wins in self.groups():
+        for info, key, wins in rows:
             self.append(self._button(info, key, wins))
 
     def _button(self, info, key, wins):
@@ -221,7 +253,7 @@ class Panel(Gtk.Window):
         self.launcher.set_tooltip_text(tr('launcher'))
         self.launcher.connect('clicked', lambda *_: shell.toggle_launcher())
         left.append(self.launcher)
-        self.tasks = TaskList(shell, self.connector)
+        self.tasks = TaskList(shell, self.connector, home=with_tray)
         left.append(self.tasks)
         bar.set_start_widget(left)
 
@@ -234,13 +266,14 @@ class Panel(Gtk.Window):
         right.append(shell.notifications_ui.bell())
         right.append(ClockButton())
         bar.set_end_widget(right)
-        GLib.timeout_add_seconds(random_delay(), self._glitch)
+        self._glitch_timer = GLib.timeout_add_seconds(random_delay(), self._glitch)
+        self.connect('destroy', lambda *_: self._glitch_timer and GLib.source_remove(self._glitch_timer))
 
     def _glitch(self):
         """The launcher mark slips for a moment now and then."""
         self.launcher.add_css_class('spark-glitch')
         GLib.timeout_add(220, lambda: (self.launcher.remove_css_class('spark-glitch'), False)[1])
-        GLib.timeout_add_seconds(random_delay(), self._glitch)
+        self._glitch_timer = GLib.timeout_add_seconds(random_delay(), self._glitch)
         return False
 
 

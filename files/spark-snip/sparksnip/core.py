@@ -190,6 +190,16 @@ def reduced_motion() -> bool:
         return True
     base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
     try:
+        # Spark Settings keeps its own copy of the switch (Appearance > Animations)
+        with open(os.path.join(base, 'spark', 'appearance.json'), encoding='utf-8') as f:
+            saved = json.load(f)
+        if 'animations' in saved:
+            return not saved['animations']
+    except (OSError, ValueError, AttributeError):
+        pass
+    if 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+        return False
+    try:
         with open(os.path.join(base, 'kdeglobals'), encoding='utf-8', errors='replace') as f:
             match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
         return bool(match) and float(match.group(1)) == 0
@@ -320,6 +330,16 @@ class Tesseract:
             return ''
 
     def languages(self) -> List[str]:
+        # Reading the tessdata folder is instant; tesseract --list-langs is a process start
+        # on every Snip launch. Fall back to asking tesseract when the folder isn't found.
+        for d in (os.environ.get('TESSDATA_PREFIX'), '/usr/share/tesseract/tessdata',
+                  '/usr/share/tessdata', '/usr/share/tesseract-ocr/5/tessdata'):
+            try:
+                names = [n[:-12] for n in os.listdir(d) if n.endswith('.traineddata')] if d else []
+            except OSError:
+                continue
+            if names:
+                return sorted(n for n in names if n not in ('osd', 'equ'))
         try:
             out = subprocess.run(self._args('--list-langs'), capture_output=True, text=True,
                                  timeout=10, creationflags=NO_WINDOW)
@@ -502,7 +522,8 @@ BUILT_IN_CAPTURE = ('kwin', 'portal', 'pil')
 CAPTURE_TOOLS: Dict[str, Callable[[str], List[str]]] = {
     'spectacle': lambda path: ['spectacle', '--background', '--nonotify', '--fullscreen',
                                '--output', path],
-    'grim': lambda path: ['grim', path],                       # Sway, Hyprland, wlroots
+    # PPM: no PNG compression, a 3-screen desktop takes 0.1 s instead of 0.35 s
+    'grim': lambda path: ['grim', '-t', 'ppm', path],          # Sway, Hyprland, wlroots
     'gnome-screenshot': lambda path: ['gnome-screenshot', '--file', path],
 }
 
@@ -519,6 +540,9 @@ def capture_order() -> List[str]:
     desktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
     if 'gnome' in desktop:
         return ['gnome-screenshot', 'portal']
+    if 'sparkwl' in desktop.split(':'):
+        # the Spark compositor speaks wlr-screencopy: grim, no KWin probe, no portal dialog
+        return ['grim', 'portal']
     if 'kde' in desktop or not desktop:
         # Spectacle before the portal: the portal may show a dialog, Spectacle never does
         return ['kwin', 'spectacle', 'portal']
@@ -544,7 +568,8 @@ def kwin_offers_screenshots() -> bool:
 
 
 def _tool_screenshot(name: str) -> Image.Image:
-    fd, path = tempfile.mkstemp(prefix=f'{APP_SLUG}-shot-', suffix='.png')
+    fd, path = tempfile.mkstemp(prefix=f'{APP_SLUG}-shot-',
+                                suffix='.ppm' if name == 'grim' else '.png')
     os.close(fd)
     try:
         proc = subprocess.run(CAPTURE_TOOLS[name](path), stdin=subprocess.DEVNULL,
@@ -576,9 +601,27 @@ def _built_in_screenshot(name: str) -> Image.Image:
     return capture.portal_screenshot()
 
 
+def close_spark_menu() -> None:
+    """On the Spark compositor, close the Spark menu before the screenshot: it is open when
+    Win+Shift+S is pressed from it, and would end up in the picture and cover the overlay."""
+    if 'sparkwl' not in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+        return
+    try:
+        from gi.repository import Gio, GLib
+        bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        reply = bus.call_sync('dev.wolklaw.SparkShell', '/Shell', 'dev.wolklaw.SparkShell',
+                              'HideLauncher', None, GLib.VariantType('(b)'),
+                              Gio.DBusCallFlags.NO_AUTO_START, 500, None)
+        if reply.unpack()[0]:
+            time.sleep(0.12)        # let the compositor take it off screen
+    except Exception as exc:        # noqa: BLE001 - no shell, older shell: capture anyway
+        log.info("could not ask the shell to close its menu: %s", exc)
+
+
 def grab_screen() -> Tuple[Image.Image, str]:
     """The whole desktop as one image, and the tool that took it."""
     from .capture import ScreenReadError
+    close_spark_menu()
     problems = []
     for tool in capture_order():
         if tool in BUILT_IN_CAPTURE:

@@ -1,80 +1,119 @@
 # SparkOS &nbsp; [![build](https://github.com/Wolklaw/sparkos/actions/workflows/build.yml/badge.svg)](https://github.com/Wolklaw/sparkos/actions/workflows/build.yml)
 
-A Linux desktop for gaming and everyday work, built on [Fedora Kinoite](https://fedoraproject.org/atomic-desktops/kinoite/) from its own [Containerfile](Containerfile) ([how it's built](docs/building.md)).
+A Linux desktop for gaming and everyday work. It starts from [Fedora Kinoite](https://fedoraproject.org/atomic-desktops/kinoite/) and runs its own desktop on top: the Spark compositor, Spark Shell and the Spark apps. It is built from one [Containerfile](Containerfile) ([how it's built](docs/building.md)).
 
-Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026), and every build is booted in a VM by CI ([boot-test](.github/workflows/boot-test.yml)), which checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. See [PLAN.md](PLAN.md) for the roadmap.
+Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026). Since 25 Nov 2026 that PC runs the Spark desktop session every day. From the 26 Nov 2026 image, KDE, Plasma and KWin are not installed at all. CI boots every build in a VM ([boot-test](.github/workflows/boot-test.yml)) and checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. The roadmap is in [PLAN.md](PLAN.md).
 
-On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 11** (92.4 vs 78.6 FPS on average, 1% lows 62.6 vs 48.4), with the same settings and HDR on in both. See [docs/benchmarks.md](docs/benchmarks.md) for the method and the limits.
+On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 11**: 92.4 vs 78.6 FPS on average, with 1% lows of 62.6 vs 48.4. Both used the same settings, with HDR on. The method and the limits are in [docs/benchmarks.md](docs/benchmarks.md). This was measured on the Plasma session, before the Spark compositor.
+
+## The desktop
+
+SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: Fedora Kinoite ships them, and the last build step removes them ([sparkos-no-kde.sh](files/scripts/sparkos-no-kde.sh)). The build fails if a KDE package is left.
+
+- **Spark Greeter** is the login screen: greetd runs it on the Spark compositor. If it fails to start a few times in a row, greetd switches to a text login by itself, and `spark greeter enable` brings it back.
+- **Spark** (`spark-wl`) is the only session:
+  - **Spark compositor**: a Wayland compositor on wlroots, written in C ([source](files/spark-compositor)). It draws the title bars and handles snapping and maximizing. Alt+Tab opens a window switcher, and the Windows 7 window keys work (Super+arrows, Super+D, Super+E). The volume and mute keys work, and the screen stays on while a video or game asks for it. X11 apps run through XWayland.
+  - **Spark Shell**: the panel, task list, tray, notifications, the Spark menu (Win7-style, above the SPARK button), wallpaper, volume display and lock screen, all in GTK 4 ([source](files/spark-shell)). Old X11 tray icons work too, so Wine and Proton apps such as Battle.net show theirs in the tray.
+  - **Spark's own pieces for the rest**: password prompts (polkit agent), Open and Save dialogs for every app (a Spark Files portal), screenshots and screen sharing through the wlroots portal, and the startup sound.
+
+Not Spark yet:
+- Saved passwords go in GNOME Keyring, unlocked by your login password. It replaces KWallet because it is the store apps already know how to use. Passwords saved in KWallet on an older SparkOS do not move over.
+- The icon set falls back to Breeze's icons and cursors for the icons SparkOS has not drawn yet. Those are image files only; no KDE software is installed.
+- Without KDE, a SparkOS PC cannot be shared through Spark Connect's "Take control" (it used KDE's RDP server, krdpserver), and KDE's foreground booster is gone. The VRAM booster stays.
+
+Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. NVIDIA has not been tried at all.
 
 ## What's in it
 
-SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the system and update with it, and 5 more Spark apps are optional, installed for your account from Spark Store in a click. Everything else, Steam included, installs from Spark Store, or by double-clicking a downloaded `.exe`, `.msi`, `.AppImage` or `.rpm`. Versions are today's; (new) means a first version from this week.
+SparkOS ships only its own apps:
+- **Preinstalled**: Soot, FreeSuite and 30 Spark apps and desktop parts. They come with the system and update with it.
+- **Optional**: 6 more Spark apps, which Spark Store installs for your account in one click.
+
+Everything else, Steam included, installs from Spark Store, or by double-clicking a downloaded `.exe`, `.msi`, `.AppImage` or `.rpm`. The versions below are the current ones.
 
 ### Browser and office
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Soot** | - | The default browser, on Firefox's engine, with ads and trackers blocked. Always its latest release. | [repo](https://github.com/Wolklaw/Soot) |
-| **FreeSuite** | - | Mail, calendar, PDF, and Word, Excel, PowerPoint and OpenDocument files. Always its latest release. | [repo](https://github.com/Wolklaw/freesuite-releases) |
+| **Soot** | - | The default browser. It runs on Firefox's engine and blocks ads and trackers. You always get its latest release. | [repo](https://github.com/Wolklaw/Soot) |
+| **FreeSuite** | - | Mail, calendar and PDF, plus Word, Excel, PowerPoint and OpenDocument files. You always get its latest release. | [repo](https://github.com/Wolklaw/freesuite-releases) |
 
 ### The desktop
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Spark Launcher** | - | The app menu, on the Meta key: search as you type, sums answered on the first line, pinned apps, recent files and power. | [source](files/spark-launcher) |
-| **Spark Shell** | - | The Spark session: a second entry on the login screen with its own panel, tray, notifications, launcher, wallpaper and volume/brightness display, on KWin. Plasma stays the default. Built, not yet tried on a real screen. | [source](files/spark-shell) |
-| **Spark Files** | 1.0.0 | The file manager: tabs and a split view, copies in the background, search, thumbnails, the Trash and your Windows drives. | [source](files/spark-files) |
-| **Spark Terminal** | 1.1.0 | Tabs, split panes, search in the scrollback and clickable links, on Ctrl+Alt+T. | [source](files/spark-terminal) |
-| **Spark Settings** | 1.0.0 | Displays, sound, network, Bluetooth, power, default apps, date and language, printers and startup, with KDE's pages for the rest. | [source](files/spark-settings) |
-| **Spark Store** | 0.1.1 | The Spark apps, then every app on Flathub, with what each one can access in plain words. One click installs. | [source](files/spark-store) |
-| **Spark Update** | 1.1.2 | Gets the next version ready in the background, says when a restart will start it, shows what changed and rolls back. | [source](files/spark-update) |
-| **Spark Welcome** | 1.1.0 | Opens once at first login: the Spark app for each Windows program, your files, fonts and Steam games from Windows, apps to add, and a check of the PC. | [source](files/spark-welcome) |
+| **Spark compositor** | - | The window manager and display server of the Spark session: title bars, snapping, the Alt+Tab switcher, keyboard shortcuts, monitors from a config file. | [source](files/spark-compositor) |
+| **Spark Shell** | 0.1.0 | The panel, tray, notifications, Spark menu, wallpaper, volume display and lock screen. | [source](files/spark-shell) |
+| **Spark Launcher** | - | The search behind the Spark menu. It searches as you type, answers sums on the first line, and shows pinned apps, recent files and power buttons. | [source](files/spark-launcher) |
+| **Spark Session** | 0.1.0 | The login screen (Spark Greeter, on greetd), the session start-up, and the polkit agent for password prompts. | [source](files/spark-session) |
+| **Spark Files** | 1.3.0 | The file manager. It has tabs and a split view, copies in the background, search, thumbnails, the Trash, your Windows drives and network places (SSH, cloud with rclone). It also provides the Open and Save dialogs for other apps. | [source](files/spark-files) |
+| **Spark Terminal** | 1.1.0 | Tabs, split panes, search in the scrollback and clickable links. Opens with Ctrl+Alt+T. | [source](files/spark-terminal) |
+| **Spark Settings** | 1.1.0 | Displays, sound, network, Bluetooth, power, default apps, date and language, printers, startup and shortcuts. | [source](files/spark-settings) |
+| **Spark Store** | 0.1.1 | The Spark apps first, then every app on Flathub. It tells you in plain words what each one can access. One click installs. | [source](files/spark-store) |
+| **Spark Update** | 1.2.2 | Gets the next version ready in the background and tells you when a restart will start it. It shows what changed and can roll back. | [source](files/spark-update) |
+| **Spark Welcome** | 1.1.0 | Opens once, at first login. It shows the Spark app for each Windows program, copies your files, fonts and Steam games from Windows, suggests apps to add and checks the PC. | [source](files/spark-welcome) |
+| **Spark Tray** | 0.1.0 | Tray icons for network, Bluetooth, power, printers and volume, each with a small popup. | [source](files/spark-tray) |
 
 ### Everyday
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Spark Snip** | - | Screenshots on Print with an annotate step (arrows, text, pixelate, crop), copying text off the screen (English and French) and screen recording. | [source](files/spark-snip) |
-| **Spark Media** | - | Photos (camera RAW and HEIC too), videos with subtitles, and a music library with playlists and media keys. | [source](files/spark-media) |
-| **Spark Edit** | 1.0.1 | Text and code: tabs, find and replace, syntax colours, files kept in their own encoding. Unsaved tabs come back. | [source](files/spark-edit) |
+| **Spark Snip** | 1.3.1 | Screenshots with Print, then an annotate step (arrows, text, pixelate, crop). It also copies text off the screen (English and French) and records the screen. | [source](files/spark-snip) |
+| **Spark Media** | 1.2.0 | Photos (including camera RAW and HEIC), videos with subtitles, and a music library with playlists and media keys. | [source](files/spark-media) |
+| **Spark Edit** | 1.0.2 | Text and code, with tabs, find and replace and syntax colours. Files keep their own encoding, and unsaved tabs come back. | [source](files/spark-edit) |
 | **Spark Calc** | 1.0.1 | Exact sums (0.1 + 0.2 is 0.3), with scientific and programmer modes and a history. | [source](files/spark-calc) |
-| **Spark Fonts** | 0.1.0 | See, install and remove fonts, with previews, characters and licence details. Finds the fonts on a Windows drive. Opens font files. | [source](files/spark-fonts) |
-| **Spark Archive** | 1.2.0 | Opens and makes zip, 7z, tar, rar and iso, in several parts and with passwords. Extract and Compress on right-click. | [source](files/spark-archive) |
-| **Spark Scan** | 1.1.0 | Scans from the glass or the feeder, straightens pages, and saves one PDF (searchable if you want) or an image per page. | [source](files/spark-scan) |
-| **Spark Notes** | 0.1.0 (new) | Quick notes as plain files, and clipboard history on Meta+V with search, pins and a pause. No account. Replaces Klipper. | [source](files/spark-notes) |
-| **Spark Emoji** | 0.1.0 (new) | Emoji and symbols on Meta+. (full stop): search in English or French, recents, skin tones, arrows, maths and accented letters. | [source](files/spark-emoji) |
-| **Spark Boxes** | 0.1.0 (new) | Virtual machines: make one from an ISO, start it, see its screen, snapshots, USB. Sets up UEFI, Secure Boot and a TPM for Windows 11. On libvirt and KVM (`spark virt setup` first). Replaces Virtual Machine Manager. | [source](files/spark-boxes) |
-| **Spark Audio** | 0.1.0 (new) | The sound mixer: outputs, microphones with a test, volume per app, a simple equalizer and Focusrite Scarlett controls. | [source](files/spark-audio) |
-| **Spark Tray** | 0.1.0 (new) | Tray icons for network, Bluetooth, power, printers and volume, with small popups. Starts in the Spark session; `spark-tray --enable` turns it on in Plasma. | [source](files/spark-tray) |
+| **Spark Fonts** | 0.1.0 | Shows, installs and removes fonts, with previews, characters and licence details. It finds the fonts on a Windows drive. | [source](files/spark-fonts) |
+| **Spark Archive** | 1.2.1 | Opens and makes zip, 7z, tar, rar and iso, including multi-part archives and passwords. Extract and Compress are on the right-click menu. | [source](files/spark-archive) |
+| **Spark Scan** | 1.1.0 | Scans from the glass or the feeder and straightens pages. It saves one PDF (searchable if you want) or one image per page. | [source](files/spark-scan) |
+| **Spark Notes** | 0.1.1 | Quick notes saved as plain files. Also clipboard history on Super+V, with search, pins and a pause. No account. | [source](files/spark-notes) |
+| **Spark Emoji** | 0.1.0 | Emoji and symbols on Super+. (full stop). Search in English or French, with recents and skin tones, plus arrows, maths and accented letters. | [source](files/spark-emoji) |
+| **Spark Boxes** | 0.1.0 | Virtual machines. Make one from an ISO, start it, see its screen, take snapshots and pass USB devices through. It sets up UEFI, Secure Boot and a TPM for Windows 11. It runs on libvirt and KVM (run `spark virt setup` first). | [source](files/spark-boxes) |
+| **Spark Audio** | 0.1.0 | The sound mixer: outputs, microphones with a test, volume per app, and a simple equalizer. | [source](files/spark-audio) |
 
 ### Looking after the PC
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Spark Monitor** | 1.1.0 | The task manager, on Ctrl+Shift+Esc: apps grouped by app, End task, live graphs, startup apps, the system log live, and a hardware summary to copy. | [source](files/spark-monitor) |
-| **Spark Disks** | 0.1.0 (new) | Drives and partitions: mount, format, resize, drive health (SMART) and writing an image to a USB stick. | [source](files/spark-disks) |
-| **Spark Backup** | 0.1.0 (new) | Snapshots of your home folder on a schedule, a copy on another drive, and restoring a file. Not tried on a real PC yet. | [source](files/spark-backup) |
-| **Spark Firewall** | 0.1.2 (new) | The firewall in plain words: on or off, open what a game or app needs, and a zone for each network. Replaces firewall-config. | [source](files/spark-firewall) |
+| **Spark Monitor** | 1.1.1 | The task manager, on Ctrl+Shift+Esc. It groups processes by app and has End task, live graphs, startup apps, the live system log and a hardware summary you can copy. | [source](files/spark-monitor) |
+| **Spark Disks** | 0.1.0 | Drives and partitions. Mount, format and resize, check drive health (SMART) and write an image to a USB stick. | [source](files/spark-disks) |
+| **Spark Backup** | 0.1.2 | Takes snapshots of your home folder on a schedule, keeps a copy on another drive and restores files. Not tried on a real PC yet. | [source](files/spark-backup) |
+| **Spark Firewall** | 0.1.2 | The firewall in plain words. Turn it on or off, open what a game or app needs, and set a zone for each network. | [source](files/spark-firewall) |
 
 ### Games, hardware and phone
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Spark Games** | 0.3.3 | One library for every game: sign in to Epic, GOG and Amazon here, add Battle.net, EA, Ubisoft and Rockstar, and see Steam, Lutris, itch and more. Controller and big-screen modes. | [source](files/spark-games) |
-| **Spark Controller** | 1.1.0 | Fan curves, RGB lighting on every part, game controllers with a live button tester, and firmware updates. | [source](files/spark-controller) |
-| **Spark Run** | 1.0.1 | Runs Windows programs on Wine, or installs them as apps with their own menu entry. Wine downloads the first time. | [source](files/spark-run) |
-| **Spark Link** | 1.0.1 | Your phone over the local network: links, files, notifications, battery, find my phone and an optional shared clipboard. Pairs with Soot for Android. | [source](files/spark-link) |
+| **Spark Games** | 0.3.5 | One library for every game. Sign in to Epic, GOG and Amazon here, add Battle.net, EA, Ubisoft and Rockstar, and see Steam, Lutris, itch and more. It has controller and big-screen modes. | [source](files/spark-games) |
+| **Spark Controller** | 1.2.0 | Fan curves, RGB lighting on every part, game controllers with a live button tester, and firmware updates. | [source](files/spark-controller) |
+| **Spark Run** | 1.0.1 | Runs Windows programs on Wine, or installs them as apps with their own menu entry. Wine downloads the first time you use it. | [source](files/spark-run) |
+| **Spark Link** | 1.1.0 | Your phone over the local network: links, files, notifications, battery, find my phone, the last screenshot, and an optional shared clipboard. Pairs with Soot for Android. | [source](files/spark-link) |
 
 ### Optional, from Spark Store
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Spark Bench** | 0.1.0 | Game benchmarks: MangoHud recording set up in one click, a sound when a run starts and ends, FPS and lows per run, compared with Windows. | [source](files/spark-bench) |
-| **Spark Space** | 1.0.0 | What takes the space on your drives: a map of every folder, the largest files, and safe moves to the Trash. | [source](files/spark-space) |
-| **Spark Connect** | 0.2.0 | Home servers on one screen, fixed over SSH: services, health, tunnel, failover and websites. Also a desktop widget. | [source](files/spark-connect) |
-| **Spark Clock** | 0.1.0 (new) | Alarms, timers, a stopwatch and world clocks. They ring with the window closed and after a restart. | [source](files/spark-clock) |
-| **Spark Clips** | 0.1.0 (new) | Instant replay for games: keeps the last seconds on the GPU, Meta+Alt+G saves them as a clip, with a library and a lossless trim. Optional, from Spark Store. | [source](files/spark-clips) |
-| **Spark Camera** | 0.1.0 (new) | Your webcam: preview, photos with a countdown, video with sound, and a voice recorder. | [source](files/spark-camera) |
+| **Spark Bench** | 0.1.0 | Game benchmarks. Sets up MangoHud recording in one click, plays a sound when a run starts and ends, and shows FPS and lows per run, compared with Windows. | [source](files/spark-bench) |
+| **Spark Space** | 1.0.0 | Shows what takes the space on your drives: a map of every folder, the largest files, and safe moves to the Trash. | [source](files/spark-space) |
+| **Spark Connect** | 0.2.0 | Home servers on one screen, fixed over SSH: services, health, tunnel, failover and websites. | [source](files/spark-connect) |
+| **Spark Clock** | 0.2.0 | Alarms, timers, a stopwatch and world clocks. Alarms ring with the window closed and after a restart. | [source](files/spark-clock) |
+| **Spark Clips** | 0.1.0 | Instant replay for games. It keeps the last seconds on the GPU, Super+Alt+G saves them as a clip, and it has a library and lossless trimming. | [source](files/spark-clips) |
+| **Spark Camera** | 0.1.0 | Your webcam: a preview, photos with a countdown, video with sound, and a voice recorder. | [source](files/spark-camera) |
+
+## How big it is
+
+Lines of code written for SparkOS, not counting blank lines, other people's code or generated files. Counted 25 Nov 2026.
+
+| Part | Lines |
+|---|---:|
+| The Spark desktop, which replaces KDE, Plasma and KWin (compositor, shell, sign-in screen, launcher, session, tray) | 17,200 |
+| The Spark apps | 180,600 |
+| The image, installer, build and CI | 12,400 |
+| **SparkOS repository** | **210,200** |
+| Soot (desktop and Android) | 7,900 |
+| FreeSuite | 18,500 |
+| **Everything** | **236,600** |
+
+About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000 lines). The compositor is C (3,800). There are also about 20,000 lines of docs, config and units.
 
 ## Every feature
 
@@ -82,33 +121,32 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 
 - The whole system updates as one image, built every day from the latest Fedora Kinoite.
 - Every image is signed with cosign, and a SparkOS PC only accepts an update signed with SparkOS's key.
-- Every build is installed and booted in a virtual machine on GitHub, which checks the system, the signature and opens every app.
+- Every build is installed and booted in a virtual machine on GitHub. The test checks the system and the signature, and opens every app.
 - Updates download in the background and wait while a game runs, on a metered connection or on a low battery. The PC never restarts on its own.
 - Roll back in one click in Spark Update, or pick the previous version in the boot menu. After three failed boots, it goes back by itself.
-- Release notes in plain words, in English and French, for every change you will notice.
+- Every change you will notice gets release notes in plain words, in English and French.
 
 **Coming from Windows**
 
-- Ctrl+Shift+Esc for the task manager, Print for a screenshot, Meta+V for clipboard history, Meta+. for emoji, Ctrl+Alt+T for a terminal.
+- Windows keys: Ctrl+Shift+Esc for the task manager, Print for a screenshot, Super+V for clipboard history, Super+. for emoji, Ctrl+Alt+T for a terminal, Alt+Tab, Super+arrows to snap, Super+D for the desktop, Super+E for files.
 - Caps Lock turns on when you press it, like Windows, not when you release it.
 - Double-click a downloaded `.exe`, `.msi`, `.AppImage` or `.rpm` to install it. A `.deb` gets a plain explanation and a way to the Store.
 - Spark Welcome copies your files, fonts and Steam games from a Windows drive, and your Windows drives show in Spark Files.
-- Windows stays: SparkOS installs next to it and you pick one at power-on.
+- Windows stays. SparkOS installs next to it, and you pick one at power-on.
 
 **Games**
 
 - gamescope, MangoHud, GameMode and umu-launcher come with it.
-- Drivers SparkOS builds for each kernel: Xbox wireless adapters, racing wheels, AMD CPU power sensors, virtual cameras and disc drives.
-- Device rules for controllers and wheels, and game tuning: memory, network, zram, disk schedulers and a VRAM booster.
+- SparkOS builds extra drivers for each kernel: Xbox wireless adapters, racing wheels, AMD CPU power sensors, virtual cameras and disc drives.
+- It adds device rules for controllers and wheels, and tunes memory, network, zram and disk schedulers for games. A VRAM booster is included.
 - Full video decoding and encoding on the graphics card, from RPM Fusion, for recording and streaming.
 - Steam, Heroic and Lutris install from the Store in a click, and Spark Games puts their games in one library.
 
 **The desktop**
 
-- Its own look: dark indigo with a mint accent, a slim top bar, a floating dock, the bot wallpaper, its own icons, boot splash, sign-in screen and startup sound.
-- KDE Plasma underneath, with KDE's tools replaced where a Spark app does the job: the file manager, terminal, app menu, task manager, screenshot tool, clipboard, emoji picker and firewall tool.
+- It has its own look: dark indigo with a mint accent, its own icons, wallpaper, boot splash and startup sound.
+- Its own compositor and shell (above). KDE's desktop and tools are replaced by Spark apps: the file manager, terminal, app menu, task manager, screenshot tool, clipboard, emoji picker, firewall tool, polkit agent, notifications and tray.
 - No preinstalled apps from other companies. Fedora's apps are removed, and each one can come back from the Store.
-- The on-screen keyboard stays off on a desktop PC, so it doesn't pop up over games.
 - The Spark apps follow the system language, English or Quebec French.
 
 **Everything else**
@@ -119,21 +157,31 @@ SparkOS ships only its own apps: Soot, FreeSuite and 24 Spark apps come with the
 - VIA keyboard setup and Androidbox work without extra steps.
 - The source can be read on GitHub: the build file, every script and every Spark app.
 
-**Platform (from Fedora and KDE)**
+**Platform (from Fedora)**
 
-- KDE Plasma, System Settings, Fedora's kernel and current Mesa drivers, CUPS driverless printing, SANE scanning, Bluetooth, and full video decoding and encoding from RPM Fusion.
-- Dolphin is out of the menu, kept for one release behind Spark Files; Konsole, Ark, KDE Connect, Discover, Info Center, Journald Browser, GNOME Disks, Btrfs Assistant and firewall-config are removed from the image (Spark Terminal, Spark Archive, Spark Link, Spark Store, Spark Settings, Spark Disks and Spark Firewall replace them).
-- Removed from Fedora Kinoite: Firefox, Kate/KWrite, Filelight, Plasma System Monitor, Spectacle, Discover's tray notifier and KDE's other small apps. Each can be installed from the Store.
+- From Fedora: the kernel and current Mesa drivers, systemd, PipeWire, NetworkManager, CUPS driverless printing, SANE scanning and Bluetooth. From wlroots: the compositor's base. From RPM Fusion: full video decoding and encoding.
+- From GNOME: GNOME Keyring for saved passwords, for now. From KDE: Breeze's icon and cursor artwork only.
+- Removed from Fedora Kinoite: all of KDE (Plasma, KWin, Plasma Login Manager, Dolphin, Konsole, Ark, KWallet, System Settings, Discover, KDE Connect and the KDE Frameworks), plus Firefox, GNOME Disks, Btrfs Assistant and firewall-config. Spark apps replace them: Spark Files, Terminal, Archive, Settings, Store, Link, Disks and Firewall. Flathub apps made with KDE still install and run; they bring their own libraries.
 
-Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build and opens each one from the app menu on a real SparkOS desktop in a VM, with a screenshot. On a real PC they have had only a few days of use, the new ones a few hours, and Spark Backup none yet. To install it next to Windows, see [docs/install.md](docs/install.md). For what works, what's replaced and what doesn't run, see [docs/switching.md](docs/switching.md). For installing apps the Windows way (a store, or double-clicking a download), see [docs/installing-apps.md](docs/installing-apps.md).
+Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build. It opens each one from the app menu on a SparkOS desktop in a VM and takes a screenshot. On a real PC they have had only a few days of use, the Spark session one day, and Spark Backup none yet.
 
-Games with kernel-level anti-cheat (Valorant, Fortnite, recent Call of Duty, and others) don't run on Linux. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
+More docs:
+- Installing next to Windows: [docs/install.md](docs/install.md).
+- What works, what's replaced and what doesn't run: [docs/switching.md](docs/switching.md).
+- Installing apps the Windows way, from a store or by double-clicking a download: [docs/installing-apps.md](docs/installing-apps.md).
+
+Games with kernel-level anti-cheat don't run on Linux. These include Valorant, Fortnite and recent Call of Duty. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 
 ## Install next to Windows
 
-Download every file of the [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer) (the ISO comes in parts under 2 GB), join them with `join-iso.cmd` (Windows) or `join-iso.sh` (Linux), write the ISO to a USB stick, and follow [docs/install.md](docs/install.md). Windows stays; you pick the system at power-on.
+1. Download every file of the [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer). The ISO comes in parts under 2 GB.
+2. Join them with `join-iso.cmd` (Windows) or `join-iso.sh` (Linux).
+3. Write the ISO to a USB stick.
+4. Follow [docs/install.md](docs/install.md).
 
-CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). It has been installed on one real PC so far. The image is for AMD and Intel graphics; an NVIDIA build is in progress and not released.
+Windows stays, and you pick the system at power-on.
+
+CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). So far it has been installed on one real PC. The image is for AMD and Intel graphics. An NVIDIA build is in progress and not released.
 
 ## Switching from another Fedora atomic desktop
 
@@ -162,4 +210,4 @@ cosign verify --key cosign.pub ghcr.io/wolklaw/sparkos
 
 ## License
 
-SparkOS is source-available, not open source: you can read the code here, and download, install and use the official SparkOS installer and images. Copying, modifying, redistributing or building your own versions needs written permission. See [LICENSE](LICENSE). Parts made by others keep their own licenses: see [THIRD-PARTY.md](THIRD-PARTY.md).
+SparkOS is source-available, not open source. You can read the code here, and download, install and use the official SparkOS installer and images. Copying, modifying, redistributing or building your own versions needs written permission. See [LICENSE](LICENSE). Parts made by others keep their own licenses: see [THIRD-PARTY.md](THIRD-PARTY.md).

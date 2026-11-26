@@ -1,7 +1,7 @@
 # Spark compositor (stage 4 of replacing KDE, experimental)
 
 Status: first version built on branch `spark-compositor`. It is a separate login session, `spark-wl`
-("Spark (experimental compositor)"), never the default. KWin and the `spark` session are not touched.
+("Spark (experimental compositor)"), now the login screen's default (25 Nov 2026). KWin and the `spark` session are not touched.
 
 ## What exists
 

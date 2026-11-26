@@ -1,0 +1,5 @@
+#%PAM-1.0
+# Spark's lock screen (spark-shell, lockscreen.py) in the experimental compositor session: it
+# only checks the password of the user already logged in, so no session or loginuid modules.
+auth        include       password-auth
+account     include       password-auth

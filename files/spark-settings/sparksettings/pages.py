@@ -4,7 +4,7 @@ import os
 from typing import Dict, List, Optional
 
 import tkinter as tk
-from tkinter import filedialog
+from . import pickdialog as filedialog
 
 from . import bluetooth, core, displays, network, sound
 from .app import Page
@@ -43,7 +43,8 @@ class DisplaysPage(Page):
         app.closers.append(self.revert_now)
 
     def build(self, f):
-        if not core.have('kscreen-doctor'):
+        from . import displays as _d
+        if not (_d.on_sparkwl() and core.have('wlr-randr')) and not core.have('kscreen-doctor'):
             self.missing(f, 'kscreen-doctor', _("show your monitors"))
             self.canvas = None
             return
@@ -676,3 +677,7 @@ PAGES: Dict[str, type] = {
 SIDEBAR: List[str] = ['displays', 'sound', 'network', 'bluetooth', 'appearance', 'input',
                       'shortcuts', 'notifications', 'power', 'defaultapps', 'startup', 'users',
                       'datetime', 'printers', 'storage', 'updates', 'more', 'about']
+
+# The Spark compositor session has no KDE: its control modules (More settings) can't open.
+if 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
+    SIDEBAR.remove('more')
