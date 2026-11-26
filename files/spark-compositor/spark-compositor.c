@@ -171,6 +171,7 @@ struct server {
 	struct wlr_scene_rect *snap_preview;
 	struct wlr_surface *cursor_focus_surface;
 	struct wlr_pointer_constraint_v1 *active_constraint;
+	struct wl_listener active_constraint_destroy;   /* clears active_constraint when the client drops it */
 
 	struct view *focused_view;
 	struct layer_surface *focused_layer;
@@ -2269,12 +2270,30 @@ static void set_cursor_name(struct server *s, const char *name) {
 	wlr_cursor_set_xcursor(s->cursor, s->xcursor, name);
 }
 
+static void active_constraint_destroyed(struct wl_listener *l, void *data) {
+	/* a game unlocks the mouse or closes its window: forget the constraint before it is freed,
+	 * or the next motion sends "deactivated" to a dead resource and the compositor crashes */
+	struct server *s = wl_container_of(l, s, active_constraint_destroy);
+	(void)data;
+	wl_list_remove(&s->active_constraint_destroy.link);
+	wl_list_init(&s->active_constraint_destroy.link);
+	s->active_constraint = NULL;
+}
+
 static void check_constraint(struct server *s, struct wlr_surface *focus) {
 	struct wlr_pointer_constraint_v1 *c = focus ? wlr_pointer_constraints_v1_constraint_for_surface(s->constraints, focus, s->seat) : NULL;
 	if (c == s->active_constraint) return;
-	if (s->active_constraint) wlr_pointer_constraint_v1_send_deactivated(s->active_constraint);
+	if (s->active_constraint) {
+		wl_list_remove(&s->active_constraint_destroy.link);
+		wl_list_init(&s->active_constraint_destroy.link);
+		wlr_pointer_constraint_v1_send_deactivated(s->active_constraint);
+	}
 	s->active_constraint = c;
-	if (c) wlr_pointer_constraint_v1_send_activated(c);
+	if (c) {
+		s->active_constraint_destroy.notify = active_constraint_destroyed;
+		wl_signal_add(&c->events.destroy, &s->active_constraint_destroy);
+		wlr_pointer_constraint_v1_send_activated(c);
+	}
 }
 
 static void update_cursor_focus(struct server *s, uint32_t time) {
@@ -3586,6 +3605,7 @@ int main(int argc, char **argv) {
 	LISTEN(s->tearing->events.new_object, &s->tearing_new, tearing_new);
 	s->constraints = wlr_pointer_constraints_v1_create(s->display);
 	LISTEN(s->constraints->events.new_constraint, &s->new_constraint, new_constraint);
+	wl_list_init(&s->active_constraint_destroy.link);
 	s->relative = wlr_relative_pointer_manager_v1_create(s->display);
 	struct wlr_virtual_keyboard_manager_v1 *vk = wlr_virtual_keyboard_manager_v1_create(s->display);
 	LISTEN(vk->events.new_virtual_keyboard, &s->new_vkb, new_vkb);
