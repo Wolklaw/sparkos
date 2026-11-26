@@ -105,6 +105,8 @@ class Launcher(Gtk.Window):
         self.power_row.append(find)
 
         keys = Gtk.EventControllerKey()
+        # Capture phase: the search entry eats Escape once it has text, before a bubble handler
+        keys.set_propagation_phase(Gtk.PropagationPhase.CAPTURE)
         keys.connect('key-pressed', self._key)
         self.add_controller(keys)
         click = Gtk.GestureClick()

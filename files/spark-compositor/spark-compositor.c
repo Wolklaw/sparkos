@@ -2023,7 +2023,15 @@ static void new_inhibitor(struct wl_listener *l, void *data) {
 
 static void lock_surface_destroy(struct wl_listener *l, void *d) {
 	struct lock_surface *ls = wl_container_of(l, ls, destroy);
-	if (ls->server->lock_focus == ls->wlr->surface) { ls->server->lock_focus = NULL; focus_layer_or_view(ls->server); }
+	struct server *s = ls->server;
+	if (s->lock_focus == ls->wlr->surface) {
+		/* its monitor went away: give the keyboard to another lock surface, never to a window */
+		s->lock_focus = NULL;
+		struct wlr_session_lock_surface_v1 *x;
+		if (s->lock) wl_list_for_each(x, &s->lock->surfaces, link)
+			if (x != ls->wlr) { s->lock_focus = x->surface; break; }
+		focus_layer_or_view(s);
+	}
 	UNLISTEN(&ls->destroy); free(ls);
 }
 

@@ -262,8 +262,11 @@ fi
 # default): wlroots 0.20's runtime library (Fedora keeps the versions side by side),
 # the portal that lets apps capture the screen under it, grim and wlr-randr for scripted capture
 # and output checks. The compositor itself is compiled in the Containerfile's compositor-build stage.
-dnf_install wlroots xdg-desktop-portal-wlr grim wlr-randr
-rpm -q wlroots xdg-desktop-portal-wlr
+# freerdp-libs is spark-rdp's FreeRDP shadow server (Spark Connect's Take control, started by
+# spark-share); the freerdp client is what Spark Connect shows a shared screen with.
+dnf_install wlroots xdg-desktop-portal-wlr grim wlr-randr freerdp-libs freerdp
+rpm -q wlroots xdg-desktop-portal-wlr freerdp-libs freerdp
+test -e /usr/lib64/libfreerdp-shadow3.so.3
 test -e /usr/lib64/libwlroots-0.20.so
 
 # The Spark session (files/spark-shell): the shell draws its panel, wallpaper and launcher as

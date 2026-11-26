@@ -6,19 +6,19 @@ Spark Connect (on another PC) runs this over SSH:
     spark-share request --control --from "<that PC>" --owner "<who>" [--token HEX] [--no-ask]
 
 It finds the graphical session, shows a prompt in it (Allow or Deny, no answer in 30 s is Deny),
-and on Allow starts KDE's RDP server (krdpserver --plasma) for that session, bound to 127.0.0.1
-on a free port with a one-time user name, password and certificate. It prints one JSON line
-(port, user, password, certificate fingerprint) and then stays running: a banner on the screen
-says the screen is shared and has a Stop button. The share ends when Stop is pressed, when the
-SSH connection (our standard input) closes, when `spark-share stop TOKEN` is run, when
-krdpserver exits, or after two hours.
+and on Allow starts Spark's RDP server (spark-rdp, FreeRDP's shadow server on the Spark
+compositor) for that session, bound to 127.0.0.1 on a free port with a one-time user name,
+password and certificate. It prints one JSON line (port, user, password, certificate
+fingerprint) and then stays running: a banner on the screen says the screen is shared and has a
+Stop button. The share ends when Stop is pressed, when the SSH connection (our standard input)
+closes, when `spark-share stop TOKEN` is run, when spark-rdp exits, or after two hours.
 
 `--no-ask` skips the prompt and only works as root (sudo). The banner still shows.
 
-Nothing here listens on the network by itself and nothing runs until called. krdp 6.8 has no
-view-only option, so there is only "control". krdpserver takes its password only as an argument
-(-p) or from KWallet, so the one-time password is visible in that process's command line to
-other users of this machine for the length of the share (see the README, known gaps).
+Nothing here listens on the network by itself and nothing runs until called. There is only
+"control" for now (no view-only mode). The one-time user and password reach spark-rdp on its
+standard input, never on a command line; it keeps only the password's NT hash, in a file only
+the session's user can read, deleted when the share ends.
 """
 
 import argparse
@@ -36,10 +36,8 @@ import tempfile
 import threading
 import time
 
-VERSION = "0.1.1"
-KRDP = "/usr/bin/krdpserver"
-KRDP_DESKTOP = "/usr/share/applications/org.kde.krdpserver.desktop"
-NEEDED_INTERFACES = ("org_kde_kwin_fake_input", "zkde_screencast_unstable_v1")
+VERSION = "0.2.0"
+SPARK_RDP = "/usr/libexec/spark-rdp"
 TEST_HOOK = "/run/spark-share/test.json"       # root-owned; CI only (see test_hook())
 ASK_TIMEOUT_S = 30
 MAX_SESSION_S = 2 * 3600
@@ -187,7 +185,7 @@ def find_x_display(folder='/tmp/.X11-unix', want_uid=None):
 
 def session_env(uid):
     """The graphical session's environment for a process we start in it: the runtime folder,
-    the Wayland socket and the X display Tk and krdp need."""
+    the Wayland socket spark-rdp needs and the X display Tk needs."""
     runtime = f"/run/user/{uid}"
     env = {'XDG_RUNTIME_DIR': runtime,
            'DBUS_SESSION_BUS_ADDRESS': f"unix:path={runtime}/bus"}
@@ -240,15 +238,25 @@ def user_argv(uid, gid, argv):
     return prefix + list(argv)
 
 
-def run_as(uid, gid, argv, env, capture=False, timeout=None):
+def run_as(uid, gid, argv, env, capture=False, timeout=None, stdin_text=None):
+    """capture: run and return stdout. Otherwise start it and return the Popen; stdin_text,
+    when given, is written to its standard input, which is then closed."""
     full = dict(os.environ)
     full.update(env)
     if capture:
         return subprocess.run(user_argv(uid, gid, argv), env=full, capture_output=True,
                               text=True, timeout=timeout).stdout
-    return subprocess.Popen(user_argv(uid, gid, argv), env=full, stdin=subprocess.DEVNULL,
+    proc = subprocess.Popen(user_argv(uid, gid, argv), env=full,
+                            stdin=subprocess.DEVNULL if stdin_text is None else subprocess.PIPE,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
                             preexec_fn=_preexec)
+    if stdin_text is not None:
+        try:
+            proc.stdin.write(stdin_text)
+            proc.stdin.close()
+        except OSError:
+            pass
+    return proc
 
 
 # ─── the one-time server ──────────────────────────────────────
@@ -268,9 +276,12 @@ def listening(port):
 
 
 def make_certificate(folder):
-    """A fresh self-signed certificate for this share only. Returns (cert, key, fingerprint)
-    with the SHA-256 fingerprint as lower-case hex pairs, colon-separated."""
-    cert, key = os.path.join(folder, 'server.crt'), os.path.join(folder, 'server.key')
+    """A fresh self-signed certificate for this share only, where FreeRDP's shadow server looks
+    for it (folder/shadow/shadow.crt and .key). Returns (cert, key, fingerprint) with the
+    SHA-256 fingerprint as lower-case hex pairs, colon-separated."""
+    shadow = os.path.join(folder, 'shadow')
+    os.makedirs(shadow, mode=0o700, exist_ok=True)
+    cert, key = os.path.join(shadow, 'shadow.crt'), os.path.join(shadow, 'shadow.key')
     subprocess.run(['openssl', 'req', '-x509', '-newkey', 'ec', '-pkeyopt',
                     'ec_paramgen_curve:prime256v1', '-nodes', '-keyout', key, '-out', cert,
                     '-days', '1', '-subj', '/CN=spark-share', '-sha256'],
@@ -283,10 +294,14 @@ def make_certificate(folder):
     return cert, key, found.group(1).lower()
 
 
-def krdp_argv(port, user, password, cert, key):
-    return [KRDP, '--plasma', '--address', '127.0.0.1', '--port', str(port),
-            '--mode', 'SharedAccess', '-u', user, '-p', password,
-            '--certificate', cert, '--certificate-key', key]
+def rdp_argv(work, port):
+    """spark-rdp's command line. The user and password go on its standard input
+    (rdp_stdin), never here."""
+    return [SPARK_RDP, work, str(port), '127.0.0.1']
+
+
+def rdp_stdin(user, password):
+    return f"{user}\n{password}\n"
 
 
 # ─── control files ────────────────────────────────────────────
@@ -345,8 +360,8 @@ def cmd_request(a):
         return fail('bad_token', "the token should be 16 hex digits", 2)
     if a.no_ask and not is_root:
         return fail('needs_root', "--no-ask only works as root (run it with sudo)", 3)
-    if not (os.path.isfile(KRDP) and os.access(KRDP, os.X_OK)):
-        return fail('no_krdp', "krdpserver is not installed on this machine", 4)
+    if not (os.path.isfile(SPARK_RDP) and os.access(SPARK_RDP, os.X_OK)):
+        return fail('no_rdp', "spark-rdp is not installed on this machine", 4)
     hook = test_hook() if is_root else None
 
     if hook and isinstance(hook.get('session'), dict):
@@ -391,14 +406,15 @@ def cmd_request(a):
         if os.geteuid() == 0 and uid != 0:
             os.chown(work, uid, gid if gid is not None else uid)
         cert, key, fingerprint = make_certificate(work)
-        for p in (cert, key):
-            os.chmod(p, 0o600)
+        for p in (os.path.dirname(cert), cert, key):
+            os.chmod(p, 0o700 if os.path.isdir(p) else 0o600)
             if os.geteuid() == 0 and uid != 0:
                 os.chown(p, uid, gid if gid is not None else uid)
         port = free_port()
         user = 'spark-' + secrets.token_hex(4)
         password = secrets.token_urlsafe(18)
-        server = run_as(uid, gid, krdp_argv(port, user, password, cert, key), env)
+        server = run_as(uid, gid, rdp_argv(work, port), env,
+                        stdin_text=rdp_stdin(user, password))
         procs.append(server)
         deadline = time.monotonic() + 15
         while time.monotonic() < deadline and not listening(port):
@@ -409,7 +425,7 @@ def cmd_request(a):
             err_text = ''
             if server.poll() is not None and server.stderr:
                 err_text = server.stderr.read()[-300:].strip()
-            return fail('no_server', "krdpserver didn't start" + (f": {err_text}" if err_text
+            return fail('no_server', "spark-rdp didn't start" + (f": {err_text}" if err_text
                                                                  else ""))
         banner = None
         if not (hook and hook.get('no_windows')):
@@ -744,24 +760,11 @@ def self_test():
     """Checks what a share needs is here. Starts nothing and shows nothing."""
     failures = []
     print(f"spark-share {VERSION} self-test")
-    if os.path.isfile(KRDP) and os.access(KRDP, os.X_OK):
-        print(f"krdpserver:  {KRDP}")
+    if os.path.isfile(SPARK_RDP) and os.access(SPARK_RDP, os.X_OK):
+        print(f"spark-rdp:   {SPARK_RDP}")
     else:
-        print(f"krdpserver:  MISSING ({KRDP})")
-        failures.append('krdpserver')
-    try:
-        with open(KRDP_DESKTOP, encoding='utf-8') as f:
-            granted = re.search(r'^X-KDE-Wayland-Interfaces=(.*)$', f.read(), re.M)
-        have = (granted.group(1) if granted else '').split(',')
-        missing = [i for i in NEEDED_INTERFACES if i not in have]
-        if missing:
-            print(f"--plasma:    NOT granted: {', '.join(missing)}")
-            failures.append('interfaces')
-        else:
-            print("--plasma:    krdpserver is granted " + ', '.join(NEEDED_INTERFACES))
-    except OSError:
-        print(f"--plasma:    MISSING ({KRDP_DESKTOP})")
-        failures.append('desktop file')
+        print(f"spark-rdp:   MISSING ({SPARK_RDP})")
+        failures.append('spark-rdp')
     for tool in ('openssl', 'loginctl'):
         path = shutil.which(tool)
         print(f"{tool + ':':12s} {path or 'NOT FOUND'}")
@@ -785,7 +788,7 @@ def main(argv=None):
     p = argparse.ArgumentParser(prog='spark-share', description=__doc__.split('\n\n')[0])
     p.add_argument('--version', action='version', version=f"spark-share {VERSION}")
     p.add_argument('--self-test', action='store_true',
-                   help="check krdpserver and what it needs; shares nothing")
+                   help="check spark-rdp and what it needs; shares nothing")
     sub = p.add_subparsers(dest='cmd')
     r = sub.add_parser('request', help="ask the person at the screen, then share it")
     r.add_argument('--control', action='store_true', help="see and control (the only mode)")

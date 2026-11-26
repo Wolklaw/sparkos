@@ -131,7 +131,7 @@ printf '"packages":{"manager":%s,"reboot":%s,"updates":%s,"security":%s},' \
 
 # ─── the desktop (only when the config says the machine has one) ─
 # Reads loginctl's session list and each session's type, state and lock hint, and whether a
-# krdpserver process exists. It reads no screen content.
+# spark-rdp process exists. It reads no screen content.
 printf '"desktop":'
 if [ "$SC_DESKTOP" = 1 ] && have loginctl; then
   d_state=none; d_user=; d_best=9
@@ -155,7 +155,7 @@ EOF_SESSION
     fi
   done
   d_sharing=false
-  if have pgrep && pgrep -x krdpserver >/dev/null 2>&1; then d_sharing=true; fi
+  if have pgrep && pgrep -x spark-rdp >/dev/null 2>&1; then d_sharing=true; fi
   d_tool=false
   if have spark-share; then d_tool=true; fi
   printf '{"state":%s,"user":%s,"sharing":%s,"spark_share":%s}' "$(str "$d_state")" \

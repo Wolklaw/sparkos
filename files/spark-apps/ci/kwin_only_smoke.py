@@ -11,15 +11,11 @@ sets KWIN_ONLY_STRICT=1 so a SKIP counts as a FAIL there).
 Shows no window, changes no setting, restarts nothing: the Restart code path is only asked
 whether ksmserver is there.
 """
-import importlib.machinery
-import importlib.util
 import os
 import shutil
-import socket
 import subprocess
 import sys
 import tempfile
-import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FILES = os.path.dirname(os.path.dirname(HERE))
@@ -176,45 +172,6 @@ def _():
 
 
 # ── spark-share ──
-def load_share():
-    path = os.path.join(FILES, 'system', 'usr', 'bin', 'spark-share')
-    loader = importlib.machinery.SourceFileLoader('spark_share', path)
-    spec = importlib.util.spec_from_loader('spark_share', loader)
-    mod = importlib.util.module_from_spec(spec)
-    loader.exec_module(mod)
-    return mod
-
-
-@check("spark-share: krdpserver --plasma starts on KWin alone and listens on 127.0.0.1")
-def _():
-    need('/usr/bin/krdpserver')
-    need('openssl')
-    share = load_share()
-    work = tempfile.mkdtemp(prefix='kwin-only-krdp-')
-    server = None
-    try:
-        cert, key, _fp = share.make_certificate(work)
-        with socket.socket() as s:
-            s.bind(('127.0.0.1', 0))
-            port = s.getsockname()[1]
-        server = subprocess.Popen(share.krdp_argv(port, 'u', 'p', cert, key),
-                                  stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
-        deadline = time.monotonic() + 20
-        while time.monotonic() < deadline and not share.listening(port):
-            assert server.poll() is None, server.stderr.read()[-300:].decode('utf-8', 'replace')
-            time.sleep(0.3)
-        assert share.listening(port), "krdpserver never listened"
-        return "listening; a frame was not streamed (no RDP client here)"
-    finally:
-        if server and server.poll() is None:
-            server.terminate()
-            try:
-                server.wait(5)
-            except subprocess.TimeoutExpired:
-                server.kill()
-        shutil.rmtree(work, ignore_errors=True)
-
-
 @check("spark-share: --self-test passes")
 def _():
     path = os.path.join(FILES, 'system', 'usr', 'bin', 'spark-share')

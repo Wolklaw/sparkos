@@ -4,7 +4,7 @@ Spark Connect side of it. Plain unittest, like the rest:
     python -m unittest discover -s files/spark-connect/tests -v
 
 Nothing here connects to a real machine or shares a real screen. spark-share runs against a
-fake krdpserver (it only listens on the port it is given), a fake loginctl and a fake ssh, all
+fake spark-rdp (it only listens on the port it is given), a fake loginctl and a fake ssh, all
 written to a temporary folder. The prompt and the banner are drawn under Xvfb on CI.
 """
 
@@ -224,7 +224,7 @@ class ConfigDesktop(unittest.TestCase):
             self.parse({'desktop': True, 'console': True})
 
 
-# ─── spark-share, run for real against fake krdpserver, loginctl and prompt ───────────────
+# ─── spark-share, run for real against fake spark-rdp, loginctl and prompt ────────────────
 
 WRAPPER = '''
 import json, os, subprocess, sys, importlib.machinery, importlib.util
@@ -232,7 +232,7 @@ loader = importlib.machinery.SourceFileLoader('spark_share', sys.argv[1])
 spec = importlib.util.spec_from_loader('spark_share', loader)
 mod = importlib.util.module_from_spec(spec)
 loader.exec_module(mod)
-mod.KRDP = sys.argv[2]
+mod.SPARK_RDP = sys.argv[2]
 mod.read_sessions = lambda: json.loads(os.environ['FAKE_SESSIONS'])
 def ask(*a, **k):
     open(os.environ['FAKE_ASKED'], 'w').write('asked')
@@ -240,23 +240,24 @@ def ask(*a, **k):
 mod.ask = ask
 mod.session_env = lambda uid: {'XDG_RUNTIME_DIR': os.environ['FAKE_RUNTIME']}
 real = mod.run_as
-def run_as(uid, gid, argv, env, capture=False, timeout=None):
+def run_as(uid, gid, argv, env, capture=False, timeout=None, stdin_text=None):
     if '_banner' in argv:
         return subprocess.Popen(['sleep', os.environ.get('FAKE_BANNER_S', '300')],
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)
-    return real(uid, gid, argv, env, capture, timeout)
+    return real(uid, gid, argv, env, capture, timeout, stdin_text)
 mod.run_as = run_as
 sys.argv[0] = sys.argv[1]
 sys.exit(mod.main(sys.argv[3:]))
 '''
 
-FAKE_KRDP = '''
+FAKE_RDP = '''
 #!/usr/bin/env python3
 import json, os, signal, socket, sys, time
 args = sys.argv[1:]
-port = int(args[args.index('--port') + 1])
-addr = args[args.index('--address') + 1]
-open(os.environ['FAKE_KRDP_LOG'], 'w').write(json.dumps(args))
+work, port, addr = args[0], int(args[1]), args[2]
+user, password = sys.stdin.readline().strip(), sys.stdin.readline().strip()
+open(os.environ['FAKE_RDP_LOG'], 'w').write(json.dumps({'args': args, 'user': user,
+                                                        'password': password}))
 s = socket.socket()
 s.bind((addr, port))
 s.listen(5)
@@ -271,19 +272,19 @@ class RequestRuns(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp(prefix='spark-share-test-')
         self.addCleanup(shutil.rmtree, self.dir, True)
-        self.krdp = script(self.dir, 'krdpserver', FAKE_KRDP)
+        self.rdp = script(self.dir, 'spark-rdp', FAKE_RDP)
         self.wrapper = os.path.join(self.dir, 'wrapper.py')
         with open(self.wrapper, 'w') as f:
             f.write(WRAPPER)
-        self.log = os.path.join(self.dir, 'krdp.json')
+        self.log = os.path.join(self.dir, 'rdp.json')
         self.asked = os.path.join(self.dir, 'asked')
-        self.env = dict(os.environ, FAKE_KRDP_LOG=self.log, FAKE_ASKED=self.asked,
+        self.env = dict(os.environ, FAKE_RDP_LOG=self.log, FAKE_ASKED=self.asked,
                         FAKE_RUNTIME=self.dir, FAKE_ANSWER='allow',
                         FAKE_SESSIONS=json.dumps([session(os.getuid())]), SPARK_LANG='en')
 
     def start(self, *extra, **env):
         e = dict(self.env, **env)
-        return subprocess.Popen([sys.executable, self.wrapper, SHARE, self.krdp, 'request',
+        return subprocess.Popen([sys.executable, self.wrapper, SHARE, self.rdp, 'request',
                                  '--control', '--from', 'laptop', '--owner', 'Alex'] +
                                 list(extra), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                 stderr=subprocess.PIPE, text=True, env=e)
@@ -316,19 +317,21 @@ class RequestRuns(unittest.TestCase):
         self.assertGreaterEqual(len(info['password']), 20)
         self.assertTrue(info['fingerprint'].startswith('sha256:'))
         self.assertTrue(os.path.exists(self.asked))
-        # krdpserver was started for 127.0.0.1 only, on that port, with one-time credentials
-        args = json.load(open(self.log))
-        self.assertEqual(args[args.index('--address') + 1], '127.0.0.1')
-        self.assertEqual(int(args[args.index('--port') + 1]), info['port'])
-        self.assertIn('--plasma', args)
-        self.assertEqual(args[args.index('-p') + 1], info['password'])
+        # spark-rdp was started for 127.0.0.1 only, on that port, with one-time credentials
+        # on its standard input and none on its command line
+        log = json.load(open(self.log))
+        work, port, addr = log['args']
+        self.assertEqual((addr, int(port)), ('127.0.0.1', info['port']))
+        self.assertEqual((log['user'], log['password']), (info['user'], info['password']))
+        self.assertNotIn(info['password'], ' '.join(log['args']))
         self.assertTrue(self.listening(info['port']))
-        # the pinned fingerprint is the fingerprint of the certificate it was given
-        cert = args[args.index('--certificate') + 1]
+        # the pinned fingerprint is the fingerprint of the certificate it was given, where
+        # FreeRDP's shadow server looks for it
+        cert = os.path.join(work, 'shadow', 'shadow.crt')
         shown = subprocess.run(['openssl', 'x509', '-in', cert, '-noout', '-fingerprint',
                                 '-sha256'], capture_output=True, text=True).stdout
         self.assertEqual(info['fingerprint'], 'sha256:' + shown.split('=')[1].strip().lower())
-        key = args[args.index('--certificate-key') + 1]
+        key = os.path.join(work, 'shadow', 'shadow.key')
         self.assertEqual(stat.S_IMODE(os.stat(key).st_mode), 0o600)
         # the SSH connection closing (our stdin) ends it and closes the port
         err = self.finish(p)
@@ -368,7 +371,7 @@ class RequestRuns(unittest.TestCase):
             self.assertFalse(info['ok'])
             self.assertEqual(info['reason'], 'denied')
             self.assertEqual(p.returncode, 5)
-            self.assertFalse(os.path.exists(self.log), "krdpserver ran after a Deny")
+            self.assertFalse(os.path.exists(self.log), "spark-rdp ran after a Deny")
 
     def test_locked_screen_is_not_asked(self):
         p = self.start(FAKE_SESSIONS=json.dumps([session(os.getuid(), locked='yes')]))
@@ -403,13 +406,13 @@ class RequestRuns(unittest.TestCase):
                 json.dump({'answer': 'allow'}, f)
             self.assertIsNone(share_mod.test_hook())
 
-    def test_bad_token_and_no_krdp(self):
+    def test_bad_token_and_no_rdp(self):
         p = self.start('--token', 'short')
         self.assertEqual(self.first_line(p)['reason'], 'bad_token')
         self.finish(p)
         proc = subprocess.run([sys.executable, self.wrapper, SHARE, '/nonexistent', 'request',
                                '--control'], capture_output=True, text=True, env=self.env)
-        self.assertEqual(json.loads(proc.stdout)['reason'], 'no_krdp')
+        self.assertEqual(json.loads(proc.stdout)['reason'], 'no_rdp')
 
     def test_self_test_and_version(self):
         done = subprocess.run([sys.executable, SHARE, '--version'], capture_output=True,
@@ -548,7 +551,7 @@ class Confirmations(unittest.TestCase):
 
     def test_errors_have_words_in_both_languages(self):
         m = self.desk()
-        for reason in ('denied', 'locked', 'no_session', 'other_user', 'no_krdp', 'no_tool',
+        for reason in ('denied', 'locked', 'no_session', 'other_user', 'no_rdp', 'no_krdp', 'no_tool',
                        'no_viewer', 'forward', 'timeout', 'bad_reply', 'ssh', 'error',
                        'something_new'):
             text = actions.share_error_text(m, reason, 'x')
