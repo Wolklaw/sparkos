@@ -3,8 +3,8 @@
   "slug": "spark-archive",
   "name": "Spark Archive",
   "name_fr": "Spark Archive",
-  "summary": "Open, extract and make archives: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, also in several parts and with passwords. Extract and Compress in Dolphin's right-click menu.",
-  "summary_fr": "Ouvrir, extraire et créer des archives : zip, tar (gz, bz2, xz, zst), 7z, rar et iso, aussi en plusieurs parties et avec mot de passe. Extraire et Compresser dans le menu clic droit de Dolphin.",
+  "summary": "Open, extract and make archives: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, also in several parts and with passwords.",
+  "summary_fr": "Ouvrir, extraire et créer des archives : zip, tar (gz, bz2, xz, zst), 7z, rar et iso, aussi en plusieurs parties et avec mot de passe.",
   "version": "1.2.1",
   "installed_size_kb": 260,
   "icon": "icons/spark-archive-256.png",
@@ -32,7 +32,7 @@
       "kdialog": "the desktop's own file dialogs",
       "dolphin": "the right-click menu and Show in folder"
     },
-    "system": "Linux; Plasma 6 for the Dolphin menu"
+    "system": "Linux"
   },
   "install": {
     "user": "bash install.sh --user",
