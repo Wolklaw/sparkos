@@ -274,6 +274,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     if "--version" in argv:
         print(f"spark-controller-daemon {VERSION}")
         return 0
+    # a SIGHUP during start-up must not end the daemon; run() reads the file anyway
+    signal.signal(signal.SIGHUP, signal.SIG_IGN)
     setup_logging(to_file=False)
     run_dir = os.environ.get("SPARK_CONTROLLER_RUN_DIR") or RUN_DIR
     root = os.environ.get("SPARK_CONTROLLER_HWMON") or "/sys/class/hwmon"

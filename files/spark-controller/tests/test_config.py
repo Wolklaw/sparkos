@@ -104,10 +104,20 @@ class Helper(unittest.TestCase):
         self.addCleanup(patcher.stop)
 
     def test_installs_and_starts_the_service(self):
+        self.systemctl.side_effect = lambda *args: 3 if args[0] == "is-active" else 0
         text = json.dumps({"fans": {"a": {"enabled": True}}})
         self.assertEqual(helper.install_config(text, self.path), 0)
         self.assertTrue(config.load(self.path)["fans"]["a"]["enabled"])
         self.systemctl.assert_any_call("start", helper.SERVICE)
+        # no SIGHUP to a daemon that is just starting: it would end it
+        self.assertNotIn(mock.call("kill", "--signal=SIGHUP", helper.SERVICE),
+                         self.systemctl.call_args_list)
+
+    def test_running_service_reloads_without_restart(self):
+        text = json.dumps({"fans": {"a": {"enabled": True}}})
+        self.assertEqual(helper.install_config(text, self.path), 0)
+        self.systemctl.assert_any_call("kill", "--signal=SIGHUP", helper.SERVICE)
+        self.assertNotIn(mock.call("start", helper.SERVICE), self.systemctl.call_args_list)
 
     def test_stops_the_service_when_no_fan_is_on(self):
         self.assertEqual(helper.install_config('{"fans": {"a": {"enabled": false}}}', self.path), 0)
