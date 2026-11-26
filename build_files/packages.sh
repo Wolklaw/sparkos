@@ -116,12 +116,12 @@ dnf_install gcc gcc-c++ make
 #   btrfs-assistant, is not installed),
 #   btrfsmaintenance (scrub and balance timers, off as on Bazzite), bees (btrfs dedup, off),
 #   greenboot (goes back to the previous system after three
-#   failed boots of an update; fedora-parity.sh sets it up), Cockpit's pages (web admin, for
-#   Cockpit's own client or container; no web server is installed, as on Bazzite)
+#   failed boots of an update; fedora-parity.sh sets it up). Cockpit's web admin pages were here
+#   for Bazzite parity until 2026-11-25. Nothing in SparkOS used them, and with no web server
+#   they only worked through Cockpit's own client or container.
 dnf_install \
   snapper btrfsmaintenance bees \
-  greenboot greenboot-default-health-checks \
-  cockpit-system cockpit-files cockpit-networkmanager cockpit-podman cockpit-storaged
+  greenboot greenboot-default-health-checks
 # - security keys: sign in or sudo with a YubiKey or other U2F key, and YubiKey's manager
 dnf_install pam-u2f pamu2fcfg pam_yubico yubikey-manager
 # - desktop: xdg-native-messaging-proxy (browser extensions talking to apps, for Flatpak
