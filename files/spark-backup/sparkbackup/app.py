@@ -72,10 +72,10 @@ def human(n: Optional[int]) -> str:
 
 
 def pick_folder(parent: tk.Misc, start: str) -> Optional[str]:
-    """The desktop's folder dialog (kdialog on Plasma), Tk's as a fallback."""
-    if shutil.which("kdialog"):
+    """The desktop's folder dialog (spark-pick: Spark Files through the desktop portal), Tk's as a fallback."""
+    if picker():
         try:
-            done = subprocess.run(["kdialog", "--getexistingdirectory", start, "--title",
+            done = subprocess.run([picker(), "--getexistingdirectory", start, "--title",
                                    APP_NAME], capture_output=True, text=True, timeout=600)
             return done.stdout.strip() or None
         except (OSError, subprocess.SubprocessError):
@@ -471,3 +471,9 @@ def next_text(cfg: Dict[str, Any], now: Optional[dt.datetime] = None) -> str:
     when = schedule.next_run(cfg, now or dt.datetime.now())
     return when.strftime("%a %H:%M") if (when - (now or dt.datetime.now())).days < 6 \
         else when.strftime("%Y-%m-%d %H:%M")
+
+
+def picker():
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
+    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
+    return shutil.which('spark-pick') or shutil.which('kdialog')

@@ -152,6 +152,7 @@ DEFAULTS = [
     ("Calculator", 'exec', 'spark-calc', ['XF86Calculator']),
     ("Files", 'exec', 'spark-files', ['Super+e']),
     ("Settings", 'exec', 'spark-settings', ['Super+i']),
+    ("Save a clip", 'exec', 'spark-clips --save', ['Super+Alt+g']),
     ("Close the window", 'close', '', ['Super+q', 'Alt+F4']),
     ("Switch windows", 'focus-next', '', ['Alt+Tab', 'Super+Tab']),
     ("Full screen", 'fullscreen', '', ['Super+f']),
@@ -172,6 +173,8 @@ DEFAULTS = [
     ("Next track", 'exec', _SHELL_KEY + 'next', ['XF86AudioNext']),
     ("Previous track", 'exec', _SHELL_KEY + 'previous', ['XF86AudioPrev']),
     ("Stop playback", 'exec', _SHELL_KEY + 'stop', ['XF86AudioStop']),
+    ("Brightness up", 'exec', _SHELL_KEY + 'brightness-up', ['XF86MonBrightnessUp']),
+    ("Brightness down", 'exec', _SHELL_KEY + 'brightness-down', ['XF86MonBrightnessDown']),
     ("Reload the compositor settings", 'reload', '', ['Super+Ctrl+Shift+r']),
     ("Sign out at once", 'quit', '', ['Super+Shift+e']),
 ]
@@ -183,7 +186,8 @@ _PRETTY = {'Super_L': 'Super (left)', 'Super_R': 'Super (right)', 'Return': 'Ent
            'XF86AudioLowerVolume': 'Volume Down', 'XF86AudioMute': 'Mute',
            'XF86AudioPlay': 'Play', 'XF86AudioPause': 'Pause', 'XF86AudioNext': 'Next track', 'XF86AudioPrev': 'Previous track',
            'XF86AudioStop': 'Stop', 'space': 'Space', 'BackSpace': 'Backspace', 'Delete': 'Del',
-           'period': '.', 'comma': ',', 'XF86Calculator': 'Calculator'}
+           'period': '.', 'comma': ',', 'XF86Calculator': 'Calculator',
+           'XF86MonBrightnessUp': 'Brightness Up', 'XF86MonBrightnessDown': 'Brightness Down'}
 
 
 def _norm(combo: str) -> str:

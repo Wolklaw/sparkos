@@ -370,4 +370,7 @@ FR = {
     'Calculator': 'Calculatrice',
     'Files': 'Fichiers',
     'Settings': 'Paramètres',
+    'Save a clip': 'Enregistrer un clip',
+    'Brightness up': 'Augmenter la luminosité',
+    'Brightness down': 'Baisser la luminosité',
 }

@@ -77,7 +77,7 @@ for p in greetd spark-compositor xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
     || { echo "$p went missing"; exit 1; }
 done
 for b in spark-compositor spark-greeter spark-shell spark-wl-session spark-terminal spark-files \
-         spark-settings spark-update; do
+         spark-settings spark-update spark-pick; do
   command -v "$b" >/dev/null || { echo "$b went missing"; exit 1; }
 done
 # The compositor's libraries are all still there

@@ -26,7 +26,7 @@ It is optional for now: the main SparkOS session decides when it goes into the i
 - **Change tracking.** A small proxy sits in front of the Text widget's Tcl command (the way IDLE does it), so every insert and delete says which line changed. Line numbers are drawn for the visible lines only.
 - **Saving** writes a temporary file next to the original, flushes it to disk, and swaps it in, so a crash in the middle of a save never leaves half a file. Permissions and group are kept, symlinks stay links (the file they point to is saved), and files with hard links are written in place so the links stay.
 - **One window.** A Unix socket in `$XDG_RUNTIME_DIR` hands `spark-edit FILE` to the open window before Tk is even loaded. `--new-window` starts a separate one.
-- File dialogs run in a worker thread so the window keeps drawing. The code asks `kdialog` first, which SparkOS no longer has, so on SparkOS you get Tk's own dialogs.
+- File dialogs run in a worker thread so the window keeps drawing. They come from `spark-pick`, which asks the desktop portal, so on SparkOS the Open and Save dialogs are Spark Files' picker. On a Plasma machine without `spark-pick` it uses `kdialog`, and Tk's own dialogs where neither exists.
 
 Settings are in `~/.config/spark-edit/`, the session, the autosaves and the log in `~/.local/state/spark-edit/`.
 
@@ -67,7 +67,7 @@ The tests cover reading and writing every encoding and line ending byte for byte
 
 ## Known gaps
 
-- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens it from the app menu in the Spark session in a VM, in English and in French, waits for its window, keeps a screenshot and fails on a Python traceback. Nobody has edited a file with it there yet, so the Tk file dialogs and the pkexec password prompt haven't been seen there.
+- **Opened on a real SparkOS desktop in CI, not used by hand yet.** The boot test opens it from the app menu in the Spark session in a VM, in English and in French, waits for its window, keeps a screenshot and fails on a Python traceback. Nobody has edited a file with it there yet, so the file dialogs and the pkexec password prompt haven't been seen there.
 - **Syntax colours are simple.** Each language is a small tokeniser, not a parser: the contents of `<script>` and `<style>` in HTML aren't coloured, nor are shell here-documents, nested Rust block comments or JavaScript regular expressions.
 - **Very long lines are shown cut at the window's edge.** Tk's text widget takes seconds to minutes to scroll sideways along, wrap, or follow the cursor on a single line of hundreds of thousands of characters (minified JavaScript, one-line JSON). In a file with a line over 20,000 characters, Spark Edit turns word wrap off and doesn't scroll sideways, and the status bar says so: the file opens at once (a 656 KB one-line JSON file in 0.5 s) and stays responsive, Find, Replace and Save work on all of it, but the end of such a line can't be seen.
 - Find counts and Replace all work on the whole text in memory; on a 50 MB file a search over everything takes a few tenths of a second, and in files over 4 MB Find waits for Enter instead of searching as you type.

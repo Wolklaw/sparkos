@@ -475,12 +475,12 @@ class App:
         self._pick_files(start, done)
 
     def _pick_files(self, start: str, done: Callable[[List[str]], None]) -> None:
-        """The desktop's own file dialog (kdialog on Plasma) in a worker thread, so this
-        window keeps drawing; Tk's own dialog where kdialog isn't there."""
-        if shutil.which('kdialog') and os.name != 'nt':
+        """The desktop's own file dialog (spark-pick: Spark Files through the desktop portal) in a worker thread, so this
+        window keeps drawing; Tk's own dialog where spark-pick isn't there."""
+        if picker() and os.name != 'nt':
             def work():
                 try:
-                    out = subprocess.run(['kdialog', '--getopenfilename', start + os.sep,
+                    out = subprocess.run([picker(), '--getopenfilename', start + os.sep,
                                           '--multiple', '--separate-output',
                                           '--title', APP_NAME],
                                          capture_output=True, text=True).stdout
@@ -497,10 +497,10 @@ class App:
     def _pick_save(self, buf: Buffer, done: Callable[[Optional[str]], None]) -> None:
         folder = os.path.dirname(buf.path) if buf.path else os.path.expanduser('~')
         name = buf.title if buf.path else f"{buf.title}.txt"
-        if shutil.which('kdialog') and os.name != 'nt':
+        if picker() and os.name != 'nt':
             def work():
                 try:
-                    out = subprocess.run(['kdialog', '--getsavefilename',
+                    out = subprocess.run([picker(), '--getsavefilename',
                                           os.path.join(folder, name), '--title', APP_NAME],
                                          capture_output=True, text=True).stdout.strip()
                 except OSError:
@@ -1424,3 +1424,9 @@ def bench(path: Optional[str], age: Callable[[], float]) -> int:
     root.after(1, wait_loaded)
     app.run()
     return 0
+
+
+def picker():
+    """The file dialog to run: spark-pick (Spark Files' picker, through the desktop portal), or
+    kdialog on a Plasma machine that doesn't have spark-pick. None: use Tk's own dialog."""
+    return shutil.which('spark-pick') or shutil.which('kdialog')
