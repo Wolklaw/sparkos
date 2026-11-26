@@ -1,8 +1,8 @@
 """Screen recording: the desktop's ScreenCast portal hands over a PipeWire stream of one
 monitor, and GStreamer crops it to the picked area and encodes it to a file.
 
-The portal is the only way a Wayland program may record the screen. On KDE Plasma it asks
-once which screen to share; the answer is remembered per monitor through restore tokens.
+The portal is the only way a Wayland program may record the screen. Where the portal asks
+which screen to share, the answer is remembered per monitor through restore tokens.
 """
 
 import os

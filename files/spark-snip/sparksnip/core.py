@@ -185,7 +185,7 @@ def session() -> str:
 
 
 def reduced_motion() -> bool:
-    """True when the desktop asks for no animation (Plasma: animation speed set to instant)."""
+    """True when animations are switched off (SPARK_SNIP_REDUCED_MOTION, or Spark Settings)."""
     if os.environ.get('SPARK_SNIP_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):
         return True
     base = os.environ.get('XDG_CONFIG_HOME') or os.path.join(os.path.expanduser('~'), '.config')
@@ -197,14 +197,7 @@ def reduced_motion() -> bool:
             return not saved['animations']
     except (OSError, ValueError, AttributeError):
         pass
-    if 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
-        return False
-    try:
-        with open(os.path.join(base, 'kdeglobals'), encoding='utf-8', errors='replace') as f:
-            match = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(match) and float(match.group(1)) == 0
-    except (OSError, ValueError):
-        return False
+    return False
 
 
 def open_folder(path: str) -> Optional[str]:
@@ -514,16 +507,13 @@ class Monitor(NamedTuple):
         return (self.x, self.y, self.x + self.w, self.y + self.h)
 
 
-# Built in (sparksnip/capture.py): 'kwin' is KWin's ScreenShot2 D-Bus interface, 'portal'
-# the XDG Desktop Portal's Screenshot call, 'pil' Pillow on X11 and Windows. The helper
-# programs below are for other Wayland desktops, and Spectacle is only a fallback on Plasma
-# for as long as it is still installed: Spark Snip never needs it.
-BUILT_IN_CAPTURE = ('kwin', 'portal', 'pil')
+# Built in (sparksnip/capture.py): 'portal' is the XDG Desktop Portal's Screenshot call, 'pil'
+# Pillow on X11 and Windows. The helper programs below are run as they are: grim is the
+# Spark session's capture (the compositor speaks wlr-screencopy).
+BUILT_IN_CAPTURE = ('portal', 'pil')
 CAPTURE_TOOLS: Dict[str, Callable[[str], List[str]]] = {
-    'spectacle': lambda path: ['spectacle', '--background', '--nonotify', '--fullscreen',
-                               '--output', path],
     # PPM: no PNG compression, a 3-screen desktop takes 0.1 s instead of 0.35 s
-    'grim': lambda path: ['grim', '-t', 'ppm', path],          # Sway, Hyprland, wlroots
+    'grim': lambda path: ['grim', '-t', 'ppm', path],          # Spark, Sway, Hyprland, wlroots
     'gnome-screenshot': lambda path: ['gnome-screenshot', '--file', path],
 }
 
@@ -537,34 +527,10 @@ def capture_order() -> List[str]:
         return ['pil']
     if kind == 'x11':
         return ['pil', 'portal']
-    desktop = os.environ.get('XDG_CURRENT_DESKTOP', '').lower()
-    if 'gnome' in desktop:
+    if 'gnome' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower():
         return ['gnome-screenshot', 'portal']
-    if 'sparkwl' in desktop.split(':'):
-        # the Spark compositor speaks wlr-screencopy: grim, no KWin probe, no portal dialog
-        return ['grim', 'portal']
-    if 'kde' in desktop or not desktop:
-        # Spectacle before the portal: the portal may show a dialog, Spectacle never does
-        return ['kwin', 'spectacle', 'portal']
-    # Any other name (the Spark session runs KWin without plasmashell and calls itself
-    # something else): go by what is on the bus, not by the name.
-    if kwin_offers_screenshots():
-        return ['kwin', 'portal']
+    # The Spark compositor speaks wlr-screencopy: grim, no portal dialog
     return ['grim', 'portal']
-
-
-def kwin_offers_screenshots() -> bool:
-    """True when KWin's ScreenShot2 interface is on the session bus. SPARK_SNIP_KWIN=1|0
-    forces the answer (tests, --self-test)."""
-    forced = os.environ.get('SPARK_SNIP_KWIN')
-    if forced in ('0', '1'):
-        return forced == '1'
-    try:
-        from . import capture
-        return capture.kwin_screenshot_offered()
-    except Exception as exc:            # noqa: BLE001 - no bus, no PyGObject: not KWin
-        log.info("could not ask the bus about KWin: %s", exc)
-        return False
 
 
 def _tool_screenshot(name: str) -> Image.Image:
@@ -595,9 +561,6 @@ def _built_in_screenshot(name: str) -> Image.Image:
     if name == 'pil':
         from PIL import ImageGrab
         return ImageGrab.grab().convert('RGB')
-    if name == 'kwin':
-        with capture.KWinScreenShot() as kwin:
-            return kwin.workspace().convert('RGB')
     return capture.portal_screenshot()
 
 

@@ -8,8 +8,8 @@
 #            another system may provide them from differently named packages.
 # --no-test  skip the self-test at the end (it needs Tesseract and GStreamer).
 #
-# Installs /usr/bin/spark-snip, the program under the prefix, the desktop entry (with its
-# global shortcuts, picked up by KDE's kglobalaccel) and the icons.
+# Installs /usr/bin/spark-snip, the program under the prefix, the desktop entry and the icons.
+# The shortcuts (Print, Super+Shift+S/T/R) are bound by spark-compositor.
 set -euo pipefail
 
 here=$(cd "$(dirname "$0")" && pwd)
@@ -84,10 +84,8 @@ exec /usr/bin/python3 $PREFIX/spark_snip.py "\$@"
 EOF
 chmod 0755 /usr/bin/spark-snip
 
-# Desktop entry, and the same file for kglobalaccel so its shortcuts work out of the box
+# Desktop entry
 install -Dm 0644 "$here/$APP_ID.desktop" "/usr/share/applications/$APP_ID.desktop"
-install -d /usr/share/kglobalaccel
-ln -sfn "../applications/$APP_ID.desktop" "/usr/share/kglobalaccel/$APP_ID.desktop"
 
 # Icons
 for size in 16 22 24 32 48 64 128 256 512; do
