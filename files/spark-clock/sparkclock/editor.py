@@ -3,7 +3,7 @@ The tests fill its fields and call save(); nothing in it needs a mouse."""
 
 import os
 import tkinter as tk
-from tkinter import filedialog
+from . import pickdialog as filedialog
 from typing import Any, Dict, Optional
 
 from . import sound, store

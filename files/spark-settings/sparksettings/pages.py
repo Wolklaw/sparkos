@@ -4,7 +4,7 @@ import os
 from typing import Dict, List, Optional
 
 import tkinter as tk
-from tkinter import filedialog
+from . import pickdialog as filedialog
 
 from . import bluetooth, core, displays, network, sound
 from .app import Page

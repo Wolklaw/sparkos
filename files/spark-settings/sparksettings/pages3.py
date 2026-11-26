@@ -4,7 +4,7 @@ inputdev.py, shortcuts.py, accounts.py, storage.py, notifications.py); what has 
 or KWin's files is all in plasma.py."""
 
 import os
-from tkinter import filedialog
+from . import pickdialog as filedialog
 from typing import List
 
 import tkinter as tk

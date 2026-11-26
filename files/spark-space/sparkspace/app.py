@@ -9,7 +9,7 @@ import threading
 import time
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import filedialog
+from . import pickdialog as filedialog
 from typing import Callable, Dict, List, Optional
 
 from . import APP_CLASS, APP_NAME, dialogs, drives, hints as hintmod, safety, scan, trash

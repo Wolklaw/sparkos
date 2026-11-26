@@ -9,7 +9,7 @@ import tempfile
 import threading
 import tkinter as tk
 import tkinter.font as tkfont
-from tkinter import filedialog
+from . import pickdialog as filedialog
 from typing import Callable, Dict, List, Optional, Tuple
 
 from . import APP_CLASS, APP_NAME, dialogs, fcdata, fontfile, preview, store, winfonts
