@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spark Emoji, the SparkOS emoji and symbol picker (replaces Plasma's Emoji Selector). Its source
+# Spark Emoji, the SparkOS emoji and symbol picker Its source
 # lives in this repo at files/spark-emoji; the emoji and names are Unicode's and CLDR's data
 # (Unicode-3.0, see THIRD-PARTY.md), already turned into JSON in the repo, so nothing is
 # downloaded here.
@@ -8,10 +8,8 @@
 # and runs --self-test; the build fails if that or any check below fails.
 #
 # Spark Emoji takes Meta+. (Windows key and full stop):
-# - its desktop entry carries X-KDE-Shortcuts=Meta+., and the link in /usr/share/kglobalaccel
-#   makes Plasma register it
-# - Plasma's Emoji Selector (org.kde.plasma.emojier) gives the key up and is hidden from the
-#   menu (sparkos-cleanup.sh hides it); it stays installed for one release
+# its desktop entry carries X-KDE-Shortcuts=Meta+., and spark-compositor reads the link in
+# /usr/share/kglobalaccel; no other entry may claim the key.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-emoji"
@@ -30,16 +28,11 @@ test -f /usr/lib/spark-emoji/sparkemoji/data/emoji.json
 test -f /usr/lib/spark-emoji/sparkemoji/data/symbols.json
 fc-list ':charset=1f600' family | grep -q . || { echo "no installed font has emoji (U+1F600)"; exit 1; }
 
-# --- Meta+. : Plasma registers the shortcut from the desktop entry linked here
+# --- Meta+. : spark-compositor reads the shortcut from the desktop entry linked here
 install -d /usr/share/kglobalaccel
 ln -sfn ../applications/dev.wolklaw.SparkEmoji.desktop /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop
 grep -qx 'X-KDE-Shortcuts=Meta+.' "$APP"
 
-# --- Plasma's Emoji Selector: without the shortcut (it is hidden in sparkos-cleanup.sh)
-for entry in /usr/share/applications/org.kde.plasma.emojier.desktop /usr/share/kglobalaccel/org.kde.plasma.emojier.desktop; do
-  [ -f "$entry" ] || continue
-  sed -i --follow-symlinks '/^X-KDE-Shortcuts=/d' "$entry"
-done
 others=$(grep -lF 'Meta+.' /usr/share/applications/*.desktop /usr/share/kglobalaccel/*.desktop 2>/dev/null \
   | xargs -r grep -lE '^X-KDE-Shortcuts=(.*,)?Meta\+\.(,|$)' \
   | grep -v 'dev.wolklaw.SparkEmoji.desktop$' || true)

@@ -1,20 +1,39 @@
 #!/usr/bin/bash
-# Containerfile step 4: packages, on the Fedora Kinoite base.
+# Containerfile step 4: packages, on Fedora's atomic desktop base (base-atomic: no desktop).
 #
-# First what Bazzite brought when SparkOS was built on it (until 2026-11-23) and Kinoite doesn't
-# have (ImageMagick, printing, scanning, the gaming layer, device rules, everyday tools, umu-run,
-# tuning), and full video playback from RPM Fusion free. Then SparkOS's own list.
+# First what Fedora Kinoite brought when SparkOS was built on it (2026-11-23 to 2026-11-26)
+# that SparkOS uses, then what Bazzite brought before that (ImageMagick, printing, scanning, the
+# gaming layer, device rules, everyday tools, umu-run, tuning), and full video playback from
+# RPM Fusion free. Then SparkOS's own list.
 set -euo pipefail
 
 dnf_install() { dnf -y --setopt=install_weak_deps=True install "$@"; }
 
 dnf -y makecache
 
+# What Fedora Kinoite had that base-atomic doesn't, and that SparkOS uses (the rest of
+# Kinoite's extra packages came with KDE apps: MariaDB, the Samba server, VLC, Qt):
+# - tuned and tuned-ppd: power profiles (Spark Tray and Spark Settings, through powerprofilesctl
+#   and D-Bus); iio-sensor-proxy (screen rotation and light sensors), switcheroo-control (laptops
+#   with two GPUs), bolt (Thunderbolt), fprintd and fprintd-pam (fingerprint readers),
+#   udev-hid-bpf (fixes for odd mice and tablets), bluez-obexd (Bluetooth file transfer)
+# - xdg-user-dirs: creates Documents, Pictures, Downloads... at first sign-in
+# - smartmontools and parted: Spark Disks (drive health, partitions)
+# - NetworkManager-openvpn and NetworkManager-openconnect: Spark Settings' VPN connections
+# - glx-utils: glxinfo for `spark info` and Spark Monitor; openssl: Spark Link's pairing keys
+# - fonts: Noto Sans, Serif and Mono (the fallbacks every app expects), Hack (the mono font in
+#   Spark's apps); Breeze's icons and cursor, which SparkOS's icon theme falls back to
+dnf_install \
+  tuned tuned-ppd iio-sensor-proxy switcheroo-control bolt fprintd fprintd-pam \
+  udev-hid-bpf bluez-obexd xdg-user-dirs smartmontools parted \
+  NetworkManager-openvpn NetworkManager-openconnect glx-utils openssl \
+  google-noto-sans-fonts google-noto-serif-fonts google-noto-sans-mono-fonts \
+  source-foundry-hack-fonts breeze-icon-theme breeze-cursor-theme
+
 # What Bazzite brought that SparkOS's scripts and the boot test use, from Fedora's own
 # repositories: ImageMagick (sparkos-theme.sh draws the wallpaper and boot splash), printing, scanning, libratbag (gaming mice), the gaming layer (gamescope, MangoHud,
-# GameMode), vulkaninfo/vainfo to check the drivers, and xdg-terminal-exec (how Plasma and apps
-# open the default terminal, Spark Terminal). Kinoite's other projects' apps are
-# removed by sparkos-apps.sh (step 5).
+# GameMode), vulkaninfo/vainfo to check the drivers, and xdg-terminal-exec (how apps open the default
+# terminal, Spark Terminal).
 # fuse-sshfs and rclone: Spark Files' network places (sshfs for sftp, rclone for smb and Google
 # Drive); user mounts through fusermount3, no root and no KIO.
 dnf_install \
@@ -29,7 +48,7 @@ dnf_install \
 
 # What Spark Settings runs (files/spark-settings): printers (lpadmin, lpinfo), the sound test
 # tone and per-app volume, PCI names for About, and the D-Bus watcher for live Bluetooth.
-# Kinoite has most of these already; naming them keeps that true. (The power profile goes
+# Some come with the base already; naming them keeps that true. (The power profile goes
 # through busctl to tuned-ppd; power-profiles-daemon would conflict with it.)
 dnf_install cups-client pipewire-utils pulseaudio-utils pciutils dbus-tools
 
@@ -39,7 +58,7 @@ dnf_install cups-client pipewire-utils pulseaudio-utils pciutils dbus-tools
 dnf_install python3-gobject gobject-introspection gtk3 gtk-layer-shell
 
 # mokutil: "spark secureboot" reads Secure Boot state and enrolls the module-signing certificate
-# with it (Kinoite usually has it; named here so that stays true).
+# with it.
 dnf_install mokutil
 
 # Device access rules Bazzite ships that Fedora packages itself (all tiny, no dependencies):
@@ -54,7 +73,7 @@ dnf_install steam-devices openrgb-udev-rules solaar-udev ntsync-autoload
 # Video and music that play everywhere else: H.264, H.265, AAC, MP3. Fedora's own FFmpeg
 # leaves out the patented codecs; RPM Fusion free has the full one, and Mesa's video decode
 # for AMD/Intel GPUs with H.264/H.265 turned on. H.264 for browsers also comes from Cisco's
-# OpenH264 (Fedora's fedora-cisco-openh264 repository; Kinoite ships an empty stand-in).
+# OpenH264 (Fedora's fedora-cisco-openh264 repository; the base ships an empty stand-in).
 fedora=$(rpm -E %fedora)
 dnf_install \
   "https://mirrors.rpmfusion.org/free/fedora/rpmfusion-free-release-${fedora}.noarch.rpm"
@@ -140,7 +159,7 @@ dnf_install alsa-firmware alsa-tools-firmware pipewire-module-filter-chain-sofa 
 #   rocm-clinfo, rocm-smi and amdsmi to check the GPU. Fedora lets every user open /dev/kfd.
 dnf_install rocm-opencl rocm-clinfo rocm-smi amdsmi
 # - fonts Bazzite ships: Fira Code, Lato, Twemoji, and Noto for Balinese, Javanese, Sundanese
-#   and Egyptian hieroglyphs (Noto CJK is already in Kinoite, as variable fonts; named here
+#   and Egyptian hieroglyphs (Noto CJK, as variable fonts, is named
 #   because Spark Run maps Windows CJK fonts to "Noto Sans CJK SC/TC/JP/KR")
 dnf_install \
   google-noto-sans-cjk-vf-fonts fira-code-fonts lato-fonts twitter-twemoji-fonts google-noto-sans-balinese-fonts \
@@ -158,15 +177,12 @@ dnf_install \
 # Firefox-based browsers
 dnf_install libheif-freeworld pipewire-codec-aptx
 dnf_install --enablerepo=fedora-cisco-openh264 mozilla-openh264
-# Kinoite already has it as a dependency of Firefox, so removing Firefox (sparkos-apps.sh)
-# would take it too; marking it installed on purpose keeps it
-dnf -y mark user mozilla-openh264
 
 # 32-bit graphics drivers. Proton runs a 32-bit Windows program (Battle.net, many older
 # games, most launchers' helper processes) as a 32-bit Linux process, and the Steam Runtime
 # container umu-run starts takes its GPU drivers from the host. Without these, Vulkan and
 # OpenGL fail in every 32-bit process ("DxvkInstance::createInstance: Failed to create Vulkan
-# instance") and the program quits with no window. Bazzite shipped them; Kinoite doesn't.
+# instance") and the program quits with no window. Bazzite shipped them; Fedora's bases don't.
 # Steam from Flathub brings its own; this is for umu-run (Spark Games, Spark Run).
 dnf_install mesa-dri-drivers.i686 mesa-vulkan-drivers.i686 vulkan-loader.i686 \
   mesa-libGL.i686 mesa-libEGL.i686 mesa-libgbm.i686
@@ -180,8 +196,7 @@ dnf_install vkBasalt python3-pyinotify
 
 # From Terra (Fyra Labs, which builds Bazzite's copies), because Fedora doesn't package them:
 # - umu-launcher: umu-run, which Spark Games uses to start Windows games with Proton
-# - dmemcg-booster: Valve's VRAM protection for games (fedora-tuning.sh turns it on). KDE's
-#   foreground booster, which pointed it at the focused window, went with Plasma
+# - dmemcg-booster: Valve's VRAM protection for games (fedora-tuning.sh turns it on)
 # The Terra repository is used for these packages only (includepkgs) and isn't left on the
 # system, so Terra's Mesa and other builds never replace Fedora's. Its signing key is checked
 # against Terra's fingerprint.
@@ -208,7 +223,7 @@ rpm -q umu-launcher dmemcg-booster
 # - python3-liquidctl, openrgb, fwupd: what Spark Controller (files/spark-controller) drives.
 #   liquidctl is imported as a Python library (NZXT and other USB coolers and lighting), OpenRGB
 #   runs as a command (ASUS Aura, mice, keyboards, memory), fwupd gives device firmware from
-#   LVFS. Fedora Kinoite already has fwupd; naming it keeps that true. OpenRGB's own window is
+#   LVFS (the base has fwupd; naming it keeps that true). OpenRGB's own window is
 #   hidden (spark-controller.sh): Spark Controller replaces it. Its udev rules come from
 #   openrgb-udev-rules above.
 # - bubblewrap, socat: Claude Code's command sandbox
@@ -230,7 +245,7 @@ dnf_install \
 # because layering ties the PC to one exact base image, makes every update slower and can fail
 # when Fedora's repositories and the image drift apart; in the image the build tests it once.
 # Nothing runs by default: the sockets are turned off below, so an idle PC pays only the disk
-# (on plain Kinoite this is 109 packages, a 59 MiB download). The management window is Spark
+# (on Fedora Kinoite this was 109 packages, a 59 MiB download). The management window is Spark
 # Boxes (files/spark-boxes, installed by files/scripts/spark-boxes.sh); it talks to this libvirt
 # at qemu:///system through python3-libvirt and shows a machine's screen with spice-gtk3. Those
 # two add 8 packages: 4 MiB installed, a 1 MiB download (measured on Fedora 45 with GTK and
@@ -277,17 +292,8 @@ rpm -q gtk4-layer-shell python3-gobject
 test -e /usr/lib64/libgtk4-layer-shell.so.0
 
 # The Spark session's sign-in screen (files/spark-session): greetd, a small login daemon that
-# Spark's greeter talks to. Installed off here: sparkos-no-kde.sh, the last step, makes it the
-# display manager once Plasma Login Manager is removed. Fedora's presets leave the unit
-# disabled; this checks that, and that greetd did not take over display-manager.service (its
-# unit declares that alias) while the earlier steps still expect Plasma's.
+# Spark's greeter talks to. sparkos-no-kde.sh (the last step) configures it and makes it the
+# display manager.
 dnf_install greetd
 rpm -q greetd
 test -x /usr/bin/greetd
-if find /etc/systemd/system -path '*.wants/*' -name 'greetd.service' | grep -q .; then
-  echo "greetd was enabled by its package; it must stay off"; exit 1
-fi
-if [ -L /etc/systemd/system/display-manager.service ] \
-   && [ "$(basename "$(readlink /etc/systemd/system/display-manager.service)")" = greetd.service ]; then
-  echo "greetd took over display-manager.service"; exit 1
-fi

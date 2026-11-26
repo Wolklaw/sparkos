@@ -10,8 +10,6 @@ name: spark-connect
 # ssh:     sshd and systemd in a container, a dummy user unit, a throwaway key; refresh through
 #          the real ssh client, restart the dummy unit, sudo's password refusal, an unknown host
 #          key refused, a journal tail.
-# widget:  the Plasma widget (widget/package): QML lint, and Plasma's widget runner loads it
-#          (plasmawindowed --smoke-test, the board included).
 # windows: the unit tests on windows-latest (Python from the runner, Windows' own OpenSSH).
 # sparkos: inside the published SparkOS image, install.sh --user as a normal user, the
 #          self-test and the unit tests on the image's Python, uninstall, nothing left behind.
@@ -53,31 +51,6 @@ jobs:
         run: |
           cd files/spark-connect
           SPARK_LANG=fr xvfb-run -a -s "-screen 0 1920x1080x24" python3 -m unittest discover -s tests -v
-
-  widget:
-    runs-on: ubuntu-24.04
-    container: registry.fedoraproject.org/fedora:latest
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Qt Quick tools, Kirigami and Plasma
-        run: |
-          dnf -y install --setopt=install_weak_deps=False qt6-qtdeclarative-devel kf6-kirigami \
-            kf6-kpackage plasma-workspace libplasma breeze-icon-theme cascadia-mono-fonts \
-            python3 python3-tkinter dbus-daemon
-
-      - name: QML lint
-        # Plasma's own modules are C++ plugins; warnings about them are not ours. Errors fail.
-        run: |
-          lint=$(command -v qmllint-qt6 || command -v qmllint || echo /usr/lib64/qt6/bin/qmllint)
-          "$lint" --bare -I /usr/lib64/qt6/qml -W 0 files/spark-connect/widget/package/contents/ui/*.qml
-
-      - name: Loads in Plasma's widget runner
-        run: |
-          bash files/spark-connect/install.sh --deps --no-test
-          kpackagetool6 -t Plasma/Applet --install files/spark-connect/widget/package
-          QT_QPA_PLATFORM=offscreen timeout 60 dbus-run-session plasmawindowed --smoke-test dev.wolklaw.sparkconnect
 
   probe:
     runs-on: ubuntu-24.04
@@ -239,10 +212,6 @@ jobs:
             as "grep -q \"^Exec=$home/.local/bin/spark-connect$\" ~/.local/share/applications/dev.wolklaw.SparkConnect.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkConnect.png"
             as "test -f ~/.local/lib/spark-connect/sparkconnect/probe.sh"
-            # the Plasma widget only installs where kpackagetool6 exists (the image has no KDE now)
-            if command -v kpackagetool6 >/dev/null; then
-              as "test -f ~/.local/share/plasma/plasmoids/dev.wolklaw.sparkconnect/contents/ui/Board.qml"
-            fi
             as "~/.local/bin/spark-connect --status > /tmp/status.json"
             python3 -c "import json; assert json.load(open(\"/tmp/status.json\"))[\"empty\"]"
             test ! -e /usr/bin/spark-connect

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Spark Notes, the SparkOS notes and clipboard history (replaces Plasma's Klipper). Its source
+# Spark Notes, the SparkOS notes and clipboard history. Its source
 # lives in this repo at files/spark-notes; nothing is downloaded here except wl-clipboard.
 #
 # install.sh --deps installs the app system-wide and runs --self-test; it also installs
@@ -9,16 +9,8 @@
 #
 # Spark Notes takes Meta+V:
 # - its popup entry (dev.wolklaw.SparkNotes.Clipboard.desktop) carries X-KDE-Shortcuts=Meta+V,
-#   and the link in /usr/share/kglobalaccel makes Plasma register it
+#   and the Spark compositor reads the shortcuts of the entries linked in /usr/share/kglobalaccel
 # - the watcher is a user service, enabled for every login (graphical-session.target.wants)
-#
-# Klipper has no file to edit: it is the Clipboard entry of the system tray, inside plasmashell,
-# and Meta+V is its shortcut. It stops by leaving the tray:
-# - the default layout (files/system/.../org.kde.plasma.desktop-layout.js) starts new profiles
-#   with Clipboard off
-# - an update script (contents/updates/sparkos-no-klipper.js) does the same once for a profile
-#   that already exists, and drops Klipper's old Meta+V entry
-# Klipper's own menu entry (org.kde.klipper.desktop) is hidden in sparkos-cleanup.sh.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-notes"
@@ -42,7 +34,7 @@ test -x /usr/bin/wl-copy
 grep -qx 'ExecStart=/usr/bin/spark-notes --watch' "$UNIT"
 test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service
 
-# --- Meta+V : Plasma registers the shortcut from the popup entry linked here
+# --- Meta+V : the compositor takes the shortcut from the popup entry linked here
 install -d /usr/share/kglobalaccel
 ln -sfn ../applications/dev.wolklaw.SparkNotes.Clipboard.desktop \
   /usr/share/kglobalaccel/dev.wolklaw.SparkNotes.Clipboard.desktop
@@ -53,12 +45,4 @@ others=$(grep -lE '^X-KDE-Shortcuts=(.*,)?Meta\+V(,|$)' /usr/share/applications/
   | grep -v 'dev.wolklaw.SparkNotes.Clipboard.desktop$' || true)
 [ -z "$others" ] || { echo "these also claim Meta+V :"; echo "$others"; exit 1; }
 
-# --- Klipper out of the tray: new profiles (layout) and existing ones (update script)
-LAYOUT=/usr/share/plasma/look-and-feel/dev.wolklaw.sparkos.desktop/contents/layouts/org.kde.plasma.desktop-layout.js
-UPDATE=/usr/share/plasma/shells/org.kde.plasma.desktop/contents/updates/sparkos-no-klipper.js
-test -f "$LAYOUT"
-grep -q 'org.kde.plasma.clipboard' "$LAYOUT"
-test -f "$UPDATE"
-grep -q 'org.kde.plasma.clipboard' "$UPDATE"
-
-echo "$(/usr/bin/spark-notes --version) installed; it has Meta+V and Klipper leaves the tray"
+echo "$(/usr/bin/spark-notes --version) installed; it has Meta+V"

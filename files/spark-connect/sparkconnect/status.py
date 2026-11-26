@@ -1,10 +1,10 @@
-"""One refresh of every machine and website, as JSON on stdout: what the Plasma widget
-(widget/) shows. `spark-connect --status` runs it, no Tk, no window.
+"""One refresh of every machine and website, as JSON on stdout, for scripts and panels.
+`spark-connect --status` runs it, no Tk, no window.
 
 Same SSH calls as the window (BatchMode, never a password prompt, the same shared connection),
 the same verdicts, the same words. Read-only: it runs the probe and the website GETs, nothing
-else. The JSON carries the labels in the PC's language so the widget needs no translations of
-its own."""
+else. The JSON carries the labels in the PC's language so a reader needs no translations of its
+own."""
 
 import json
 import os

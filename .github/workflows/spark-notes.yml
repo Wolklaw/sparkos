@@ -1,12 +1,11 @@
 name: spark-notes
-# Spark Notes, the SparkOS quick notes and clipboard history (replaces Plasma's Klipper).
+# Spark Notes, the SparkOS quick notes and clipboard history.
 #
 # fedora:  runs the image build step's install in a plain Fedora container, then the self-test,
 #          the unit tests (the clipboard watcher against fake wl-paste and wl-copy) and the window
 #          tests under Xvfb as a normal user, in English and French, with a screenshot.
 # sparkos: inside the published SparkOS image, runs files/scripts/spark-notes.sh the way the
-#          image build does (installs the app and wl-clipboard, gives it Meta+V, takes Klipper out
-#          of the tray), then the same tests on the image's own Python and GTK, and a per-user
+#          image build does (installs the app and wl-clipboard, gives it Meta+V), then the same tests on the image's own Python and GTK, and a per-user
 #          install and uninstall.
 on:
   push:

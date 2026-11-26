@@ -175,7 +175,7 @@ def self_test(src: Source) -> int:
           f"entries, {sum(1 for i in items if i.kind == startup.SERVICE)} services")
     entry = shortcut_entry(src)
     if entry:
-        print(f"shortcut:  {SHORTCUT} registered for Plasma by {entry}")
+        print(f"shortcut:  {SHORTCUT} registered by {entry}")
     else:
         print(f"shortcut:  not registered (no kglobalaccel/{APP_ID}.desktop with "
               f"X-KDE-Shortcuts={SHORTCUT}); running from source?")

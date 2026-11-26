@@ -64,7 +64,7 @@ it the terminal everywhere:
 
 - the `TerminalApplication` and `TerminalService` keys in `/etc/xdg/kdeglobals`, which Spark Files and
   other KDE-aware apps read: "Open Terminal Here" and apps with `Terminal=true` start it
-- `xdg-terminal-exec`'s default (`/etc/xdg/kde-xdg-terminals.list`, `xdg-terminals.list`)
+- `xdg-terminal-exec`'s default (`/etc/xdg/xdg-terminals.list`)
 - Ctrl+Alt+T, which the Spark compositor binds to it
 - the dock, the Claude Code menu entry and the Spark Files action, the `.rpm` installer window, and Spark
   Connect's "Open terminal"

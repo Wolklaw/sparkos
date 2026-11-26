@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Containerfile step 5. The system tuning Bazzite had that plain Fedora Kinoite doesn't, as SparkOS's own config. docs/fedora-base.md ("Performance
+# Containerfile step 5. The system tuning Bazzite had that plain Fedora doesn't, as SparkOS's own config. docs/fedora-base.md ("Performance
 # and tuning") lists every Bazzite tweak and why each one is here or left out.
 #
 # Packages for this are installed by build_files/packages.sh: vkBasalt and python3-pyinotify
@@ -108,8 +108,7 @@ systemctl enable ds-inhibit.service
 
 # VRAM for games (Valve's dmemcg-booster, as on SteamOS): when video memory runs out, games
 # keep theirs and other apps are moved out first. Fedora's kernel has the dmem cgroup controller
-# with amdgpu support. KDE's foreground booster, which also favoured the focused window, went
-# with Plasma (sparkos-no-kde.sh).
+# with amdgpu support. (SparkOS has no KDE, so KDE's foreground booster is not here.)
 systemctl enable dmemcg-booster-system.service
 systemctl --global enable dmemcg-booster-user.service
 

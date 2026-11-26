@@ -1,7 +1,6 @@
-"""launcher_logic.py (the Python copy used by the Spark shell) against tests/vectors.json, the
-cases the widget's search.js must answer the same way (tests/check_js.mjs runs that side).
+"""launcher_logic.py, the Spark shell launcher's search and sums, against tests/vectors.json.
 
-    python3 -m unittest discover -s files/spark-launcher/tests -p 'test_logic.py'
+    python3 -m unittest discover -s files/spark-shell/tests -p 'test_logic.py'
 """
 import json
 import os

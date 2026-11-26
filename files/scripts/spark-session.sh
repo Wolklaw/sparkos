@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The Spark session's security pieces (Containerfile step 5): the polkit agent, the sign-in
 # screen and `spark greeter`'s helper files. Their source lives in this repo at
-# files/spark-session. greetd stays off here; sparkos-no-kde.sh, the last step, turns it on
-# once Plasma Login Manager is removed. The build fails if something turned it on earlier.
+# files/spark-session. greetd stays off here; sparkos-no-kde.sh, the last step, turns it on.
+# The build fails if something turned it on earlier.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-session"
@@ -40,17 +40,5 @@ fi
 /usr/libexec/spark-greeter-ctl status
 /usr/bin/spark-polkit --version
 /usr/bin/spark-greeter --version
-# The experimental compositor session (spark-wl) runs nothing from KDE: these KDE autostarts
-# carry no OnlyShowIn, so they'd start there too.
-for f in org.kde.foreground-booster org.kde.kunifiedpush-distributor org.kde.xwaylandvideobridge; do
-  f=/etc/xdg/autostart/$f.desktop
-  [ -f "$f" ] || continue
-  if grep -q '^NotShowIn=' "$f"; then
-    grep -q '^NotShowIn=.*sparkwl;' "$f" || sed -i 's/^NotShowIn=/NotShowIn=sparkwl;/' "$f"
-  else
-    sed -i '0,/^\[Desktop Entry\]$/s//[Desktop Entry]\nNotShowIn=sparkwl;/' "$f"
-  fi
-  grep -q '^NotShowIn=.*sparkwl;' "$f"
-done
 test -f /etc/pam.d/spark-lock
 echo "Spark session pieces installed; sparkos-no-kde.sh turns greetd on."

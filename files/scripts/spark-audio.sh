@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Spark Audio, the SparkOS sound mixer: outputs, microphones, per-app volume, an equalizer and
 # Focusrite Scarlett controls. Its source lives in this repo at files/spark-audio. It replaces
-# Focusrite Control and a separate mixer. Plasma's volume applet stays in the tray.
+# Focusrite Control and a separate mixer.
 #
 # install.sh --deps installs it system-wide (and alsa-utils, which the Scarlett page needs: it is
 # not in the base image) and runs --self-test; the build fails if that or any file below is missing.

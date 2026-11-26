@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # The SparkOS icon theme (files/sparkos-icons/SparkOS, brief: briefs/sparkos-icons.md), installed
 # as /usr/share/icons/SparkOS. It inherits Breeze Dark, so every icon it doesn't draw yet still
-# comes from Breeze. /etc/xdg/kdeglobals and the SparkOS look-and-feel package (files/system)
-# make it the default; /usr/libexec/sparkos-icons-default moves a user who still has Breeze Dark
+# comes from Breeze. /etc/xdg/kdeglobals (files/system) makes it the default; /usr/libexec/sparkos-icons-default moves a user who still has Breeze Dark
 # written in their own settings over to it once, at sign-in.
 set -oue pipefail
 

@@ -1,10 +1,10 @@
-"""Render the animated SparkOS bot (branding/sparkos-bot-animated.svg) to the GIF the sign-in
-splash plays, frame by frame in Chrome, so Plasma's splash needs no SVG animation support.
+"""Render the animated SparkOS bot (branding/sparkos-bot-animated.svg) to a GIF, frame by frame
+in Chrome. The boot splash's frames (files/scripts/sparkos-theme.sh) are cut from it.
 
     pip install playwright imageio-ffmpeg     (uses your installed Chrome, no browser download)
     python tools/make-splash-animation.py
 
-Writes files/system/usr/share/plasma/look-and-feel/dev.wolklaw.sparkos.desktop/contents/splash/images/bot.gif
+Writes files/sparkos-theme/bot.gif
 (560x560 on the splash background, 25 fps, plays once and holds the last frame).
 Run it again whenever the animated SVG changes, and commit the GIF.
 """
@@ -15,9 +15,9 @@ from svg_inline import inline_bot  # tools/svg_inline.py: makes the <use> copies
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
 SVG = REPO / "branding" / "sparkos-bot-animated.svg"
-OUT = REPO / "files/system/usr/share/plasma/look-and-feel/dev.wolklaw.sparkos.desktop/contents/splash/images/bot.gif"
+OUT = REPO / "files/sparkos-theme/bot.gif"
 SIZE, FPS, LENGTH = 560, 25, 6.8
-BG = "#05040f"  # the splash background
+BG = "#05040f"  # the boot splash background
 
 svg = inline_bot(SVG.read_text(encoding="utf-8"))
 html = f"""<!doctype html><html><head><meta charset="utf-8"><style>

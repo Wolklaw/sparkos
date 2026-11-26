@@ -78,7 +78,7 @@ class SessionEnd:
 # graphics card before the login screen is started. terminate-session is only the fallback.
 
 SESSION_TARGETS = ['xdg-desktop-autostart.target', 'spark-wl-workspace.target',
-                   'spark-workspace.target', 'graphical-session.target']
+                   'graphical-session.target']
 
 
 def _exe(pid, proc='/proc'):

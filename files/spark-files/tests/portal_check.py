@@ -1,11 +1,11 @@
 """End to end through the real xdg-desktop-portal: an app calls
 org.freedesktop.portal.FileChooser.OpenFile and SaveFile, the portal picks Spark Files because
-of spark-portals.conf (XDG_CURRENT_DESKTOP=Spark:KDE), the chooser window opens, a file is
+of spark-portals.conf (XDG_CURRENT_DESKTOP=Spark), the chooser window opens, a file is
 picked, and the app gets its Response. Nothing of yours is touched: it needs its own session
-bus and display, so run it inside a virtual KWin:
+bus and display, so run it on a virtual X server:
 
-    XDG_RUNTIME_DIR=$(mktemp -d) dbus-run-session -- kwin_wayland --virtual --xwayland \\
-        --exit-with-session "python3 files/spark-files/tests/portal_check.py"
+    XDG_RUNTIME_DIR=$(mktemp -d) xvfb-run -a dbus-run-session -- \\
+        python3 files/spark-files/tests/portal_check.py
 
 Prints one line per check and exits 1 if any failed (0 with "skipped" without the tools)."""
 
@@ -49,7 +49,7 @@ from sparkfiles.app import App  # noqa: E402
 
 app = App()
 app.quit = lambda: None
-env = dict(os.environ, XDG_CURRENT_DESKTOP='Spark:KDE', XDG_DESKTOP_PORTAL_DIR=portals)
+env = dict(os.environ, XDG_CURRENT_DESKTOP='Spark', XDG_DESKTOP_PORTAL_DIR=portals)
 portal = subprocess.Popen([PORTAL, '--replace'], env=env, stdout=subprocess.DEVNULL,
                           stderr=open(os.path.join(work, 'portal.log'), 'w'))
 failed = []

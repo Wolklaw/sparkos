@@ -4,8 +4,8 @@
 #
 # It becomes the default for the screenshot keys: Print and Meta+Shift+S take a screenshot,
 # Meta+Shift+T copies text, Meta+Shift+R starts and stops a recording. Spark Snip reads the
-# screen through KWin itself (the boot test proves it in a real Plasma session), so Spectacle
-# is removed in the recipe. If Spectacle is ever back in the image, it gives up those keys.
+# screen through spark-compositor (wlr-screencopy). If Spectacle is ever in the image, it gives
+# up those keys.
 # Its other shortcuts (Meta+Print and so on) are untouched.
 set -oue pipefail
 

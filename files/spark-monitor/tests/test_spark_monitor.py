@@ -565,7 +565,7 @@ class MiscTests(FixtureCase):
         out = io.StringIO()
         with redirect_stdout(out):
             self_test(self.src)
-        self.assertIn('registered for Plasma by', out.getvalue())
+        self.assertIn('registered by', out.getvalue())
         self.assertIn('also claimed by', out.getvalue())
 
     def test_metadata(self):

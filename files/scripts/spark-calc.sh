@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Spark Calc, the SparkOS calculator (standard, scientific and programmer modes). Its source
-# lives in this repo at files/spark-calc. SparkOS has had no calculator since KCalc went.
+# lives in this repo at files/spark-calc. SparkOS has no other calculator.
 #
 # install.sh --deps installs it system-wide, links its desktop entry into
-# /usr/share/kglobalaccel so Plasma gives it the keyboard's Calculator key, and runs
+# /usr/share/kglobalaccel so spark-compositor gives it the keyboard's Calculator key, and runs
 # --self-test (works a set of sums out; no display needed). The build fails if that or any
 # file below is missing.
 set -oue pipefail

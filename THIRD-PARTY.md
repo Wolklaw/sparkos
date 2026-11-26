@@ -14,8 +14,8 @@ authors gave them.
 
 ## In the SparkOS image
 
-The image is built on [Fedora Kinoite](https://fedoraproject.org/atomic-desktops/kinoite/)
-(until 2026-11-23 on [Bazzite](https://github.com/ublue-os/bazzite), Apache-2.0). It contains Linux, KDE Plasma, Mesa, Wine (in Spark Run's download) and many
+The image is built on Fedora's atomic base image, `quay.io/fedora-ostree-desktops/base-atomic`
+(until 2026-11-26 on Fedora Kinoite, until 2026-11-23 on [Bazzite](https://github.com/ublue-os/bazzite), Apache-2.0). It contains Linux, Mesa, Wine (in Spark Run's download) and many
 other programs, each under its own license (GPL, LGPL, MIT and others). Their source is
 available from Fedora, RPM Fusion, Terra and each project. SparkOS's license does not limit any right
 those licenses give you.
