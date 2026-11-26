@@ -1157,6 +1157,8 @@ static bool unmanaged_has(struct server *s, struct wlr_surface *surf) {
 	return x && x->override_redirect;
 }
 
+static void fullscreen_restack(struct server *s);
+
 static void focus_view(struct view *v, struct wlr_surface *prefer) {
 	struct server *s = &S;
 	if (!v) return;
@@ -1185,6 +1187,7 @@ static void focus_view(struct view *v, struct wlr_surface *prefer) {
 	wl_list_remove(&v->link);
 	wl_list_insert(&s->views, &v->link);
 	view_activate(v, true);
+	fullscreen_restack(s);
 	struct wlr_box b = { v->x, v->y, 1, 1 };
 	struct wlr_output *wo = wlr_output_layout_output_at(s->output_layout, b.x + 1, b.y + 1);
 	if (wo) s->focused_output = wo;
@@ -1247,6 +1250,23 @@ static struct wlr_output *view_output(struct view *v) {
 	return wo ? wo : output_at_cursor(&S);
 }
 
+/* A fullscreen window (a game) sits above the panels, but only while it is the active window:
+ * Alt+Tab or a click to another window on the same screen drops it just behind that window, like
+ * Windows does, and focusing it again puts it back on top. A fullscreen window on another screen
+ * stays where it is. */
+static void fullscreen_restack(struct server *s) {
+	struct view *f = s->focused_view;
+	struct wlr_output *fo = f && f->mapped ? view_output(f) : NULL;
+	struct view *v;
+	wl_list_for_each(v, &s->views, link) {
+		if (!v->fullscreen || v->unmanaged) continue;
+		bool behind = f && f != v && !f->fullscreen && fo && view_output(v) == fo;
+		struct wlr_scene_tree *want = s->layers[behind ? L_WINDOWS : L_FULLSCREEN];
+		if (v->tree->node.parent != want) wlr_scene_node_reparent(&v->tree->node, want);
+		if (behind) wlr_scene_node_place_below(&v->tree->node, &f->tree->node);
+	}
+}
+
 static void view_set_fullscreen(struct view *v, bool on) {
 	if (v->fullscreen == on) return;
 	struct server *s = v->server;
@@ -1258,7 +1278,8 @@ static void view_set_fullscreen(struct view *v, bool on) {
 	if (v->is_x11) wlr_xwayland_surface_set_fullscreen(v->xw, on);
 	else wlr_xdg_toplevel_set_fullscreen(v->xdg, on);
 	if (v->ftl) wlr_foreign_toplevel_handle_v1_set_fullscreen(v->ftl, on);
-	wlr_scene_node_reparent(&v->tree->node, s->layers[on ? L_FULLSCREEN : L_WINDOWS]);
+	if (!on) wlr_scene_node_reparent(&v->tree->node, s->layers[L_WINDOWS]);
+	fullscreen_restack(s);
 	if (on) {
 		struct wlr_output *wo = view_output(v);
 		struct wlr_box ob; wlr_output_layout_get_box(s->output_layout, wo, &ob);
