@@ -71,7 +71,8 @@ get the same tags, each in its own repository (`sparkos` and `sparkos-nvidia`):
 The out-of-tree kernel modules ([kmods.sh](../build_files/kmods.sh)) are signed in step 4b so
 they load with Secure Boot on. The public certificate is [secureboot/sparkos-kmods.der](../secureboot);
 the private key is the `KMOD_SIGNING_KEY` repo secret, handed to `podman build` as a build secret
-(`--secret id=kmod_signing_key,env=KMOD_SIGNING_KEY`) and mounted only in that step, so it is in no
+(written to a file in the runner's temp folder and passed as `--secret id=kmod_signing_key,src=...`;
+`env=` doesn't work there because `sudo` drops the step's environment) and mounted only in that step, so it is in no
 layer. No secret (a PR from a fork, Dependabot, a local build): the build logs `NOT SIGNING` and
 leaves the modules unsigned. With the secret, the build fails if a module has no signer
 (`modinfo -F signer`) or if the key isn't the certificate's.

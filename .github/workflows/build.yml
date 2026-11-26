@@ -126,7 +126,12 @@ jobs:
         run: |
           secret_args=()
           if [ -n "$KMOD_SIGNING_KEY" ]; then
-            secret_args=(--secret id=kmod_signing_key,env=KMOD_SIGNING_KEY)
+            # A file, not env=: "sudo podman build" doesn't pass this step's environment on, so an
+            # env= secret reached the build empty and the modules went out unsigned.
+            keyfile="$RUNNER_TEMP/kmod-signing.key"
+            ( umask 077; printf '%s\n' "$KMOD_SIGNING_KEY" > "$keyfile" )
+            trap 'rm -f "$keyfile"' EXIT
+            secret_args=(--secret "id=kmod_signing_key,src=$keyfile")
             echo "Module-signing key present: the kernel modules will be signed."
           else
             echo "::warning::No KMOD_SIGNING_KEY secret: the kernel modules will be unsigned (Secure Boot refuses them)."
@@ -145,6 +150,16 @@ jobs:
             --tag localhost/sparkos:build \
             .
           sudo podman image inspect localhost/sparkos:build --format '{{.Id}} {{.Size}} bytes, {{len .RootFS.Layers}} layers'
+          # With the key, every SparkOS module must come out signed by it
+          if [ -n "$KMOD_SIGNING_KEY" ]; then
+            signers=$(sudo podman run --rm localhost/sparkos:build sh -c \
+              'for m in $(find /usr/lib/modules/*/extra -name "*.ko*"); do echo "$(modinfo -F signer "$m") $m"; done')
+            echo "$signers"
+            [ -n "$signers" ] || { echo "::error::no SparkOS kernel modules found to check"; exit 1; }
+            if echo "$signers" | grep -v '^SparkOS kernel modules ' | grep .; then
+              echo "::error::the key is set but these modules aren't signed by it"; exit 1
+            fi
+          fi
           df -h /
 
       - name: Check it (bootc's own lint, for information)
