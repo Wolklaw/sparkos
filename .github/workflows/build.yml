@@ -1,6 +1,9 @@
 name: build
-# Builds SparkOS from the Containerfile, signs it with SparkOS's key and publishes it to
-# ghcr.io/wolklaw/sparkos. docs/building.md explains each step. The base is Fedora's
+# Builds SparkOS from the Containerfile, signs it with SparkOS's key and publishes it, as two
+# images from the same commit (docs/building.md explains each step):
+#   ghcr.io/wolklaw/sparkos         AMD and Intel GPUs (Mesa)           GPU=amd
+#   ghcr.io/wolklaw/sparkos-nvidia  Nvidia GPUs, Nvidia's driver too    GPU=nvidia (build_files/nvidia.sh)
+# Both get the same tags and the same signing key. One failing doesn't stop the other. The base is Fedora's
 # base-atomic (the Containerfile's BASE_IMAGE), pulled fresh on every build.
 #
 # Tags (the same ones BlueBuild used, so nothing that reads them changes):
@@ -48,7 +51,7 @@ on:
     outputs:
       tag:
         description: "The commit or branch tag that was pushed and signed (empty for a pull request)"
-        value: ${{ jobs.build.outputs.tag }}
+        value: ${{ jobs.build.outputs.tag }}   # the main (GPU=amd) image's
       digest:
         description: "Its digest"
         value: ${{ jobs.build.outputs.digest }}
@@ -62,21 +65,30 @@ concurrency:
   # one replaces an older one: the running build finishes, then the newest commit builds.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-env:
-  IMAGE_NAME: sparkos
-  IMAGE_REPO: ghcr.io/wolklaw/sparkos
-
 jobs:
   build:
-    name: Build, sign and publish
+    name: Build, sign and publish ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - gpu: amd
+            image: sparkos
+          - gpu: nvidia
+            image: sparkos-nvidia
+    env:
+      GPU: ${{ matrix.gpu }}
+      IMAGE_NAME: ${{ matrix.image }}
+      IMAGE_REPO: ghcr.io/wolklaw/${{ matrix.image }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     permissions:
       contents: read
       packages: write
     outputs:
-      tag: ${{ steps.tags.outputs.first }}
-      digest: ${{ steps.push.outputs.digest }}
+      # Only the main image's leg sets these (amd_*), so the Nvidia leg never overwrites them
+      tag: ${{ steps.tags.outputs.amd_first }}
+      digest: ${{ steps.push.outputs.amd_digest }}
     steps:
       - uses: actions/checkout@v7
 
@@ -101,6 +113,7 @@ jobs:
           echo "$BASE is $DIGEST"
           echo "name=$BASE" >> "$GITHUB_OUTPUT"
           echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          if [ "$GPU" = amd ]; then echo "amd_digest=$DIGEST" >> "$GITHUB_OUTPUT"; fi
           podman --version
 
       - name: Build the image
@@ -125,6 +138,7 @@ jobs:
             --build-arg BASE_IMAGE="${BASE%:*}@$BASE_DIGEST" \
             --build-arg BASE_DIGEST="$BASE_DIGEST" \
             --build-arg IMAGE_NAME="$IMAGE_NAME" \
+            --build-arg GPU="$GPU" \
             --build-arg REVISION="$GITHUB_SHA" \
             --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
             "${secret_args[@]}" \
@@ -137,6 +151,28 @@ jobs:
         run: |
           sudo podman run --rm localhost/sparkos:build bootc container lint 2>&1 | tee lint.txt || true
           { echo "### bootc container lint"; echo '```'; tail -40 lint.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check the GPU driver
+        run: |
+          # Nvidia image: Nvidia's open modules for the image's kernel, its driver, and no build
+          # tools or RPM Fusion nonfree left behind. Main image: no Nvidia driver at all.
+          sudo podman run --rm -e GPU="$GPU" localhost/sparkos:build sh -euc '
+            kver=$(ls /usr/lib/modules)
+            if [ "$GPU" = nvidia ]; then
+              for m in nvidia nvidia-modeset nvidia-drm nvidia-uvm; do
+                echo "$m: $(modinfo -k "$kver" -F filename $m) ($(modinfo -k "$kver" -F license $m))"
+              done
+              test "$(modinfo -k "$kver" -F license nvidia)" = "Dual MIT/GPL"
+              rpm -q xorg-x11-drv-nvidia xorg-x11-drv-nvidia-libs.i686 libva-nvidia-driver
+              for p in akmods akmod-nvidia rpmfusion-nonfree-release; do
+                if rpm -q $p; then echo "$p should not be in the image"; exit 1; fi
+              done
+              test -f /usr/lib/bootc/kargs.d/20-sparkos-nvidia.toml
+              systemctl is-enabled nvidia-suspend.service nvidia-resume.service
+            else
+              if rpm -q xorg-x11-drv-nvidia; then echo "the main image has the Nvidia driver"; exit 1; fi
+              rpm -q rocm-opencl
+            fi'
 
       - name: Check the optional Spark apps are sources only
         run: |
@@ -174,6 +210,7 @@ jobs:
           fi
           echo "first=$FIRST" >> "$GITHUB_OUTPUT"
           echo "more=$MORE" >> "$GITHUB_OUTPUT"
+          if [ "$GPU" = amd ]; then echo "amd_first=$FIRST" >> "$GITHUB_OUTPUT"; fi
           echo "Tags: $FIRST $MORE"
 
       - name: Push the first tag

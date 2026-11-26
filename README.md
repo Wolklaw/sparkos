@@ -30,7 +30,7 @@ Not Spark yet:
 - The icon set falls back to Breeze's icons and cursors for the icons SparkOS has not drawn yet. Those are image files only; no KDE software is installed.
 - Spark Connect's "Take control" now runs on spark-rdp, SparkOS's own RDP server for the Spark session (it used KDE's krdpserver before). KDE's foreground booster is gone. The VRAM booster stays.
 
-Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. NVIDIA has not been tried at all.
+Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. The Nvidia image hasn't been tried on a real Nvidia PC yet.
 
 ## What's in it
 
@@ -189,7 +189,7 @@ Games with kernel-level anti-cheat don't run on Linux. These include Valorant, F
 
 Windows stays, and you pick the system at power-on.
 
-CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). So far it has been installed on one real PC. The image is for AMD and Intel graphics. An NVIDIA build is in progress and not released.
+CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). So far it has been installed on one real PC. There are two images: `sparkos` for AMD and Intel graphics, and `sparkos-nvidia` for Nvidia GTX 16, RTX 20 and newer. The Nvidia one hasn't been tried on a real Nvidia PC yet.
 
 ## Switching from another Fedora atomic desktop
 

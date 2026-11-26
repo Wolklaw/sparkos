@@ -6,15 +6,19 @@
 #
 # Runs before the apps, so their install.sh finds /usr/lib/spark-apps/launch.py. The index is
 # checked against the same public key that verifies the image (cosign.pub, copied by the
-# Containerfile to /etc/pki/containers/sparkos.pub). The build stops if it is missing, or if
+# Containerfile to /etc/pki/containers/IMAGE_NAME.pub: sparkos.pub, or sparkos-nvidia.pub in the
+# Nvidia image; same key). The build stops if it is missing, or if
 # the self-test (a throwaway-key round trip with openssl) fails.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-apps"
 test -f "$SRC/install.sh" || { echo "Spark Apps source not found at $SRC"; exit 1; }
 
-KEY=/etc/pki/containers/sparkos.pub
-test -s "$KEY" || { echo "no $KEY: the Containerfile copies cosign.pub there"; exit 1; }
+KEY=
+for k in /etc/pki/containers/sparkos.pub /etc/pki/containers/sparkos-nvidia.pub; do
+  if [ -s "$k" ]; then KEY=$k; break; fi
+done
+[ -n "$KEY" ] || { echo "no /etc/pki/containers/sparkos*.pub: the Containerfile copies cosign.pub there"; exit 1; }
 
 bash "$SRC/install.sh" --deps --key "$KEY"
 

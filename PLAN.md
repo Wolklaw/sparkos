@@ -15,7 +15,7 @@ We don't maintain a kernel or drivers: Fedora handles those. SparkOS adds the ga
 
 | | Found | What it means |
 |---|---|---|
-| GPU | AMD Radeon RX 6800 XT | Best case for Linux. Open drivers come in the kernel, so no NVIDIA variant is needed. |
+| GPU | AMD Radeon RX 6800 XT | Best case for Linux. Open drivers come in the kernel. Nvidia PCs get their own image, `sparkos-nvidia` (since 2026-11-25). |
 | CPU / RAM | Ryzen 7 7800X3D, 32 GB | No constraints. |
 | Disks | Two 1 TB NVMe drives (Windows; games) and a SATA SSD for scratch files (stays as is) | SparkOS shares the games drive: Windows shrank it and SparkOS uses the freed space (dual boot, installed 21 Nov 2026). |
 | Board | ASUS PRIME X670-P WIFI | Should have three M.2 slots, two of them in use. Confirm in the manual before buying a drive. |
