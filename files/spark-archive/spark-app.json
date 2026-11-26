@@ -5,7 +5,7 @@
   "name_fr": "Spark Archive",
   "summary": "Open, extract and make archives: zip, tar (gz, bz2, xz, zst), 7z, rar and iso, also in several parts and with passwords.",
   "summary_fr": "Ouvrir, extraire et créer des archives : zip, tar (gz, bz2, xz, zst), 7z, rar et iso, aussi en plusieurs parties et avec mot de passe.",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "installed_size_kb": 260,
   "icon": "icons/spark-archive-256.png",
   "categories": ["Utility", "Archiving", "Compression"],

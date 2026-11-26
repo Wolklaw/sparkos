@@ -1391,6 +1391,58 @@ class TestCompressPassword(Base):
                          [False, True])
         self.check_album(os.path.join(self.dest, 'album'))
 
+    def test_zipcrypto_wrong_password_past_check_byte(self):
+        """ZipCrypto checks a password with one byte, so 1 wrong password in 256 gets through
+        and the entry decrypts to noise. On a file or a link, that must still be "wrong
+        password, try again", never a crash (it failed CI once, on album/link)."""
+        res = CompressJob([self.make()], 'zip', password='spark-zip',
+                          zip_encryption='zipcrypto').run_here()
+        self.assertTrue(res.ok, res)
+        with zipfile.ZipFile(res.output) as zf:
+            first = next(i for i in zf.infolist() if i.flag_bits & 0x1)
+            self.assertTrue(first.flag_bits & 0x1)
+            sneaky = None
+            for i in range(20000):
+                pw = f'wrong-{i}'
+                try:
+                    zf.open(first, pwd=pw.encode()).close()
+                except RuntimeError:
+                    continue
+                sneaky = pw
+                break
+        self.assertIsNotNone(sneaky)
+        answers = Answers(password=[sneaky, 'spark-zip'])
+        got = self.extract(res.output, answers)
+        self.assertTrue(got.ok, got)
+        self.assertEqual([i['retry'] for q, i in answers.asked if q == 'password'],
+                         [False, True])
+        self.check_album(os.path.join(self.dest, 'album'))
+
+    def test_zipcrypto_link_wrong_password_past_check_byte(self):
+        res = CompressJob([self.make()], 'zip', password='spark-zip',
+                          zip_encryption='zipcrypto').run_here()
+        self.assertTrue(res.ok, res)
+        r = readers.ZipReader(res.output, "zip")
+        try:
+            links = [i for i in r.zf.infolist()
+                     if i.create_system == 3 and stat.S_ISLNK(i.external_attr >> 16)]
+            self.assertTrue(links)
+            sneaky = None
+            for i in range(20000):
+                try:
+                    r.zf.open(links[0], pwd=f'wrong-{i}'.encode()).close()
+                except RuntimeError:
+                    continue
+                sneaky = f'wrong-{i}'
+                break
+            self.assertIsNotNone(sneaky)
+            r.password = sneaky
+            with self.assertRaises(readers.WrongPassword):
+                for _ in r.items():
+                    pass
+        finally:
+            r.close()
+
     def test_aes_is_not_zipcrypto(self):
         res = CompressJob([self.make()], 'zip', password='spark-zip').run_here()
         with zipfile.ZipFile(res.output) as zf:
