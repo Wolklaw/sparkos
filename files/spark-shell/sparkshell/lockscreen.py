@@ -261,7 +261,7 @@ class LockScreen(Gtk.Application):
         win.set_child(outer)
         keys = Gtk.EventControllerKey()
         keys.connect('key-pressed', self._key)
-        win.add_controller(keys)
+        outer.add_controller(keys)      # the window's own key controller never fires here
         return win, clock, date, entry, message, card, monitor
 
     def _key(self, _ctl, keyval, _code, _state):

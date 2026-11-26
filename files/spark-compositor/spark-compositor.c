@@ -1131,6 +1131,15 @@ static bool unmanaged_has(struct server *s, struct wlr_surface *surf) {
 static void focus_view(struct view *v, struct wlr_surface *prefer) {
 	struct server *s = &S;
 	if (!v) return;
+	if (v->unmanaged) {
+		/* an X11 menu or popup (a Tk drop-down in Spark Settings): it may take the keyboard, but
+		 * it never joins the window list; clicking one used to put it there, and once the menu
+		 * was gone the list held freed memory and the session crashed on the next window change */
+		struct wlr_surface *surf = view_surface(v);
+		if (surf && !s->locked && wlr_xwayland_surface_override_redirect_wants_focus(v->xw))
+			send_keyboard_focus(s, surf);
+		return;
+	}
 	if (v->minimized) { view_set_minimized(v, false); return; }
 	if (s->focused_view == v && !s->focused_layer) {
 		/* already the active window: still make sure the keyboard is on it (a popup may have had it) */
@@ -1592,7 +1601,10 @@ static void view_unmap(struct wl_listener *l, void *data) {
 	v->mapped = false;
 	refocus_soon(s);
 	if (s->sw.on) switcher_draw(s);
-	if (v->unmanaged) {
+	/* only a popup that never joined the window list takes this path: an X11 window can turn
+	 * override-redirect after it mapped as a normal window, and returning here
+	 * left it in s->views after it was freed, so the next walk of the list crashed the session */
+	if (v->unmanaged && wl_list_empty(&v->link)) {
 		/* a menu or popup that took the keyboard (Wine, Battle.net) gives it back to the window
 		 * under it; without this typing went nowhere until Alt+Tab */
 		struct wlr_surface *surf = view_surface(v);
