@@ -314,6 +314,17 @@ jobs:
           $SSH 'set -e; ls /usr/lib/cups/backend/driverless; for u in cups.socket avahi-daemon.service bluetooth.service; do s=$(systemctl is-enabled $u); echo "$u: $s"; done'
           $SSH 'test -f /usr/lib/udev/rules.d/60-sparkos-via-keyboards.rules && test -x /usr/bin/sparkos-dev-setup && echo "VIA rule and sparkos-dev-setup present"'
 
+      - name: Check greetd's account can start its user manager
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          # The image's greetd account had no /etc/shadow line, so PAM refused its user manager
+          # (user@<uid>.service, status=224/PAM). spark-shadow-entry adds a locked one at greetd start.
+          $SSH 'echo sparkos-boot-test | sudo -S -p "" sh -c "grep -c ^greetd: /etc/shadow; systemctl is-failed user@\$(id -u greetd).service"' | tee "$WORK/greetd-shadow.txt" || true
+          [ "$(head -n1 "$WORK/greetd-shadow.txt")" = 1 ] || { echo "::error::greetd has no /etc/shadow line"; exit 1; }
+          if grep -qx 'failed' "$WORK/greetd-shadow.txt"; then
+            echo "::error::greetd's user manager failed to start"; exit 1
+          fi
+
       - name: Check the out-of-tree kernel modules
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |

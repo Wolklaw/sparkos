@@ -1,0 +1,24 @@
+#!/bin/sh
+# Give system accounts that live only in /usr/lib/passwd a locked /etc/shadow line.
+#
+# On rpm-ostree images, accounts baked into the image (greetd among them) sit in
+# /usr/lib/passwd and have no line in /etc/shadow. pam_unix's account check then
+# fails ("could not obtain user info"), so systemd can't start the account's user
+# manager: user@<uid>.service fails with status=224/PAM every boot, and anything
+# the greeter needs from it (D-Bus user bus, PipeWire) is missing.
+#
+# Run as root from greetd.service (ExecStartPre). Usage: spark-shadow-entry NAME...
+# Adds "NAME:!*:<today>::::::" (locked: no password can ever match) for each NAME
+# that exists and has no shadow line yet. Safe to run every boot.
+set -eu
+shadow=/etc/shadow
+[ -f "$shadow" ] || exit 0
+days=$(( $(date +%s) / 86400 ))
+for name in "$@"; do
+    getent passwd "$name" >/dev/null 2>&1 || continue
+    grep -q "^${name}:" "$shadow" && continue
+    # Append in place: keeps the file's mode, owner and SELinux label.
+    [ -s "$shadow" ] && [ "$(tail -c1 "$shadow")" != "" ] && printf '\n' >> "$shadow"
+    printf '%s:!*:%s::::::\n' "$name" "$days" >> "$shadow"
+    echo "spark-shadow-entry: added a locked shadow entry for $name"
+done
