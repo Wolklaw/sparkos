@@ -4,7 +4,8 @@ SparkOS goes into empty space you make on one of your drives. Windows stays, wit
 and you pick which one to start at power-on. Nothing in these steps erases a drive, as long as
 you don't pick "Erase data and install" in step 4 of "Install".
 
-What you need: a PC with an AMD or Intel graphics card (the image is the non-NVIDIA one), a
+What you need: a PC with an AMD or Intel graphics card (`SparkOS-installer.iso`), or an Nvidia GTX 16,
+RTX 20 or newer card (`SparkOS-Nvidia-installer.iso`, not yet tried on a real Nvidia PC), a
 64-bit UEFI firmware, a USB stick of 16 GB or more (it gets erased), and at least 100 GB of free
 space on a drive. 200 GB or more leaves room for games.
 

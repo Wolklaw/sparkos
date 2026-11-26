@@ -11,6 +11,11 @@ on:
         description: Publish to the installer release (main only); otherwise keep the ISO as a run artifact
         type: boolean
         default: true
+      image:
+        description: Which image the installer installs (sparkos-nvidia publishes to the installer-nvidia release)
+        type: choice
+        options: [sparkos, sparkos-nvidia]
+        default: sparkos
   schedule:
     - cron: "30 9 * * 1" # Mondays, after the daily image build
 
@@ -19,12 +24,15 @@ permissions:
   packages: read
 
 concurrency:
-  group: installer-iso
+  group: installer-iso-${{ inputs.image || 'sparkos' }}
   cancel-in-progress: false
 
 env:
-  IMAGE: ghcr.io/wolklaw/sparkos:latest
-  ISO_NAME: SparkOS-installer.iso
+  # The Monday build is the main image's; the Nvidia one is built by hand (Run workflow, image)
+  IMAGE: ghcr.io/wolklaw/${{ inputs.image || 'sparkos' }}:latest
+  ISO_NAME: ${{ inputs.image == 'sparkos-nvidia' && 'SparkOS-Nvidia-installer.iso' || 'SparkOS-installer.iso' }}
+  RELEASE: ${{ inputs.image == 'sparkos-nvidia' && 'installer-nvidia' || 'installer' }}
+  NVIDIA: ${{ inputs.image == 'sparkos-nvidia' }}
 
 jobs:
   iso:
@@ -155,7 +163,7 @@ jobs:
         if: github.ref != 'refs/heads/main' || (github.event_name == 'workflow_dispatch' && !inputs.publish)
         uses: actions/upload-artifact@v7
         with:
-          name: installer-iso
+          name: ${{ inputs.image == 'sparkos-nvidia' && 'installer-iso-nvidia' || 'installer-iso' }}
           path: out/
           compression-level: 0
           retention-days: 3
@@ -183,26 +191,34 @@ jobs:
             echo
             echo "**Install guide:** [docs/install.md](https://github.com/$GITHUB_REPOSITORY/blob/main/docs/install.md). It installs next to Windows, which stays; you pick the system at power-on. Back up first."
             echo
-            echo "**Graphics:** AMD and Intel only. An NVIDIA version is in the works and isn't released yet."
+            if [ "$NVIDIA" = true ]; then
+              echo "**Graphics:** this is the NVIDIA version: Nvidia's own driver, for GeForce GTX 16, RTX 20 and newer. Older Nvidia cards and AMD or Intel graphics: use the main SparkOS installer. Not yet tested on a real Nvidia PC."
+            else
+              echo "**Graphics:** AMD and Intel. For an Nvidia card (GTX 16, RTX 20 and newer), use the SparkOS NVIDIA installer."
+            fi
             echo
             echo "**Tested:** every installer build is installed next to a Windows disk in a VM (separate disks, a shared boot partition, and Secure Boot on), then booted. SparkOS has been installed on one real PC so far, so expect rough edges."
             echo
             echo "SparkOS is source-available, not open source: see [LICENSE](https://github.com/$GITHUB_REPOSITORY/blob/main/LICENSE)."
           } > notes.md
-          gh release view installer >/dev/null 2>&1 || \
-            gh release create installer --draft --target main --title "SparkOS installer" --notes "Building..." --latest=false
-          gh release upload installer "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS --clobber
-          gh release edit installer --notes-file notes.md --title "SparkOS installer ($(date -u +%Y-%m-%d))"
+          TITLE="SparkOS installer"
+          [ "$NVIDIA" = true ] && TITLE="SparkOS NVIDIA installer"
+          gh release view "$RELEASE" >/dev/null 2>&1 || \
+            gh release create "$RELEASE" --draft --target main --title "$TITLE" --notes "Building..." --latest=false
+          gh release upload "$RELEASE" "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS --clobber
+          gh release edit "$RELEASE" --notes-file notes.md --title "$TITLE ($(date -u +%Y-%m-%d))"
           # Point the tag at the commit this ISO was built from, and if the release is already
           # public, publish it again so GitHub shows this build's date instead of the first one's.
           # A draft stays a draft: the owner publishes it by hand.
-          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/installer" -f sha="$GITHUB_SHA" -F force=true >/dev/null
-          if [ "$(gh release view installer --json isDraft --jq .isDraft)" = false ]; then
-            gh release edit installer --draft=true
-            gh release edit installer --draft=false --latest
+          gh api -X PATCH "repos/$GITHUB_REPOSITORY/git/refs/tags/$RELEASE" -f sha="$GITHUB_SHA" -F force=true >/dev/null
+          if [ "$(gh release view "$RELEASE" --json isDraft --jq .isDraft)" = false ]; then
+            gh release edit "$RELEASE" --draft=true
+            # Only the main installer is marked as the repository's latest release
+            if [ "$NVIDIA" = true ]; then gh release edit "$RELEASE" --draft=false
+            else gh release edit "$RELEASE" --draft=false --latest; fi
           fi
           # Remove parts left over from an older, larger ISO
           keep=$(ls "$ISO_NAME".part* join-iso.cmd join-iso.sh SHA256SUMS)
-          gh release view installer --json assets --jq '.assets[].name' | while read -r a; do
-            grep -qxF "$a" <<<"$keep" || gh release delete-asset installer "$a" --yes
+          gh release view "$RELEASE" --json assets --jq '.assets[].name' | while read -r a; do
+            grep -qxF "$a" <<<"$keep" || gh release delete-asset "$RELEASE" "$a" --yes
           done

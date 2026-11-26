@@ -67,7 +67,7 @@ ln -sf protontricks /usr/bin/protontricks-launch
 install -Dm644 "$src/greenboot.conf" /etc/greenboot/greenboot.conf
 systemctl enable greenboot-healthcheck.service greenboot-set-rollback-trigger.service
 
-# Shell: `open FILE` opens it in its app; `sudo -A` asks in a KDE window. Same names as Bazzite's
+# Shell: `open FILE` opens it in its app; `sudo -A` asks in a Spark window. Same names as Bazzite's
 # files, so on a move from Bazzite they replace its copies.
 cat > /etc/profile.d/open.sh <<'EOS'
 # SparkOS: open a file or URL in its app, as on macOS and Bazzite

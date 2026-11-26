@@ -9,8 +9,7 @@
 # --deps     system-wide only: install Python's tkinter with dnf first (Fedora; the image build).
 # --no-test  skip the self-test at the end.
 #
-# This only installs the app. Taking System Settings' place (the stand-ins for systemsettings
-# and kcmshell6, hiding KDE's entry) is the image build step: files/scripts/spark-settings.sh.
+# This only installs the app. Putting it in the image is the build step: files/scripts/spark-settings.sh.
 # Settings and the log (~/.config and ~/.local/state/spark-settings) are not touched by --uninstall.
 set -euo pipefail
 

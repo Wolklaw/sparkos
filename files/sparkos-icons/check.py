@@ -4,7 +4,7 @@
     python3 files/sparkos-icons/check.py                    # checks only
     python3 files/sparkos-icons/check.py --sheet out.png    # checks, then the contact sheet
 
-Checks: index.theme parses, the file-type names Spark Files and Plasma ask for exist, every directory it lists exists (and has a section), every SVG
+Checks: index.theme parses, the file-type names Spark Files and other apps ask for exist, every directory it lists exists (and has a section), every SVG
 parses as XML with an <svg> root and a viewBox, every link stays inside the theme, each 24 px
 file is the 22 px drawing with a 1 px margin, and every icon renders at 16, 22, 32, 48 and
 256 px with rsvg-convert (ImageMagick's librsvg reader if rsvg-convert is missing) to a
@@ -129,7 +129,7 @@ def check_svgs():
                 fail(f"{ctx}/24/{name} differs from {ctx}/22/{name} (copy the 22 px drawing again)")
 
 
-# Batch 2 (folders and places): the names Plasma's Places panel, file dialogs and the freedesktop
+# Batch 2 (folders and places): the names file dialogs and the freedesktop
 # spec ask for. Each needs a drawing at every size the theme has, and a symbolic one where listed.
 PLACES = ["user-home", "user-desktop", "folder-documents", "folder-download", "folder-music",
           "folder-pictures", "folder-videos", "folder-games", "drive-harddisk",
@@ -147,7 +147,7 @@ def check_places():
             fail(f"places/symbolic/{name}-symbolic.svg missing")
 
 
-# Names Plasma's tray applets ask for (batch 4); each must resolve at 16, 22 and 24 px, with and
+# Names the tray (Spark Tray and the apps' status icons) asks for (batch 4); each must resolve at 16, 22 and 24 px, with and
 # without -symbolic (the tray asks for the plain name).
 TRAY_NAMES = [
     "network-wired-activated", "network-wired-disconnected", "network-wireless-connected-100",
@@ -273,7 +273,7 @@ def sheet(dirs, tmp, out_path, zoom):
                 png = os.path.join(tmp, f"sheet-{name}-{s}.png")
                 src = path
                 if name.endswith("-symbolic") and side:
-                    # on the light side, show the symbolic icon in dark text colour, as Plasma would
+                    # on the light side, show the symbolic icon in dark text colour, as a desktop would
                     src = os.path.join(tmp, f"{name}-light.svg")
                     with open(path, encoding="utf-8") as f:
                         open(src, "w", encoding="utf-8").write(f.read().replace("#f1efff", "#120f2e"))

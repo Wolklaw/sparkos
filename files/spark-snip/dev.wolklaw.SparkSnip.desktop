@@ -14,25 +14,19 @@ Keywords=ocr;text;screenshot;snip;snipping;capture;record;recording;video;screen
 Keywords[fr]=ocr;texte;capture;capture d'écran;enregistrement;vidéo;presse-papiers;
 StartupWMClass=SparkSnip
 SingleMainWindow=true
-# Spark Snip reads the screen through KWin's screenshot interface. Plasma 6.8 no longer
-# checks this key; earlier versions only answer programs that declare it.
-X-KDE-DBUS-Restricted-Interfaces=org.kde.KWin.ScreenShot2
 Actions=Image;Text;Video;
 
 [Desktop Action Image]
 Name=Screenshot an area
 Name[fr]=Capturer une zone
 Exec=spark-snip image
-X-KDE-Shortcuts=Print,Meta+Shift+S
 
 [Desktop Action Text]
 Name=Copy text from the screen
 Name[fr]=Copier du texte à l'écran
 Exec=spark-snip text
-X-KDE-Shortcuts=Meta+Shift+T
 
 [Desktop Action Video]
 Name=Record the screen (again to stop)
 Name[fr]=Enregistrer l'écran (encore pour arrêter)
 Exec=spark-snip video
-X-KDE-Shortcuts=Meta+Shift+R

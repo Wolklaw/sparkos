@@ -22,14 +22,9 @@ The Spark apps, Soot, FreeSuite and Nova keep the icons they ship; the theme nev
 
 - The image installs it at `/usr/share/icons/SparkOS` ([sparkos-icons.sh](../files/scripts/sparkos-icons.sh),
   just before `sparkos-theme.sh`).
-- `/etc/xdg/kdeglobals` (`[Icons] Theme=SparkOS`) makes it the default for everyone who hasn't picked
-  a theme, new users and existing ones. The SparkOS look-and-feel package says SparkOS too, so applying
-  the SparkOS look keeps it.
-- [sparkos-icons-default](../files/system/usr/libexec/sparkos-icons-default) runs once per user at
-  sign-in: if the user's own settings say `breeze-dark` (the old SparkOS default, written there when the
-  SparkOS look was applied), it removes that line so the SparkOS default applies from the next sign-in.
-  Any other choice is left alone, and it never runs a second time.
-- To go back: System Settings > Colors & Themes > Icons > Breeze Dark.
+- `/etc/xdg/kdeglobals` (`[Icons] Theme=SparkOS`) is where SparkOS keeps the default icon theme; Spark
+  apps read it from there. Breeze's icon files stay installed only as the parent theme.
+- To use another theme, change `Theme` in `~/.config/kdeglobals`.
 
 ## Grid and sizes
 
@@ -69,7 +64,7 @@ From the house style (`wolklaw-design`, the web palette SparkOS's colour scheme 
 | a third-party app's mark (Steam) | gold `#f4c95d`; lilac `#b9a6ff`, pink `#ff9ebb` and sky `#8ec9ff` if more are needed |
 | paper in the full bin | lilac `#b9a6ff` and gold |
 | the slip | magenta `#ff2e88`, cyan `#22d8ff` |
-| symbolic icons | `currentColor` with the `ColorScheme-Text` class (`#f1efff` as written; Plasma swaps in the text colour) |
+| symbolic icons | `currentColor` with the `ColorScheme-Text` class (`#f1efff` as written; the toolkit swaps in the text colour) |
 
 ## The slip
 
@@ -87,7 +82,7 @@ The magenta/cyan channel slip is the only decoration, on one part of each icon, 
   app's logo. An app icon may hint at what the app does, never at its brand (Steam is vapour over a vent,
   not Valve's logo).
 - SVG, one file per icon, written by hand to be read and edited: no editor metadata, no embedded
-  bitmaps, no filters or masks (Plasma draws icons with Qt's SVG renderer, which supports the basics).
+  bitmaps, no filters or masks (Qt's SVG renderer draws icons, which supports the basics).
 - Symbolic icons are filled shapes only (GTK recolours symbolic icons by forcing a fill).
 - Check every icon on dark and on light. `python3 files/sparkos-icons/check.py --sheet sheet.png`
   checks the theme and draws the contact sheet; CI ([sparkos-icons.yml](../.github/workflows/sparkos-icons.yml))
@@ -98,7 +93,7 @@ The magenta/cyan channel slip is the only decoration, on one part of each icon, 
 ![Batch 2 contact sheet: the places icons at 16, 22, 24, 32, 48 and 128 px, on the dark background and on a light one](icons-batch-2.png)
 
 Spark Files draws its own sidebar and file icons in Tk (`sparkfiles/icons.py`) and asks the theme for
-no names. These icons are for everything else that asks the theme: Plasma's Places panel and file
+no names. These icons are for everything else that asks the theme: Places panels and file
 dialogs, other apps' sidebars, the desktop's removable-device notifications and Spark apps that use
 icon names. Spark Files' own drawings keep the same colours and shapes, so the two look alike.
 
@@ -112,7 +107,7 @@ icon names. Spark Files' own drawings keep the same colours and shapes, so the t
 | `folder-pictures` | folder with a framed hill |
 | `folder-videos` (`folder-video`) | folder with a framed play mark |
 | `folder-games` | folder with a game pad |
-| `drive-harddisk` (`-usb`, `-solidstate`, `-root`) | flat box, vents, light. Every Windows drive at `/var/mnt/<letter>` gets this: SparkOS names no custom icon for them, KDE asks for `drive-harddisk` |
+| `drive-harddisk` (`-usb`, `-solidstate`, `-root`) | flat box, vents, light. Every Windows drive at `/var/mnt/<letter>` gets this: SparkOS names no custom icon for them, apps ask for `drive-harddisk` |
 | `drive-removable-media` (`-usb`, `-usb-pendrive`) | USB stick |
 | `drive-optical` (`media-optical`) | disc |
 | `network-workgroup` (`folder-network`, `folder-remote`) | three linked nodes |
@@ -157,7 +152,7 @@ plain files to edit by hand now.
 
 ### Which name shows which icon
 
-Spark Files and Plasma ask for the MIME type's icon name first (`text-x-python`), then its generic icon from
+Spark Files and other apps ask for the MIME type's icon name first (`text-x-python`), then its generic icon from
 shared-mime-info (`text-x-generic`, `package-x-generic`, `x-office-document`...), then `unknown`. Qt takes
 the first theme that has *any* of the names it tries, and Breeze (our parent) draws most of the specific
 names. So every Breeze name in these families is a link here, or Breeze's icon would show where ours should.
@@ -206,7 +201,7 @@ back to Breeze.
 
 ![Batch 4 contact sheet: every icon at 16, 22, 24, 32 and 48 px, on dark and on light](icons-batch-4.png)
 
-Fifty symbolic icons in `status/` (names in the table), plus links for the other names Plasma and GTK
+Fifty symbolic icons in `status/` (names in the table), plus links for the other names Qt and GTK
 ask for. Drawn as filled shapes with the `ColorScheme-Text` class, one colour, no slip; "off" parts are
 the same colour at 35% opacity, a slash means disabled.
 
@@ -229,27 +224,14 @@ Grid: `status/symbolic` is the 16 px drawing (scalable); `status/22` is the same
 chevrons plus a dot (no arcs). The charging bolt is cut out of the battery fill, and shows as solid
 where the battery is empty.
 
-### What comes from the icon theme and what from the Plasma theme
+### Tray and notification icons
 
-The SparkOS look uses the Plasma theme `default` (`plasmarc` `[Theme] name=default`), which has an
-`icons/` folder: `network.svgz`, `audio.svgz`, `battery.svgz`, `notification.svgz` and others, with names
-like `network-wireless-connected-60`, `Fill70` and `notification-disabled`. On this machine (Plasma 6.8.3):
+The Spark shell and Spark Tray draw status icons (network, volume, battery, Bluetooth, notifications,
+keyboard) by name from the icon theme, so these `status/` icons are what the tray shows. There is no
+separate desktop theme that could override them.
 
-- Plasma 6 no longer has `PlasmaCore.IconItem`; the tray applets (network, volume, battery, Bluetooth,
-  notifications, keyboard indicator) are compiled QML that draw `Kirigami.Icon` by name, and
-  `libKF6IconThemes` and the Kirigami plugin hold no reference to the Plasma theme. So the tray icons
-  come from the icon theme, and these `.svgz` files are not what the tray shows. The only reader of
-  `desktoptheme/*/icons` is KSvg itself, for an applet that asks for `icons/<file>` as a KSvg image.
-- Not checked on screen: plasmashell was not restarted and the owner's settings were not changed, so
-  the claim rests on the libraries and the applet list, not on swapping a theme and looking. Do that
-  once on the booted image (pick SparkOS icons and look at the tray, or
-  put a deliberately wrong test icon under one name).
-- The repo has no Plasma theme of its own (only a look-and-feel package that sets `name=default`),
-  so there is nothing to carry overrides. A `desktoptheme/SparkOS/icons/*.svgz` would be possible, but
-  as far as the above shows nothing would read it, so none was added. It becomes worth doing only if the
-  on-screen test shows a tray icon that still looks like Breeze.
 - Spark Update has no tray icon. It posts a notification with its own app icon
   (`dev.wolklaw.SparkUpdate`, in `files/spark-update/icons`). The `update-*` icons here are the ones
-  Plasma's Software Updates notifier asks for, if one is on the panel.
-- Caps Lock: `sparkos-capslock` only flips the keyboard LED; it has no icon. The indicator on screen
-  is Plasma's keyboard indicator applet and OSD, which ask for `input-caps-on` / `input-caps-off`.
+  an updates notifier asks for.
+- Caps Lock: `sparkos-capslock` only flips the keyboard LED; it has no icon. An on-screen indicator
+  would ask for `input-caps-on` / `input-caps-off`.

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Spark Archive: open, extract and make archives (zip, tar.*, 7z, rar, iso), with Extract here,
-# Extract to folder and Compress in Dolphin's right-click menu. Its source lives in this repo
-# at files/spark-archive. It is meant to replace Ark; removing Ark (and choosing which MIME
-# types Spark Archive opens by default) is done in the recipe and sparkos-defaults.sh, not here.
+# Extract to folder and Compress in Spark Files' right-click menu. Its source lives in this repo
+# at files/spark-archive. Which MIME types it opens by default is set in sparkos-defaults.sh,
+# not here.
 #
 # install.sh --deps installs it system-wide with its KIO service menus in
 # /usr/share/kio/servicemenus. Then --self-test compresses and extracts a zip, a tar.zst and

@@ -1,6 +1,6 @@
 """Old X11 tray icons (XEmbed: Wine and Proton games, Battle.net, older apps) in the Spark tray.
 
-Only in the Spark compositor session: Plasma has its own bridge. Without one, Wine opens a small
+Without a bridge like this one, Wine opens a small
 window of its own to hold the icon. This owns the X11 system tray (_NET_SYSTEM_TRAY_S0), docks
 every icon in a container window placed off every screen, and publishes each one as a
 StatusNotifierItem, which the Spark tray shows like any other. Clicks on that item are sent back

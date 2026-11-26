@@ -1,6 +1,4 @@
-"""The command line. --version and --self-test never load Tk. --route is how the image's
-stand-ins for systemsettings and kcmshell6 send a page Spark Settings owns here, and every other
-module to KDE's own."""
+"""The command line. --version and --self-test never load Tk."""
 
 import argparse
 import os
@@ -25,7 +23,7 @@ TOOLS = [
 
 
 def self_test(strict: bool = False) -> int:
-    from . import clock, core, displays, i18n, kcms, network, sound
+    from . import core, displays, network, sound
     print(f"{APP_NAME} {VERSION} self-test")
     print(f"python:    {sys.version.split()[0]}")
     failures: List[str] = []
@@ -46,8 +44,6 @@ def self_test(strict: bool = False) -> int:
         print(f"{tool + ':':<18} {path or 'MISSING'}  ({what})")
         if not path and needed:
             missing.append(tool)
-    kde = core.kde_tool('systemsettings')
-    print(f"{'systemsettings:':<18} {kde or 'not installed'}  (--kde)")
     if missing:
         print("missing tools: " + ', '.join(missing) +
               ("" if strict else "  (those pages say so; use --strict to fail on this)"))
@@ -61,8 +57,6 @@ def self_test(strict: bool = False) -> int:
         bad.append("wpctl")
     if displays.parse('[]') != [] or displays.parse('not json') != []:
         bad.append("wlr-randr")
-    if kcms.route_for('kcm_kscreen') != 'displays':
-        bad.append("routes")
     if bad:
         print("parsers:   FAILED: " + ', '.join(bad))
         failures.append("parsers")
@@ -73,25 +67,6 @@ def self_test(strict: bool = False) -> int:
         return 1
     print("self-test passed")
     return 0
-
-
-def route(tool: str, args: List[str]) -> int:
-    """systemsettings / kcmshell6 as Plasma calls them."""
-    from . import core, kcms
-    plain = [a for a in args if not a.startswith('-')]
-    page = None
-    if tool == 'systemsettings' and not args and not os.environ.get('SPARK_SETTINGS_KDE'):
-        return run_app(None)
-    if len(plain) == 1 and len(args) == 1:
-        page = kcms.route_for(plain[0].split('/')[0])
-    if page:
-        return run_app(page)
-    real = core.kde_tool(tool)
-    if not real:
-        print(f"{tool} isn't installed", file=sys.stderr)
-        return 1
-    os.execv(real, [real, *args])
-    return 1
 
 
 def run_app(page: Optional[str]) -> int:
@@ -114,33 +89,14 @@ def run_app(page: Optional[str]) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv[:1] == ['--route']:                    # --route TOOL [--] ARGS...
-        tool = argv[1] if len(argv) > 1 else 'systemsettings'
-        rest = argv[2:]
-        if rest[:1] == ['--']:
-            rest = rest[1:]
-        return route(tool, rest)
     from .pages import PAGES
     parser = argparse.ArgumentParser(
-        prog=APP_SLUG, description=f"{APP_NAME}: the SparkOS settings.",
-        epilog="MODULE: a KDE settings module such as kcm_kscreen; Spark Settings opens its own "
-               "page for it when it has one, else KDE's module.")
-    parser.add_argument('module', nargs='?', help="a KDE settings module to open")
+        prog=APP_SLUG, description=f"{APP_NAME}: the SparkOS settings.")
     parser.add_argument('--page', choices=sorted(PAGES), help="open this page")
-    parser.add_argument('--kde', action='store_true', help="open KDE's System Settings instead")
     parser.add_argument('--self-test', action='store_true', help="check the tools the pages use; no display needed")
     parser.add_argument('--strict', action='store_true', help="with --self-test: fail when a tool is missing")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test(args.strict)
-    if args.kde:
-        from . import core
-        real = core.kde_tool('systemsettings')
-        if not real:
-            print("KDE's System Settings isn't installed", file=sys.stderr)
-            return 1
-        os.execv(real, [real, *([args.module] if args.module else [])])
-    if args.module:
-        return route('kcmshell6', [args.module])
     return run_app(args.page)

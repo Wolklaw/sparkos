@@ -1,6 +1,5 @@
 """The pages: Displays, Sound, Network and Bluetooth here; the rest in pages2.py."""
 
-import os
 from typing import Dict, List, Optional
 
 import tkinter as tk
@@ -9,7 +8,7 @@ from . import pickdialog as filedialog
 from . import bluetooth, core, displays, network, sound
 from .app import Page
 from .i18n import _
-from .ui import Choice, Dialog, Slider, entry, label, rule
+from .ui import Choice, Dialog, Slider, label
 from .widgets import T, Toggle, WolkButton
 
 
@@ -445,8 +444,7 @@ class NetworkPage(Page):
     key, title, tool = 'network', "Network", 'nmcli'
     index = [("Wi-Fi", "wireless wifi internet connect password"),
              ("Wired", "ethernet cable lan"),
-             ("VPN", "wireguard openvpn import tunnel"),
-             ("Proxy", "http server")]
+             ("VPN", "wireguard openvpn import tunnel")]
 
     def build(self, f):
         if not core.have('nmcli'):
@@ -462,7 +460,7 @@ class NetworkPage(Page):
 
         def work():
             return (network.wifi_enabled(), network.wifi_list(rescan), network.devices(),
-                    network.vpns(), network.proxy_get())
+                    network.vpns())
         self.app.bg(work, self.render)
         if not self.watchers:
             self.watch(['nmcli', 'monitor'], 800)
@@ -470,7 +468,7 @@ class NetworkPage(Page):
     def render(self, data):
         if not data:
             return
-        wifi_on, wifis, devs, vpns, proxy = data
+        wifi_on, wifis, devs, vpns = data
         h = self.holder
         clear(h)
         f9 = self.app.font(9)
@@ -512,18 +510,6 @@ class NetworkPage(Page):
             WolkButton(r, _("Disconnect") if v.active else _("Connect"),
                        lambda v=v: self.vpn(v), f9, 'ghost').pack(side='left')
         WolkButton(box, _("Import a file"), self.vpn_import, f9, 'ghost').pack(anchor='w', pady=(8, 0))
-        box = self.section(h, _("Proxy"))
-        r = self.row(box, _("Mode"))
-        self.proxy_mode = Choice(r, [(_("None"), 'none'), (_("Manual"), 'manual')],
-                                 'manual' if proxy['mode'] == 'manual' else 'none',
-                                 lambda v: None, self.app.font(10), 14)
-        self.proxy_mode.pack(side='left')
-        self.proxy_host = entry(r, self.app.font(10), 28)
-        self.proxy_host.insert(0, proxy['http'].replace('http://', '').replace(' ', ':'))
-        self.proxy_host.pack(side='left', padx=8, ipady=3)
-        WolkButton(r, _("Apply"), self.proxy_apply, f9, 'primary').pack(side='left')
-        label(box, _("The proxy applies to KDE and Spark apps. Other programs read their own settings."),
-              self.app.font(8, False), fg=T["dim"]).pack(anchor='w')
 
     def wifi_power(self, on):
         self.app.bg(lambda: network.set_wifi(on), lambda ok: self.refresh())
@@ -561,14 +547,6 @@ class NetworkPage(Page):
         if path:
             self.app.bg(lambda: network.vpn_import(path),
                         lambda msg: (self.say(msg or _("Imported."), bool(msg)), self.refresh()))
-
-    def proxy_apply(self):
-        mode, host = self.proxy_mode.value, self.proxy_host.get().strip()
-        if mode == 'manual' and not host:
-            self.say(_("Type the proxy as host:port."), True)
-            return
-        ok = network.proxy_set(mode, host)
-        self.say(_("Proxy saved.") if ok else _("Could not save the proxy."), not ok)
 
 
 # ──────────────────────────── Bluetooth ────────────────────────────
@@ -649,7 +627,7 @@ class BluetoothPage(Page):
         self.app.bg(lambda: func(d.mac), done)
 
 
-from .pages2 import (AboutPage, DefaultAppsPage, DateTimePage, MorePage,  # noqa: E402
+from .pages2 import (AboutPage, DefaultAppsPage, DateTimePage,  # noqa: E402
                      PowerPage, PrintersPage, StartupPage, UpdatesPage)
 from .pages3 import (AppearancePage, InputPage, NotificationsPage, ShortcutsPage,  # noqa: E402
                      StoragePage, UsersPage)
@@ -661,13 +639,9 @@ PAGES: Dict[str, type] = {
     'shortcuts': ShortcutsPage, 'notifications': NotificationsPage, 'power': PowerPage,
     'defaultapps': DefaultAppsPage, 'startup': StartupPage, 'users': UsersPage,
     'datetime': DateTimePage, 'printers': PrintersPage, 'storage': StoragePage,
-    'updates': UpdatesPage, 'more': MorePage, 'about': AboutPage,
+    'updates': UpdatesPage, 'about': AboutPage,
 }
 
 SIDEBAR: List[str] = ['displays', 'sound', 'network', 'bluetooth', 'appearance', 'input',
                       'shortcuts', 'notifications', 'power', 'defaultapps', 'startup', 'users',
-                      'datetime', 'printers', 'storage', 'updates', 'more', 'about']
-
-# The Spark compositor session has no KDE: its control modules (More settings) can't open.
-if 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':'):
-    SIDEBAR.remove('more')
+                      'datetime', 'printers', 'storage', 'updates', 'about']

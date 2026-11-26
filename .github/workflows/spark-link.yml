@@ -100,7 +100,6 @@ jobs:
               echo "default zone $zone: ports [$(firewall-offline-cmd --zone=$zone --list-ports)] services [$(firewall-offline-cmd --zone=$zone --list-services)]"
             fi
             echo "avahi-daemon: $(systemctl is-enabled avahi-daemon.service 2>/dev/null || echo unknown)"
-            echo "kdeconnect: $(ls /usr/bin/kdeconnect* 2>/dev/null | head -3 | tr "\n" " ")"
 
             useradd -m tester
             home=$(getent passwd tester | cut -d: -f6)

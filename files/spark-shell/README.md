@@ -1,8 +1,8 @@
 # Spark Shell and the Spark session
 
-SparkOS's desktop: the panel, tray, notifications, menu, wallpaper, lock screen and on-screen bars, as a GTK 4 program in the house style. It took over from Plasma (see [PLAN.md](../../PLAN.md), "Replacing KDE").
+SparkOS's desktop: the panel, tray, notifications, menu, wallpaper, lock screen and on-screen bars, as a GTK 4 program in the house style. See [PLAN.md](../../PLAN.md), "Replacing KDE", for how it came to be.
 
-It runs in one session on the login screen: **Spark** (`spark-wl`), on the [Spark compositor](../spark-compositor), with no KDE, Plasma or KWin. It has been the owner's daily session since 25 Nov 2026 and is the only one in the image. The window list comes from `spark-wl-windows` (wlr-foreign-toplevel), and `spark-wl-startup` starts the session services. The older session that ran the same shell on KWin is gone; its code paths in `windows.py` (the KWin script) and `app.py` (plasmashell stand-ins) are still in the source, unused.
+It runs in one session on the login screen: **Spark** (`spark-wl`), on the [Spark compositor](../spark-compositor), with no KDE, Plasma or KWin. It has been the owner's daily session since 25 Nov 2026 and is the only one in the image. The window list comes from `spark-wl-windows` (wlr-foreign-toplevel), and `spark-wl-startup` starts the session services. The older session that ran the same shell on KWin is gone, and so is its code.
 
 ## What is in it
 
@@ -30,7 +30,7 @@ It runs in one session on the login screen: **Spark** (`spark-wl`), on the [Spar
 
 ## How the pieces talk to the compositor
 
-`spark-wl-windows` (built with the compositor, in `files/spark-compositor`) binds wlr-foreign-toplevel and reports windows to the shell; the shell's actions (activate, minimize, close) go back through it. The shell owns the name `org.kde.plasmashell` only to receive the Meta key's `activateLauncherMenu` call and powerdevil's OSD calls from the old setup; in the Spark session the compositor starts the launcher with `spark-shell --toggle` on Super.
+`spark-wl-windows` (built with the compositor, in `files/spark-compositor`) binds wlr-foreign-toplevel and reports windows to the shell; the shell's actions (activate, minimize, close) go back through it. The compositor binds the keys: Super runs `spark-shell --toggle`, and the volume and brightness keys call `Key` on `/Shell`.
 
 ## Install
 

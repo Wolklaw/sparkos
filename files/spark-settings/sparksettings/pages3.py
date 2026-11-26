@@ -1,7 +1,6 @@
-"""The pages that used to open KDE's modules: Appearance, Mouse and keyboard, Shortcuts, Users,
-Storage and Notifications. Each talks to the system through its own module (appearance.py,
-inputdev.py, shortcuts.py, accounts.py, storage.py, notifications.py); what has to write Plasma's
-or KWin's files is all in plasma.py."""
+"""Appearance, Mouse and keyboard, Shortcuts, Users, Storage and Notifications. Each talks to the
+system through its own module (appearance.py, inputdev.py, shortcuts.py, accounts.py, storage.py,
+notifications.py)."""
 
 import os
 from . import pickdialog as filedialog
@@ -53,37 +52,22 @@ class Holder(Page):
 # ──────────────────────────── Appearance ────────────────────────────
 class AppearancePage(Holder):
     key, title = 'appearance', "Appearance"
-    index = [("Colours and accent", "color theme dark light mint scheme"),
-             ("Wallpaper", "background picture desktop"),
+    index = [("Wallpaper", "background picture desktop"),
              ("Cursor", "mouse pointer size theme"),
-             ("Animations and blur", "effects windows kwin transparency"),
+             ("Window animations", "effects windows motion reduced"),
              ("Fonts", "text font size install")]
 
     def refresh(self):
-        self.app.bg(lambda: (appearance.color_schemes(), appearance.wallpapers(),
+        self.app.bg(lambda: (appearance.wallpapers(),
                              appearance.cursor_themes(), appearance.get()), self.render)
 
     def render(self, data):
         if not data:
             return
-        schemes, papers, cursors, now = data
+        papers, cursors, now = data
         self.now = now
         clear(self.holder)
         h, f10, f9 = self.holder, self.app.font(10), self.app.font(9)
-        wl = appearance.SPARKWL
-        box = self.section(h, _("Colours"))
-        if wl:       # nothing in the Spark session reads a colour scheme or an accent (KDE's files)
-            label(box, _("Spark apps use the Spark colours. Colour schemes apply in the Plasma session."),
-                  f10, fg=T["dim"], wraplength=640).pack(anchor='w')
-        if schemes and not wl:
-            r = self.row(box, _("Colour scheme"))
-            Choice(r, schemes, now['scheme'] if now['scheme'] in [i for _n, i in schemes]
-                   else schemes[0][1], self.pick_scheme, f10, 28).pack(anchor='w')
-        if not wl:
-            r = self.row(box, _("Accent colour"))
-            opts = [(_("From the colour scheme"), '')] + [(_(n), c) for n, c in appearance.ACCENTS]
-            Choice(r, opts, now['accent'] if now['accent'] in [c for _n, c in opts] else '',
-                   self.pick_accent, f10, 28).pack(anchor='w')
         box = self.section(h, _("Wallpaper"))
         r = self.row(box, _("Picture"))
         opts = [(n, p) for n, p in papers]
@@ -104,12 +88,8 @@ class AppearancePage(Holder):
                f10, 8).pack(anchor='w')
         box = self.section(h, _("Windows"))
         Toggle(box, _("Window animations"), bool(now['animations']),
-               lambda v: self.effects(animations=v), f9).pack(anchor='w', pady=2)
-        if not wl:
-            Toggle(box, _("Blur behind windows"), bool(now['blur']),
-                   lambda v: self.effects(blur=v), f9).pack(anchor='w', pady=2)
-        label(box, _("Spark apps skip their animations when this is off.") if wl else
-              _("These are KWin's effects. They apply at once."), self.app.font(8, False),
+               self.animations, f9).pack(anchor='w', pady=2)
+        label(box, _("Spark apps skip their animations when this is off."), self.app.font(8, False),
               fg=T["dim"]).pack(anchor='w', pady=(6, 0))
         box = self.section(h, _("Fonts"))
         self.link_row(box, _("Manage fonts (see, install, remove)"), _("Open Spark Fonts"),
@@ -117,16 +97,6 @@ class AppearancePage(Holder):
 
     def done(self, ok, text):
         self.say(text if ok else _("Could not change it."), not ok)
-
-    def pick_scheme(self, name):
-        self.now['scheme'] = name
-        self.app.bg(lambda: appearance.set_scheme(name, self.now['accent']),
-                    lambda ok: self.done(ok, _("Colour scheme changed.")))
-
-    def pick_accent(self, colour):
-        self.now['accent'] = colour
-        self.app.bg(lambda: appearance.set_scheme(self.now['scheme'], colour),
-                    lambda ok: self.done(ok, _("Accent colour changed.")))
 
     def pick_wallpaper(self, path):
         self.app.bg(lambda: appearance.set_wallpaper(path),
@@ -150,8 +120,8 @@ class AppearancePage(Holder):
         self.app.bg(lambda: appearance.set_cursor(self.now['cursor'], int(size)),
                     lambda ok: self.done(ok, _("Cursor changed. Apps already open keep theirs until they restart.")))
 
-    def effects(self, **kw):
-        self.app.bg(lambda: appearance.set_effects(**kw), lambda ok: self.done(ok, _("Done.")))
+    def animations(self, on):
+        self.app.bg(lambda: appearance.set_animations(on), lambda ok: self.done(ok, _("Done.")))
 
 
 # ──────────────────────────── Mouse and keyboard ────────────────────────────
@@ -176,12 +146,9 @@ class InputPage(Holder):
         clear(self.holder)
         h, f10, f9 = self.holder, self.app.font(10), self.app.font(9)
         for dev in devs:
-            if inputdev.SPARKWL:      # one entry per kind; the settings apply to every device listed
-                box = self.section(h, _("Touchpads") if dev.touchpad else _("Mice"))
-                label(box, dev.name, self.app.font(8, False), fg=T["dim"]).pack(anchor='w', pady=(0, 4))
-            else:
-                box = self.section(h, _("Touchpad") + ': ' + dev.name if dev.touchpad
-                               else _("Mouse") + ': ' + dev.name)
+            # one entry per kind; the settings apply to every device listed
+            box = self.section(h, _("Touchpads") if dev.touchpad else _("Mice"))
+            label(box, dev.name, self.app.font(8, False), fg=T["dim"]).pack(anchor='w', pady=(0, 4))
             for prop, _key, kind in dev.settings():
                 if prop == 'pointerAcceleration':
                     r = self.row(box, _("Pointer speed"))
@@ -210,8 +177,7 @@ class InputPage(Holder):
         if len(kb['layouts']) < 4:
             WolkButton(box, _("Add a layout"), lambda: self.layout(len(kb['layouts']), 'us'), f9,
                        'ghost').pack(anchor='w', pady=(6, 0))
-        label(box, _("The first layout is the one in use; switch with Alt+Shift.") if inputdev.SPARKWL
-              else _("The first layout is the one in use; switch with the shortcut in Shortcuts."),
+        label(box, _("The first layout is the one in use; switch with Alt+Shift."),
               self.app.font(8, False), fg=T["dim"]).pack(anchor='w', pady=(6, 0))
         box = self.section(h, _("Key repeat"))
         r = self.row(box, _("Delay before repeating"))
@@ -293,7 +259,7 @@ class KeyCapture(tk.Toplevel):
 
 class ShortcutsPage(Holder):
     key, title = 'shortcuts', "Shortcuts"
-    index = [("Keyboard shortcuts", "keys hotkeys kwin windows desktops"),
+    index = [("Keyboard shortcuts", "keys hotkeys windows desktops"),
              ("Change a shortcut", "rebind key combination"),
              ("Reset a shortcut", "default")]
 
@@ -330,7 +296,6 @@ class ShortcutsPage(Holder):
     def got_components(self, comps):
         self.components = comps or []
         if not self.components:
-            self.say(_("kglobalaccel isn't running, so shortcuts can't be listed here."), True)
             return
         self.comp.set_options([(c['name'], c['path']) for c in self.components],
                               self.path or self.components[0]['path'])
@@ -470,15 +435,15 @@ class UsersPage(Holder):
 class StoragePage(Holder):
     key, title = 'storage', "Storage"
     index = [("Drives", "disk usb mounted free space games drive steam library"),
-             ("File indexing", "search baloo"), ("Format or check a drive", "disks usb")]
+             ("Format or check a drive", "disks usb")]
 
     def refresh(self):
-        self.app.bg(lambda: (storage.volumes(), storage.indexing()), self.render)
+        self.app.bg(storage.volumes, self.render)
 
     def render(self, data):
-        if not data:
+        if data is None:
             return
-        vols, indexing = data
+        vols = data
         clear(self.holder)
         h, f10, f9 = self.holder, self.app.font(10), self.app.font(9)
         box = self.section(h, _("Drives"))
@@ -493,22 +458,12 @@ class StoragePage(Holder):
             WolkButton(r, _("Open"), lambda v=v: storage.open_folder(v.mount), f9, 'ghost').pack(side='left')
         self.link_row(box, _("Mount, format, check or image a drive"), _("Open Spark Disks"),
                       lambda: self.open_app('spark-disks', "Spark Disks"), 'spark-disks')
-        box = self.section(h, _("Search"))
-        if indexing is None:
-            label(box, _("File indexing isn't set up on this system."), f10, fg=T["muted"]).pack(anchor='w')
-        else:
-            Toggle(box, _("Index files for search"), indexing, self.set_index, f9).pack(anchor='w')
-
-    def set_index(self, on):
-        self.app.bg(lambda: storage.set_indexing(on),
-                    lambda ok: self.say(_("Saved.") if ok else _("Could not change it."), not ok))
 
 
 # ──────────────────────────── Notifications ────────────────────────────
 class NotificationsPage(Holder):
     key, title = 'notifications', "Notifications"
-    index = [("Pop-up time", "seconds how long toast"), ("Pop-up position", "corner where"),
-             ("Mute notification sounds", "silence do not disturb")]
+    index = [("Pop-up time", "seconds how long toast"), ("Pop-up position", "corner where")]
 
     def refresh(self):
         self.app.bg(notifications.get, self.render)
@@ -526,9 +481,6 @@ class NotificationsPage(Holder):
         r = self.row(box, _("Appear in the"))
         Choice(r, [(_(n), c) for n, c in notifications.POSITIONS], now['position'],
                lambda v: self.save(position=v), f10, 16).pack(anchor='w')
-        box = self.section(self.holder, _("Sound"))
-        Toggle(box, _("Mute notification sounds"), bool(now['sounds_muted']),
-               lambda v: self.save(sounds_muted=v), f9).pack(anchor='w')
 
     def save(self, **kw):
         self.app.bg(lambda: notifications.save(**kw),

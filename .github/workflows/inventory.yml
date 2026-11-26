@@ -8,7 +8,7 @@ on:
         default: >-
           cups cups-browsed cups-filters ipp-usb avahi nss-mdns sane-backends sane-airscan
           sane-backends-drivers-scanners print-manager system-config-printer-libs skanpage
-          kdeconnectd kde-connect bluez pipewire wireplumber v4l-utils libratbag-ratbagd piper
+          bluez pipewire wireplumber v4l-utils libratbag-ratbagd piper
           openrgb-udev-rules input-remapper tailscale distrobox podman virt-manager libvirt
           ntfs-3g ntfsprogs exfatprogs flatpak fwupd fuse-sshfs rclone
           steam lutris gamescope mangohud gamemode

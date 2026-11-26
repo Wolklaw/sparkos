@@ -9,7 +9,7 @@ import gi
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
+from gi.repository import Gdk, Gio, Gtk  # noqa: E402
 
 from . import APP_ID, apps, config, theme  # noqa: E402
 from .dbusutil import DBusFail, export  # noqa: E402
@@ -17,7 +17,7 @@ from .launcherui import Launcher  # noqa: E402
 from .lockctl import LockControl  # noqa: E402
 from .notifyd import NotificationServer  # noqa: E402
 from .notifyui import NotificationsUI  # noqa: E402
-from .osd import OSD_SERVICE_XML, Controls, Osd, osd_service_call  # noqa: E402
+from .osd import Controls, Osd  # noqa: E402
 from .panel import Panel  # noqa: E402
 from .screensaver import ScreenSaverService  # noqa: E402
 from .tray import TrayHost  # noqa: E402
@@ -29,7 +29,6 @@ log = logging.getLogger('spark-shell')
 SHELL_XML = """
 <node>
   <interface name="dev.wolklaw.SparkShell">
-    <method name="Windows"><arg type="s" name="json" direction="in"/></method>
     <method name="Key"><arg type="s" name="name" direction="in"/></method>
     <method name="ToggleLauncher"/>
     <method name="HideLauncher"><arg type="b" name="was_open" direction="out"/></method>
@@ -41,16 +40,6 @@ SHELL_XML = """
   </interface>
 </node>
 """
-PLASMASHELL_XML = """
-<node>
-  <interface name="org.kde.PlasmaShell">
-    <method name="activateLauncherMenu"/>
-    <method name="toggleDashboard"/>
-  </interface>
-</node>
-"""
-
-
 class Shell(Gtk.Application):
     def __init__(self):
         super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.FLAGS_NONE)
@@ -75,7 +64,7 @@ class Shell(Gtk.Application):
 
         self.config = config.load()
         self.catalog = apps.Catalog()
-        self.tracker = WindowTracker(conn)
+        self.tracker = WindowTracker()
         self.tracker.on_changed = self._windows_changed
         self._window_ids = set()
         self.notifyd = NotificationServer(conn)
@@ -87,31 +76,20 @@ class Shell(Gtk.Application):
         self.launcher = Launcher(self)
 
         export(conn, '/Shell', SHELL_XML, self._shell_call)
-        # In the Spark compositor session nothing from KDE runs: the compositor binds the
-        # Super key itself (spark-shell --toggle), so the plasmashell, KDE OSD and
-        # kglobalaccel stand-ins are only for the KWin session.
-        sparkwl = 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
-        if not sparkwl:
-            export(conn, '/PlasmaShell', PLASMASHELL_XML, self._plasma_call)
-            export(conn, '/org/kde/osdService', OSD_SERVICE_XML,
-                   lambda _i, method, args, _s: osd_service_call(self.osd, method, args))
-            Gio.bus_own_name_on_connection(conn, 'org.kde.plasmashell',
-                                           Gio.BusNameOwnerFlags.DO_NOT_QUEUE, None, None)
+        # The compositor binds the keys itself: Super runs spark-shell --toggle, and the
+        # volume and brightness keys call Key on /Shell.
         Gio.bus_own_name_on_connection(conn, 'org.freedesktop.Notifications',
                                        Gio.BusNameOwnerFlags.REPLACE |
                                        Gio.BusNameOwnerFlags.ALLOW_REPLACEMENT,
                                        lambda c, n: self.notifyd.start(),
                                        lambda c, n: log.warning('lost %s', n))
-        if not sparkwl:
-            self._grab_launcher_shortcut(conn)
         self.tray.start()
         self.tracker.start()
-        if sparkwl:     # Plasma's session has KScreenLocker and its own ScreenSaver service
-            self.lockctl = LockControl()
-            self.lockctl.start()
-            self.screensaver = ScreenSaverService(conn)
-            self.screensaver.start()
-            atexit.register(self.screensaver.stop)
+        self.lockctl = LockControl()
+        self.lockctl.start()
+        self.screensaver = ScreenSaverService(conn)
+        self.screensaver.start()
+        atexit.register(self.screensaver.stop)
 
         self._watch_config()
         display.get_monitors().connect('items-changed', lambda *_: self.rebuild())
@@ -186,39 +164,8 @@ class Shell(Gtk.Application):
     def toggle_launcher(self):
         self.launcher.toggle()
 
-    # Plasma 6 binds the Meta key (and Alt+F1) as plasmashell's kglobalaccel shortcut
-    # "activate application launcher"; kglobalaccel only sends it to a client that registered
-    # that shortcut as present, which plasmashell does through KGlobalAccel. The shell does the
-    # same over D-Bus, keeping the keys saved in kglobalshortcutsrc.
-    LAUNCHER_ACTION = ['plasmashell', 'activate application launcher', 'plasmashell',
-                       'Activate Application Launcher']
-
-    def _grab_launcher_shortcut(self, conn):
-        def done(c, res, what):
-            try:
-                c.call_finish(res)
-            except GLib.Error as e:
-                log.warning('kglobalaccel %s: %s', what, e.message)
-
-        def call(method, args, what):
-            conn.call('org.kde.kglobalaccel', '/kglobalaccel', 'org.kde.KGlobalAccel', method,
-                      args, None, Gio.DBusCallFlags.NONE, 3000, None, done, what)
-        call('doRegister', GLib.Variant('(as)', (self.LAUNCHER_ACTION,)), 'register')
-        # flags 2 = SetPresent; the keys are loaded from the saved config (autoloading)
-        call('setShortcutKeys', GLib.Variant('(asa(ai)u)', (self.LAUNCHER_ACTION, [], 2)),
-             'set present')
-
-        def pressed(_c, _sender, _path, _iface, _signal, params):
-            if params.unpack()[1] == self.LAUNCHER_ACTION[1]:
-                self.toggle_launcher()
-        conn.signal_subscribe('org.kde.kglobalaccel', 'org.kde.kglobalaccel.Component',
-                              'globalShortcutPressed', '/component/plasmashell', None,
-                              Gio.DBusSignalFlags.NONE, pressed)
-
     def _shell_call(self, interface, method, args, sender):
-        if method == 'Windows':
-            self.tracker.update(args[0])
-        elif method == 'Key':
+        if method == 'Key':
             self.controls.key(args[0])
         elif method == 'ToggleLauncher':
             self.toggle_launcher()
@@ -294,9 +241,3 @@ class Shell(Gtk.Application):
             'launcher_open': self.launcher.get_visible(),
             'osd': self.osd.last,
         })
-
-    def _plasma_call(self, interface, method, args, sender):
-        # KWin's Meta key calls this on plasmashell; the Spark shell answers it
-        if method in ('activateLauncherMenu', 'toggleDashboard'):
-            GLib.idle_add(lambda: self.toggle_launcher() and False)
-        return None

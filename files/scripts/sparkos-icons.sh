@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # The SparkOS icon theme (files/sparkos-icons/SparkOS, brief: briefs/sparkos-icons.md), installed
 # as /usr/share/icons/SparkOS. It inherits Breeze Dark, so every icon it doesn't draw yet still
-# comes from Breeze. /etc/xdg/kdeglobals (files/system) makes it the default; /usr/libexec/sparkos-icons-default moves a user who still has Breeze Dark
-# written in their own settings over to it once, at sign-in.
+# comes from Breeze's artwork (the icon files only, kept by sparkos-no-kde.sh; no KDE software).
+# /etc/xdg/kdeglobals (files/system) makes it the default.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/sparkos-icons/SparkOS"
@@ -30,8 +30,4 @@ for f in apps/scalable/preferences-system.svg apps/16/preferences-system.svg pla
 done
 grep -q '^Inherits=breeze-dark' "$DEST/index.theme" || { echo "index.theme doesn't inherit breeze-dark"; exit 1; }
 grep -q '^Theme=SparkOS$' /etc/xdg/kdeglobals || { echo "/etc/xdg/kdeglobals doesn't make SparkOS the icon theme"; exit 1; }
-# the once-per-user switch comes from files/system; set its mode here so it runs even if git lost the bit
-test -f /usr/libexec/sparkos-icons-default || { echo "/usr/libexec/sparkos-icons-default is missing"; exit 1; }
-chmod 0755 /usr/libexec/sparkos-icons-default
-test -f /etc/xdg/autostart/sparkos-icons-default.desktop || { echo "the sparkos-icons-default autostart entry is missing"; exit 1; }
 echo "SparkOS icon theme installed: $(find "$DEST" -name '*.svg' | wc -l) files."
