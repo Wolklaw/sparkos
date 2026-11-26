@@ -3,8 +3,8 @@
   "slug": "spark-settings",
   "name": "Spark Settings",
   "name_fr": "Spark Settings",
-  "summary": "SparkOS's own settings: displays, sound, network, Bluetooth, appearance, mouse and keyboard, shortcuts, notifications, power, default apps, startup, users, date and language, printers and storage. KDE's modules stay only as a last resort.",
-  "summary_fr": "Les réglages de SparkOS : écrans, son, réseau, Bluetooth, apparence, souris et clavier, raccourcis, notifications, alimentation, applications par défaut, démarrage, utilisateurs, date et langue, imprimantes et stockage. Les modules de KDE ne restent qu'en dernier recours.",
+  "summary": "SparkOS's own settings: displays, sound, network, Bluetooth, appearance, mouse and keyboard, shortcuts, notifications, power, default apps, startup, users, date and language, printers and storage.",
+  "summary_fr": "Les réglages de SparkOS : écrans, son, réseau, Bluetooth, apparence, souris et clavier, raccourcis, notifications, alimentation, applications par défaut, démarrage, utilisateurs, date et langue, imprimantes et stockage.",
   "version": "1.1.0",
   "installed_size_kb": 300,
   "icon": "icons/spark-settings-256.png",
@@ -35,7 +35,7 @@
       "lsblk": "Storage",
       "kcmshell6": "More settings (KDE modules)"
     },
-    "system": "Linux with KDE Plasma; X11 or XWayland"
+    "system": "SparkOS (the Spark session)"
   },
   "install": {
     "user": "bash install.sh --user",
