@@ -162,8 +162,6 @@ class App:
         self.sidebar_order = SIDEBAR
         self.current: Optional[Page] = None
         self.items: Dict[str, tk.Label] = {}
-        self.kcm_index: List[Tuple[str, str]] = []
-        self.kcm_loaded = False
         self.search_results: List[Tuple[str, str]] = []
         self._build()
         self.root.protocol("WM_DELETE_WINDOW", self.quit)
@@ -312,10 +310,6 @@ class App:
     # --- search
     def on_search(self):
         text = self.search_var.get().strip().lower()
-        if text and not self.kcm_loaded:
-            self.kcm_loaded = True
-            from . import kcms
-            self.bg(kcms.more_settings, self._kcms_ready)
         self.hint.config(text='' if text else _("Search every setting"))
         if not text:
             self.results.pack_forget()
@@ -324,13 +318,8 @@ class App:
         self.search_results = self.find(text)
         self._show_results(text)
 
-    def _kcms_ready(self, mods):
-        self.kcm_index = [(k.name, k.id) for k in (mods or [])]
-        if self.search_var.get().strip():
-            self.on_search()
-
     def find(self, text: str) -> List[Tuple[str, str]]:
-        """(shown, target) pairs: target is a page key, or 'kcm:<module>'. Every word typed
+        """(shown, target) pairs: target is a page key. Every word typed
         must be in the setting's English or French name or its keywords."""
         words = text.lower().split()
         found: List[Tuple[str, str]] = []
@@ -342,9 +331,6 @@ class App:
                 hay = both(name) + ' ' + both(page.title) + ' ' + extra.lower()
                 if all(w in hay for w in words):
                     found.append((f"{_(page.title)} › {_(name)}", key))
-        for name, module in self.kcm_index:
-            if all(w in name.lower() + ' ' + module.lower() for w in words):
-                found.append((f"{_('More settings')} › {name}", 'kcm:' + module))
         return found[:40]
 
     def _show_results(self, text: str):
@@ -366,10 +352,6 @@ class App:
             row.bind('<ButtonRelease-1>', lambda _e, t=target: self.go(t))
 
     def go(self, target: str):
-        if target.startswith('kcm:'):
-            from . import kcms
-            kcms.open_module(target[4:])
-            return
         self.search_var.set('')
         self.open_page(target)
 

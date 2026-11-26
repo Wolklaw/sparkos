@@ -1,11 +1,11 @@
 """Date, time and language: systemd-timedated and systemd-localed over D-Bus for the zone, the
 clock and the machine's language; your own language and formats in ~/.config/spark/locale.json
-(the Spark shell reads it), also written to Plasma's plasma-localerc so Plasma follows today."""
+(the Spark shell reads it)."""
 
 import os
 from typing import List, Optional
 
-from . import core, dbus, plasma
+from . import core, dbus
 from .core import out
 
 LANGUAGES = [   # label, LANG, LANGUAGE list
@@ -15,10 +15,6 @@ LANGUAGES = [   # label, LANG, LANGUAGE list
     ("English (United Kingdom)", 'en_GB.UTF-8', 'en_GB:en'),
     ("Français (France)", 'fr_FR.UTF-8', 'fr_FR:fr'),
 ]
-# the formats (date, clock) follow a locale; these two write the clock as 24 or 12 hours
-H24 = 'fr_CA.UTF-8'
-H12 = 'en_US.UTF-8'
-
 
 TD = (dbus.SYSTEM, 'org.freedesktop.timedate1', '/org/freedesktop/timedate1',
       'org.freedesktop.timedate1')
@@ -100,22 +96,19 @@ def languages_available() -> list:
 
 
 def language_now() -> str:
-    return core.spark_load('locale').get('lang') or plasma.localerc_read('LANG') or \
-        os.environ.get('LANG', '')
+    return core.spark_load('locale').get('lang') or os.environ.get('LANG', '')
 
 
 def set_language(lang: str, language_list: str) -> bool:
-    ok = core.spark_save('locale', lang=lang, language=language_list)
-    return plasma.localerc_write(lang, language_list) and ok
+    return core.spark_save('locale', lang=lang, language=language_list)
 
 
 def clock_24h() -> bool:
     saved = core.spark_load('locale').get('clock_24h')
     if isinstance(saved, bool):
         return saved
-    return plasma.localerc_time(language_now()).startswith(('fr', 'en_GB', 'en_CA', 'de', 'es'))
+    return language_now().startswith(('fr', 'en_GB', 'en_CA', 'de', 'es'))
 
 
 def set_clock_24h(on: bool) -> bool:
-    ok = core.spark_save('locale', clock_24h=on)
-    return plasma.localerc_write_time(H24 if on else H12) and ok
+    return core.spark_save('locale', clock_24h=on)

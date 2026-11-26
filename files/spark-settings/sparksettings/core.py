@@ -6,16 +6,11 @@ import os
 import shutil
 import subprocess
 from logging.handlers import RotatingFileHandler
-from typing import List, Optional, Sequence, Tuple
+from typing import Optional, Sequence, Tuple
 
 from . import APP_SLUG
 
 log = logging.getLogger(APP_SLUG)
-
-# KDE's own tools, moved aside by the image build so Spark Settings can still open them while
-# /usr/bin/systemsettings and /usr/bin/kcmshell6 route pages here (files/scripts/spark-settings.sh)
-REAL_DIR = os.environ.get('SPARK_SETTINGS_REAL_DIR', '/usr/libexec/sparkos/kde-settings')
-
 
 def _xdg_dir(variable: str, fallback: str) -> str:
     base = os.environ.get(variable) or os.path.join(os.path.expanduser('~'), fallback)
@@ -53,40 +48,15 @@ def setup_logging() -> None:
 
 
 def reduced_motion() -> bool:
+    """True when animations are off: the "animations" switch in ~/.config/spark/appearance.json
+    (Spark Settings' Appearance page), or SPARK_SETTINGS_REDUCED_MOTION=1."""
     if os.environ.get('SPARK_SETTINGS_REDUCED_MOTION', '').lower() in ('1', 'true', 'yes'):
         return True
-    try:
-        with open(os.path.join(xdg_config_home(), 'kdeglobals'), encoding='utf-8',
-                  errors='replace') as f:
-            import re
-            m = re.search(r'^AnimationDurationFactor\s*=\s*([0-9.]+)', f.read(), re.M)
-        return bool(m) and float(m.group(1)) == 0
-    except (OSError, ValueError):
-        return False
+    return spark_load('appearance').get('animations', True) is False
 
 
 def have(tool: str) -> bool:
     return shutil.which(tool) is not None
-
-
-def kde_tool(name: str) -> Optional[str]:
-    """KDE's systemsettings or kcmshell6: the moved-aside original if the image moved it,
-    else the one on PATH."""
-    real = os.path.join(REAL_DIR, name)
-    if os.access(real, os.X_OK):
-        return real
-    found = shutil.which(name)
-    return None if found is None or is_wrapper(found) else found
-
-
-def is_wrapper(path: str) -> bool:
-    """True for the stand-ins the image puts at /usr/bin/systemsettings and /usr/bin/kcmshell6
-    (they call spark-settings --route), so a missing original can't loop back into itself."""
-    try:
-        with open(path, 'rb') as f:
-            return b'spark-settings --route' in f.read(400)
-    except OSError:
-        return False
 
 
 def run(cmd: Sequence[str], timeout: float = 20, text_in: Optional[str] = None
@@ -121,93 +91,6 @@ def spawn(cmd: Sequence[str]) -> bool:
     except OSError as exc:
         log.warning("could not start %s: %s", cmd[0], exc)
         return False
-
-
-def kwrite(file: str, group: str, key: str, value: str) -> int:
-    """Write one KDE config value (kwriteconfig6)."""
-    groups: List[str] = []
-    for g in group.split('/'):
-        groups += ['--group', g]
-    if not shutil.which('kwriteconfig6'):
-        return _kconfig_write(file, group, key, value)
-    return run(['kwriteconfig6', '--file', file, *groups, '--key', key, value])[0]
-
-
-def kread(file: str, group: str, key: str, default: str = '') -> str:
-    groups: List[str] = []
-    for g in group.split('/'):
-        groups += ['--group', g]
-    if not shutil.which('kreadconfig6'):
-        return _kconfig_read(file, group, key, default)
-    rc, text, _ = run(['kreadconfig6', '--file', file, *groups, '--key', key, '--default', default])
-    return text.strip() if rc == 0 else default
-
-
-# Without KDE (SparkOS has none) the same files are read and written directly. They are plain
-# ini files in ~/.config with [Group][Sub] headers, and some apps (and Spark Files) still read them.
-def _kconfig_path(file: str) -> str:
-    return file if os.path.isabs(file) else os.path.join(xdg_config_home(), file)
-
-
-def _kconfig_header(group: str) -> str:
-    return ''.join(f'[{g}]' for g in group.split('/'))
-
-
-def _kconfig_read(file: str, group: str, key: str, default: str) -> str:
-    want, current = _kconfig_header(group), None
-    try:
-        with open(_kconfig_path(file), encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith('['):
-                    current = line
-                elif current == want and '=' in line:
-                    k, v = line.split('=', 1)
-                    if k.strip() == key:
-                        return v.strip()
-    except OSError:
-        pass
-    return default
-
-
-def _kconfig_write(file: str, group: str, key: str, value: str) -> int:
-    path, want = _kconfig_path(file), _kconfig_header(group)
-    try:
-        with open(path, encoding='utf-8') as f:
-            lines = f.read().splitlines()
-    except FileNotFoundError:
-        lines = []
-    except OSError:
-        return 1
-    current, end, done = None, None, False
-    for i, line in enumerate(lines):
-        bare = line.strip()
-        if bare.startswith('['):
-            if current == want:
-                break
-            current = bare
-            end = i + 1 if bare == want else end
-        elif current == want and bare:
-            end = i + 1
-            if '=' in bare and bare.split('=', 1)[0].strip() == key:
-                lines[i], done = f'{key}={value}', True
-                break
-    if not done:
-        if end is None:
-            if lines and lines[-1].strip():
-                lines.append('')
-            lines += [want, f'{key}={value}']
-        else:
-            lines.insert(end, f'{key}={value}')
-    try:
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        tmp = path + '.spark-tmp'
-        with open(tmp, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(lines) + '\n')
-        os.replace(tmp, path)
-    except OSError:
-        return 1
-    return 0
 
 
 # ── Spark-side settings: ~/.config/spark/<name>.json, which the Spark shell reads too ──

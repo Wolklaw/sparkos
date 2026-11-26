@@ -1,31 +1,22 @@
-"""Mouse, touchpad and keyboard. KWin owns the input devices, so the live change goes to KWin's
-own D-Bus objects (org.kde.KWin /org/kde/KWin/InputDevice/eventN), and the saved copy goes where
-KWin reads it at the next start (plasma.libinput_write, plasma.keyboard_write). Both are also
-kept in ~/.config/spark/input.json for the Spark shell.
+"""Mouse, touchpad and keyboard. The Spark compositor owns the input devices: settings are kept in
+~/.config/spark/input.json and written to the keyboard/mouse/touchpad/cursor/idle lines of
+~/.config/spark/compositor/compositor.conf, then a SIGHUP makes it read them again. The list of
+devices comes from /proc/bus/input/devices.
 
-What KWin gives and this page doesn't set: per-device button mapping, calibration matrices,
-tablet and touchscreen mapping. Game controllers are Spark Controller's."""
+Not set here: per-device button mapping, calibration matrices, tablet and touchscreen mapping.
+Game controllers are Spark Controller's."""
 
 import os
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
-from . import core, dbus, plasma
+from . import core
 
-# In the spark-wl session the Spark compositor owns the input devices: settings go to the
-# keyboard/mouse/touchpad lines of ~/.config/spark/compositor/compositor.conf, then a SIGHUP
-# makes it read them again. Nothing here touches KWin or Plasma files there.
-SPARKWL = 'sparkwl' in os.environ.get('XDG_CURRENT_DESKTOP', '').lower().split(':')
 POINTER_DEFAULTS = {'pointerAcceleration': 0.0, 'pointerAccelerationProfileFlat': False,
                     'naturalScroll': False, 'leftHanded': False, 'tapToClick': True,
                     'disableWhileTyping': True}
 
-BUS = dbus.SESSION
-KWIN = 'org.kde.KWin'
-DEV_IFACE = 'org.kde.KWin.InputDevice'
-MANAGER = ('org.kde.KWin', '/org/kde/KWin/InputDevice', 'org.kde.KWin.InputDeviceManager')
-
-# (property on the KWin device, kcminputrc key, kind)
+# (property, saved key, kind)
 POINTER_PROPS = (('pointerAcceleration', 'PointerAcceleration', 'd'),
                  ('pointerAccelerationProfileFlat', 'PointerAccelerationProfileFlat', 'b'),
                  ('naturalScroll', 'NaturalScroll', 'b'), ('leftHanded', 'LeftHanded', 'b'))
@@ -42,12 +33,6 @@ class Device:
         self.props = props
         self.name = str(props.get('name', sysname))
         self.touchpad = bool(props.get('touchpad'))
-        self.vendor = int(props.get('vendor', 0))
-        self.product = int(props.get('product', 0))
-
-    @property
-    def path(self) -> str:
-        return f'/org/kde/KWin/InputDevice/{self.sysname}'
 
     def supports(self, prop: str) -> bool:
         key = SUPPORT.get(prop)
@@ -58,15 +43,7 @@ class Device:
                 if self.supports(p[0])]
 
 
-def _plain(v: Any) -> Any:
-    if isinstance(v, dict) and 'data' in v and 'type' in v:
-        return _plain(v['data'])
-    if isinstance(v, dict):
-        return {k: _plain(x) for k, x in v.items()}
-    return v
-
-
-# ── spark-wl: /proc/bus/input/devices for the list, compositor.conf for the settings ──
+# ── /proc/bus/input/devices for the list, compositor.conf for the settings ──
 def _proc_pointers() -> Tuple[List[str], List[str]]:
     """(mouse names, touchpad names) from the kernel's input device list."""
     mice, pads = [], []
@@ -87,7 +64,7 @@ def _proc_pointers() -> Tuple[List[str], List[str]]:
     return dedup(mice), dedup(pads)
 
 
-def _wl_devices() -> List[Device]:
+def _pointer_devices() -> List[Device]:
     """One entry for all mice and one for all touchpads: the compositor sets them by kind."""
     mice, pads = _proc_pointers()
     saved = core.spark_load('input')
@@ -195,56 +172,24 @@ def _compositor_reload() -> bool:
 
 
 def devices() -> List[Device]:
-    """The real mice and touchpads KWin knows (keyboards, buttons and virtual devices left out)."""
-    if SPARKWL:
-        return _wl_devices()
-    v = _plain(dbus.get(BUS, *MANAGER[:2], MANAGER[2], 'devicesSysNames'))
-    found = []
-    for sysname in sorted(v if isinstance(v, list) else [], key=lambda s: int(re.sub(r'\D', '', s) or 0)):
-        ok, props, _ = dbus.call(BUS, KWIN, f'/org/kde/KWin/InputDevice/{sysname}',
-                                 'org.freedesktop.DBus.Properties', 'GetAll', 's', DEV_IFACE)
-        props = _plain(props) if ok else None
-        if not isinstance(props, dict) or not props.get('pointer') or props.get('isVirtual'):
-            continue
-        found.append(Device(sysname, props))
-    # one mouse can show as several event nodes; keep the first of each name
-    seen, unique = set(), []
-    for d in found:
-        if d.name not in seen:
-            seen.add(d.name)
-            unique.append(d)
-    return unique
+    """One mouse entry and one touchpad entry, when the kernel lists such a device."""
+    return _pointer_devices()
 
 
 def set_property(dev: Device, prop: str, kind: str, value: Any) -> bool:
-    if SPARKWL:
-        dev.props[prop] = value
-        return True
-    text = 'true' if value is True else 'false' if value is False else repr(float(value)) \
-        if kind == 'd' else str(value)
-    ok, _err = dbus.set_(BUS, KWIN, dev.path, DEV_IFACE, prop, kind, text)
-    if ok:
-        dev.props[prop] = value
-    return ok
+    dev.props[prop] = value
+    return True
 
 
 def save(dev: Device) -> bool:
-    """Write the device's current settings where KWin reads them at start, and for Spark."""
-    values: Dict[str, str] = {}
+    """Keep the device's current settings in input.json and hand them to the compositor."""
     mine: Dict[str, Any] = {}
-    for prop, key, kind in dev.settings():
+    for prop, _key, _kind in dev.settings():
         v = dev.props.get(prop)
-        if v is None:
-            continue
-        mine[prop] = v
-        values[key] = ('true' if v else 'false') if kind == 'b' else f"{float(v):.3f}"
-    if SPARKWL:
-        core.spark_save('input', **{dev.sysname: mine})
-        return _compositor_write()
-    saved = core.spark_load('input').get('devices', {})
-    saved[f'{dev.vendor}:{dev.product}:{dev.name}'] = mine
-    core.spark_save('input', devices=saved)
-    return plasma.libinput_write(dev.vendor, dev.product, dev.name, values)
+        if v is not None:
+            mine[prop] = v
+    core.spark_save('input', **{dev.sysname: mine})
+    return _compositor_write()
 
 
 # ── keyboard ──
@@ -272,27 +217,16 @@ def layouts_available() -> List[Tuple[str, str]]:
 
 
 def keyboard_get() -> Dict[str, Any]:
-    saved = core.spark_load('input').get('keyboard', {})
-    if SPARKWL:      # no KDE files to fall back to; the compositor's default is US
-        layouts = (saved.get('layouts') or 'us').split(',')
-        variants = (saved.get('variants') or '').split(',')
-        variants += [''] * (len(layouts) - len(variants))
-        return {'layouts': [l for l in layouts if l] or ['us'], 'variants': variants,
-                'delay': int(saved.get('delay') or 600), 'rate': int(saved.get('rate') or 25)}
-    layouts = (saved.get('layouts') or core.kread('kxkbrc', 'Layout', 'LayoutList', 'us')).split(',')
-    variants = (saved.get('variants') if 'variants' in saved else
-                core.kread('kxkbrc', 'Layout', 'VariantList', '')).split(',')
+    saved = core.spark_load('input').get('keyboard', {})     # the compositor's default is US
+    layouts = (saved.get('layouts') or 'us').split(',')
+    variants = (saved.get('variants') or '').split(',')
     variants += [''] * (len(layouts) - len(variants))
-    delay = saved.get('delay') or int(core.kread('kcminputrc', 'Keyboard', 'RepeatDelay', '600') or 600)
-    rate = saved.get('rate') or int(core.kread('kcminputrc', 'Keyboard', 'RepeatRate', '25') or 25)
     return {'layouts': [l for l in layouts if l] or ['us'], 'variants': variants,
-            'delay': int(delay), 'rate': int(rate)}
+            'delay': int(saved.get('delay') or 600), 'rate': int(saved.get('rate') or 25)}
 
 
 def keyboard_set(layouts: List[str], variants: Optional[List[str]], delay: int, rate: int) -> bool:
     variants = (variants or []) + [''] * (len(layouts) - len(variants or []))
     core.spark_save('input', keyboard={'layouts': ','.join(layouts), 'variants': ','.join(variants[:len(layouts)]),
                                        'delay': delay, 'rate': rate})
-    if SPARKWL:
-        return _compositor_write()
-    return plasma.keyboard_write(','.join(layouts), ','.join(variants[:len(layouts)]), delay, rate)
+    return _compositor_write()

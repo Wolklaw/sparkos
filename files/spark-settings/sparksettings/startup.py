@@ -48,7 +48,7 @@ def items() -> List[Item]:
             hidden = e.get('Hidden', '').lower() == 'true' or \
                 e.get('X-GNOME-Autostart-enabled', '').lower() == 'false'
             shown = e.get('OnlyShowIn')
-            if shown and not {'KDE', 'Spark'} & set(shown.split(';')):
+            if shown and not {'Spark'} & set(shown.split(';')):
                 continue
             found[file] = Item(file, e.get('Name[fr]') if os.environ.get('SPARK_LANG') == 'fr' and
                                e.get('Name[fr]') else e.get('Name', file[:-8]), not hidden,

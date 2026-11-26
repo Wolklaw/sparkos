@@ -31,9 +31,7 @@
       "xdg-mime": "Default apps",
       "timedatectl": "Time zone",
       "lpstat": "Printers",
-      "kwriteconfig6": "Saving the Plasma session's side of a setting",
-      "lsblk": "Storage",
-      "kcmshell6": "More settings (KDE modules)"
+      "lsblk": "Storage"
     },
     "system": "SparkOS (the Spark session)"
   },

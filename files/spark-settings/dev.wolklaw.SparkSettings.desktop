@@ -13,7 +13,7 @@ Categories=Settings;System;
 Keywords=settings;preferences;system settings;display;monitor;resolution;sound;audio;network;wifi;bluetooth;printer;power;time;language;default apps;startup;paramètres;réglages;préférences;écran;son;réseau;imprimante;heure;langue;
 Keywords[fr]=paramètres;réglages;préférences;écran;moniteur;résolution;son;audio;réseau;wifi;bluetooth;imprimante;alimentation;heure;langue;applications par défaut;démarrage;
 StartupWMClass=SparkSettings
-Actions=displays;sound;network;kde;
+Actions=displays;sound;network;
 
 [Desktop Action displays]
 Name=Displays
@@ -29,8 +29,3 @@ Exec=spark-settings --page sound
 Name=Network
 Name[fr]=Réseau
 Exec=spark-settings --page network
-
-[Desktop Action kde]
-Name=KDE System Settings
-Name[fr]=Paramètres système de KDE
-Exec=spark-settings --kde

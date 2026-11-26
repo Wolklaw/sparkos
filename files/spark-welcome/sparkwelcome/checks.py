@@ -312,8 +312,8 @@ def test_sound_cmd() -> Optional[List[str]]:
 
 
 SETTINGS_PAGES = {
-    'sound_settings': 'kcm_pulseaudio',
-    'add_printer': 'kcm_printer_manager',
-    'network_settings': 'kcm_networkmanagement',
-    'bluetooth_settings': 'kcm_bluetooth',
+    'sound_settings': 'sound',
+    'add_printer': 'printers',
+    'network_settings': 'network',
+    'bluetooth_settings': 'bluetooth',
 }

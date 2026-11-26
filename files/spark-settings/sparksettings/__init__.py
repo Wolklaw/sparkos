@@ -1,7 +1,6 @@
-"""Spark Settings: SparkOS's own settings app, in place of KDE's System Settings. One window
-with a sidebar of pages and a search across every setting. Each page changes things through
-the system's own tools (wlr-randr, wpctl, nmcli, bluetoothctl, ...); whatever it doesn't
-cover yet opens KDE's own module (kcmshell6) from "More settings", so nothing is lost.
+"""Spark Settings: SparkOS's own settings app. One window with a sidebar of pages and a search
+across every setting. Each page changes things through the system's own tools (wlr-randr,
+wpctl, nmcli, bluetoothctl, ...) or the Spark compositor's and shell's settings files.
 """
 
 APP_NAME = "Spark Settings"
