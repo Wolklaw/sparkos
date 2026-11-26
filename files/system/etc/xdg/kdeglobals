@@ -1,20 +1,12 @@
-# SparkOS system-wide KDE defaults.
+# SparkOS's colours, fonts, icons and terminal, in KDE's format. The Spark apps read it, Spark
+# Settings writes the user's copy, and Qt and KDE apps from Flathub see it too (read only).
 # A user's own settings in ~/.config/kdeglobals still win.
 [KDE]
-LookAndFeelPackage=dev.wolklaw.sparkos.desktop
-# The Dark Mode switch in the Brightness & Color popup (and automatic day/night switching)
-# swaps between these two. SparkOS has one look, so both point at it; otherwise the switch
-# jumps to Breeze Dark and replaces the SparkOS colours, icons and splash.
-DefaultDarkLookAndFeel=dev.wolklaw.sparkos.desktop
-DefaultLightLookAndFeel=dev.wolklaw.sparkos.desktop
 SingleClick=false
 widgetStyle=Breeze
 
-[KDE Control Module Restrictions][$i]
-kcm_updates=false
-
-# Hide KDE's "Get New Stuff" (themes and add-ons downloaded from store.kde.org inside Settings
-# and apps). A user can turn it back on with ghns=true in ~/.config/kdeglobals.
+# Hide KDE's "Get New Stuff" (themes and add-ons downloaded from store.kde.org) in KDE apps from
+# Flathub. A user can turn it back on with ghns=true in ~/.config/kdeglobals.
 [KDE Action Restrictions]
 ghns=false
 
@@ -27,8 +19,8 @@ menuFont=Inter,10,-1,5,50,0,0,0,0,0
 toolBarFont=Inter,9,-1,5,50,0,0,0,0,0
 smallestReadableFont=Inter,8,-1,5,50,0,0,0,0,0
 fixed=Cascadia Mono,10,-1,5,50,0,0,0,0,0
-# Spark Terminal is the terminal (files/scripts/spark-terminal.sh): Dolphin's "Open Terminal
-# Here" and apps with Terminal=true start it
+# Spark Terminal is the terminal (files/scripts/spark-terminal.sh): Spark Settings' Default apps
+# page changes it, and apps with Terminal=true start it
 TerminalApplication=spark-terminal
 TerminalService=dev.wolklaw.SparkTerminal.desktop
 

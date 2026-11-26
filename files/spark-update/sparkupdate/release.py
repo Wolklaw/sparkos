@@ -174,10 +174,8 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
     if kernel:
         platform.append({'id': 'kernel', 'name': 'Linux kernel', 'version': kernel})
     if use_rpm:
-        found = _rpm_versions(root, {'mesa': 'mesa-dri-drivers', 'plasma': 'plasma-workspace',
-                                     'flatpak': 'flatpak'})
-        for key, name in (('mesa', 'Mesa graphics drivers'), ('plasma', 'KDE Plasma'),
-                          ('flatpak', 'Flatpak')):
+        found = _rpm_versions(root, {'mesa': 'mesa-dri-drivers', 'flatpak': 'flatpak'})
+        for key, name in (('mesa', 'Mesa graphics drivers'), ('flatpak', 'Flatpak')):
             if key in found:
                 platform.append({'id': key, 'name': name, 'version': found[key]})
     data = {

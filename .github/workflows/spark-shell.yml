@@ -2,8 +2,8 @@ name: spark-shell
 # Spark Shell and the Spark login session (files/spark-shell).
 #
 # fedora:  unit tests (config, tray menu parsing, the notification model, window list, OSD
-#          parsers), the launcher search vectors on the Python copy and on the widget's
-#          JavaScript, and the install layout (install.sh --stage, then --uninstall).
+#          parsers), the launcher search vectors, and the install layout (install.sh --stage,
+#          then --uninstall).
 # sparkos: inside the published SparkOS image, boots the whole session headless: the Spark
 #          compositor on three headless outputs and the shell. session_check.py then checks the
 #          panels, wallpapers, tray (a fake StatusNotifierItem), the notification server (a
@@ -15,15 +15,11 @@ on:
   push:
     paths:
       - "files/spark-shell/**"
-      - "files/spark-launcher/launcher_logic.py"
-      - "files/spark-launcher/tests/**"
       - "files/scripts/spark-shell.sh"
       - ".github/workflows/spark-shell.yml"
   pull_request:
     paths:
       - "files/spark-shell/**"
-      - "files/spark-launcher/launcher_logic.py"
-      - "files/spark-launcher/tests/**"
       - "files/scripts/spark-shell.sh"
       - ".github/workflows/spark-shell.yml"
   workflow_dispatch:
@@ -36,29 +32,26 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Python, GTK 4, Node
-        run: dnf -y install --setopt=install_weak_deps=False python3 python3-gobject python3-cairo gobject-introspection cairo-gobject gtk4 nodejs
+      - name: Install Python, GTK 4
+        run: dnf -y install --setopt=install_weak_deps=False python3 python3-gobject python3-cairo gobject-introspection cairo-gobject gtk4
 
       - name: Unit tests
         run: |
           env -u DISPLAY -u WAYLAND_DISPLAY python3 -m unittest discover -v -s files/spark-shell/tests -p 'test_units.py'
 
-      - name: Launcher search, Python copy and JavaScript copy
-        run: |
-          python3 -m unittest discover -v -s files/spark-launcher/tests -p 'test_logic.py'
-          node files/spark-launcher/tests/check_js.mjs
+      - name: Launcher search
+        run: python3 -m unittest discover -v -s files/spark-shell/tests -p 'test_logic.py'
 
       - name: Install layout
         run: |
           d=$(mktemp -d)
           bash files/spark-shell/install.sh --stage "$d" --no-test
-          test -x "$d/usr/bin/spark-session"
-          test -f "$d/usr/share/wayland-sessions/spark.desktop"
-          grep -q '^Exec=.*spark-session' "$d/usr/share/wayland-sessions/spark.desktop"
+          test -x "$d/usr/libexec/spark-session-run"
+          test -f "$d/usr/lib/systemd/user/spark-wl-workspace.target"
+          test -f "$d/usr/lib/spark-shell/launcher_logic.py"
           env -u DISPLAY -u WAYLAND_DISPLAY python3 "$d/usr/lib/spark-shell/spark_shell.py" --self-test
           bash files/spark-shell/install.sh --stage "$d" --uninstall
           test -z "$(find "$d" -type f)"
-          sh -n files/spark-shell/session/spark-session
           sh -n files/spark-shell/session/spark-session-run
           sh -n files/spark-shell/session/spark-session-polkit
 

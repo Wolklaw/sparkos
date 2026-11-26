@@ -32,19 +32,15 @@ jobs:
 
       - name: Install (the image build step)
         run: |
-          # stand-ins for Dolphin's FileManager1 activation file and menu entry (the real ones
-          # are in the SparkOS image; installing Dolphin here would pull in half of KDE), so the takeover
-          # is tested too
-          mkdir -p /usr/share/dbus-1/services /usr/share/applications
+          # a stand-in for another app's FileManager1 activation file (Dolphin's, say, from a
+          # package that pulls it in), so the takeover is tested too
+          mkdir -p /usr/share/dbus-1/services
           printf '[D-BUS Service]\nName=org.freedesktop.FileManager1\nExec=/usr/bin/dolphin --daemon\n' \
             > /usr/share/dbus-1/services/org.kde.dolphin.FileManager1.service
-          printf '[Desktop Entry]\nType=Application\nName=Dolphin\nExec=dolphin %%u\nMimeType=inode/directory;\n' \
-            > /usr/share/applications/org.kde.dolphin.desktop
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-files.sh
           test ! -e /usr/share/dbus-1/services/org.kde.dolphin.FileManager1.service
           test "$(grep -lx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/*.service)" = \
             /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service
-          grep -q '^NoDisplay=true' /usr/share/applications/org.kde.dolphin.desktop
 
       - name: Self-test
         run: spark-files --self-test

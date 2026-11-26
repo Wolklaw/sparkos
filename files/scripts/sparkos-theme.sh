@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
-# The SparkOS look (Phase 3), everywhere from power-on to the desktop:
-#   boot splash (Plymouth), sign-in screen wallpaper, the splash after sign-in, the desktop
-#   (colours, fonts, top bar and floating dock, wallpaper), lock screen, the terminal colours, About This
-#   System and fastfetch.
-# Static files (colour scheme, look-and-feel package, Plymouth theme, /etc/xdg defaults) come
-# from files/system. This script renders the images from the SparkOS bot (files/sparkos-theme,
-# a copy of branding/sparkos-bot.svg), installs the fonts from files/sparkos-theme/fonts, and rebuilds the initramfs so the
-# boot splash is in it.
+# The SparkOS look (Phase 3), from power-on to the desktop: the boot splash (Plymouth), the
+# fonts, the logo icon, the wallpaper and os-release's logo and links.
+# Static files (colour scheme, Plymouth theme, /etc/xdg defaults) come from files/system. This
+# script renders the images from the SparkOS bot (files/sparkos-theme, a copy of
+# branding/sparkos-bot.svg; bot.gif there is its animation, from tools/make-splash-animation.py),
+# installs the fonts from files/sparkos-theme/fonts, and rebuilds the initramfs so the boot splash
+# is in it.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/sparkos-theme"
@@ -63,14 +62,6 @@ magick -size 3840x2160 xc:'#0a0919' \
 magick "$WALL/3840x2160.png" -resize 1920x1080 "$WALL/1920x1080.png"
 magick "$WALL/3840x2160.png" -resize 400x225 /usr/share/wallpapers/SparkOS/contents/screenshot.png
 
-# --- look-and-feel previews and the splash image
-LNF=/usr/share/plasma/look-and-feel/dev.wolklaw.sparkos.desktop/contents
-mkdir -p "$LNF/previews" "$LNF/splash/images"
-magick "$WALL/3840x2160.png" -resize 640x360 "$LNF/previews/preview.png"
-magick "$WALL/3840x2160.png" -resize 1920x1080 -quality 90 "$LNF/previews/fullscreenpreview.jpg"
-render "$BOT" 560 "$LNF/splash/images/bot.png"
-cp "$LNF/splash/images/bot.png" "$LNF/previews/splash.png"
-
 # --- boot splash (Plymouth): the bot hammering the anvil over the spaced wordmark, with the
 # magenta/cyan slip, on every screen
 PLY=/usr/share/plymouth/themes/sparkos
@@ -85,10 +76,10 @@ magick \
   -background none -layers merge +repage "$WORK/wordmark.png"
 # Plymouth's two-step plugin loops "throbber" frames and always plays the whole set in 2.0 s,
 # however many frames there are (THROBBER_DURATION in plymouth's ply-throbber.c). So one loop is
-# one hammer blow from the sign-in splash animation (bot.gif, 25 fps): the hammer held up for
+# one hammer blow from the bot's animation (bot.gif, 25 fps): the hammer held up for
 # 21 frames, then GIF frames 25-53 (raised, the blow with its sparks, the rebound, raised again).
-# 50 frames x 0.04 s = 2.0 s, the same speed as the sign-in splash.
-magick "$LNF/splash/images/bot.gif" -coalesce -resize 240x240 "$WORK/gif-%03d.png"
+# 50 frames x 0.04 s = 2.0 s, the GIF's own speed.
+magick "$SRC/bot.gif" -coalesce -resize 240x240 "$WORK/gif-%03d.png"
 test -s "$WORK/gif-053.png" || { echo "bot.gif is shorter than the boot splash loop needs"; exit 1; }
 n=0
 for i in $(printf '25 %.0s' $(seq 21)) $(seq 25 53); do
@@ -147,15 +138,9 @@ rm -rf "$WORK"
 # --- check every piece is in place
 for f in \
   /usr/share/color-schemes/SparkOS.colors \
-  /usr/share/plasma/look-and-feel/dev.wolklaw.sparkos.desktop/metadata.json \
-  "$LNF/layouts/org.kde.plasma.desktop-layout.js" \
-  "$LNF/splash/Splash.qml" "$LNF/splash/images/bot.png" "$LNF/splash/images/bot.gif" "$LNF/previews/preview.png" \
   "$WALL/3840x2160.png" /usr/share/wallpapers/SparkOS/metadata.json \
   "$PLY/sparkos.plymouth" "$PLY/throbber-0001.png" "$PLY/throbber-0050.png" \
-  /usr/share/icons/hicolor/256x256/apps/sparkos.png /usr/share/pixmaps/sparkos-logo.png \
-  /usr/share/konsole/SparkOS.colorscheme; do
+  /usr/share/icons/hicolor/256x256/apps/sparkos.png /usr/share/pixmaps/sparkos-logo.png; do
   test -s "$f" || { echo "missing $f"; exit 1; }
 done
-grep -q '^LookAndFeelPackage=dev.wolklaw.sparkos.desktop$' /etc/xdg/kdeglobals
-grep -q '^Theme=dev.wolklaw.sparkos.desktop$' /etc/xdg/ksplashrc
 echo "SparkOS look installed (kernel $KVER)."

@@ -1,8 +1,8 @@
 #!/bin/sh
-# Runs inside the compositor (KWin starts it and ends the session when it exits). Brings up
-# what Plasma's startup would: the environment for D-Bus activation and systemd, the helper
-# services (KDE daemon, portal, polkit agent, powerdevil, xembed tray proxy) and then the Spark
-# shell.
+# Runs inside the Spark compositor (spark-wl-startup starts it; the session ends when it exits).
+# Brings up the environment for D-Bus activation and systemd, the helper services
+# (spark-wl-workspace.target: portal, polkit agent, xembed tray proxy, autostart) and then the
+# Spark shell.
 # The shell is restarted if it crashes; leaving it on purpose (Quit) ends the session.
 
 VARS="WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP \
@@ -19,8 +19,7 @@ elif [ -z "$SPARK_SESSION_NO_SYSTEMD" ] && [ "$(systemctl --user is-system-runni
     use_systemd=1
 fi
 
-# the experimental compositor session (spark-wl-startup) brings up its own target, without KDE
-target=${SPARK_SESSION_TARGET:-spark-workspace.target}
+target=${SPARK_SESSION_TARGET:-spark-wl-workspace.target}
 
 pids=""
 if [ "$use_systemd" = 1 ]; then
@@ -28,7 +27,7 @@ if [ "$use_systemd" = 1 ]; then
     systemctl --user start "$target"
 else
     # no user systemd (a test container): start the helpers ourselves
-    for helper in /usr/bin/kded6 /usr/libexec/spark-session-polkit; do
+    for helper in /usr/libexec/spark-session-polkit; do
         if [ -x "$helper" ]; then
             "$helper" >/dev/null 2>&1 &
             pids="$pids $!"

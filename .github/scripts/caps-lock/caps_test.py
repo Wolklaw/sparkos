@@ -9,7 +9,7 @@
 
   caps_test.py vm --seconds N
       In the boot-test VM: watches the copy of the VM's PS/2 keyboard that sparkos-capslock made,
-      and the keyboard's Caps Lock light (set by the desktop, KWin), while the runner presses
+      and the keyboard's Caps Lock light (set by the desktop's compositor), while the runner presses
       Caps Lock twice through QEMU and holds it 1.5 s each time. The light must change while the
       key is still held, both times: on at the first press, off at the second.
 """
@@ -316,7 +316,7 @@ def vm_test(seconds):
                   f"(set by the desktop, {len(held)} samples between 0.4 s and 1.2 s after the press)")
     if all(on == initial for _, on in leds):
         print("   note: the light never changed, so nothing on the desktop side set it "
-              "(no KWin running, or it doesn't reach the keyboard)")
+              "(no compositor running, or it doesn't reach the keyboard)")
 
 
 def main():

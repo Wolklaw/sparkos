@@ -9,7 +9,7 @@
 #   2. rpm-ostreed's and bootc's own automatic updates checked to stay off.
 #      (bootc-fetch-apply-updates would reboot.)
 #   3. /usr/share/sparkos/release.json: what's in this image (Soot, FreeSuite, the Spark apps,
-#      kernel, Mesa, Plasma) and the release notes (files/whats-new.json), which the window
+#      kernel, Mesa) and the release notes (files/whats-new.json), which the window
 #      compares between versions.
 # The self-test then fails the build unless spark-update.timer is on, the notification timer
 # is on, and the image name is this image's own (ghcr.io/wolklaw/sparkos).

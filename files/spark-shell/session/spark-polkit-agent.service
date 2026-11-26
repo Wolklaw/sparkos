@@ -1,7 +1,7 @@
 [Unit]
 Description=Spark polkit agent
 PartOf=graphical-session.target
-After=spark-workspace.target spark-wl-workspace.target
+After=spark-wl-workspace.target
 # it is restarted until the session id reaches the user manager (see spark-wl-startup)
 StartLimitIntervalSec=0
 

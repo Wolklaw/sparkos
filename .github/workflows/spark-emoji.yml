@@ -1,12 +1,11 @@
 name: spark-emoji
-# Spark Emoji, the SparkOS emoji and symbol picker (replaces Plasma's Emoji Selector).
+# Spark Emoji, the SparkOS emoji and symbol picker.
 #
 # fedora:  runs the image build step's install in a plain Fedora container, then the self-test,
 #          the unit tests, the portal tests (a fake XDG portal on a private D-Bus) and the window
 #          tests under Xvfb as a normal user, in English and French, with a screenshot.
 # sparkos: inside the published SparkOS image, runs files/scripts/spark-emoji.sh the way the
-#          image build does (installs the app, gives it Meta+., takes the key from Plasma's Emoji
-#          Selector), then the same tests on the image's own Python and GTK, and a per-user
+#          image build does (installs the app and gives it Meta+.), then the same tests on the image's own Python and GTK, and a per-user
 #          install and uninstall.
 on:
   push:

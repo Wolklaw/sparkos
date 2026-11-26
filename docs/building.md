@@ -24,13 +24,13 @@ builds ran side by side and were compared (see [Before the switch](#before-the-s
 |---|---|---|
 | 0 | `FROM … AS capslock-build` | compiles [sparkos-capslock](../files/sparkos-capslock) (Caps Lock toggles when pressed) on the same base with `gcc` and `libevdev-devel`; only the program goes into the image, in step 4 |
 | 0b | `FROM … AS kmods-build` | builds the out-of-tree kernel modules ([kmods.sh](../build_files/kmods.sh): Xbox wireless, racing wheels, zenergy, ryzen_smu, v4l2loopback, vhba) against the base's kernel, from pinned commits; for the Nvidia image also Nvidia's open modules from RPM Fusion's akmod ([nvidia.sh](../build_files/nvidia.sh)) |
-| 1 | `FROM quay.io/fedora/fedora-kinoite@sha256:…` | the base, Fedora Kinoite 45: the workflow resolves the Containerfile's `BASE_IMAGE` tag to a digest when the build starts and records it in the labels. Until 2026-11-23 it was Bazzite ([fedora-base.md](fedora-base.md)) |
+| 1 | `FROM quay.io/fedora-ostree-desktops/base-atomic@sha256:…` | the base, Fedora base-atomic 45 (Fedora's atomic desktop image without a desktop): the workflow resolves the Containerfile's `BASE_IMAGE` tag to a digest when the build starts and records it in the labels. Until 2026-11-26 it was Fedora Kinoite, until 2026-11-23 Bazzite ([fedora-base.md](fedora-base.md)) |
 | 2 | `COPY cosign.pub` | the public key updates are checked against, as `/etc/pki/containers/sparkos.pub` (named after the image) |
 | 3 | [pre-build.sh](../build_files/pre-build.sh) | makes `/opt` a link to `/usr/lib/opt` during the build, so things installed in `/opt` land in the image |
 | 4 | [copy-files.sh](../build_files/copy-files.sh) | copies `files/system/*` into the image root, then `sparkos-capslock` from step 0 to `/usr/libexec` |
-| 5 | [packages.sh](../build_files/packages.sh) | installs what Kinoite lacks for gaming and everyday use (printing, scanning, the gaming layer, tools, fonts), RPM Fusion's full FFmpeg and Mesa video drivers, umu-launcher from Terra, and SparkOS's own list (ROCm only in the AMD image); the script says why each one is there |
+| 5 | [packages.sh](../build_files/packages.sh) | installs what base-atomic lacks for a desktop, gaming and everyday use (printing, scanning, the gaming layer, tools, fonts), RPM Fusion's full FFmpeg and Mesa video drivers, umu-launcher from Terra, and SparkOS's own list (ROCm only in the AMD image); the script says why each one is there |
 | 5b | [kmods.sh](../build_files/kmods.sh) `install` | puts the modules from step 0b in `/usr/lib/modules/<kernel>/extra` with their firmware and udev rules; stops the build if the kernel changed in between; the Nvidia image also gets the driver's userspace of the same version, the nouveau blacklist and `nvidia-drm.modeset=1` |
-| 6 | [run-scripts.sh](../build_files/run-scripts.sh) | runs SparkOS's scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files`: identity, removing Kinoite's apps, the gaming device rules and kernel settings, tuning, Homebrew's shell setup, the parity tools, then Soot, FreeSuite, the Spark apps and the theme |
+| 6 | [run-scripts.sh](../build_files/run-scripts.sh) | runs SparkOS's scripts in `files/scripts`, in order, with `CONFIG_DIRECTORY=/tmp/files`: identity, removing the base's few third-party apps, the gaming device rules and kernel settings, tuning, Homebrew's shell setup, the parity tools, then Soot, FreeSuite, the Spark apps and the theme |
 | 7 | [flathub.sh](../build_files/flathub.sh) | two services, `system-flatpak-setup` and `user-flatpak-setup`, that add Flathub at boot and at login ([flathub-setup](../build_files/flathub-setup), 40 lines of shell); installs no apps |
 | 8 | [signing.sh](../build_files/signing.sh) | the `sigstoreSigned` entry for `ghcr.io/wolklaw/sparkos` in `/etc/containers/policy.json`, and `registries.d/Wolklaw-sparkos.yaml`; and `/usr/lib/bootc/install/20-sparkos.toml`, so installs deploy the image as signed |
 | 9 | [post-build.sh](../build_files/post-build.sh) | tmpfiles links for `/opt/*`, empties `/tmp` and `/var`, makes `/opt` the usual link into `/var`, hard-links the rpm database for rpm-ostree |
@@ -117,7 +117,7 @@ sudo podman build --build-arg GPU=nvidia --build-arg IMAGE_NAME=sparkos-nvidia -
 ```
 
 Building as root is simplest (the steps install packages and set file ownership). It downloads the
-Fedora Kinoite base and needs about 40 GB free. Check the result with
+Fedora base-atomic image and needs about 40 GB free. Check the result with
 `sudo podman run --rm -it localhost/sparkos:test bash`, or install it in a VM with
 [vm-test.md](vm-test.md).
 

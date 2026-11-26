@@ -1,4 +1,11 @@
-# SparkOS on Fedora Kinoite
+# SparkOS on Fedora
+
+**Since 2026-11-26, the base is `quay.io/fedora-ostree-desktops/base-atomic:45`**, Fedora's atomic
+image with no desktop, instead of Fedora Kinoite: Plasma is gone and the Spark session is the only
+one. Most of this page was written for the move from Bazzite to Kinoite and describes that; what
+it says about the gaming layer, packages.sh and kmods.sh still holds. Where it says Kinoite has
+something, base-atomic may not: [packages.sh](../build_files/packages.sh) installs what SparkOS
+needs from it.
 
 **Since 2026-11-23, SparkOS is built only on Fedora Kinoite 45.** The Bazzite build is gone:
 one image, `ghcr.io/wolklaw/sparkos`, from the [Containerfile](../Containerfile)
@@ -436,7 +443,6 @@ before this).
 | snapper, btrfs-assistant, btrfsmaintenance, bees | Fedora's packages, off as on Bazzite | On the owner's PC snapper has no configuration and the btrfs timers are off; they are there to turn on. |
 | gnome-disk-utility | Fedora's package | Disks: formatting, SMART data, disk images. |
 | greenboot, greenboot-default-health-checks | Fedora's packages, with Bazzite's settings (`files/fedora-parity/greenboot.conf`); both services on | Running on the owner's PC: after an update, three failed boots in a row go back to the previous system. The DNS and update-server checks are off, as on Bazzite, so a PC that boots offline isn't a failed boot. |
-| cockpit-system, -files, -networkmanager, -podman, -storaged | Fedora's packages | Cockpit's web admin pages, used through Cockpit's client or container. No web server is installed, as on Bazzite. |
 | pam-u2f, pamu2fcfg, pam_yubico, yubikey-manager | Fedora's packages | Sign in or `sudo` with a YubiKey or another U2F key. |
 | xdg-native-messaging-proxy, flatpak-spawn, dbus-x11, gvfs, wsdd, openxr, libFAudio, libnsl, libxcrypt-compat, bluez-cups (`terra-bluez-cups`) | Fedora's packages | Browser extensions that talk to apps (Flatpak browsers), `dbus-launch`, trash and network folders in GTK apps, Windows network discovery, the OpenXR loader for VR, older games and Linux programs, Bluetooth printers. |
 | alsa-firmware, alsa-tools-firmware (with fxload) | Fedora's packages | Firmware for sound cards that load it. `alsa-sof-firmware` (Intel SOF) was already in Kinoite. |

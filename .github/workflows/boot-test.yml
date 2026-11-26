@@ -9,8 +9,8 @@ name: boot-test
 # Update test (by hand, "update_from"): installs that tag, updates it to the tested one the way
 # a PC does (signed rebase, reboot), then runs the checks on the updated system.
 #
-# SparkOS is built on Fedora Kinoite (since 2026-11-23; on Bazzite before that), with KDE taken
-# out at the end of the build (files/scripts/sparkos-no-kde.sh): no Plasma, KWin or KDE apps.
+# SparkOS is built on Fedora's base-atomic (since 2026-11-26; Fedora Kinoite and Bazzite before
+# that), with no KDE (files/scripts/sparkos-no-kde.sh): no Plasma, KWin or KDE apps.
 # greetd with the Spark Greeter signs in, and the Spark session (spark-compositor + Spark Shell)
 # is the desktop.
 on:
@@ -522,10 +522,10 @@ jobs:
           # Spark Terminal is the default terminal; Konsole is gone
           $SSH 'sed -n "/^\[General\]/,/^\[/s/^TerminalApplication=//p" /etc/xdg/kdeglobals; xdg-terminal-exec --print-id; ! rpm -q konsole >/dev/null; test ! -e /usr/share/applications/org.kde.konsole.desktop' | tee "$WORK/terminal.txt"
           diff <(printf 'spark-terminal\ndev.wolklaw.SparkTerminal.desktop\n') "$WORK/terminal.txt"
-          # Spark Emoji has Meta+., no other entry claims it, and Plasma's Emoji Selector is gone
+          # Spark Emoji has Meta+. and no other entry claims it
           $SSH 'grep -c "^X-KDE-Shortcuts=Meta+\.$" /usr/share/applications/dev.wolklaw.SparkEmoji.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkEmoji.desktop && echo linked; grep -l "^X-KDE-Shortcuts=\(.*,\)\?Meta+\.\(,\|$\)" /usr/share/applications/*.desktop | grep -v SparkEmoji | wc -l; test -e /usr/share/applications/org.kde.plasma.emojier.desktop && echo emojier-left; true' | tee "$WORK/emoji.txt"
           diff <(printf '1\nlinked\n0\n') "$WORK/emoji.txt" || { echo "::error::Meta+. is not Spark Emoji's"; exit 1; }
-          # Spark Notes has Meta+V and its watcher is enabled for every login (no Klipper without Plasma)
+          # Spark Notes has Meta+V and its watcher is enabled for every login 
           $SSH 'grep -c "^X-KDE-Shortcuts=Meta+V$" /usr/share/applications/dev.wolklaw.SparkNotes.Clipboard.desktop; test -L /usr/share/kglobalaccel/dev.wolklaw.SparkNotes.Clipboard.desktop && echo linked; test -L /usr/lib/systemd/user/graphical-session.target.wants/spark-notes-clipboard.service && echo watcher-enabled; test -x /usr/bin/wl-paste && echo wl-paste' | tee "$WORK/notes.txt"
           diff <(printf '1\nlinked\nwatcher-enabled\nwl-paste\n') "$WORK/notes.txt" || { echo "::error::Meta+V is not Spark Notes'"; exit 1; }
           # Text and code open in Spark Edit, archives in Spark Archive
@@ -552,7 +552,7 @@ jobs:
       - name: Check the Release 2 cleanup
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         run: |
-          # Spark Monitor replaces Plasma System Monitor and takes its keys (Meta+Esc, Ctrl+Esc)
+          # Spark Monitor has Ctrl+Shift+Esc, Meta+Esc and Ctrl+Esc, and Plasma System Monitor is not there
           $SSH 'rpm -q plasma-systemmonitor 2>&1; grep -H "^X-KDE-Shortcuts=" /usr/share/kglobalaccel/*.desktop' | tee "$WORK/cleanup-monitor.txt"
           grep -q 'package plasma-systemmonitor is not installed' "$WORK/cleanup-monitor.txt" || { echo "::error::plasma-systemmonitor is installed"; exit 1; }
           grep -q 'dev.wolklaw.SparkMonitor.desktop:X-KDE-Shortcuts=Ctrl+Shift+Esc,Meta+Esc,Ctrl+Esc$' "$WORK/cleanup-monitor.txt"

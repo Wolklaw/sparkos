@@ -3,8 +3,8 @@ name: build
 # images from the same commit (docs/building.md explains each step):
 #   ghcr.io/wolklaw/sparkos         AMD and Intel GPUs (Mesa)           GPU=amd
 #   ghcr.io/wolklaw/sparkos-nvidia  Nvidia GPUs, Nvidia's driver too    GPU=nvidia (build_files/nvidia.sh)
-# Both get the same tags and the same signing key. One failing doesn't stop the other. The base is Fedora Kinoite
-# (the Containerfile's BASE_IMAGE), pulled fresh on every build.
+# Both get the same tags and the same signing key. One failing doesn't stop the other. The base is Fedora's
+# base-atomic (the Containerfile's BASE_IMAGE), pulled fresh on every build.
 #
 # Tags (the same ones BlueBuild used, so nothing that reads them changes):
 #   main (push, the daily schedule, or Run workflow): <commit>-45, YYYYMMDD-45, YYYYMMDD, 45, latest
@@ -196,7 +196,7 @@ jobs:
         if: github.event_name != 'pull_request'
         run: |
           FEDORA=$(sudo podman image inspect localhost/sparkos:build --format '{{index .Labels "org.opencontainers.image.version"}}' | cut -d. -f1)
-          # Fedora Kinoite's version label isn't always the Fedora release; ask the image then
+          # The base's version label isn't always the Fedora release; ask the image then
           [[ $FEDORA =~ ^[0-9]+$ ]] || FEDORA=$(sudo podman run --rm localhost/sparkos:build rpm -E %fedora)
           [[ $FEDORA =~ ^[0-9]+$ ]] || { echo "no Fedora version in the labels ($FEDORA)"; exit 1; }
           DAY=$(date -u +%Y%m%d)
