@@ -241,6 +241,29 @@ try:
     run(["wlr-randr", "--output", "HEADLESS-1", "--on", "--pos", "0,0"])
     check(wait_log(r"window app_id=spark-test back on HEADLESS-1"), "windows go back when the output returns")
 
+    # 8c. a fullscreen window opened over a fullscreen game shows on top (Spark Snip's overlay
+    # over WoW): the game came back above it once the new window went fullscreen too
+    if "DISPLAY" in cenv:
+        def fs_window(title, colour):
+            return start(["python3", "-c",
+                "import tkinter\n"
+                f"r = tkinter.Tk(); r.title({title!r}); r.configure(bg={colour!r})\n"
+                "r.geometry('2560x1440+0+0'); r.attributes('-fullscreen', True)\n"
+                "r.attributes('-topmost', True); r.mainloop()\n"])
+        game = fs_window("fs-game", "#ff0000")
+        check(wait_log(r"mapped x11 window .*title=fs-game", 40), "fullscreen game window mapped")
+        time.sleep(1)
+        snip = fs_window("fs-overlay", "#00ff00")
+        check(wait_log(r"mapped x11 window .*title=fs-overlay", 40), "fullscreen overlay mapped over it")
+        time.sleep(1.5)
+        path = os.path.join(OUT, "fullscreen-over-game.png")
+        run(["grim", "-o", "HEADLESS-1", path])
+        px = run(["convert", path, "-format", "%[hex:p{1280,720}]", "info:"]).stdout
+        check(px.upper().startswith("00FF00"), f"a fullscreen window opened over a fullscreen game is on top (pixel {px})")
+        for p in (snip, game):
+            p.terminate(); p.wait(10)
+        time.sleep(1)
+
     # 9. lock screen (ext-session-lock): lock, see it, unlock
     lock = start(["swaylock", "-c", "000000"]) if shutil.which("swaylock") else None
     if lock:

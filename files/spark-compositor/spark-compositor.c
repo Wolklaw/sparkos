@@ -1262,9 +1262,17 @@ static void fullscreen_restack(struct server *s) {
 		if (!v->fullscreen || v->unmanaged) continue;
 		bool behind = f && f != v && !f->fullscreen && fo && view_output(v) == fo;
 		struct wlr_scene_tree *want = s->layers[behind ? L_WINDOWS : L_FULLSCREEN];
-		if (v->tree->node.parent != want) wlr_scene_node_reparent(&v->tree->node, want);
+		if (v->tree->node.parent != want) {
+			wlr_scene_node_reparent(&v->tree->node, want);
+			/* a reparent lands on top: a game coming back to the fullscreen layer must not
+			 * cover the active window there (Spark Snip's fullscreen overlay over WoW) */
+			if (!behind && v != f) wlr_scene_node_lower_to_bottom(&v->tree->node);
+		}
 		if (behind) wlr_scene_node_place_below(&v->tree->node, &f->tree->node);
 	}
+	/* the active fullscreen window is the top one */
+	if (f && f->fullscreen && !f->unmanaged && f->tree->node.parent == s->layers[L_FULLSCREEN])
+		wlr_scene_node_raise_to_top(&f->tree->node);
 }
 
 static void view_set_fullscreen(struct view *v, bool on) {
