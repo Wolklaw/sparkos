@@ -22,6 +22,7 @@ except ImportError:                      # running from the source tree
 
 POWER = (
     ('lock', ['loginctl', 'lock-session'], False),
+    ('pw_button', ['spark-shell', '--password'], False),
     ('sleep', ['systemctl', 'suspend'], False),
     ('sign_out', ['loginctl', 'terminate-session', ''], True),
     ('restart', ['systemctl', 'reboot'], True),
@@ -272,11 +273,13 @@ class Launcher(Gtk.Window):
         self._confirming = None
         self.confirm.set_visible(False)
         self.hide_launcher()
-        if key == 'sign_out':
+        if key in ('sign_out', 'pw_button'):
             import os
             import sys
-            # apps first, then the session (see ending.sign_out)
-            command = [sys.executable, os.path.abspath(sys.argv[0]), '--sign-out']
+            # this same shell build: sign out closes apps first, then the session (see
+            # ending.sign_out); the password window is password.py
+            flag = '--sign-out' if key == 'sign_out' else '--password'
+            command = [sys.executable, os.path.abspath(sys.argv[0]), flag]
         if not ask:
             apps.run(command)
             return

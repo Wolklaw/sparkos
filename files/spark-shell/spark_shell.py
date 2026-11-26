@@ -75,6 +75,9 @@ def main(argv) -> int:
         from sparkshell.xembed import main as xembed_main
         return xembed_main()
     preload_layer_shell()
+    if '--password' in argv:
+        from sparkshell.password import run
+        return run()
     if '--lock' in argv:
         logging.basicConfig(level=logging.INFO, format='spark-lock: %(message)s')
         from sparkshell.lockscreen import run

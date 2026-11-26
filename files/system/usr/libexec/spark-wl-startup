@@ -6,11 +6,27 @@
 # The user systemd outlives a logout; when the last session's targets are still up, starting them
 # again does nothing and autostart never runs. Stop them first (also restarts stale services).
 systemctl --user stop xdg-desktop-autostart.target graphical-session.target 2>/dev/null
+# A signed-out session can linger ("closing") while its processes stay alive: an old shell and
+# its runner, which would keep the shell's bus name or stop this session's target later. Its
+# owner has left it, so end it now.
+if [ -n "$XDG_SESSION_ID" ]; then
+  me=$(id -u)
+  loginctl list-sessions --no-legend 2>/dev/null | while read -r id uid _; do
+    [ "$uid" = "$me" ] && [ "$id" != "$XDG_SESSION_ID" ] || continue
+    [ "$(loginctl show-session "$id" -p Class --value 2>/dev/null)" = user ] || continue
+    [ "$(loginctl show-session "$id" -p State --value 2>/dev/null)" = closing ] || continue
+    echo "spark-wl-startup: ending the signed-out session $id" >&2
+    loginctl terminate-session "$id" 2>/dev/null
+  done
+fi
 # The polkit agent registers for $XDG_SESSION_ID. Without it, polkit guesses the session from
 # the agent's process while this session is still starting, and password prompts go nowhere.
 dbus-update-activation-environment --systemd XDG_SESSION_ID 2>/dev/null
-if [ -x /usr/libexec/spark-session-run ] && command -v spark-shell >/dev/null 2>&1; then
-  SPARK_SESSION_TARGET=spark-wl-workspace.target exec /usr/libexec/spark-session-run
+# A developer copy of the runner in ~/.local/share/spark-dev/bin wins, like spark-wl-session's
+run=/usr/libexec/spark-session-run
+[ -x "$HOME/.local/share/spark-dev/bin/spark-session-run" ] && run="$HOME/.local/share/spark-dev/bin/spark-session-run"
+if [ -x "$run" ] && command -v spark-shell >/dev/null 2>&1; then
+  SPARK_SESSION_TARGET=spark-wl-workspace.target exec "$run"
 fi
 dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP \
   XDG_SESSION_TYPE XDG_SESSION_DESKTOP 2>/dev/null
