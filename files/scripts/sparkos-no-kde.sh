@@ -29,7 +29,11 @@ mapfile -t kde < <(rpm -qa --qf '%{NAME}\n' | grep -E "$KDE_RE" | sort -u)
 echo "removing ${#kde[@]} KDE packages"
 printf '  %s\n' "${kde[@]}"
 # Only these and what depends on them: nothing else is swept up as "no longer needed".
-dnf -y remove --setopt=clean_requirements_on_remove=False "${kde[@]}"
+# Akonadi's %postun scriptlets exit 2 in a container build (no system bus), and dnf then calls
+# the whole transaction failed although every package is gone. The checks at the end of this
+# script decide: no KDE package left, nothing Spark needs removed.
+dnf -y remove --setopt=clean_requirements_on_remove=False "${kde[@]}" \
+  || echo "dnf reported errors (scriptlets); the checks below decide"
 
 # What the packages leave behind, and SparkOS's own files that only Plasma read
 rm -rf /usr/share/plasma /usr/share/wayland-sessions/plasma.desktop \
