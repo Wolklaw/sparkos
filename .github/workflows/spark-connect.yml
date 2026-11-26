@@ -239,7 +239,10 @@ jobs:
             as "grep -q \"^Exec=$home/.local/bin/spark-connect$\" ~/.local/share/applications/dev.wolklaw.SparkConnect.desktop"
             as "test -f ~/.local/share/icons/hicolor/256x256/apps/dev.wolklaw.SparkConnect.png"
             as "test -f ~/.local/lib/spark-connect/sparkconnect/probe.sh"
-            as "test -f ~/.local/share/plasma/plasmoids/dev.wolklaw.sparkconnect/contents/ui/Board.qml"
+            # the Plasma widget only installs where kpackagetool6 exists (the image has no KDE now)
+            if command -v kpackagetool6 >/dev/null; then
+              as "test -f ~/.local/share/plasma/plasmoids/dev.wolklaw.sparkconnect/contents/ui/Board.qml"
+            fi
             as "~/.local/bin/spark-connect --status > /tmp/status.json"
             python3 -c "import json; assert json.load(open(\"/tmp/status.json\"))[\"empty\"]"
             test ! -e /usr/bin/spark-connect

@@ -500,9 +500,10 @@ jobs:
             $SSH "set -e; $app --version; $app --self-test" 2>&1 | tee "$WORK/$app-self-test.txt"
             grep -q '^self-test passed' "$WORK/$app-self-test.txt" || { echo "::error::$app self-test failed"; exit 1; }
           done
-          # spark-share (Spark Connect's Take control) is not checked: it ran on krdpserver and
-          # Plasma's screen-sharing interfaces, which went with KDE. Its self-test comes back when
-          # it has a spark-wl backend.
+          # spark-share (Spark Connect's Take control): spark-rdp, openssl, loginctl and Tk are there
+          echo "== spark-share"
+          $SSH "set -e; spark-share --version; spark-share --self-test" 2>&1 | tee "$WORK/spark-share-self-test.txt"
+          grep -q '^self-test passed' "$WORK/spark-share-self-test.txt" || { echo "::error::spark-share self-test failed"; exit 1; }
           # Optional Spark apps: only their sources ship, for the Store to install per user
           grep -q '(not installed, can install from /usr/share/spark-store/sources/spark-space)$' "$WORK/spark-store-self-test.txt" || { echo "::error::Spark Space's source isn't in the image"; exit 1; }
           $SSH 'test ! -e /usr/bin/spark-space && echo "Spark Space: source only, not installed"'
@@ -799,7 +800,7 @@ jobs:
             echo "== fonts"; fc-list : family | grep -E "^(Chakra Petch|Inter)$" | sort -u
             echo "== wallpaper"; ls -l /usr/share/wallpapers/SparkOS/contents/images/
             echo "== boot splash"; grep "^Theme=" /etc/plymouth/plymouthd.conf
-            echo "== about"; grep -E "^(Name|LogoPath)=" /etc/xdg/kcm-about-distrorc; grep "^LOGO=" /etc/os-release
+            echo "== about"; grep -E "^(NAME|LOGO)=" /etc/os-release
             echo "== kernel options"; cat /proc/cmdline
             echo "== boots"; journalctl --list-boots --no-pager | tail -3
             echo "== plymouth this boot"; journalctl -b -o short-monotonic --no-pager 2>/dev/null | grep -i plymouth | head -25' | tee "$WORK/look.txt"
@@ -811,7 +812,8 @@ jobs:
           diff "$WORK/fonts-repo.txt" "$WORK/fonts-image.txt" || { echo "::error::the image's Chakra Petch differs from the repo's"; exit 1; }
           if grep -nwE 'curl|wget' files/scripts/sparkos-theme.sh; then echo "::error::sparkos-theme.sh downloads something"; exit 1; fi
           grep -q "Theme=sparkos" "$WORK/look.txt"
-          grep -q "Name=SparkOS" "$WORK/look.txt"
+          grep -q '^NAME="\?SparkOS"\?$' "$WORK/look.txt"
+          grep -q '^LOGO=sparkos$' "$WORK/look.txt"
 
       # Sign in as the test user the way a person does: greetd shows the Spark Greeter (on its own
       # spark-compositor, as the greetd user) with the only user picked and the password box

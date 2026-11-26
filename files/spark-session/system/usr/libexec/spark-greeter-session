@@ -22,6 +22,16 @@ export SPARK_GREETER_CACHE=${SPARK_GREETER_CACHE:-/var/cache/spark-greeter}
 # folder, so it never reads the greetd user's files.
 export SPARK_COMPOSITOR_CONFIG_DIR=${SPARK_COMPOSITOR_CONFIG_DIR:-/usr/share/spark-session/greeter-compositor}
 
+# greetd gives us the VT as stdout. Text written there shows through for a moment when the
+# sign-in screen closes, so the log goes to the journal (journalctl -t spark-greeter) instead.
+if [ -t 1 ]; then
+  if command -v systemd-cat >/dev/null 2>&1; then
+    exec > >(exec systemd-cat -t spark-greeter) 2>&1 </dev/null
+  else
+    exec >/dev/null 2>&1 </dev/null
+  fi
+fi
+
 greeter=${SPARK_GREETER_BIN:-/usr/bin/spark-greeter}
 compositor=${SPARK_GREETER_COMPOSITOR:-/usr/bin/spark-compositor}
 

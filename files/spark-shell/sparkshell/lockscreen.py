@@ -157,7 +157,7 @@ class LockScreen(Gtk.Application):
         super().__init__(application_id=None, flags=Gio.ApplicationFlags.NON_UNIQUE)
         self.check = check
         self.login, self.name = _user()
-        self.views = []         # (window, clock, date, entry, message, card)
+        self.views = []         # (window, clock, date, entry, message, card, monitor)
         self.busy = False
         self.exit_code = EXIT_NOT_LOCKED
         self.lock = None
@@ -199,8 +199,22 @@ class LockScreen(Gtk.Application):
         self.views.append(view)
         lock.assign_window_to_monitor(view[0], monitor)    # before the window is realized
         view[0].present()
-        view[3].grab_focus()
+        monitor.connect('invalidate', lambda *_: GLib.idle_add(self._place_card))
+        self._place_card()
         self._tick()
+
+    def _place_card(self):
+        """The password box goes on the main monitor only (the first one, where the shell puts the
+        tray); the others show the clock. If the main monitor is unplugged, the next one takes it."""
+        live = [v for v in self.views if v[6].is_valid()]
+        monitors = Gdk.Display.get_default().get_monitors()
+        order = [monitors.get_item(i) for i in range(monitors.get_n_items())]
+        live.sort(key=lambda v: order.index(v[6]) if v[6] in order else len(order))
+        for i, v in enumerate(live):
+            v[5].set_visible(i == 0)
+        if live:
+            live[0][3].grab_focus()
+        return False
 
     def _on_locked(self, _lock):
         log.info('locked')
@@ -248,11 +262,7 @@ class LockScreen(Gtk.Application):
         keys = Gtk.EventControllerKey()
         keys.connect('key-pressed', self._key)
         win.add_controller(keys)
-        # whichever screen gets typed on (or the pointer moves over) owns the password box
-        motion = Gtk.EventControllerMotion()
-        motion.connect('enter', lambda *_: entry.grab_focus())
-        win.add_controller(motion)
-        return win, clock, date, entry, message, card
+        return win, clock, date, entry, message, card, monitor
 
     def _key(self, _ctl, keyval, _code, _state):
         if keyval == Gdk.KEY_Escape and not self.busy:

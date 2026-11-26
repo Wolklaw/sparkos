@@ -285,6 +285,8 @@ EN = {
     'share.err.no_session': "Nobody is logged in to a graphical session on {machine}.",
     'share.err.other_user': "The graphical session on {machine} belongs to another user, so "
                             "only Take control without asking (sudo) can reach it.",
+    'share.err.no_rdp': "{machine} has no spark-rdp (Spark's screen sharing server), so it "
+                        "can't share its screen. Update that machine first.",
     'share.err.no_krdp': "{machine} has no krdpserver (KDE's RDP server), so it can't share "
                          "its screen.",
     'share.err.no_tool': "{machine} doesn't have spark-share yet. It comes with the SparkOS "
@@ -592,6 +594,9 @@ FR = {
     'share.err.other_user': "La session graphique de {machine} appartient à un autre "
                             "utilisateur : seul Prendre le contrôle sans demander (sudo) "
                             "peut l'atteindre.",
+    'share.err.no_rdp': "{machine} n'a pas spark-rdp (le serveur de partage d'écran de "
+                        "Spark) : elle ne peut pas partager son écran. Mettez d'abord cette "
+                        "machine à jour.",
     'share.err.no_krdp': "{machine} n'a pas krdpserver (le serveur RDP de KDE) : elle ne peut "
                          "pas partager son écran.",
     'share.err.no_tool': "{machine} n'a pas encore spark-share. Il arrive avec l'image "

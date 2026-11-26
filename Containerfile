@@ -39,9 +39,10 @@ RUN --mount=type=bind,source=files/spark-compositor,target=/src \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \
     dnf -y --setopt=install_weak_deps=False install gcc make pkgconf-pkg-config wlroots-devel \
         wayland-devel wayland-protocols-devel wlr-protocols-devel libxkbcommon-devel libinput-devel \
-        pixman-devel libdrm-devel cairo-devel pango-devel librsvg2-devel && \
+        pixman-devel libdrm-devel cairo-devel pango-devel librsvg2-devel freerdp-devel libwinpr-devel && \
     cp -r /src /build && make -C /build && install -Dm755 /build/spark-compositor /spark-compositor && \
-    make -C /build/spark-wl-windows && install -Dm755 /build/spark-wl-windows/spark-wl-windows /spark-wl-windows
+    make -C /build/spark-wl-windows && install -Dm755 /build/spark-wl-windows/spark-wl-windows /spark-wl-windows && \
+    make -C /build/spark-rdp && install -Dm755 /build/spark-rdp/spark-rdp /spark-rdp
 
 # 0b. The out-of-tree kernel modules Fedora's kernel doesn't have (zenergy, ryzen_smu,
 #     v4l2loopback, xone, the racing wheel drivers, vhba), compiled here against kernel-devel of
@@ -82,6 +83,9 @@ COPY --from=capslock-build /sparkos-capslock /usr/libexec/sparkos-capslock
 #     library and portal come from packages.sh in step 4.
 COPY --from=compositor-build /spark-compositor /usr/bin/spark-compositor
 COPY --from=compositor-build /spark-wl-windows /usr/libexec/spark-wl-windows
+#     spark-rdp: the RDP server spark-share starts for Spark Connect's Take control (FreeRDP's
+#     shadow server on the compositor's screencopy and virtual input; runtime library from step 4).
+COPY --from=compositor-build /spark-rdp /usr/libexec/spark-rdp
 
 # 4. Packages (build_files/packages.sh lists each one and why): what Bazzite
 #    brought (printing, scanning, ImageMagick, the gaming layer, distrobox, btop, tmux and other

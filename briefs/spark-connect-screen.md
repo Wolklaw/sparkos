@@ -4,6 +4,12 @@ Read [README.md](README.md) and [spark-connect.md](spark-connect.md) first. This
 and control to Spark Connect for machines that have a desktop. The home servers (Ubuntu, no screen,
 no keyboard) don't get it: their machine view stays as it is.
 
+**Update 2026-11-25:** SparkOS no longer has KDE, so krdpserver is gone. `spark-share` now starts
+`/usr/libexec/spark-rdp` (files/spark-compositor/spark-rdp): FreeRDP's shadow server with a Spark
+compositor backend (wlr-screencopy for the picture, virtual pointer and keyboard for input). It takes
+the one-time user and password on standard input, so the password gap below is closed. Where this
+brief says krdp, read spark-rdp; the rest of the flow is unchanged.
+
 ## What the owner asked for (2026-11-23)
 
 > Let me take remote control if needed, like see the desktop, through an approval if needed (with a

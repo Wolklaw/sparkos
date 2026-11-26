@@ -1,6 +1,6 @@
 """spark-greeter: the sign-in screen for greetd (GTK4, house style).
 
-greetd starts this inside a compositor (spark-greeter-session runs kwin_wayland for it), as the
+greetd starts this inside a compositor (spark-greeter-session runs spark-compositor for it), as the
 `greetd` user, with GREETD_SOCK set. The screen has a clock, the users, a session picker (Spark,
 Plasma), the password field and sleep, restart and shut down. It talks greetd's IPC from a worker
 thread so a slow PAM stack (the failure delay) never freezes the window."""

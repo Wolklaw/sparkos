@@ -8,6 +8,15 @@ On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 1
 
 ## The desktop
 
+![The Spark menu open above the SPARK button, on the Spark desktop](docs/screenshots/launcher.webp)
+
+| | |
+|---|---|
+| ![Spark Welcome](docs/screenshots/welcome.webp) | ![Spark Files](docs/screenshots/files.webp) |
+| ![Spark Store](docs/screenshots/store.webp) | |
+
+Screenshots from the Spark session, 25 Nov 2026, in a fresh user folder.
+
 SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: Fedora Kinoite ships them, and the last build step removes them ([sparkos-no-kde.sh](files/scripts/sparkos-no-kde.sh)). The build fails if a KDE package is left.
 
 - **Spark Greeter** is the login screen: greetd runs it on the Spark compositor. If it fails to start a few times in a row, greetd switches to a text login by itself, and `spark greeter enable` brings it back.
@@ -19,7 +28,7 @@ SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: Fed
 Not Spark yet:
 - Saved passwords go in GNOME Keyring, unlocked by your login password. It replaces KWallet because it is the store apps already know how to use. Passwords saved in KWallet on an older SparkOS do not move over.
 - The icon set falls back to Breeze's icons and cursors for the icons SparkOS has not drawn yet. Those are image files only; no KDE software is installed.
-- Without KDE, a SparkOS PC cannot be shared through Spark Connect's "Take control" (it used KDE's RDP server, krdpserver), and KDE's foreground booster is gone. The VRAM booster stays.
+- Spark Connect's "Take control" now runs on spark-rdp, SparkOS's own RDP server for the Spark session (it used KDE's krdpserver before). KDE's foreground booster is gone. The VRAM booster stays.
 
 Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. NVIDIA has not been tried at all.
 

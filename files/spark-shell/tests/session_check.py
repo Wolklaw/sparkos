@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Checks a running Spark session (headless KWin + spark-shell) from the outside, over D-Bus.
+"""Checks a running Spark session (headless Spark compositor + spark-shell) from the outside,
+over D-Bus.
 
 Run it by tests/headless.sh, which starts the session first. It: waits for the shell, checks the
 panels and wallpapers (one per output), registers a fake StatusNotifierItem and checks the tray
 took it, sends notifications (plain, replacing, critical), opens a real window and checks the
-task list data, opens the launcher, then takes a screenshot of the whole workspace through KWin.
+task list data, opens the launcher, and has the shell render its windows to PNGs.
 
     session_check.py --outputs 3 --screenshot out-dir
 Exit status 0 when every check passed."""
@@ -132,8 +133,7 @@ def shell_state(conn):
 
 
 def screenshot(conn, directory):
-    """The shell renders each of its windows to a PNG (a headless KWin cannot be captured:
-    KWin's ScreenShot2 crashed it in the first container runs)."""
+    """The shell renders each of its windows to a PNG."""
     try:
         reply = conn.call_sync(SHELL, '/Shell', SHELL, 'Screenshot',
                                GLib.Variant('(s)', (directory,)), None,
@@ -163,8 +163,7 @@ def main():
         return conn.call_sync('org.freedesktop.DBus', '/org/freedesktop/DBus',
                               'org.freedesktop.DBus', 'NameHasOwner', GLib.Variant('(s)', (name,)),
                               None, Gio.DBusCallFlags.NONE, 2000, None).unpack()[0]
-    for name in ('org.freedesktop.Notifications', 'org.kde.StatusNotifierWatcher',
-                 'org.kde.plasmashell'):
+    for name in ('org.freedesktop.Notifications', 'org.kde.StatusNotifierWatcher'):
         check('owns ' + name, bool(wait_for(lambda n=name: has_name(n), 20)))
 
     state = wait_for(lambda: (lambda st: st if len(st['panels']) >= args.outputs else None)(
@@ -173,7 +172,7 @@ def main():
     check('one panel per output (%d)' % args.outputs, len(state['panels']) == args.outputs,
           str(state['panels']))
     check('one wallpaper per output', state['wallpapers'] == args.outputs, str(state['wallpapers']))
-    check('window tracker is loaded in KWin', bool(wait_for(
+    check('window tracker (spark-wl-windows) is running', bool(wait_for(
         lambda: shell_state(conn)['tracker_loaded'], 20)))
 
     # tray: a fake item, as Steam or Discord would register one
@@ -213,7 +212,7 @@ def main():
                           Gio.DBusCallFlags.NONE, 2000, None).unpack()[0]
     check('capabilities include actions and body', 'actions' in caps and 'body' in caps)
 
-    # a real window: the task list data comes from KWin
+    # a real window: the task list data comes from the compositor (wlr-foreign-toplevel)
     env = dict(os.environ, WAYLAND_DISPLAY=args.wayland_display, GDK_BACKEND='wayland',
                GSK_RENDERER='cairo')
     window = subprocess.Popen(
@@ -227,13 +226,6 @@ def main():
             check('window carries its app id', found[0]['app'] == 'dev.wolklaw.SparkTestWindow',
                   str(found[0]))
         pump(1.0)
-        # powerdevil's brightness report, the way it sends it to plasmashell
-        conn.call_sync('org.kde.plasmashell', '/org/kde/osdService', 'org.kde.osdService',
-                       'screenBrightnessChanged', GLib.Variant('(i(iiii))', (40, (0, 0, 1920, 1080))),
-                       None, Gio.DBusCallFlags.NONE, 3000, None)
-        check('powerdevil brightness shows on the OSD',
-              bool(wait_for(lambda: shell_state(conn)['osd'] == ['brightness', 0.4], 5)),
-              str(shell_state(conn)['osd']))
         conn.call_sync(SHELL, '/Shell', SHELL, 'Key', GLib.Variant('(s)', ('osd-test',)), None,
                        Gio.DBusCallFlags.NONE, 3000, None)
         pump(1.0)

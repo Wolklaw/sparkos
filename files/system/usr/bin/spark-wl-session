@@ -27,7 +27,15 @@ logs="${XDG_STATE_HOME:-$HOME/.local/state}/spark-wl/logs"
 if mkdir -p "$logs" 2>/dev/null; then
   ls -1t "$logs"/session-*.log 2>/dev/null | tail -n +10 | xargs -r rm -f
   log="$logs/session-$(date +%Y%m%d-%H%M%S).log"
-  exec > >(tee -a "$log") 2>&1 || true
+  if [ -t 1 ]; then
+    # greetd hands us the VT itself: anything printed there shows as text on a black screen
+    # between the sign-in screen and the desktop, so the log goes to the file only
+    exec >>"$log" 2>&1 </dev/null
+  else
+    exec > >(tee -a "$log") 2>&1 || true
+  fi
+elif [ -t 1 ]; then
+  exec >/dev/null 2>&1 </dev/null
 fi
 echo "spark-wl session start $(date -Is)"
 exec "$comp" -s "$startup"
