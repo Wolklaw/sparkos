@@ -107,6 +107,11 @@ grep -q '^LOGO=sparkos$' /usr/lib/os-release
 KVER=$(find /usr/lib/modules -mindepth 1 -maxdepth 1 -type d -printf '%f\n' | sort -V | tail -1)
 test -n "$KVER"
 export DRACUT_NO_XATTR=1
+# Upgrade again before dracut. Steps after packages.sh install more packages and can pull a newer
+# library without the rest of its build (see packages.sh: libzstd 1.6.0 with the zstd 1.5.7
+# command broke dracut, which packs the initramfs with zstd). Then check zstd runs.
+dnf -y upgrade --exclude='kernel*'
+echo ok | zstd -q > /dev/null
 # dracut copies the groups and users that udev rules name (GROUP="kvm", OWNER=...) from /etc/group
 # and /etc/passwd. In an image most of them live in /usr/lib/group and /usr/lib/passwd
 # (nss-altfiles), so the initramfs lacked audio, disk, kvm, video, render, utmp... and every boot

@@ -1,0 +1,98 @@
+name: package-checkup
+# Weekly check of the published image against Fedora's updates.
+#
+# The daily build upgrades every package (build_files/packages.sh and, before dracut,
+# files/scripts/sparkos-theme.sh), so the published image is at most a day behind Fedora. This
+# checks that it stays that way, and acts when it doesn't:
+# - the image is more than 2 days old: the daily builds are failing.
+# - half-upgraded packages: some packages of a set (one source package) were updated and others
+#   left behind, as libzstd 1.6.0 with the zstd 1.5.7 command on 2026-11-27 (dracut failed).
+# Either one starts a build and opens an issue (or comments on the open one). The report, with the
+# kernel updates and the count of other waiting updates, is on the run's summary page.
+on:
+  schedule:
+    - cron: "00 08 * * 1" # Mondays 08:00 UTC, after the 06:00 daily build
+  workflow_dispatch:
+
+jobs:
+  checkup:
+    runs-on: ubuntu-24.04
+    permissions:
+      packages: read
+      actions: write # start build.yml
+      issues: write
+    steps:
+      - name: Check the published image
+        id: check
+        run: |
+          set -euo pipefail
+          img=ghcr.io/wolklaw/sparkos:latest
+          echo "${{ github.token }}" | podman login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for i in 1 2 3 4 5; do podman pull -q "$img" && break; sleep $((i*30)); done
+
+          created=$(podman image inspect "$img" --format '{{ index .Labels "org.opencontainers.image.created" }}')
+          [ -n "$created" ] || created=$(podman image inspect "$img" --format '{{ .Created }}')
+          built=$(date -u -d "${created% UTC}" +%s)
+          age_h=$(( ($(date -u +%s) - built) / 3600 ))
+
+          # Every pending update, and the source package each was built from. A source package that
+          # has some of its packages installed at the new version and others still pending is a half
+          # upgrade: libzstd 1.6.0 with the zstd 1.5.7 command on 2026-11-27, which broke dracut.
+          podman run --rm "$img" bash -c '
+            rpm -qa --qf "%{SOURCERPM}\n" | sort -u > /tmp/installed
+            dnf -q makecache >/dev/null
+            dnf -q repoquery --upgrades --latest-limit=1 \
+              --qf "%{sourcerpm} %{name}-%{evr}.%{arch}\n" > /tmp/pending
+            awk "NR==FNR { have[\$1] = 1; next } have[\$1] { print \"split \" \$0; next } { print }" \
+              /tmp/installed /tmp/pending' > pending.txt
+          grep -E '^split ' pending.txt | cut -d' ' -f2- > split.txt || true
+          grep -vE '^split ' pending.txt > rest.txt || true
+          grep -E '^kernel-[0-9]' rest.txt > kernel.txt || true
+          grep -vE '^kernel-[0-9]' rest.txt > other.txt || true
+
+          zstd_ok=yes
+          podman run --rm "$img" bash -c 'echo ok | zstd -q >/dev/null' || zstd_ok=no
+
+          stale=no broken=no
+          [ "$age_h" -gt 48 ] && stale=yes
+          { [ -s split.txt ] || [ "$zstd_ok" = no ]; } && broken=yes
+          echo "stale=$stale" >> "$GITHUB_OUTPUT"
+          echo "broken=$broken" >> "$GITHUB_OUTPUT"
+
+          list() { if [ -s "$1" ]; then cut -d' ' -f2- "$1" | sed 's/^/- /'; else echo "none"; fi; }
+          {
+            echo "## Package checkup"
+            echo "Image built $(date -u -d "@$built" '+%Y-%m-%d %H:%M UTC') ($age_h hours ago)."
+            echo
+            echo "### Half-upgraded packages (some of the set updated, these left behind)"
+            list split.txt
+            echo
+            echo "zstd command works: $zstd_ok"
+            echo
+            echo "### Kernel updates (come with Fedora's base image, not the daily upgrade)"
+            list kernel.txt
+            echo
+            echo "### Other updates waiting: $(wc -l < other.txt) (the next daily build takes them)"
+          } | tee report.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Start a build
+        if: steps.check.outputs.stale == 'yes' || steps.check.outputs.broken == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run build.yml --repo "${{ github.repository }}" --ref main
+
+      - name: Open an issue
+        if: steps.check.outputs.stale == 'yes' || steps.check.outputs.broken == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Package checkup found a problem with the published image"
+          n=$(gh issue list --repo "${{ github.repository }}" --state open --search "in:title \"$title\"" --json number -q '.[0].number')
+          body="$(cat report.md)
+
+          A build was started. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "${{ github.repository }}" --body "$body"
+          else
+            gh issue create --repo "${{ github.repository }}" --title "$title" --body "$body"
+          fi
