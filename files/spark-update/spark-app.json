@@ -5,7 +5,7 @@
   "name_fr": "Spark Update",
   "summary": "SparkOS's updater: gets the new version ready in the background, tells you when a restart will start it, shows what changed and rolls back.",
   "summary_fr": "Les mises à jour de SparkOS : prépare la nouvelle version en arrière-plan, vous dit quand un redémarrage la lancera, montre ce qui a changé et revient en arrière.",
-  "version": "1.2.3",
+  "version": "1.3.0",
   "installed_size_kb": 260,
   "icon": "icons/spark-update-256.png",
   "categories": ["System", "Settings"],

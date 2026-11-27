@@ -2,6 +2,12 @@
   "about": "SparkOS release notes, newest first. Spark Update shows every note a PC didn't have yet, so someone who skips updates still sees all of them. Add one entry per change people will notice, in plain words, the day it merges: a unique id, the date (YYYY-MM-DD), en, and fr. The image build puts the newest 200 in /usr/share/sparkos/release.json (files/scripts/spark-update.sh).",
   "notes": [
     {
+      "id": "2026-11-27-spark-update-prs",
+      "date": "2026-11-27",
+      "en": "Spark Update 1.3.0 lists the pull requests each update brings, with when they were merged, under the release notes. It also shows the time a version was built, not only the day. The list starts with this build: older versions don't carry it.",
+      "fr": "Spark Update 1.3.0 liste les pull requests qu'apporte chaque mise à jour, avec leur date de fusion, sous les notes de version. Il montre aussi l'heure à laquelle une version a été compilée, pas seulement le jour. La liste commence avec cette version : les plus anciennes ne l'ont pas."
+    },
+    {
       "id": "2026-11-24-spark-link-send-screenshot",
       "date": "2026-11-24",
       "en": "Spark Link 1.1.0 has a Send screenshot button on each phone. It sends the last screenshot you took with Spark Snip to the phone as the same PNG. The phone asks before it keeps it, like any file. Spark Snip 1.2.0 keeps that last screenshot for it. Not tried with a real phone yet.",

@@ -91,6 +91,13 @@ jobs:
       digest: ${{ steps.push.outputs.amd_digest }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 300     # the merged pull requests Spark Update lists (next step)
+
+      - name: List the merged pull requests
+        # Spark Update shows which pull requests each update brings
+        # (files/scripts/spark-update.sh puts this in /usr/share/sparkos/release.json)
+        run: git log -n 300 --format='%cI%x09%s' > files/merged-prs.txt && head -3 files/merged-prs.txt
 
       - name: Free disk space
         run: |

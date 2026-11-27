@@ -411,6 +411,47 @@ class NotesTests(unittest.TestCase):
 
 # ─── Settings ───────────────────────────────────────────────
 
+class PullRequestTests(unittest.TestCase):
+    LOG = ("2026-11-27T12:09:01-05:00\tSpark Controller: saving a profile (#140)\n"
+           "2026-11-27T10:00:00-05:00\tCompositor: Snip over a game (#139)\n"
+           "2026-11-26T09:00:00Z\tfix a typo pushed straight to main\n"
+           "2026-11-26T08:00:00Z\tCompositor: Snip over a game (#139)\n"
+           "not a date\tSomething (#1)\n")
+
+    def prs(self):
+        folder = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, folder, True)
+        path = os.path.join(folder, 'merged-prs.txt')
+        with open(path, 'w') as f:
+            f.write(self.LOG)
+        return release.read_prs(path)
+
+    def test_read_prs_keeps_squash_merges_newest_first(self):
+        prs = self.prs()
+        self.assertEqual([p['number'] for p in prs], [140, 139])
+        self.assertEqual(prs[0]['title'], 'Spark Controller: saving a profile')
+        self.assertEqual(prs[0]['merged'], '2026-11-27T17:09:01Z')          # UTC
+        self.assertIsNone(release.read_prs('/nonexistent/merged-prs.txt'))
+
+    def test_new_prs_between_versions(self):
+        prs = self.prs()
+        old, new = {'prs': prs[1:]}, {'prs': prs}
+        self.assertEqual([p['number'] for p in release.new_prs(old, new)], [140])
+        self.assertEqual(release.new_prs(new, new), [])
+        # an old version without the list: the ones merged after it was built
+        self.assertEqual([p['number'] for p in
+                          release.new_prs({'built': '2026-11-27T16:00:00Z'}, new)], [140])
+        # nothing to go by: none, not every pull request ever
+        self.assertEqual(release.new_prs({}, new), [])
+        self.assertEqual(release.new_prs(old, {}), [])
+
+    def test_collect_carries_them(self):
+        root = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, root, True)
+        self.assertNotIn('prs', release.collect(root, use_rpm=False))
+        self.assertEqual(release.collect(root, use_rpm=False, prs=[])['prs'], [])
+
+
 class SettingsTests(unittest.TestCase):
     def test_defaults(self):
         s, warnings = settings.parse_conf('')
@@ -1144,6 +1185,23 @@ class UITests(unittest.TestCase):
         # the window remembers the notes of the version it opened on
         from sparkupdate.updater import user_state_path
         self.assertEqual(load_json(user_state_path()).get('seen_notes'), ['n1'])
+
+    def test_merged_pull_requests_in_the_window(self):
+        root = make_root()
+        cur = load_json(os.path.join(root, 'usr/share/sparkos/release.json'))
+        old_pr = {'number': 139, 'title': 'Older', 'merged': '2026-11-27T15:00:00Z'}
+        cur['prs'] = [old_pr]
+        write(root, '/usr/share/sparkos/release.json', json.dumps(cur))
+        staged = os.path.join(root, f'ostree/deploy/default/deploy/{B_SUM}.0',
+                              'usr/share/sparkos/release.json')
+        nxt = load_json(staged)
+        nxt['prs'] = [{'number': 140, 'title': 'Newer', 'merged': '2026-11-27T17:09:01Z'}, old_pr]
+        with open(staged, 'w') as f:
+            json.dump(nxt, f)
+        app = self.open(root=root)
+        self.assertEqual(app.pr_rows, ['#140  Newer'])
+        self.assertTrue(app.notes_box.winfo_ismapped())
+        self.assertIn(t('changes.prs', n=1), app.notes_text.get('1.0', 'end'))
 
     def test_buttons_stay_visible_in_a_small_window(self):
         root = make_root()

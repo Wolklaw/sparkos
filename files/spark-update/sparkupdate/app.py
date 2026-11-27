@@ -285,6 +285,7 @@ class App:
         self.views: Dict[str, tk.Frame] = {}
         self.change_rows: List[Tuple[str, str, str, str]] = []   # for tests: name, old, new, kind
         self.note_rows: List[str] = []                           # for tests: the notes shown
+        self.pr_rows: List[str] = []                             # and the pull requests
         # The notes of the version you last opened this window on, read once: the window then
         # records this version's, but keeps showing what was new to you when it opened
         seen = load_json(user_state_path()).get('seen_notes')
@@ -455,6 +456,7 @@ class App:
         notes.pack(side="left", fill="both", expand=True)
         notes.tag_config('day', foreground=T["accent"], font=self.font(8), spacing1=px(6))
         notes.tag_config('note', lmargin1=px(4), lmargin2=px(18))
+        notes.tag_config('when', foreground=T["dim"], font=self.font(8, False))
         notes.bind("<Button-1>", lambda _e: "break")       # read only, no text cursor
         self.notes_text = notes
         self.versions_head = self.label(ch, t('changes.versions').upper(), 7, T["accent"])
@@ -544,7 +546,7 @@ class App:
             b = host.booted
             self.pc_version.config(text=t('pc.version', version=b.version or '?'))
             self.pc_detail.config(text='\n'.join(x for x in (
-                t('pc.built', date=core.day(b.timestamp)) if b.timestamp else '',
+                t('pc.built', date=core.when(b.timestamp)) if b.timestamp else '',
                 b.image) if x))
         else:
             cur = snap.current or {}
@@ -560,7 +562,7 @@ class App:
             words = words.split(', ', 1)[-1]
             extra = [words]
             if nxt.timestamp:
-                extra.append(t('pc.built', date=core.day(nxt.timestamp)))
+                extra.append(t('pc.built', date=core.when(nxt.timestamp)))
             self.next_detail.config(text='\n'.join(extra))
         else:
             self.next_version.config(text="—", fg=T["dim"])
@@ -621,17 +623,21 @@ class App:
             notes = release.new_notes(new, old)
         else:
             notes = release.new_notes(old, new, self.seen_notes)
+        # and the pull requests merged into it, from the build's own git history
+        prs = release.new_prs(new, old) if snap.compare == 'rollback' else \
+            release.new_prs(old, new)
         if notes:
             note = {'previous': t('changes.notes_since', version=other.version or '?')
                     if other is not None else '',
                     'update': t('changes.notes_update'),
                     'rollback': t('changes.notes_rollback')}[snap.compare]
-            self._render_notes(notes)
+        elif release.notes_of(old if snap.compare == 'rollback' else new) is None:
+            note = (note + " " if note else "") + t('changes.no_notes')
+        if notes or prs:
+            self._render_notes(notes, prs)
             self.versions_head.pack(side="bottom", anchor="w", pady=(px(8), px(4)),
                                     after=self.changes_grid)
             self.notes_box.pack(fill="both", expand=True, after=self.versions_head)
-        elif release.notes_of(old if snap.compare == 'rollback' else new) is None:
-            note = (note + " " if note else "") + t('changes.no_notes')
         self.changes_note.config(text=note)
 
         changes = release.diff(old, new)
@@ -648,10 +654,11 @@ class App:
                        wraplength=px(760)).grid(row=len(moved) + 1, column=0, columnspan=3,
                                                 sticky="w", pady=(px(6), 0))
 
-    def _render_notes(self, notes: List[Dict[str, str]]):
+    def _render_notes(self, notes: List[Dict[str, str]], prs: Optional[List[Dict]] = None):
         text = self.notes_text
         text.config(state="normal")
         text.delete("1.0", "end")
+        self.pr_rows = []
         day = None
         for n in notes:
             if n['date'] != day:
@@ -661,6 +668,14 @@ class App:
             words = release.note_text(n)
             text.insert("end", "•  " + words + "\n", 'note')
             self.note_rows.append(words)
+        if prs:
+            text.insert("end", ("\n" if text.index("end-1c") != "1.0" else "") +
+                        t('changes.prs', n=len(prs)) + "\n", 'day')
+            for p in prs:
+                line = f"#{p['number']}  {p['title']}"
+                text.insert("end", "•  " + line + "  ", 'note')
+                text.insert("end", core.when(core.parse_time(p['merged'])) + "\n", 'when')
+                self.pr_rows.append(line)
         text.delete("end-2c", "end-1c")                  # no empty line at the bottom
         text.config(state="disabled")
         text.yview_moveto(0)
