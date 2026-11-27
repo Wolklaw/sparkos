@@ -180,6 +180,19 @@ More docs:
 
 Games with kernel-level anti-cheat don't run on Linux. These include Valorant, Fortnite and recent Call of Duty. Check your games on [ProtonDB](https://www.protondb.com) and [Are We Anti-Cheat Yet](https://areweanticheatyet.com).
 
+## Supported hardware
+
+| Part | Works | Notes |
+|---|---|---|
+| CPU | Any 64-bit AMD or Intel CPU | AMD Ryzen also gets two extra modules: zenergy (power readings) and ryzen_smu. |
+| AMD graphics | Radeon HD 7000 (GCN) and newer, up to RX 9000 | Full Vulkan, so Steam and Proton games run. Older Radeon cards (HD 6000 and before) show the desktop but can't run Vulkan games. |
+| Intel graphics | 5th gen Core (Broadwell) and newer, Arc A and B series | Older Intel graphics show the desktop, with weaker or no Vulkan. |
+| Nvidia graphics | GTX 16, RTX 20, 30, 40 and 50 series, with the `sparkos-nvidia` image | Not yet tried on a real Nvidia PC. GTX 10 and older only get the open nouveau driver: the desktop works, games mostly don't. |
+| Firmware | 64-bit UEFI | No legacy BIOS boot. |
+| Disk | 100 GB free, 200 GB or more for games | Next to Windows, on any drive. |
+
+Tested on real hardware so far: one PC, with a Ryzen 7 7800X3D and a Radeon RX 6800 XT. Everything else in the table comes from what the drivers in the image support, not from tests. If SparkOS runs, or fails, on your hardware, an [issue](https://github.com/Wolklaw/sparkos/issues) helps.
+
 ## Install next to Windows
 
 1. Download every file of the [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer). The ISO comes in parts under 2 GB.
