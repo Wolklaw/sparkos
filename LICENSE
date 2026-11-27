@@ -10,8 +10,11 @@ What you may do:
 2. Download the official SparkOS installer and system images that Wolklaw publishes
    (the releases of github.com/Wolklaw/sparkos and the images at ghcr.io/wolklaw/sparkos),
    install them on your own computers and use them, including their automatic updates.
+3. Fork this repository on GitHub and change, build and test your fork on your own computers,
+   to propose those changes back to this repository as a pull request. This does not let you
+   publish or distribute images, installers or builds made from a fork.
 
-What you may not do without written permission from Wolklaw:
+What you may not do without written permission from Wolklaw, except as item 3 above allows:
 
 1. Copy, modify, translate or adapt the code, artwork, sounds or documentation in this
    repository, or make works based on them.
@@ -21,7 +24,16 @@ What you may not do without written permission from Wolklaw:
 4. Use the SparkOS name, logo or bot artwork for anything that is not the official SparkOS.
 
 GitHub's Terms of Service let GitHub users view and fork public repositories on GitHub. A
-fork made under those terms gives no other right; everything above still applies to it.
+fork made under those terms gives no other right than item 3 above; everything above still
+applies to it.
+
+Contributions. When you send a contribution to SparkOS (a pull request, a patch, or code, text
+or artwork in an issue), you confirm that you made it or have the right to send it, and you give
+Wolklaw a worldwide, royalty-free, non-exclusive, perpetual and irrevocable license to use, copy,
+modify, publish, distribute and sublicense it, as part of SparkOS or otherwise, under any terms,
+including this license. You keep your copyright. Wolklaw doesn't have to merge or use anything.
+If a contribution contains work made by others, say so in the pull request and give its license;
+it is then listed in THIRD-PARTY.md.
 
 Parts made by others keep their own licenses and are not covered by this license. They are
 listed in THIRD-PARTY.md. The SparkOS image also contains Fedora, Bazzite, KDE and other
