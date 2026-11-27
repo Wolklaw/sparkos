@@ -9,6 +9,13 @@ export XDG_SESSION_TYPE=wayland
 export MOZ_ENABLE_WAYLAND=1
 export QT_QPA_PLATFORM="wayland;xcb"
 export SDL_VIDEODRIVER=wayland,x11
+# The login screen starts this script directly, so no shell profile runs: put the user's own
+# command folders on PATH the way Fedora's bashrc does. Spark Store installs apps into
+# ~/.local/bin, and Settings and the shell find them (spark-connect) by name.
+for d in "$HOME/bin" "$HOME/.local/bin"; do
+  case ":$PATH:" in *":$d:"*) ;; *) PATH="$d:$PATH" ;; esac
+done
+export PATH
 
 # Developer builds: when ~/.local/share/spark-dev/bin exists, a spark-compositor,
 # spark-wl-startup or spark-shell in it is used instead of the image's, so a fix can be tried
