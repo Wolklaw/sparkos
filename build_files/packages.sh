@@ -11,6 +11,13 @@ dnf_install() { dnf -y --setopt=install_weak_deps=True install "$@"; }
 
 dnf -y makecache
 
+# Bring the base image up to Fedora's updates before anything else. base-atomic is rebuilt less
+# often than updates land, and installing a package that needs a newer library upgrades that
+# library alone and leaves the packages built with it behind. On 2026-11-27 that left libzstd
+# 1.6.0 with the zstd 1.5.7 command, which refuses to run on another library version, so dracut
+# failed and no image was built. The kernel stays the base image's: kmods.sh builds for it.
+dnf -y upgrade --exclude='kernel*'
+
 # What Fedora Kinoite had that base-atomic doesn't, and that SparkOS uses (the rest of
 # Kinoite's extra packages came with KDE apps: MariaDB, the Samba server, VLC, Qt):
 # - tuned and tuned-ppd: power profiles (Spark Tray and Spark Settings, through powerprofilesctl
