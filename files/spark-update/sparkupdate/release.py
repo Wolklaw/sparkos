@@ -19,6 +19,8 @@ from .text import EN, LANG, t
 SCHEMA = 1
 # How many release notes each image carries (newest first); older ones drop off
 NOTES_KEPT = 200
+# How many merged pull requests each image lists (newest first)
+PRS_KEPT = 200
 
 
 def _read(path: str) -> Optional[str]:
@@ -151,10 +153,48 @@ def read_notes(path: str) -> List[Dict[str, str]]:
     return notes[:NOTES_KEPT]
 
 
+def read_prs(path: str) -> Optional[List[Dict[str, Any]]]:
+    """The pull requests merged into the build, from the build's git history: the workflow
+    writes `git log --format='%cI%x09%s'` to a file (.github/workflows/build.yml). Each one a
+    number, its title and when it merged (the commit's time, UTC), newest first. Only squash
+    merges count ('Title (#140)'); a commit pushed straight to main isn't a pull request.
+    None when the file is missing (a local build)."""
+    text = _read(path)
+    if text is None:
+        return None
+    prs, numbers = [], set()
+    for line in text.splitlines():
+        stamp, _, subject = line.partition('\t')
+        match = re.fullmatch(r'(.*\S)\s+\(#(\d+)\)', subject.strip())
+        ts = parse_iso(stamp.strip())
+        if not match or ts is None:
+            continue
+        number = int(match.group(2))
+        if number in numbers:
+            continue
+        numbers.add(number)
+        prs.append({'number': number, 'title': match.group(1),
+                    'merged': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(ts))})
+    prs.sort(key=lambda p: p['merged'], reverse=True)
+    return prs[:PRS_KEPT]
+
+
+def parse_iso(value: str) -> Optional[float]:
+    """Epoch seconds from '2026-11-27T12:09:01-05:00' or '...Z'; None if it isn't one."""
+    try:
+        from datetime import datetime
+        return datetime.fromisoformat(value.replace('Z', '+00:00')).timestamp() \
+            if re.match(r'\d{4}-\d{2}-\d{2}T', value) else None
+    except ValueError:
+        return None
+
+
 def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None,
-            image: str = IMAGE, notes: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+            image: str = IMAGE, notes: Optional[List[Dict[str, str]]] = None,
+            prs: Optional[List[Dict[str, Any]]] = None) -> Dict[str, Any]:
     """Read what's in the SparkOS files under root. notes: the release notes this version
-    ships (read_notes); None leaves them out (a version read from its files has none)."""
+    ships (read_notes); None leaves them out (a version read from its files has none).
+    prs: the pull requests merged into it (read_prs); None leaves them out."""
     osr = _os_release(root)
     components: List[Dict[str, str]] = []
     soot = _read(os.path.join(root, 'usr', 'lib', 'soot', 'SOOT_RELEASE'))
@@ -189,6 +229,8 @@ def collect(root: str = '/', use_rpm: bool = True, built: Optional[float] = None
     }
     if notes is not None:
         data['notes'] = notes
+    if prs is not None:
+        data['prs'] = prs
     return data
 
 
@@ -278,3 +320,29 @@ def new_notes(old: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]],
 def note_text(note: Dict[str, str], language: str = '') -> str:
     language = language or LANG
     return note.get(language) or note['en']
+
+
+def prs_of(data: Optional[Dict[str, Any]]) -> Optional[List[Dict[str, Any]]]:
+    """A version's merged pull requests; None when it was built without the list."""
+    prs = (data or {}).get('prs')
+    if not isinstance(prs, list):
+        return None
+    return [p for p in prs if isinstance(p, dict) and isinstance(p.get('number'), int)
+            and p.get('title') and p.get('merged')]
+
+
+def new_prs(old: Optional[Dict[str, Any]], new: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """The pull requests in new that weren't in old, newest first. old built without the
+    list: the ones merged after it was built; old with no build time either: none, rather
+    than every pull request ever."""
+    after = prs_of(new)
+    if not after:
+        return []
+    before = prs_of(old)
+    if before is not None:
+        known = {p['number'] for p in before}
+        return [p for p in after if p['number'] not in known]
+    built = str((old or {}).get('built') or '')
+    if not built:
+        return []
+    return [p for p in after if p['merged'] > built]

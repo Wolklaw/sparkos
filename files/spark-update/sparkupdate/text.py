@@ -65,6 +65,7 @@ EN = {
     'changes.notes_update': "What's new in the update:",
     'changes.notes_rollback': "Rolling back undoes these:",
     'changes.versions': "Versions",
+    'changes.prs': "Pull requests merged ({n})",
     'changes.no_notes': "No release notes for this version: it was built before SparkOS "
                         "wrote them. The versions below are what changed.",
 
@@ -255,7 +256,7 @@ FR = {
     'panel.checks': "Vérifications",
 
     'pc.version': "SparkOS {version}",
-    'pc.built': "compilé le {date}",
+    'pc.built': "compilé {date}",
     'pc.image': "{image}",
     'pc.unknown': "Impossible de lire l'état du système : {why}",
     'next.same': "La même version. Rien n'attend un redémarrage.",
@@ -279,6 +280,7 @@ FR = {
     'changes.notes_update': "Les nouveautés de la mise à jour :",
     'changes.notes_rollback': "Revenir en arrière annule ceci :",
     'changes.versions': "Versions",
+    'changes.prs': "Pull requests fusionnées ({n}, titres en anglais)",
     'changes.no_notes': "Pas de notes pour cette version : elle a été compilée avant que "
                         "SparkOS les écrive. Les versions ci-dessous montrent ce qui a changé.",
 

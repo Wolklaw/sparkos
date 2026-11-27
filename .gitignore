@@ -5,3 +5,4 @@ cosign.private
 /installer/flatpaks
 /branding/preview.html
 __pycache__/
+/files/merged-prs.txt

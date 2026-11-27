@@ -186,7 +186,7 @@ def cli_rollback(env: Env) -> int:
     return code
 
 
-def write_release(path: str, notes_path: str = '') -> int:
+def write_release(path: str, notes_path: str = '', prs_path: str = '') -> int:
     import json
     from . import release
     # The build passes the image's own name (Containerfile ARGs IMAGE_REGISTRY and IMAGE_NAME)
@@ -201,7 +201,13 @@ def write_release(path: str, notes_path: str = '') -> int:
         if not notes:
             print(f"no release notes in {notes_path}")
             return 1
-    data = release.collect('/', use_rpm=True, built=time.time(), image=image, notes=notes)
+    prs = None
+    if prs_path:
+        prs = release.read_prs(prs_path)
+        if prs is None:
+            print(f"no pull request list at {prs_path}: leaving it out")
+    data = release.collect('/', use_rpm=True, built=time.time(), image=image, notes=notes,
+                           prs=prs)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=2)
@@ -245,6 +251,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument('--notes', metavar='PATH',
                         help="with --write-release: the release notes to put in it "
                              "(files/whats-new.json)")
+    parser.add_argument('--prs', metavar='PATH',
+                        help="with --write-release: the merged pull requests, from "
+                             "git log --format='%%cI%%x09%%s' (the build workflow writes it)")
     parser.add_argument('--self-test', action='store_true',
                         help="check what Spark Update needs; no display needed")
     parser.add_argument('--root', help="read a fake system under this folder (tests)")
@@ -256,7 +265,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     if args.status:
         return print_status(env)
     if args.write_release:
-        return write_release(args.write_release, args.notes or '')
+        return write_release(args.write_release, args.notes or '', args.prs or '')
     if args.notify_test:
         return notify_test()
     if args.system_run:

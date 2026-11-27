@@ -35,9 +35,14 @@ fi
 # ── 3. What's in this image ──
 install -d /usr/share/sparkos
 # with the release notes (files/whats-new.json): the window lists every note newer than the
-# version a PC had, so skipped updates' notes show too
+# version a PC had, so skipped updates' notes show too. And the pull requests merged into this
+# build: the build workflow writes files/merged-prs.txt from git log; a local build has none.
+prs_args=()
+if [ -f "${CONFIG_DIRECTORY:-/tmp/files}/merged-prs.txt" ]; then
+  prs_args=(--prs "${CONFIG_DIRECTORY:-/tmp/files}/merged-prs.txt")
+fi
 /usr/bin/spark-update --write-release /usr/share/sparkos/release.json \
-  --notes "${CONFIG_DIRECTORY:-/tmp/files}/whats-new.json"
+  --notes "${CONFIG_DIRECTORY:-/tmp/files}/whats-new.json" "${prs_args[@]}"
 test -s /usr/share/sparkos/release.json
 python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); assert d.get("notes"), "no release notes"' \
   /usr/share/sparkos/release.json

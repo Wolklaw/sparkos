@@ -8,7 +8,7 @@ APP_NAME = "Spark Update"
 APP_SLUG = "spark-update"        # command, folders, log names
 APP_CLASS = "SparkUpdate"        # X11 window class, matched by the desktop file
 APP_ID = "dev.wolklaw.SparkUpdate"
-VERSION = "1.2.3"
+VERSION = "1.3.0"
 
 IMAGE = "ghcr.io/wolklaw/sparkos"
 # Every image Spark Update knows: the main one (AMD and Intel GPUs) and the Nvidia one
