@@ -259,6 +259,17 @@ The copied files are unchanged from their projects; each folder's `SOURCE` says 
 which version and under which licence, and both go to `/usr/share/licenses/sparkos-device-rules`.
 The QuadCast, E10 and C920 are standard USB audio and video devices and need no rules.
 
+### Groups
+
+Added 2026-11-27. When a device has no rule, the fix is often a group: `input` for programs that read
+keyboards or controllers (Androidbox's global shortcuts, Spark Controller's tester), `dialout` for
+serial ports. On the image those groups are only in the read-only `/usr/lib/group` (nss-altfiles).
+`getent` lists them, but `usermod` and `gpasswd` only edit `/etc/group`, so
+`sudo usermod -aG input $USER` printed nothing and added nobody. `sparkos-groups.service` now copies
+the `input` and `dialout` lines from `/usr/lib/group` into `/etc/group` at every boot, before anyone
+signs in, when they are missing. A group already in `/etc/group` is left as it is. `spark virt setup`
+still does the same for `libvirt` on its own.
+
 ## Kernel modules
 
 Bazzite ships about 20 kernel modules that aren't in Linux itself, prebuilt by Universal Blue for

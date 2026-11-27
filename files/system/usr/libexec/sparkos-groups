@@ -1,0 +1,30 @@
+#!/usr/bin/bash
+# Puts the groups people are told to join into /etc/group. Run by sparkos-groups.service at every boot.
+#
+# On an image the system groups live in /usr/lib/group (nss-altfiles), which is read-only. getent lists them,
+# but usermod and gpasswd only edit /etc/group, so `sudo usermod -aG input $USER` prints nothing and adds
+# nobody. Copying the group's line from /usr/lib/group to /etc/group (same name, same number) fixes that.
+# A group already in /etc/group is left as it is, so this is safe to run again.
+#
+# Environment overrides for tests: SPARKOS_GROUPS_ETC, SPARKOS_GROUPS_IMAGE, SPARKOS_GROUPS_NAMES.
+set -euo pipefail
+
+etc=${SPARKOS_GROUPS_ETC:-/etc/group}
+image=${SPARKOS_GROUPS_IMAGE:-/usr/lib/group}
+# input: Androidbox's global shortcuts, Spark Controller's tester, game tools that read keyboards.
+# dialout: serial ports (Arduino and other boards).
+names=${SPARKOS_GROUPS_NAMES:-input dialout}
+
+test -r "$image" || exit 0
+for name in $names; do
+  if grep -q "^$name:" "$etc"; then
+    continue
+  fi
+  line=$(grep -m1 "^$name:" "$image" || true)
+  if [ -n "$line" ]; then
+    # A file that doesn't end in a newline would glue the two lines together
+    if [ -s "$etc" ] && [ -n "$(tail -c1 "$etc")" ]; then echo >> "$etc"; fi
+    printf '%s\n' "$line" >> "$etc"
+    echo "Added the $name group to $etc"
+  fi
+done

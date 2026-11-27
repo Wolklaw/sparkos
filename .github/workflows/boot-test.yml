@@ -381,6 +381,14 @@ jobs:
           $SSH 'bash -s spark' < .github/scripts/windows-drives/check_mounts.sh 2>&1 | tee -a "$WORK/windows-drives.txt"
           test "${PIPESTATUS[0]}" = 0
 
+      - name: Check the groups in /etc/group
+        # sparkos-groups copied input and dialout from the read-only /usr/lib/group, so usermod -aG can add people to them
+        if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
+        run: |
+          $SSH 'set -e; systemctl is-active sparkos-groups.service; grep "^input:" /etc/group; grep "^dialout:" /etc/group' 2>&1 \
+            | tee "$WORK/groups.txt"
+          [ "${PIPESTATUS[0]}" = 0 ] || { echo "::error::input or dialout is missing from /etc/group"; exit 1; }
+
       - name: Check Spark Snip
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.FULL == 'true' }}
         run: |
