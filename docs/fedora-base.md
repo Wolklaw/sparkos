@@ -353,7 +353,8 @@ key it trusts: unsigned modules fail to load (the system still boots). SparkOS s
   the Secure Boot state, whether the key is enrolled, and each module's loaded state and signer.
 - Making the key and adding the secret: [building.md](building.md#module-signing-secure-boot).
 
-Not tested: no signed build has been made yet and no PC has enrolled the key. Which of these
+Not tested: builds are signed since 26 Nov 2026 (the build fails if a module isn't), but no PC has
+enrolled the key yet. Which of these
 works first time on real firmware (the signature on `.ko.xz` modules, the certificate's key usage
 fields being accepted by shim's MOK list) is unknown until it's tried with Secure Boot on.
 

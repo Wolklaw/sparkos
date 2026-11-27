@@ -189,6 +189,7 @@ Games with kernel-level anti-cheat don't run on Linux. These include Valorant, F
 | Intel graphics | 5th gen Core (Broadwell) and newer, Arc A and B series | Older Intel graphics show the desktop, with weaker or no Vulkan. |
 | Nvidia graphics | GTX 16, RTX 20, 30, 40 and 50 series, with the `sparkos-nvidia` image | Not yet tried on a real Nvidia PC. GTX 10 and older only get the open nouveau driver: the desktop works, games mostly don't. |
 | Firmware | 64-bit UEFI | No legacy BIOS boot. |
+| Secure Boot | On or off | SparkOS starts with Secure Boot on: the kernel is Fedora's, signed by Fedora. SparkOS's extra kernel modules (Xbox wireless adapters, racing wheels, CPU power sensors, virtual webcam, virtual disc drive and, in the Nvidia image, the Nvidia driver) are signed with SparkOS's own key, and with Secure Boot on they load only after you enroll that key once with `spark secureboot enroll` ([how](docs/install.md)). On the Nvidia image, until the key is enrolled the desktop may not start (nouveau is turned off there), so enroll right after installing or turn Secure Boot off. The modules are signed, but no PC has enrolled the key yet. With Secure Boot off, none of this is needed. |
 | Disk | 100 GB free, 200 GB or more for games | Next to Windows, on any drive. |
 
 Tested on real hardware so far: one PC, with a Ryzen 7 7800X3D and a Radeon RX 6800 XT. Everything else in the table comes from what the drivers in the image support, not from tests. If SparkOS runs, or fails, on your hardware, an [issue](https://github.com/Wolklaw/sparkos/issues) helps.
@@ -229,6 +230,12 @@ Images are signed with [cosign](https://github.com/sigstore/cosign):
 cosign verify --key cosign.pub ghcr.io/wolklaw/sparkos
 ```
 
+## Contributing
+
+SparkOS is mine, and I decide what goes in, but anyone can propose a change. Fork the repository, make the change on a branch and open a pull request. If I merge it, it ships in the next daily image to every SparkOS PC. Bug reports and hardware reports (what works and what doesn't on your PC) are just as useful: open an [issue](https://github.com/Wolklaw/sparkos/issues).
+
+How to build, test and send a change, and what I'll merge: [CONTRIBUTING.md](CONTRIBUTING.md). The license lets you fork and change the code to propose it here; a contribution you send comes under the terms in [LICENSE](LICENSE).
+
 ## License
 
-SparkOS is source-available, not open source. You can read the code here, and download, install and use the official SparkOS installer and images. Copying, modifying, redistributing or building your own versions needs written permission. See [LICENSE](LICENSE). Parts made by others keep their own licenses: see [THIRD-PARTY.md](THIRD-PARTY.md).
+SparkOS is source-available, not open source. You can read the code here, and download, install and use the official SparkOS installer and images. You can fork it and change it to propose a pull request here. Other copying, modifying, redistributing or building your own versions needs written permission. See [LICENSE](LICENSE). Parts made by others keep their own licenses: see [THIRD-PARTY.md](THIRD-PARTY.md).

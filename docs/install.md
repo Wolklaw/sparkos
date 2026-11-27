@@ -70,7 +70,11 @@ space on a drive. 200 GB or more leaves room for games.
    own key, and with Secure Boot on they load only after you enroll it once: after the first start,
    run `spark secureboot enroll`, choose a one-time password, restart, and confirm in the blue
    MOK screen (Enroll MOK, Continue, Yes, the password, Reboot). `spark secureboot` shows what
-   loaded. Not tested on real hardware yet; with Secure Boot off none of this is needed.
+   loaded. On the Nvidia image the Nvidia driver is one of these modules: with Secure Boot on and
+   the key not enrolled yet, nothing drives the card but the firmware's basic display (that image
+   turns nouveau off), so the desktop may not start: if you get the text login, sign in there and
+   run `spark secureboot enroll`, or turn Secure Boot off. The modules are signed, but no PC has
+   enrolled the key yet; with Secure Boot off none of this is needed.
 
 ## First start
 
