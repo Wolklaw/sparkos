@@ -1,0 +1,15 @@
+[Unit]
+Description=Spark Store: reinstall Spark apps whose copy in SparkOS is newer
+# Compares the files in ~/.local/lib/<app> with /usr/share/spark-store/sources/<app>; only
+# reinstalls (install.sh --user) after a system update changed one. Nothing is downloaded.
+PartOf=graphical-session.target
+After=graphical-session.target
+ConditionPathIsDirectory=/usr/share/spark-store/sources
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/spark-store --update-spark-apps
+Slice=background.slice
+
+[Install]
+WantedBy=graphical-session.target

@@ -470,7 +470,7 @@ class Store:
             pass                            # the list stays put; it has no install state
         elif view is not None:
             view.refresh()
-        self.tabs.set_count('updates', len(self.updates))
+        self.tabs.set_count('updates', self.update_count())
         self._update_queue_ui()
 
     def _search_changed(self, text: str):
@@ -590,7 +590,24 @@ class Store:
         self._enqueue(Job('addon_remove', addon.id, addon.name, scope=scope,
                           steps=[flatpak.cmd_remove_addon(addon.id, scope, addon.branch)]))
 
+    def spark_outdated(self) -> List[sparkapps.SparkApp]:
+        """Spark apps installed for you whose copy in SparkOS is newer."""
+        return [sp for sp in self.spark if sp.outdated]
+
+    def update_spark(self, sp: sparkapps.SparkApp):
+        cmd = sparkapps.install_command(sp)
+        job = self.queue.for_app(sp.id)
+        if cmd and (job is None or job.finished):
+            self._enqueue(Job('spark_update', sp.id, sp.name, steps=[cmd], flatpak=False))
+
+    def update_count(self) -> int:
+        return len(self.updates) + len(self.spark_outdated())
+
     def update_all(self):
+        for sp in self.spark_outdated():
+            self.update_spark(sp)
+        if not self.updates:
+            return
         scopes = ['user'] + (['system'] if any(u.scope == 'system' for u in self.updates) else [])
         for scope in scopes:
             self._enqueue(Job('update_all', f'all-{scope}',
@@ -673,8 +690,9 @@ class Store:
                     self.updates = [u for u in self.updates if u.scope != job.scope]
                     self.runtime_updates = 0
                     self.updates_stamp += 1
-            elif job.kind in ('spark_install', 'spark_remove'):
+            elif job.kind in ('spark_install', 'spark_update', 'spark_remove'):
                 self.load_spark()
+                self.tabs.set_count('updates', self.update_count())
             elif job.kind == 'catalog' and job.state == DONE:
                 self.reload_catalog_if_changed()
             elif job.kind == 'remote_add' and self.page == 'app':

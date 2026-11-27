@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 
 import tkinter as tk
 
+from . import sparkapps
 from .appstream import fold
 from .core import size as fmt_size
 from .jobs import CANCELLED, DONE, FAILED, RUNNING, WAITING, Job
@@ -68,7 +69,6 @@ class InstalledPage:
         spark = [s for s in store.spark if s.installed]
         section(store, self.inner, t('home.spark'), t('installed.spark_note', n=len(spark)))
         for sp in spark:
-            from . import sparkapps
             where = t('spark.in_image_short') if sp.installed == 'system' else t('scope.user')
             card = row_card(store, self.inner, sp.id, sp.name,
                             f"{where}" + (f" · {sp.version}" if sp.version else ""),
@@ -130,7 +130,7 @@ class UpdatesPage:
 
     def refresh(self, force: bool = False):
         store, px = self.store, self.store.px
-        key = (store.updates_stamp, store.updates_busy, store.installed_stamp,
+        key = (store.updates_stamp, store.updates_busy, store.installed_stamp, store.spark_stamp,
                tuple((j.id, j.state) for j in store.queue.active()))
         if key == self.built_for and not force:
             return
@@ -146,7 +146,8 @@ class UpdatesPage:
         if store.updates_busy:
             check.set_enabled(False)
             check.set_text(t('updates.checking'))
-        if store.updates:
+        spark = store.spark_outdated()
+        if store.updates or spark:
             WolkButton(bar, t('updates.all'), store.update_all, store.font(8),
                        variant="primary").pack(side="left", padx=(px(8), 0))
         if store.updates_error:
@@ -155,9 +156,25 @@ class UpdatesPage:
         if not store.flatpak_ok:
             tk.Label(self.inner, text=t('flatpak.missing'), font=store.font(9, False),
                      bg=T["bg"], fg=T["muted"], anchor="w").pack(fill="x", padx=px(16))
-        elif not store.updates and store.updates_checked and not store.updates_error:
+        elif not store.updates and not spark and store.updates_checked and \
+                not store.updates_error:
             tk.Label(self.inner, text=t('updates.none'), font=store.font(9, False), bg=T["bg"],
                      fg=T["accent"], anchor="w").pack(fill="x", padx=px(16), pady=(px(6), 0))
+        for sp in spark:                      # the image brought a newer copy: no download
+            bits = [t('scope.user'), t('updates.spark_newer')]
+            if sp.version:
+                bits.append(sp.version)
+            job = store.queue.for_app(sp.id)
+            card = row_card(store, self.inner, sp.id, sp.name, " · ".join(bits),
+                            sparkapps.icon_path(sp), lambda s=sp: store.open_app(s))
+            if job is not None and job.state in (RUNNING, WAITING):
+                tk.Label(card.right, text=t(f'doing.{job.kind}').upper() + "…",
+                         font=store.font(8), bg=T["panel"], fg=T["accent"]).pack(side="right")
+            else:
+                own_click(WolkButton(card.right, t('btn.update'),
+                                     lambda s=sp: store.update_spark(s), store.font(8),
+                                     padx=10, pady=4)).pack(side="right")
+            card.wire()
         for up in sorted(store.updates, key=lambda u: fold(store.name_of(u.id))):
             name = store.name_of(up.id)
             inst = store.installed.get(up.id)
@@ -192,7 +209,7 @@ class UpdatesPage:
         if not store.updates_checked:
             return ''
         when = time.strftime('%H:%M', time.localtime(store.updates_checked))
-        return t('updates.checked', time=when, n=len(store.updates))
+        return t('updates.checked', time=when, n=store.update_count())
 
 
 class QueuePage:

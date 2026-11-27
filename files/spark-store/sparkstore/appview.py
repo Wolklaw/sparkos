@@ -262,7 +262,7 @@ class AppPage:
         store, s = self.store, self.subject
         job = store.queue.for_app(s.id)
         if s.kind == 'spark':
-            return s.spark.installed, job, False
+            return s.spark.installed, job, s.spark.outdated
         if s.kind == 'repo':
             return ('user' if self.repo_added else None), job, False
         inst = store.installed.get(s.id)
@@ -332,9 +332,14 @@ class AppPage:
             if sp.installed:
                 WolkButton(row, t('btn.open'), lambda: store.launch(s), f8,
                            variant="primary").pack(side="left")
+                if sp.outdated:
+                    WolkButton(row, t('btn.update'), lambda: store.update_spark(sp), f8
+                               ).pack(side="left", padx=(px(8), 0))
                 if sp.installed == 'user':
                     WolkButton(row, t('btn.remove'), self.ask_remove, f8, variant="danger"
                                ).pack(side="left", padx=(px(8), 0))
+                    if sp.outdated:
+                        self._note(row, t('spark.newer'))
                 else:
                     self._note(row, t('spark.in_image'))
             elif sp.source:
