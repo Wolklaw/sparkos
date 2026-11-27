@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!-- Question, in colour, drawn on the 16 grid for 22 px. The slip is the only decoration. -->
+  <path fill="#ff2e88" fill-rule="evenodd" transform="translate(2 3) scale(1)" d="M1 1 H15 V15 H1 Z M5 3.5 H11 V8.5 H9 V10 H7 V7 H9 V5.5 H5 Z M7 11.5 H9 V13.5 H7 Z"/>
+  <path fill="#22d8ff" fill-rule="evenodd" transform="translate(4 3) scale(1)" d="M1 1 H15 V15 H1 Z M5 3.5 H11 V8.5 H9 V10 H7 V7 H9 V5.5 H5 Z M7 11.5 H9 V13.5 H7 Z"/>
+  <path fill="#b9a6ff" fill-rule="evenodd" transform="translate(3 3) scale(1)" d="M1 1 H15 V15 H1 Z M5 3.5 H11 V8.5 H9 V10 H7 V7 H9 V5.5 H5 Z M7 11.5 H9 V13.5 H7 Z"/>
+</svg>

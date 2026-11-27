@@ -1,0 +1,29 @@
+name: spark-screen-pick
+# Tests the screen-share chooser (xdg-desktop-portal-wlr runs it): the logic without a display,
+# and the script headless with a fake wlr-randr and spark-wl-windows. No window is opened.
+on:
+  push:
+    paths:
+      - "files/system/usr/libexec/spark-screen-pick"
+      - "files/system/etc/xdg/xdg-desktop-portal-wlr/**"
+      - "files/system/usr/share/xdg-desktop-portal/sparkwl-portals.conf"
+      - ".github/scripts/screen-pick/**"
+      - ".github/workflows/spark-screen-pick.yml"
+  pull_request:
+    paths:
+      - "files/system/usr/libexec/spark-screen-pick"
+      - "files/system/etc/xdg/xdg-desktop-portal-wlr/**"
+      - "files/system/usr/share/xdg-desktop-portal/sparkwl-portals.conf"
+      - ".github/scripts/screen-pick/**"
+      - ".github/workflows/spark-screen-pick.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Unit and headless tests
+        run: python3 -m unittest discover -s .github/scripts/screen-pick -v

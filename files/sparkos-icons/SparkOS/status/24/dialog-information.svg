@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Information, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <path fill="#ff2e88" fill-rule="evenodd" transform="translate(2 3) scale(1)" d="M1 1 H15 V15 H1 Z M7 3.5 H9 V5.5 H7 Z M7 7 H9 V12.5 H7 Z"/>
+  <path fill="#22d8ff" fill-rule="evenodd" transform="translate(4 3) scale(1)" d="M1 1 H15 V15 H1 Z M7 3.5 H9 V5.5 H7 Z M7 7 H9 V12.5 H7 Z"/>
+  <path fill="#8ec9ff" fill-rule="evenodd" transform="translate(3 3) scale(1)" d="M1 1 H15 V15 H1 Z M7 3.5 H9 V5.5 H7 Z M7 7 H9 V12.5 H7 Z"/>
+</svg>

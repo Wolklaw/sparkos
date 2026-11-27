@@ -7,6 +7,12 @@ Documentation=file:///usr/share/doc/spark-shell/README.md
 Requires=graphical-session.target
 BindsTo=graphical-session.target
 Before=graphical-session.target
+# Nothing else starts graphical-session-pre.target: graphical-session.target does not pull it in,
+# the desktop's own target does (plasma-workspace.target, gnome-session). Without this, every
+# unit WantedBy=graphical-session-pre.target stays off in the Spark session: dmemcg-booster-user
+# (no dmem controller in the user's cgroups), xdg-user-dirs, the portal launcher rewrite.
+Wants=graphical-session-pre.target
+After=graphical-session-pre.target
 Before=xdg-desktop-autostart.target
 Wants=spark-polkit-agent.service
 # old X11 tray icons (Wine, Battle.net) into the Spark tray

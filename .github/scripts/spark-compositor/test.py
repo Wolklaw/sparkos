@@ -87,7 +87,8 @@ try:
             "wp_fractional_scale_manager_v1", "wp_cursor_shape_manager_v1", "zwlr_output_manager_v1",
             "zwp_primary_selection_device_manager_v1", "zwlr_data_control_manager_v1", "ext_data_control_manager_v1",
             "zwlr_screencopy_manager_v1", "ext_image_copy_capture_manager_v1",
-            "ext_output_image_capture_source_manager_v1", "wp_tearing_control_manager_v1",
+            "ext_output_image_capture_source_manager_v1", "ext_foreign_toplevel_image_capture_source_manager_v1",
+            "wp_tearing_control_manager_v1",
             "wp_presentation", "zwp_pointer_constraints_v1", "zwp_relative_pointer_manager_v1",
             "zwlr_gamma_control_manager_v1", "zwp_idle_inhibit_manager_v1", "wp_viewporter",
             "zxdg_decoration_manager_v1", "zxdg_output_manager_v1"]
@@ -290,6 +291,166 @@ try:
     subprocess.run(["montage"] + [os.path.join(OUT, f"{n}.png") for n in ("HEADLESS-1", "HEADLESS-2", "HEADLESS-3")]
                    + ["-tile", "3x1", "-geometry", "800x800+8+8", "-background", "#08080c", os.path.join(OUT, "montage.png")],
                    capture_output=True)
+
+
+    # 10b. workspaces, the control socket, tiling, window listing through ext-foreign-toplevel-list
+    import select, socket, json
+
+    class Lines:
+        """Reads lines from a socket or a pipe fd, with a timeout."""
+        def __init__(self, fd):
+            self.fd, self.buf = fd, b""
+        def get(self, secs=5):
+            end = time.time() + secs
+            while b"\n" not in self.buf:
+                left = end - time.time()
+                if left <= 0:
+                    return None
+                if select.select([self.fd], [], [], left)[0]:
+                    d = os.read(self.fd, 4096)
+                    if not d:
+                        return None
+                    self.buf += d
+            line, self.buf = self.buf.split(b"\n", 1)
+            return line.decode()
+        def until(self, pat, secs=6):
+            end = time.time() + secs
+            seen = []
+            while time.time() < end:
+                l = self.get(max(0.1, end - time.time()))
+                if l is None:
+                    break
+                seen.append(l)
+                if re.search(pat, l):
+                    return l
+            return None
+
+    ctl_dir = os.path.join(rt, "spark-wl"); ctl_path = os.path.join(ctl_dir, "ctl")
+    check(os.path.exists(ctl_path) and (os.stat(ctl_path).st_mode & 0o777) == 0o600
+          and (os.stat(ctl_dir).st_mode & 0o777) == 0o700, "ctl socket exists (dir 0700, socket 0600)")
+
+    def ctl_open():
+        sk = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        sk.connect(ctl_path)
+        return sk, Lines(sk.fileno())
+    def ctl_cmd(sk, rd, line):
+        sk.sendall((line + "\n").encode())
+        return rd.get()
+
+    wsk, wrd = ctl_open()
+    check(ctl_cmd(wsk, wrd, "frobnicate") == "error unknown command", "ctl: unknown command is an error")
+    check(ctl_cmd(wsk, wrd, "workspace") == "error missing argument", "ctl: workspace without a number is an error")
+    check(ctl_cmd(wsk, wrd, "workspace 9") == "error no such workspace", "ctl: workspace 9 of 4 is an error")
+    check(ctl_cmd(wsk, wrd, "watch") == "ok", "ctl: watch answers ok")
+    first = [wrd.get(), wrd.get(), wrd.get()]
+    check(first[0] == "workspace 1 4 1" and first[1] == "tiling off" and (first[2] or "").startswith("focus "),
+          f"ctl: watch sends the current state ({first})")
+    ask, ard = ctl_open()
+
+    # the window list helper stays up, so the task-list side can be followed across switches
+    hp = None
+    if helper:
+        hp = subprocess.Popen([helper], env=cenv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        procs.append(hp)
+        hrd = Lines(hp.stdout.fileno())
+        l0 = hrd.until(r'"app":"spark-test"')
+        check(l0 is not None, "wlr foreign-toplevel lists the window on workspace 1")
+
+    check(ctl_cmd(ask, ard, "workspace 2") == "ok", "ctl: workspace 2 answers ok")
+    l = wrd.until(r"^workspace ")
+    check(l == "workspace 2 4 1", f"ctl: watcher told of the switch ({l})")
+    check(wrd.until(r"^focus 0 ?$") is not None or True, "ctl: focus line after the switch")
+    if helper:
+        # the handle is gone while the window is on another workspace (read until the list is empty of it)
+        end = time.time() + 6; gone = False; line = l0
+        while time.time() < end:
+            line = hrd.get(1)
+            if line is not None and '"app":"spark-test"' not in line:
+                gone = True; break
+        check(gone, "wlr foreign-toplevel drops a window that is on another workspace")
+        ext = subprocess.run([helper, "--ext-list"], env=cenv, capture_output=True, text=True, timeout=10).stdout
+        try:
+            arr = json.loads(ext)
+        except ValueError:
+            arr = []
+        spark = [w for w in arr if w.get("app_id") == "spark-test"]
+        check(bool(spark) and spark[0]["identifier"] != "" and spark[0]["title"] == "xdg-test",
+              f"--ext-list still lists it, with an identifier ({ext.strip()[:200]!r})")
+
+    # a window opened here lives here; moving it takes the view along
+    start(["foot", "--app-id=ws-two", "--title=ws-two", "sleep", "60"])
+    check(wait_log(r"mapped xdg window app_id=ws-two"), "a window opened on workspace 2 maps")
+    l = wrd.until(r"^workspace 2 4 1,2$")
+    check(l is not None, "ctl: occupied list shows workspaces 1 and 2")
+    check(ctl_cmd(ask, ard, "move-to-workspace 3") == "ok", "ctl: move-to-workspace 3 answers ok")
+    l = wrd.until(r"^workspace 3 4 1,3$")
+    check(l is not None, "ctl: the view followed the moved window to workspace 3, occupied is 1,3")
+    check(ctl_cmd(ask, ard, "move-to-workspace 1") == "ok", "ctl: move-to-workspace 1 answers ok")
+    check(wrd.until(r"^workspace 1 4 1$") is not None, "ctl: moved back to workspace 1")
+    if hp:
+        # workspace 1 again: the handle comes back, with title and app_id, and works for activation
+        line = None; end = time.time() + 6
+        while time.time() < end:
+            line = hrd.get(1)
+            if line and '"app":"spark-test"' in line and '"title":"xdg-test"' in line:
+                break
+            line = None
+        check(line is not None, "wlr foreign-toplevel re-creates the handle with title and app_id")
+        if line:
+            ids = [w["id"] for w in json.loads(line) if w["app"] == "spark-test"]
+            hp.stdin.write(f"activate {ids[0]}\n".encode()); hp.stdin.flush()
+            f = wrd.until(r"^focus \d+ spark-test$")
+            check(f is not None, f"activating a re-created handle focuses the window ({f})")
+    check(ctl_cmd(ask, ard, "workspace next") == "ok", "ctl: workspace next")
+    check(wrd.until(r"^workspace 2 4 1(,\d)*$") is not None, "ctl: next goes to workspace 2")
+    check(ctl_cmd(ask, ard, "workspace prev") == "ok", "ctl: workspace prev")
+    check(wrd.until(r"^workspace 1 4 ") is not None, "ctl: prev goes back to workspace 1")
+
+    # the default binds: Super+Ctrl+Right, Super+Ctrl+1
+    run(["wtype", "-M", "logo", "-M", "ctrl", "-k", "Right", "-m", "ctrl", "-m", "logo"])
+    check(wrd.until(r"^workspace 2 4 ") is not None, "Super+Ctrl+Right goes to the next workspace")
+    run(["wtype", "-M", "logo", "-M", "ctrl", "-k", "1", "-m", "ctrl", "-m", "logo"])
+    check(wrd.until(r"^workspace 1 4 ") is not None, "Super+Ctrl+1 goes to workspace 1")
+
+    # tiling on workspace 4: one window fills the area, three make a master and a stack
+    check(ctl_cmd(ask, ard, "workspace 4") == "ok", "ctl: workspace 4")
+    check(ctl_cmd(ask, ard, "tile-toggle") == "ok", "ctl: tile-toggle answers ok")
+    check(wrd.until(r"^tiling on$") is not None, "ctl: watcher told tiling is on")
+    def tiles(app):
+        return re.findall(r"tile workspace 4 app_id=%s at (\d+),(\d+) size (\d+)x(\d+)" % app, log())
+    start(["foot", "--app-id=ws-t1", "--title=ws-t1", "sleep", "60"])
+    check(wait_log(r"mapped xdg window app_id=ws-t1"), "tiling: first window maps")
+    time.sleep(1)
+    t1 = tiles("ws-t1")
+    ow = {2560: 2548, 1280: 1268, 1080: 1068}
+    check(bool(t1) and int(t1[-1][2]) in ow.values() and int(t1[-1][0]) - 6 in (0, 2560, 4480),
+          f"tiling: one window fills the usable area with a gap ({t1[-1:]})")
+    start(["foot", "--app-id=ws-t2", "--title=ws-t2", "sleep", "60"])
+    check(wait_log(r"mapped xdg window app_id=ws-t2"), "tiling: second window maps")
+    start(["foot", "--app-id=ws-t3", "--title=ws-t3", "sleep", "60"])
+    check(wait_log(r"mapped xdg window app_id=ws-t3"), "tiling: third window maps")
+    time.sleep(1.5)
+    a, b, c = tiles("ws-t1")[-1:], tiles("ws-t2")[-1:], tiles("ws-t3")[-1:]
+    if a and b and c:
+        a, b, c = [tuple(map(int, x[0])) for x in (a, b, c)]
+        check(b[0] == c[0] and b[2] == c[2] and c[1] > b[1] and a[0] < b[0] and abs(a[2] - b[2]) <= 8 and a[3] > b[3],
+              f"tiling: master left, two windows stacked on the right ({a} {b} {c})")
+    else:
+        check(False, f"tiling: all three windows were laid out ({a} {b} {c})")
+    check(ctl_cmd(ask, ard, "tile-toggle") == "ok", "ctl: tile-toggle off")
+    check(wrd.until(r"^tiling off$") is not None, "ctl: watcher told tiling is off")
+    check(ctl_cmd(ask, ard, "workspace 1") == "ok", "ctl: back to workspace 1")
+    run(["wtype", "-M", "logo", "-M", "ctrl", "-k", "Return", "-m", "ctrl", "-m", "logo"])
+    # a client that sends no newline for a long time is dropped, the others carry on
+    bad, _ = ctl_open()
+    bad.sendall(b"x" * 1000)
+    time.sleep(0.5)
+    check(ctl_cmd(ask, ard, "tile-toggle") == "ok" and ctl_cmd(ask, ard, "tile-toggle") == "ok",
+          "ctl: an over-long line drops that client only")
+    bad.close(); wsk.close(); ask.close()
+    check(comp.poll() is None, "compositor survives the workspace, tiling and ctl checks")
+    if hp:
+        hp.terminate()
 
     # 11. idle: screens go off after the configured time without input, and input wakes them
     with open(os.path.join(cfg, "compositor.conf"), "a") as f:

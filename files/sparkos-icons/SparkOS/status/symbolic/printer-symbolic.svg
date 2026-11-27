@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Printer. Symbolic, drawn for 16 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M4 1 H12 V5 H4 Z M5 2 V4 H11 V2 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 6 H15 V12 H12 V10 H4 V12 H1 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M5 11 H11 V15 H5 Z"/>
+</svg>

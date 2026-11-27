@@ -695,6 +695,90 @@ class WidgetStatus(unittest.TestCase):
         self.assertEqual((out['format'], out['version']), (1, VERSION))
 
 
+class StatusJson(unittest.TestCase):
+    """--status --json: the short contract Spark Shell's tray reads."""
+    def setUp(self):
+        from sparkconnect import status
+        self.status = status
+        self.cfg = example()
+        self.names = [m.name for m in self.cfg.machines]
+        self.down = os.path.join(tempfile.mkdtemp(), 'down.json')
+
+    def run_report(self, answers, **kw):
+        return self.status.json_report(self.cfg, FakeTransport(answers), check_site=fake_site,
+                                       down_path=self.down, **kw)
+
+    def test_contract_shape(self):
+        out = self.run_report({n: 'all-fine.json' for n in self.names})
+        self.assertEqual(set(out), {'checked', 'summary', 'machines', 'sites'})
+        self.assertIsInstance(out['checked'], int)
+        for m in out['machines']:
+            self.assertEqual(set(m), {'name', 'state', 'verdict', 'problems'})
+            self.assertIn(m['state'], ('ok', 'warn', 'down'))
+        for s in out['sites']:
+            self.assertEqual(set(s), {'name', 'url', 'state', 'status', 'ms'})
+        self.assertEqual(out['machines'][MAIN]['verdict'], t('verdict.ok'))
+        self.assertEqual(out['machines'][MAIN]['problems'], [])
+        site = {s['name']: s for s in out['sites']}['app.example.org']
+        self.assertEqual((site['state'], site['status'], site['ms']), ('down', 502, 80))
+        json.dumps(out)
+
+    def test_site_down_makes_summary_down(self):
+        out = self.run_report({n: 'all-fine.json' for n in self.names})
+        self.assertEqual(out['summary'], 'down')
+
+    def test_unreachable_machine_is_down(self):
+        out = self.run_report({self.names[MAIN]: 'ssh-timeout.stderr'})
+        main = out['machines'][MAIN]
+        self.assertEqual(main['state'], 'down')
+        self.assertTrue(main['verdict'].startswith(t('verdict.unreachable', since='')))
+        self.assertEqual(main['problems'], [main['verdict']])
+        self.assertEqual(out['summary'], 'down')
+
+    def test_warn_and_ok_summaries(self):
+        self.cfg.sites = []
+        out = self.run_report({n: 'all-fine.json' for n in self.names})
+        self.assertEqual(out['summary'], 'ok')
+        out = self.run_report({self.names[MAIN]: 'failed-unit.json',
+                               **{n: 'all-fine.json' for n in self.names[1:]}})
+        self.assertEqual(out['machines'][MAIN]['state'], 'warn')
+        self.assertTrue(out['machines'][MAIN]['problems'])
+        self.assertEqual(out['summary'], 'warn')
+
+    def test_a_hung_machine_does_not_hold_the_run(self):
+        class Hung(FakeTransport):
+            def fetch(self, m):
+                time.sleep(5)
+        self.cfg.sites = []
+        began = time.monotonic()
+        out = self.status.json_report(self.cfg, Hung({}), check_site=fake_site,
+                                      total_timeout=0.3, down_path=self.down)
+        self.assertLess(time.monotonic() - began, 3)
+        self.assertEqual({m['state'] for m in out['machines']}, {'down'})
+        self.assertEqual(out['summary'], 'down')
+
+    def test_empty_exit_code(self):
+        missing = os.path.join(tempfile.mkdtemp(), 'machines.toml')
+        done = subprocess.run([sys.executable, os.path.join(APP_DIR, 'spark_connect.py'),
+                               '--status', '--json', '--config', missing],
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(done.returncode, 2, done.stderr)
+        out = json.loads(done.stdout)
+        self.assertEqual((out['summary'], out['machines'], out['sites']), ('empty', [], []))
+
+    def test_broken_list_is_empty_with_error(self):
+        path = os.path.join(tempfile.mkdtemp(), 'machines.toml')
+        with open(path, 'w') as f:
+            f.write('[[machine]]\nname = "x"\n')
+        done = subprocess.run([sys.executable, os.path.join(APP_DIR, 'spark_connect.py'),
+                               '--status', '--json', '--config', path],
+                              capture_output=True, text=True, timeout=30)
+        self.assertEqual(done.returncode, 2)
+        out = json.loads(done.stdout)
+        self.assertEqual(out['summary'], 'empty')
+        self.assertTrue(out['error'])
+
+
 @unittest.skipUnless(have_display(), "needs a display")
 class UITests(unittest.TestCase):
     def make(self, answers, path=EXAMPLE):

@@ -110,7 +110,7 @@ def _idle_line() -> str:
 
 
 def _compositor_write() -> bool:
-    """Rewrite only the input, cursor and idle lines of compositor.conf, then tell the compositor."""
+    """Rewrite only the input, cursor, idle and workspaces lines of compositor.conf, then tell the compositor."""
     saved = core.spark_load('input')
     lines = []
     for kind in ('mouse', 'touchpad'):
@@ -128,12 +128,15 @@ def _compositor_write() -> bool:
         kl += f" repeat_rate={int(kb.get('rate') or 25)} repeat_delay={int(kb.get('delay') or 600)}"
         lines.append(kl)
     lines.append(_idle_line())
+    if ap.get('workspaces') is not None:
+        from . import taskbar
+        lines.append(f"workspaces count={taskbar.clamp_workspaces(ap['workspaces'])}")
     path = os.path.join(core.xdg_config_home(), 'spark', 'compositor', 'compositor.conf')
     try:
         old = open(path, encoding='utf-8').read().splitlines()
     except OSError:
         old = []
-    keep = [l for l in old if not re.match(r'\s*(keyboard|mouse|touchpad|cursor|idle)\s', l)
+    keep = [l for l in old if not re.match(r'\s*(keyboard|mouse|touchpad|cursor|idle|workspaces)\s', l)
             and l.strip() != '# input: written by Spark Settings']
     while keep and not keep[-1].strip():
         keep.pop()

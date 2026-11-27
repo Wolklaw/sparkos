@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Warning, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <path fill="#ff2e88" fill-rule="evenodd" transform="translate(2 3) scale(1)" d="M8 1 L15.5 14.5 H0.5 Z M7 5.5 H9 V10 H7 Z M7 11 H9 V13 H7 Z"/>
+  <path fill="#22d8ff" fill-rule="evenodd" transform="translate(4 3) scale(1)" d="M8 1 L15.5 14.5 H0.5 Z M7 5.5 H9 V10 H7 Z M7 11 H9 V13 H7 Z"/>
+  <path fill="#f4c95d" fill-rule="evenodd" transform="translate(3 3) scale(1)" d="M8 1 L15.5 14.5 H0.5 Z M7 5.5 H9 V10 H7 Z M7 11 H9 V13 H7 Z"/>
+</svg>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" data-hotspot="16 16">
+<!-- busy: ring of ticks on a plate; the generator makes 8 frames -->
+<rect x="3.5" y="3.5" width="25" height="25" fill="#141233" stroke="#ece9ff" stroke-width="1.5"/>
+<rect id="t0" x="14.00" y="5.50" width="4" height="4" fill="#b3b0d2"/>
+<rect id="t1" x="20.01" y="7.99" width="4" height="4" fill="#b3b0d2"/>
+<rect id="t2" x="22.50" y="14.00" width="4" height="4" fill="#b3b0d2"/>
+<rect id="t3" x="20.01" y="20.01" width="4" height="4" fill="#b3b0d2"/>
+<rect id="t4" x="14.00" y="22.50" width="4" height="4" fill="#b3b0d2"/>
+<rect id="t5" x="7.99" y="20.01" width="4" height="4" fill="#b3b0d2"/>
+<rect id="t6" x="5.50" y="14.00" width="4" height="4" fill="#b3b0d2"/>
+<rect id="t7" x="7.99" y="7.99" width="4" height="4" fill="#b3b0d2"/>
+</svg>

@@ -18,6 +18,7 @@ import configparser
 import os
 import shutil
 import subprocess
+from struct import error as struct_error
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -157,7 +158,17 @@ TRAY_NAMES = [
     "battery-000", "battery-050-charging", "battery-100", "battery-missing", "update-none", "update-high",
     "update-busy", "notification-inactive", "notification-active", "notification-disabled",
     "input-caps-on", "input-caps-off",
+    # batch 5
+    "network-wireless-disabled", "network-wireless-offline", "battery-full-charging", "system-shutdown",
+    "printer", "printer-printing", "dialog-information", "dialog-question", "dialog-warning", "dialog-error",
+    "dialog-password",
 ]
+# Batch 5 app tiles: each at scalable, 24, 22, 16 and symbolic.
+BATCH5_APPS = ["utilities-terminal", "system-software-install"]
+# The five dialog icons are also drawn in colour at scalable.
+BATCH5_DIALOGS = ["dialog-information", "dialog-question", "dialog-warning", "dialog-error", "dialog-password"]
+BATCH5_SHEET = ["system-shutdown", "printer", "printer-printing", "dialog-information", "dialog-question",
+                "dialog-warning", "dialog-error", "dialog-password", "utilities-terminal", "system-software-install"]
 
 
 def check_tray(dirs):
@@ -167,6 +178,47 @@ def check_tray(dirs):
                 path = lookup(dirs, name, size)
                 if path is None or "/status/" not in path:
                     fail(f"{name} at {size}: not drawn in status/ (got {path})")
+
+
+def check_batch5():
+    for name in BATCH5_APPS:
+        for d in ("scalable", "24", "22", "16"):
+            if not os.path.exists(os.path.join(THEME, "apps", d, name + ".svg")):
+                fail(f"apps/{d}/{name}.svg missing")
+        if not os.path.exists(os.path.join(THEME, "apps", "symbolic", name + "-symbolic.svg")):
+            fail(f"apps/symbolic/{name}-symbolic.svg missing")
+    for name in BATCH5_DIALOGS:
+        if not os.path.exists(os.path.join(THEME, "status", "scalable", name + ".svg")):
+            fail(f"status/scalable/{name}.svg missing")
+
+
+def check_cursors(tmp):
+    """Build the cursor theme (cursors/make_cursors.py) and parse every file, aliases included."""
+    import importlib.util
+    src = os.path.join(os.path.dirname(THEME), "cursors", "make_cursors.py")
+    spec = importlib.util.spec_from_file_location("make_cursors", src)
+    mod = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(mod)
+        out = os.path.join(tmp, "SparkOS-cursors")
+        mod.build(out)
+    except (Exception, SystemExit) as e:  # a missing name makes build() exit with the list
+        fail(f"cursors: {e}")
+        return
+    cur = os.path.join(out, "cursors")
+    for name in mod.REQUIRED:
+        path = os.path.join(cur, name)
+        if not os.path.exists(path):
+            fail(f"cursors/{name}: missing")
+            continue
+        try:
+            frames = mod.read_xcursor(path)
+        except (ValueError, struct_error) as e:
+            fail(f"cursors/{name}: {e}")
+            continue
+        sizes = {f[0] for f in frames}
+        if not {24, 32, 48, 64} <= sizes:
+            fail(f"cursors/{name}: sizes {sorted(sizes)} lack 24, 32, 48 or 64")
 
 
 def icon_names():
@@ -243,9 +295,11 @@ def check_renders(dirs, tmp):
                 fail(f"{name} at {size}: wrong size or fully transparent")
 
 
-def sheet(dirs, tmp, out_path, zoom):
+def sheet(dirs, tmp, out_path, zoom, only=None):
     from PIL import Image, ImageDraw
     names = icon_names()
+    if only:
+        names = [n for n in names if n in only or n[:-9] in only]
     pad, label_w = 12, 230
     col_w = [s + pad for s in SHEET_SIZES]
     half = sum(col_w) + pad
@@ -292,16 +346,19 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--sheet", help="write a contact sheet PNG here")
     ap.add_argument("--zoom", type=int, default=1, help="enlarge the sheet (nearest neighbour)")
+    ap.add_argument("--batch5", action="store_true", help="make the contact sheet of batch 5 only")
     args = ap.parse_args()
     dirs = read_index()
     check_svgs()
     check_places()
     check_mime_names()
     check_tray(dirs)
+    check_batch5()
     with tempfile.TemporaryDirectory() as tmp:
         check_renders(dirs, tmp)
+        check_cursors(tmp)
         if args.sheet and not errors:
-            sheet(dirs, tmp, args.sheet, args.zoom)
+            sheet(dirs, tmp, args.sheet, args.zoom, BATCH5_SHEET if args.batch5 else None)
     if errors:
         print(f"{len(errors)} problem(s)")
         return 1

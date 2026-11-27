@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Question, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <g transform="translate(3 3)">
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 1 H15 V15 H1 Z M5 3.5 H11 V8.5 H9 V10 H7 V7 H9 V5.5 H5 Z M7 11.5 H9 V13.5 H7 Z"/>
+  </g>
+</svg>

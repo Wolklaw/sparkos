@@ -40,6 +40,23 @@ button.spark-launcher-btn {{ background: {PANEL2}; color: {ACCENT}; border: 1px 
   border-radius: 3px; padding: 2px 12px; min-height: 0; font-weight: bold; letter-spacing: 2px;
   box-shadow: none; }}
 button.spark-launcher-btn:hover {{ box-shadow: 3px 0 0 {CH_A}, -3px 0 0 {CH_B}; }}
+button.spark-ws {{ background: transparent; border: 1px solid transparent; border-radius: 3px;
+  padding: 0 6px; min-height: 0; min-width: 0; color: {DIM}; font-size: 9pt; box-shadow: none; }}
+button.spark-ws:hover {{ background: {HOVER}; border-color: {LINE}; color: {TEXT}; }}
+button.spark-ws.occupied {{ color: {MUTED}; border-bottom: 2px solid {LINE2}; }}
+button.spark-ws.current {{ background: {PANEL2}; border-color: {LINE2};
+  border-bottom: 2px solid {ACCENT}; color: {TEXT}; }}
+button.spark-ws-tile {{ color: {DIM}; }}
+button.spark-ws-tile.on {{ color: {ACCENT}; }}
+button.drop-before {{ box-shadow: inset 2px 0 0 {CH_B}; }}
+button.drop-after {{ box-shadow: inset -2px 0 0 {CH_A}; }}
+.spark-dot {{ font-size: 10pt; }}
+.spark-dot.ok {{ color: {ACCENT}; }}
+.spark-dot.warn {{ color: {GOLD}; }}
+.spark-dot.down {{ color: {PINK}; }}
+.spark-dot.rebooting {{ color: {MUTED}; }}
+.spark-dot.unknown {{ color: {DIM}; }}
+.spark-count {{ font-size: 9pt; font-weight: bold; color: {TEXT}; }}
 .spark-clock {{ font-size: 11pt; font-weight: bold; color: {TEXT}; }}
 popover.spark-pop > contents {{ background: {PANEL}; color: {TEXT};
   border: 1px solid {LINE2}; border-radius: 3px; padding: 6px;

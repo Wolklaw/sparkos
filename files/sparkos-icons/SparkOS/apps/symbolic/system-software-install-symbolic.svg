@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Software install, symbolic. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M6.5 1 H9.5 V6 H12.5 L8 10.5 L3.5 6 H6.5 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M2 9 H3.5 V13 H12.5 V9 H14 V14.5 H2 Z"/>
+</svg>

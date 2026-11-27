@@ -1,0 +1,229 @@
+#!/usr/bin/python3
+"""Spark foreground booster: the app you are looking at keeps its video memory.
+
+When VRAM is full the kernel evicts memory from cgroups that are over their dmem.low
+protection first. This gives the focused app's cgroup the whole VRAM as dmem.low (and a big CPU
+weight), and takes it back when focus moves on, so background apps are the ones that get moved
+out. It is the same thing KDE's plasma-foreground-booster-dmemcg (SteamOS' kcgroups) did, which
+went with Plasma; the two things it relies on stay: dmemcg-booster-user (turns the dmem
+controller on in the user's cgroups and protects user@UID.service and app.slice) and the kernel.
+
+Focus comes from the Spark compositor's control socket ($XDG_RUNTIME_DIR/spark-wl/ctl): send
+"watch", read "ok" and then lines; "focus <pid> <app_id>" is the one used here (pid 0 means
+nothing has focus; "workspace ..." and "tiling ..." lines are ignored).
+
+What it writes, as upstream does (kcgroups' KApplicationScope::setDeviceMemoryLow and
+ForegroundBooster::onActiveWindowChanged), in the app's own unit cgroup only:
+  dmem.low    "<region> <capacity of that region>" for each line of /sys/fs/cgroup/dmem.capacity
+              when focused; "<region> 0" when focus leaves
+  cpu.weight  10000 when focused (upstream's default for the booster, 100 is normal);
+              100 when focus leaves
+Only cgroups of apps are touched: .../user@UID.service/app.slice/.../<unit>.scope|.service,
+never the compositor, the shell or this service. A missing dmem.low or cpu.weight (no dmem in the
+kernel or the GPU driver, a controller not turned on) is skipped without noise.
+
+Environment (for tests): SPARK_FB_CGROUP_ROOT (/sys/fs/cgroup), SPARK_FB_PROC (/proc),
+SPARK_FB_SOCKET, SPARK_FB_UID, SPARK_FB_CPU_WEIGHT (10000)."""
+
+import os
+import re
+import signal
+import socket
+import sys
+import time
+
+APP_SLICE = 'app.slice'
+BOOSTED_CPU_WEIGHT = 10000
+NORMAL_CPU_WEIGHT = 100
+# Spark's own session pieces: never boosted even if one ever lands in app.slice
+SESSION_UNITS = re.compile(r'spark-(shell|compositor|session|wl-|polkit|xembed|foreground)')
+
+
+def log(*args):
+    print('spark-foreground-booster:', *args, file=sys.stderr, flush=True)
+
+
+class Booster:
+    def __init__(self, cgroup_root='/sys/fs/cgroup', proc='/proc', uid=None,
+                 cpu_weight=BOOSTED_CPU_WEIGHT):
+        self.root = cgroup_root
+        self.proc = proc
+        self.uid = os.getuid() if uid is None else uid
+        self.cpu_weight = cpu_weight
+        self.current = None             # cgroup of the boosted app, relative to the root
+        self.said = set()               # what was already logged, so nothing repeats
+
+    def once(self, key, *message):
+        if key not in self.said:
+            self.said.add(key)
+            log(*message)
+
+    # ─── which cgroup ───
+    def cgroup_of(self, pid):
+        try:
+            with open(f'{self.proc}/{pid}/cgroup', encoding='utf-8') as f:
+                for line in f:
+                    if line.startswith('0::'):
+                        return line[3:].strip().removesuffix(' (deleted)')
+        except OSError:
+            pass
+        return None
+
+    def target(self, pid):
+        """(cgroup path relative to the root, None) for an app's own unit, else (None, why)."""
+        path = self.cgroup_of(pid)
+        if path is None:
+            return None, 'no cgroup'
+        prefix = f'/user.slice/user-{self.uid}.slice/user@{self.uid}.service/{APP_SLICE}/'
+        if not path.startswith(prefix):
+            return None, 'not in the user\'s app.slice'
+        parts = path[len(prefix):].split('/')
+        for i, part in enumerate(parts):
+            if part.endswith(('.scope', '.service')):
+                if SESSION_UNITS.search(part):
+                    return None, 'part of the Spark session'
+                return (prefix + '/'.join(parts[:i + 1])).lstrip('/'), None
+        return None, 'no scope or service'
+
+    # ─── the writes ───
+    def capacity(self):
+        out = []
+        try:
+            with open(f'{self.root}/dmem.capacity', encoding='utf-8') as f:
+                for line in f:
+                    words = line.split()
+                    if len(words) == 2 and words[1].isdigit():
+                        out.append((words[0], int(words[1])))
+        except OSError:
+            pass
+        return out
+
+    def _write(self, rel, name, text):
+        try:
+            # no O_CREAT: a file the kernel does not provide must not be made
+            fd = os.open(f"{self.root}/{rel}/{name}", os.O_WRONLY | os.O_TRUNC)
+            try:
+                os.write(fd, (text + '\n').encode())
+            finally:
+                os.close(fd)
+            return True
+        except FileNotFoundError:
+            return False                # no such controller here, or the app is gone
+        except OSError as exc:
+            self.once((rel, name), f'cannot write {name} of {os.path.basename(rel)}: {exc}')
+            return False
+
+    def apply(self, rel, boosted):
+        done = []
+        for region, size in self.capacity():
+            if self._write(rel, 'dmem.low', f'{region} {size if boosted else 0}'):
+                done.append('dmem.low')
+        weight = self.cpu_weight if boosted else NORMAL_CPU_WEIGHT
+        if self._write(rel, 'cpu.weight', str(weight)):
+            done.append('cpu.weight')
+        return done
+
+    # ─── focus ───
+    def focus(self, pid, app_id=''):
+        """Like upstream, a focus on nothing, or on something that is not an app's own unit (the
+        shell, the launcher), changes nothing: the app you were in stays boosted."""
+        if pid <= 0:
+            return
+        rel, why = self.target(pid)
+        if rel is None:
+            self.once(('skip', why, app_id or pid),
+                      f'not boosting {app_id or "pid " + str(pid)}: {why}')
+            return
+        if rel == self.current:
+            return
+        if self.current is not None:
+            self.apply(self.current, False)
+        done = self.apply(rel, True)
+        self.current = rel
+        log(f'boosting {app_id or pid} ({os.path.basename(rel)}): '
+            + (', '.join(sorted(set(done))) if done else 'nothing to write (no dmem or cpu files)'))
+
+    def release(self):
+        if self.current is not None:
+            self.apply(self.current, False)
+            self.current = None
+
+    # ─── the compositor's socket ───
+    def handle(self, line):
+        words = line.split()
+        if len(words) >= 2 and words[0] == 'focus' and words[1].isdigit():
+            self.focus(int(words[1]), ' '.join(words[2:]))
+
+    def watch(self, path, stopped, on_connect=None):
+        """One connection. Returns when the socket closes or stopped() is true."""
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as s:
+            s.settimeout(2)
+            s.connect(path)
+            if on_connect:
+                on_connect()
+            s.sendall(b'watch\n')
+            buf = b''
+            greeted = False
+            while not stopped():
+                try:
+                    data = s.recv(4096)
+                except socket.timeout:
+                    continue
+                if not data:
+                    return
+                buf += data
+                while b'\n' in buf:
+                    raw, buf = buf.split(b'\n', 1)
+                    line = raw.decode('utf-8', 'replace').strip()
+                    if not greeted:
+                        greeted = True
+                        if line == 'ok':
+                            continue
+                    self.handle(line)
+
+    def run(self, path, stopped, backoff=(1, 2, 5, 10, 30), sleep=time.sleep):
+        tries = 0
+        waiting = False
+        while not stopped():
+            try:
+                def connected():
+                    nonlocal waiting
+                    if waiting:
+                        log('connected to the compositor')
+                    waiting = False
+                self.watch(path, stopped, connected)
+                tries = 0
+                log('the compositor closed the socket')
+            except OSError:
+                if not waiting:
+                    log(f'waiting for the compositor at {path}')
+                    waiting = True
+                delay = backoff[min(tries, len(backoff) - 1)]
+                tries += 1
+                for _ in range(int(delay * 10)):
+                    if stopped():
+                        break
+                    sleep(0.1)
+            self.release()          # no focus information now; the next "focus" boosts again
+
+
+def main():
+    runtime = os.environ.get('XDG_RUNTIME_DIR') or f'/run/user/{os.getuid()}'
+    path = os.environ.get('SPARK_FB_SOCKET') or os.path.join(runtime, 'spark-wl', 'ctl')
+    booster = Booster(
+        cgroup_root=os.environ.get('SPARK_FB_CGROUP_ROOT', '/sys/fs/cgroup'),
+        proc=os.environ.get('SPARK_FB_PROC', '/proc'),
+        uid=int(os.environ['SPARK_FB_UID']) if os.environ.get('SPARK_FB_UID') else None,
+        cpu_weight=int(os.environ.get('SPARK_FB_CPU_WEIGHT', BOOSTED_CPU_WEIGHT)))
+    stop = []
+    for sig in (signal.SIGTERM, signal.SIGINT):
+        signal.signal(sig, lambda *_: stop.append(1))
+    if not booster.capacity():
+        log('no dmem.capacity: the CPU weight is boosted, video memory is not')
+    booster.run(path, lambda: bool(stop))
+    booster.release()
+    return 0
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -341,4 +341,11 @@ FR = {
     'Save a clip': 'Enregistrer un clip',
     'Brightness up': 'Augmenter la luminosité',
     'Brightness down': 'Baisser la luminosité',
+    'Taskbar': 'Barre des tâches',
+    'Spark Connect status in the tray': "État de Spark Connect dans la zone de notification",
+    'Spark Connect is not installed.': "Spark Connect n'est pas installé.",
+    'Show it on': 'Afficher sur',
+    'Main screen': 'Écran principal',
+    'Workspaces': 'Espaces de travail',
+    'The switcher shows in the taskbar when there is more than one. Super+Ctrl+Left and Right change workspace.': "Le sélecteur apparaît dans la barre des tâches quand il y en a plus d'un. Super+Ctrl+Gauche et Droite changent d'espace de travail.",
 }

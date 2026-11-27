@@ -1,15 +1,20 @@
 #!/usr/bin/python3
-"""Pick the screen a screen-sharing request gets (xdg-desktop-portal-wlr chooser).
+"""Pick what a screen-sharing request gets (xdg-desktop-portal-wlr chooser).
 
-xdg-desktop-portal-wlr runs this with chooser_type=simple and reads one line
-"Monitor: NAME" from stdout. Exit non-zero to cancel the share.
+xdg-desktop-portal-wlr runs this with chooser_type=simple and reads one line from
+stdout: "Monitor: NAME" for a screen or "Window: IDENTIFIER" for one window (the
+ext-foreign-toplevel-list-v1 identifier). Exit non-zero, with nothing printed, to
+cancel the share.
 
-Spark Snip names the screen it wants in $XDG_RUNTIME_DIR/spark-snip/screen
-just before it asks the portal; that answer is used once and removed. Any other
-app gets a small window listing the screens.
+Spark Snip names the screen it wants in $XDG_RUNTIME_DIR/spark-snip/screen just
+before it asks the portal; that answer is used once and removed. Any other app
+gets a small window listing the screens and the open windows (GTK 4, or Tk when
+GTK 4 is not there). A lone screen with no window list is shared without asking,
+as before.
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -17,23 +22,96 @@ import time
 HINT = os.path.join(os.environ.get('XDG_RUNTIME_DIR') or f'/run/user/{os.getuid()}',
                     'spark-snip', 'screen')
 HINT_MAX_AGE = 30
+APP_ID = 'spark-screen-pick'
+WINDOWS_TIMEOUT = 2
+
+STRINGS = {
+    'en': {'title': 'Share your screen', 'heading': 'SHARE YOUR SCREEN',
+           'sub': 'An app wants to record or share a screen or a window.',
+           'screens': 'SCREENS', 'windows': 'WINDOWS', 'share': 'Share', 'cancel': 'Cancel',
+           'untitled': '(untitled)'},
+    'fr': {'title': "Partager l'écran", 'heading': "PARTAGER L'ÉCRAN",
+           'sub': 'Une app veut enregistrer ou partager un écran ou une fenêtre.',
+           'screens': 'ÉCRANS', 'windows': 'FENÊTRES', 'share': 'Partager', 'cancel': 'Annuler',
+           'untitled': '(sans titre)'},
+}
 
 
-def outputs():
+def ui_language(environ=None):
+    """SPARK_LANG=en|fr wins, then LC_ALL, LC_MESSAGES, LANG; same rule as the Spark apps."""
+    env = os.environ if environ is None else environ
+    forced = (env.get('SPARK_LANG') or '').strip().lower()
+    if forced in STRINGS:
+        return forced
+    for var in ('LC_ALL', 'LC_MESSAGES', 'LANG'):
+        value = env.get(var) or ''
+        if value:
+            return 'fr' if value.lower().startswith('fr') else 'en'
+    return 'en'
+
+
+# ---- pure logic (no display) -------------------------------------------------------------
+
+def parse_outputs(text):
+    """Enabled outputs from `wlr-randr --json` as dicts: name, size, desc."""
     try:
-        text = subprocess.run(['wlr-randr', '--json'], capture_output=True,
-                              text=True, timeout=5).stdout
-        return [o for o in json.loads(text) if o.get('enabled')]
-    except (OSError, ValueError, subprocess.SubprocessError):
+        data = json.loads(text)
+    except (TypeError, ValueError):
         return []
+    if not isinstance(data, list):
+        return []
+    result = []
+    for o in data:
+        if not isinstance(o, dict) or not o.get('enabled') or not o.get('name'):
+            continue
+        mode = next((m for m in o.get('modes') or [] if isinstance(m, dict) and m.get('current')), {})
+        size = f"{mode.get('width', '?')}x{mode.get('height', '?')}"
+        desc = ' '.join(str(o.get(k) or '').strip() for k in ('make', 'model')).strip()
+        if not desc:
+            desc = str(o.get('description') or '').strip()
+        result.append({'name': str(o['name']), 'size': size, 'desc': desc})
+    return result
 
 
-def from_hint(names):
+def parse_windows(text, own_titles=()):
+    """Windows from `spark-wl-windows --ext-list`: dicts identifier, title, app_id. Entries with
+    no identifier and the picker's own window are left out."""
     try:
-        age = time.time() - os.stat(HINT).st_mtime
-        with open(HINT, encoding='utf-8') as fh:
+        data = json.loads(text)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(data, list):
+        return []
+    result, seen = [], set()
+    for w in data:
+        if not isinstance(w, dict):
+            continue
+        ident = str(w.get('identifier') or '').strip()
+        app_id = str(w.get('app_id') or '').strip()
+        title = str(w.get('title') or '').strip()
+        if not ident or ident in seen or app_id == APP_ID or (title and title in own_titles):
+            continue
+        seen.add(ident)
+        result.append({'identifier': ident, 'title': title, 'app_id': app_id})
+    return result
+
+
+def output_line(kind, value):
+    """The line the portal reads; kind is 'Monitor' or 'Window'."""
+    if kind not in ('Monitor', 'Window') or not value:
+        return None
+    return f'{kind}: {value}'
+
+
+def read_hint(names, path=None, now=None):
+    """Snip's one-shot screen name: used once (the file is removed), None when it is stale,
+    empty, or names a screen that is not there."""
+    path = path or HINT
+    try:
+        age = (time.time() if now is None else now) - os.stat(path).st_mtime
+        with open(path, encoding='utf-8') as fh:
             name = fh.read().strip()
-        os.unlink(HINT)
+        os.unlink(path)
     except OSError:
         return None
     if age > HINT_MAX_AGE or (names and name not in names):
@@ -41,61 +119,294 @@ def from_hint(names):
     return name or None
 
 
-def ask(outs):
+def decide_without_asking(outs, windows, hint):
+    """('Monitor', name) when no dialog is needed (Snip's hint, or one screen and no windows),
+    else None."""
+    names = [o['name'] for o in outs]
+    if hint:
+        return ('Monitor', hint)
+    if len(names) == 1 and not windows:
+        return ('Monitor', names[0])
+    return None
+
+
+# ---- the system ---------------------------------------------------------------------------
+
+def outputs():
+    try:
+        text = subprocess.run(['wlr-randr', '--json'], capture_output=True,
+                              text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    return parse_outputs(text)
+
+
+def windows(own_titles=()):
+    exe = shutil.which('spark-wl-windows') or '/usr/libexec/spark-wl-windows'
+    try:
+        res = subprocess.run([exe, '--ext-list'], capture_output=True, text=True,
+                             timeout=WINDOWS_TIMEOUT)
+    except (OSError, subprocess.SubprocessError):
+        return []
+    if res.returncode != 0:
+        return []
+    return parse_windows(res.stdout, own_titles)
+
+
+# ---- GTK 4 ----------------------------------------------------------------------------------
+
+CSS = """
+* { font-family: "Cascadia Mono", monospace; }
+window.spark-pick { background: #04090b; color: #d4f1ec; }
+.pick-heading { font-size: 9pt; font-weight: bold; color: #3de8c8; letter-spacing: 1px; }
+.pick-sub { font-size: 9pt; color: #6f9f98; }
+.pick-section { font-size: 8pt; font-weight: bold; color: #3b6460; letter-spacing: 1px;
+  padding: 8px 4px 2px 4px; }
+.pick-name { font-size: 10pt; color: #d4f1ec; }
+.pick-meta { font-size: 9pt; color: #6f9f98; }
+scrolledwindow { background: transparent; border: 1px solid #143a3d; border-radius: 3px; }
+list { background: transparent; color: #d4f1ec; }
+row { background: transparent; border-radius: 3px; border: 1px solid transparent; }
+row.pick-item:hover { background: #12292c; }
+row.pick-item:selected, row.pick-item:focus { background: #12292c; border-color: #1f6a66;
+  box-shadow: 2px 0 0 #ff2e88, -2px 0 0 #22d8ff; }
+row.pick-head, row.pick-head:hover { background: transparent; box-shadow: none; }
+button { background: #0e1f22; color: #d4f1ec; border: 1px solid #143a3d; border-radius: 3px;
+  padding: 4px 14px; min-height: 0; box-shadow: none; font-size: 9pt; font-weight: bold; }
+button:hover, button:focus { background: #12292c; border-color: #1f6a66;
+  box-shadow: 2px 0 0 #ff2e88, -2px 0 0 #22d8ff; }
+button.pick-primary { background: #3de8c8; color: #02130f; border-color: #3de8c8; }
+button.pick-primary:hover { background: #8cf5e2; }
+"""
+
+
+def ask_gtk(outs, wins, strings):
+    """Returns (kind, value) or None. Raises when GTK 4 or a display is missing."""
+    import gi
+    gi.require_version('Gtk', '4.0')
+    gi.require_version('Gdk', '4.0')
+    from gi.repository import Gdk, Gio, GLib, Gtk
+
+    GLib.set_prgname(APP_ID)
+    if not Gtk.init_check():
+        raise RuntimeError('no display')
+    display = Gdk.Display.get_default()
+    if display is None:
+        raise RuntimeError('no display')
+    css = Gtk.CssProvider()
+    css.load_from_data(CSS.encode())
+    Gtk.StyleContext.add_provider_for_display(display, css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    theme = Gtk.IconTheme.get_for_display(display)
+
+    def icon_for(app_id):
+        if app_id:
+            infos = [Gio.DesktopAppInfo.new(app_id + '.desktop'),
+                     Gio.DesktopAppInfo.new(app_id.lower() + '.desktop')]
+            for info in infos:
+                if info is not None and info.get_icon() is not None:
+                    return info.get_icon()
+            for name in (app_id, app_id.lower()):
+                if theme.has_icon(name):
+                    return Gio.ThemedIcon.new(name)
+        return Gio.ThemedIcon.new('application-x-executable')
+
+    result = {'value': None}
+    loop = GLib.MainLoop()
+    win = Gtk.Window(title=strings['title'])
+    win.add_css_class('spark-pick')
+    win.set_default_size(460, 440)
+    win.connect('close-request', lambda *_: (loop.quit(), False)[1])
+
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+    for side in ('top', 'bottom', 'start', 'end'):
+        getattr(box, f'set_margin_{side}')(14)
+    win.set_child(box)
+    heading = Gtk.Label(label=strings['heading'], xalign=0)
+    heading.add_css_class('pick-heading')
+    sub = Gtk.Label(label=strings['sub'], xalign=0, wrap=True)
+    sub.add_css_class('pick-sub')
+    box.append(heading)
+    box.append(sub)
+
+    lst = Gtk.ListBox()
+    lst.set_selection_mode(Gtk.SelectionMode.SINGLE)
+    lst.set_activate_on_single_click(False)
+    items = {}
+
+    def header(text):
+        row = Gtk.ListBoxRow(selectable=False, activatable=False)
+        row.add_css_class('pick-head')
+        lab = Gtk.Label(label=text, xalign=0)
+        lab.add_css_class('pick-section')
+        row.set_child(lab)
+        lst.append(row)
+
+    def item(icon, name, meta, key):
+        row = Gtk.ListBoxRow()
+        row.add_css_class('pick-item')
+        line = Gtk.Box(spacing=10)
+        for side in ('top', 'bottom'):
+            getattr(line, f'set_margin_{side}')(5)
+        for side in ('start', 'end'):
+            getattr(line, f'set_margin_{side}')(8)
+        img = Gtk.Image.new_from_gicon(icon)
+        img.set_pixel_size(24)
+        line.append(img)
+        n = Gtk.Label(label=name, xalign=0, hexpand=True, ellipsize=3)  # 3 = END
+        n.add_css_class('pick-name')
+        line.append(n)
+        if meta:
+            m = Gtk.Label(label=meta, xalign=1, ellipsize=3)
+            m.add_css_class('pick-meta')
+            line.append(m)
+        row.set_child(line)
+        lst.append(row)
+        items[row] = key
+        return row
+
+    first = None
+    if outs:
+        header(strings['screens'])
+        for o in outs:
+            r = item(Gio.ThemedIcon.new('video-display'), o['name'],
+                     f"{o['size']}  {o['desc']}".strip(), ('Monitor', o['name']))
+            first = first or r
+    if wins:
+        header(strings['windows'])
+        for w in wins:
+            r = item(icon_for(w['app_id']), w['title'] or strings['untitled'], w['app_id'],
+                     ('Window', w['identifier']))
+            first = first or r
+
+    scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
+    scroll.set_margin_top(8)
+    scroll.set_child(lst)
+    box.append(scroll)
+
+    def share(*_):
+        row = lst.get_selected_row()
+        if row is not None and row in items:
+            result['value'] = items[row]
+            win.close()
+
+    buttons = Gtk.Box(spacing=8, halign=Gtk.Align.END)
+    buttons.set_margin_top(8)
+    cancel = Gtk.Button(label=strings['cancel'])
+    cancel.connect('clicked', lambda *_: win.close())
+    ok = Gtk.Button(label=strings['share'])
+    ok.add_css_class('pick-primary')
+    ok.connect('clicked', share)
+    buttons.append(cancel)
+    buttons.append(ok)
+    box.append(buttons)
+
+    lst.connect('row-activated', lambda _l, row: share() if row in items else None)
+
+    keys = Gtk.EventControllerKey()
+
+    def on_key(_c, keyval, _code, _state):
+        if keyval == Gdk.KEY_Escape:
+            win.close()
+            return True
+        return False
+    keys.connect('key-pressed', on_key)
+    win.add_controller(keys)
+
+    if first is not None:
+        lst.select_row(first)
+        first.grab_focus()
+    win.connect('destroy', lambda *_: loop.quit())
+    win.present()
+    loop.run()
+    return result['value']
+
+
+# ---- Tk (when GTK 4 is missing) -------------------------------------------------------------
+
+def ask_tk(outs, wins, strings):
     import tkinter as tk
 
-    bg, panel, line, text, muted, accent, on_accent = (
-        '#04090b', '#0a1517', '#1f6a66', '#d4f1ec', '#6f9f98', '#3de8c8', '#02130f')
-    font = 'monospace'
     root = tk.Tk()
-    root.title('Share a screen')
-    root.configure(bg=bg, padx=16, pady=14)
-    root.resizable(False, False)
-    chosen = {'name': None}
-
-    tk.Label(root, text='SHARE A SCREEN', bg=bg, fg=accent,
-             font=(font, 9, 'bold')).pack(anchor='w')
-    tk.Label(root, text='An app wants to record or share one screen.', bg=bg,
-             fg=muted, font=(font, 9)).pack(anchor='w', pady=(2, 10))
-
-    def pick(name):
-        chosen['name'] = name
-        root.destroy()
-
+    root.title(strings['title'])
+    root.configure(bg='#04090b', padx=16, pady=14)
+    chosen = {'value': None}
+    keys = []
+    tk.Label(root, text=strings['heading'], bg='#04090b', fg='#3de8c8',
+             font=('monospace', 9, 'bold')).pack(anchor='w')
+    tk.Label(root, text=strings['sub'], bg='#04090b', fg='#6f9f98',
+             font=('monospace', 9)).pack(anchor='w', pady=(2, 8))
+    lb = tk.Listbox(root, width=60, height=min(16, max(4, len(outs) + len(wins) + 2)),
+                    bg='#0a1517', fg='#d4f1ec', selectbackground='#3de8c8',
+                    selectforeground='#02130f', highlightthickness=1,
+                    highlightbackground='#1f6a66', bd=0, font=('monospace', 10), activestyle='none')
     for o in outs:
-        mode = next((m for m in o.get('modes', []) if m.get('current')), {})
-        size = f"{mode.get('width', '?')}x{mode.get('height', '?')}"
-        label = f"{o['name']}   {size}   {o.get('make', '')} {o.get('model', '')}".strip()
-        b = tk.Button(root, text=label, anchor='w', bg=panel, fg=text, bd=0,
-                      relief='flat', highlightthickness=1, highlightbackground=line,
-                      activebackground=accent, activeforeground=on_accent,
-                      font=(font, 10), padx=12, pady=8, cursor='hand2',
-                      command=lambda n=o['name']: pick(n))
-        b.pack(fill='x', pady=3)
-    tk.Button(root, text='CANCEL', bg=bg, fg=muted, bd=0, relief='flat',
-              activebackground=bg, activeforeground=text, font=(font, 9, 'bold'),
-              command=root.destroy).pack(anchor='e', pady=(10, 0))
+        lb.insert('end', f"[{strings['screens'][:1]}] {o['name']}   {o['size']}   {o['desc']}")
+        keys.append(('Monitor', o['name']))
+    for w in wins:
+        lb.insert('end', f"[{strings['windows'][:1]}] {w['title'] or strings['untitled']}")
+        keys.append(('Window', w['identifier']))
+    lb.pack(fill='both', expand=True)
+    if keys:
+        lb.selection_set(0)
+        lb.activate(0)
+
+    def share(_e=None):
+        sel = lb.curselection()
+        if sel:
+            chosen['value'] = keys[sel[0]]
+            root.destroy()
+    row = tk.Frame(root, bg='#04090b')
+    row.pack(anchor='e', pady=(10, 0))
+    tk.Button(row, text=strings['cancel'], command=root.destroy, bd=0, bg='#0e1f22',
+              fg='#d4f1ec').pack(side='left', padx=6)
+    tk.Button(row, text=strings['share'], command=share, bd=0, bg='#3de8c8',
+              fg='#02130f').pack(side='left')
+    lb.bind('<Double-Button-1>', share)
+    root.bind('<Return>', share)
     root.bind('<Escape>', lambda _e: root.destroy())
-    root.attributes('-topmost', True)
+    lb.focus_set()
     root.mainloop()
-    return chosen['name']
+    return chosen['value']
+
+
+_UI_FAILED = {'failed': False}
+
+
+def ask(outs, wins, strings):
+    """(kind, value), or None when cancelled. If neither toolkit could open, ask_available()
+    turns False."""
+    try:
+        return ask_gtk(outs, wins, strings)
+    except Exception:                               # noqa: BLE001 - no GTK 4 or no display
+        pass
+    try:
+        return ask_tk(outs, wins, strings)
+    except Exception:                               # noqa: BLE001 - no Tk or no display
+        _UI_FAILED['failed'] = True
+        return None
+
+
+def ask_available():
+    return not _UI_FAILED['failed']
 
 
 def main():
+    strings = STRINGS[ui_language()]
     outs = outputs()
     names = [o['name'] for o in outs]
-    name = from_hint(names)
-    if not name:
-        if len(names) == 1:
-            name = names[0]
-        elif names:
-            try:
-                name = ask(outs)
-            except Exception:                       # noqa: BLE001 - no Tk or no display
-                name = names[0]
-    if not name:
+    hint = read_hint(names)
+    wins = [] if hint else windows(tuple(STRINGS[k]['title'] for k in STRINGS))
+    pick = decide_without_asking(outs, wins, hint)
+    if pick is None and (outs or wins):
+        pick = ask(outs, wins, strings)
+        if pick is None and not ask_available():
+            pick = ('Monitor', names[0]) if names else None   # no GTK and no Tk: sharing still works
+    if pick is None:
         return 1
-    print(f'Monitor: {name}')
+    line = output_line(*pick)
+    if not line:
+        return 1
+    print(line)
     return 0
 
 

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Software install. SparkOS icon theme, 48 grid. -->
+  <rect x="4.5" y="4.5" width="39" height="39" rx="3" fill="#141233" stroke="#ece9ff" stroke-opacity="0.22"/>
+  <polyline points="12,27 12,38 36,38 36,27" fill="none" stroke="#9be8b8" stroke-width="3"/>
+  <path d="M22 9 H26 V19 H31 L24 27 L17 19 H22 Z" fill="#ff2e88" transform="translate(-2 0)"/>
+  <path d="M22 9 H26 V19 H31 L24 27 L17 19 H22 Z" fill="#22d8ff" transform="translate(2 0)"/>
+  <path d="M22 9 H26 V19 H31 L24 27 L17 19 H22 Z" fill="#f4c95d"/>
+</svg>

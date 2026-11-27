@@ -10,9 +10,11 @@ import gi
 
 gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
-from gi.repository import Gdk, Gio, Gtk  # noqa: E402
+from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
 
-from . import APP_ID, apps, config, theme  # noqa: E402
+from . import APP_ID, apps, config, ordering, theme  # noqa: E402
+from .compositor import CompositorLink  # noqa: E402
+from .connectstatus import ConnectStatus, host_connector  # noqa: E402
 from .dbusutil import DBusFail, export  # noqa: E402
 from .launcherui import Launcher  # noqa: E402
 from .lockctl import LockControl  # noqa: E402
@@ -51,6 +53,9 @@ class Shell(Gtk.Application):
         self.config = config.clean({})
         self.panels = []
         self.wallpapers = []
+        self.loose_order = []     # keys of unpinned apps, as dragged this session
+        self.compositor = CompositorLink()
+        self.connect_status = ConnectStatus()
         self.started = False
 
     # lifecycle ---------------------------------------------------------------------------
@@ -103,6 +108,10 @@ class Shell(Gtk.Application):
         atexit.register(self.screensaver.stop)
 
         self._watch_config()
+        self.compositor.on_change = self._workspaces_changed
+        self.compositor.start()
+        self.connect_status.on_change = self.refresh_connect
+        self.connect_status.set_enabled(self.config['connect_widget']['enabled'])
         display.get_monitors().connect('items-changed', lambda *_: self.rebuild())
         self.rebuild()
         self.catalog_monitor = Gio.AppInfoMonitor.get()
@@ -121,6 +130,8 @@ class Shell(Gtk.Application):
             self.panels.append(Panel(self, monitor, with_tray=(i == 0)))
         for w in self.wallpapers + self.panels:
             w.present()
+        self._workspaces_changed()
+        self.refresh_connect()
 
     # config ------------------------------------------------------------------------------
     def _watch_config(self):
@@ -140,6 +151,7 @@ class Shell(Gtk.Application):
             return
         position = new['panel_position'] != self.config['panel_position']
         self.config = new
+        self.connect_status.set_enabled(new['connect_widget']['enabled'])
         if position:
             self.rebuild()
         else:
@@ -147,6 +159,9 @@ class Shell(Gtk.Application):
                 w.apply(new)
             for p in self.panels:
                 p.tasks.refresh()
+                if p.tray is not None:
+                    p.tray.set_order(new['tray_order'])
+            self.refresh_connect()
 
     def set_pinned(self, ident, on):
         pinned = [p for p in self.config['pinned'] if p != ident]
@@ -159,6 +174,61 @@ class Shell(Gtk.Application):
             log.warning('could not save pinned apps: %s', e)
         for p in self.panels:
             p.tasks.refresh()
+
+    def move_task(self, keys, src, dst, after, pinnable):
+        """A task button was dropped (see ordering.reorder_tasks): save a changed pinned list,
+        keep the unpinned order for this session and redraw every panel."""
+        pinned, loose = ordering.reorder_tasks(keys, self.config['pinned'], src, dst, after,
+                                               pinnable)
+        self.loose_order = loose
+        if pinned != self.config['pinned']:
+            self.config['pinned'] = pinned
+            try:
+                config.save_pinned(pinned)
+            except OSError as e:
+                log.warning('could not save pinned apps: %s', e)
+        # not inside the drop handler: the dragged button is still being used
+        GLib.idle_add(lambda: ([p.tasks.refresh(force=True) for p in self.panels], False)[1])
+
+    def set_tray_order(self, order):
+        self.config['tray_order'] = list(order)
+        try:
+            config.save_tray_order(order)
+        except OSError as e:
+            log.warning('could not save the tray order: %s', e)
+        for p in self.panels:
+            if p.tray is not None:
+                p.tray.set_order(order)
+
+    # workspaces and the Spark Connect widget ---------------------------------------------
+    def _workspaces_changed(self):
+        for p in self.panels:
+            p.workspaces.update()
+
+    def connect_host(self) -> str:
+        """The connector of the panel that shows the Spark Connect widget."""
+        connectors = [p.connector for p in self.panels]
+        return host_connector(self.config['connect_widget']['monitor'], connectors,
+                              connectors[0] if connectors else '')
+
+    def refresh_connect(self):
+        for p in self.panels:
+            p.connect_button.update()
+
+    def _save_connect(self, **kw):
+        try:
+            self.config['connect_widget'] = config.save_connect_widget(**kw)
+        except OSError as e:
+            log.warning('could not save the Spark Connect widget setting: %s', e)
+            return
+        self.connect_status.set_enabled(self.config['connect_widget']['enabled'])
+        self.refresh_connect()
+
+    def set_connect_enabled(self, on):
+        self._save_connect(enabled=on)
+
+    def set_connect_monitor(self, connector):
+        self._save_connect(monitor=connector)
 
     # actions -----------------------------------------------------------------------------
     def _windows_changed(self, windows):
@@ -250,5 +320,14 @@ class Shell(Gtk.Application):
                               'history': len(self.notifyd.history),
                               'dnd': self.notifyd.dnd},
             'launcher_open': self.launcher.get_visible(),
+            'workspaces': {'connected': self.compositor.connected, 'count': self.compositor.count,
+                           'current': self.compositor.current,
+                           'shown': [p.connector for p in self.panels
+                                     if p.workspaces.get_visible()]},
+            'connect_widget': {'enabled': self.connect_status.enabled,
+                               'installed': self.connect_status.installed,
+                               'host': self.connect_host(),
+                               'shown': [p.connector for p in self.panels
+                                         if p.connect_button.get_visible()]},
             'osd': self.osd.last,
         })

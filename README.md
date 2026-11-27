@@ -21,16 +21,15 @@ SparkOS draws its own desktop. There is no KDE, Plasma or KWin in the image: the
 
 - **Spark Greeter** is the login screen: greetd runs it on the Spark compositor. If it fails to start a few times in a row, greetd switches to a text login by itself, and `spark greeter enable` brings it back.
 - **Spark** (`spark-wl`) is the only session:
-  - **Spark compositor**: a Wayland compositor on wlroots, written in C ([source](files/spark-compositor)). It draws the title bars and handles snapping and maximizing. Alt+Tab opens a window switcher, and the Windows 7 window keys work (Super+arrows, Super+D, Super+E). The volume and mute keys work, and the screen stays on while a video or game asks for it. X11 apps run through XWayland.
-  - **Spark Shell**: the panel, task list, tray, notifications, the Spark menu (Win7-style, above the SPARK button), wallpaper, volume display and lock screen, all in GTK 4 ([source](files/spark-shell)). Old X11 tray icons work too, so Wine and Proton apps such as Battle.net show theirs in the tray.
-  - **Spark's own pieces for the rest**: password prompts (polkit agent), Open and Save dialogs for every app (a Spark Files portal), screenshots and screen sharing through the wlroots portal, and the startup sound.
+  - **Spark compositor**: a Wayland compositor on wlroots, written in C ([source](files/spark-compositor)). It draws the title bars and handles snapping and maximizing, HDR, workspaces (Super+Ctrl+Left/Right) and optional tiling per workspace (Super+Ctrl+T). Alt+Tab opens a window switcher, and the Windows 7 window keys work (Super+arrows, Super+D, Super+E). The volume and mute keys work, and the screen stays on while a video or game asks for it. X11 apps run through XWayland.
+  - **Spark Shell**: the panel, task list, tray, notifications, the Spark menu (Win7-style, above the SPARK button), wallpaper, volume display and lock screen, all in GTK 4 ([source](files/spark-shell)). Old X11 tray icons work too, so Wine and Proton apps such as Battle.net show theirs in the tray. Task buttons and tray icons can be dragged into a new order, and Spark Connect's server status can sit in the tray of any screen (off by default, in Spark Settings > Appearance > Taskbar).
+  - **Spark's own pieces for the rest**: password prompts (polkit agent), Open and Save dialogs for every app (a Spark Files portal), screenshots and screen sharing through the wlroots portal with a Spark picker for a whole screen or one window, the foreground booster (the focused app gets VRAM protection and a bigger CPU share), and the startup sound.
 
 Not Spark yet:
-- Saved passwords go in GNOME Keyring, unlocked by your login password. It replaces KWallet because it is the store apps already know how to use. Passwords saved in KWallet on an older SparkOS do not move over.
-- The icon set falls back to Breeze's icons and cursors for the icons SparkOS has not drawn yet. Those are image files only; no KDE software is installed.
-- Spark Connect's "Take control" now runs on spark-rdp, SparkOS's own RDP server for the Spark session (it used KDE's krdpserver before). The foreground booster is gone with it. The VRAM booster stays.
+- Saved passwords go in GNOME Keyring, unlocked by your login password. It replaces KWallet because it is the store apps already know how to use. Passwords saved in KWallet on an older SparkOS do not move over. A Spark password store needs its own Secret Service and a careful move of saved passwords, so it gets its own PR.
+- Third-party apps that ask for an icon SparkOS has not drawn get Breeze Dark's. Spark's own apps and the shell use only SparkOS icons, and the cursors are SparkOS's own. Breeze Dark is image files only; no KDE software is installed.
 
-Not in the Spark session yet: HDR, workspaces, tiling, a screen-share picker, and night light. VRR, tearing and direct scanout are written but not tried on a GPU. The Nvidia image hasn't been tried on a real Nvidia PC yet.
+Not tried on real hardware yet: VRR, tearing and direct scanout are written but not tried on a GPU, and the Nvidia image hasn't been tried on a real Nvidia PC. Night light is not planned.
 
 ## What's in it
 

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" data-hotspot="4 28">
+<!-- pencil, tip bottom left -->
+<g fill="#141233" stroke="#ece9ff" stroke-width="1.5" stroke-linejoin="miter">
+<polygon points="4.5,27.5 6,20.5 22,4.5 27.5,10 11.5,26"/>
+</g>
+<path d="M6 20.5l5.5 5.5M19 7.5l5.5 5.5" stroke="#b3b0d2" stroke-width="1" fill="none"/>
+<polygon points="4.5,27.5 6.6,22.6 9.4,25.4" fill="#9be8b8" stroke="none"/>
+</svg>

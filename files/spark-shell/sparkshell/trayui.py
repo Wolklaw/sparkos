@@ -9,6 +9,8 @@ gi.require_version('Gtk', '4.0')
 gi.require_version('Gdk', '4.0')
 from gi.repository import Gdk, GLib, Graphene, Gtk  # noqa: E402
 
+from . import dnd  # noqa: E402
+from .ordering import merge_order, move_key  # noqa: E402
 from .strings import tr  # noqa: E402
 
 ICON_SIZE = 20
@@ -157,9 +159,11 @@ def show_menu(parent: Gtk.Widget, menu):
 class TrayView(Gtk.Box):
     """The buttons for a TrayHost's visible items."""
 
-    def __init__(self, host):
+    def __init__(self, host, order=(), on_reorder=None):
         super().__init__(spacing=2)
         self.host = host
+        self.order = list(order)   # saved item ids; ones not listed go last
+        self.on_reorder = on_reorder
         self.buttons = {}          # item key -> (button, image)
         host.on_added = self._added
         host.on_changed = self._changed
@@ -186,7 +190,37 @@ class TrayView(Gtk.Box):
         button.add_controller(scroll)
         self.buttons[item.key] = (button, image)
         self.append(button)
+        dnd.attach_source(button, 'tray', item.id)
+        dnd.attach_target(button, 'tray', lambda name, after, i=item: self._drop(name, i.id, after))
         self._changed(item)
+        self._layout()
+
+    def set_order(self, order):
+        """The saved order changed (the file was edited, or a drop on another panel)."""
+        self.order = list(order)
+        self._layout()
+
+    def _ids(self):
+        """[(item id, key)] for the buttons, in the order they should be drawn."""
+        pairs = [(self.host.items[k].id, k) for k in self.buttons if k in self.host.items]
+        return merge_order(self.order, pairs, ident=lambda p: p[0])
+
+    def _layout(self):
+        previous = None
+        for _ident, key in self._ids():
+            button = self.buttons[key][0]
+            self.reorder_child_after(button, previous)
+            previous = button
+
+    def _drop(self, src, dst, after):
+        ids = [i for i, _k in self._ids()]
+        if src not in ids or src == dst:
+            return False
+        self.order = move_key(ids, src, dst, after)
+        self._layout()
+        if self.on_reorder:
+            self.on_reorder(list(self.order))
+        return True
 
     def _changed(self, item):
         entry = self.buttons.get(item.key)
@@ -200,6 +234,7 @@ class TrayView(Gtk.Box):
             button.add_css_class('attention')
         else:
             button.remove_css_class('attention')
+        self._layout()
 
     def _removed(self, item):
         entry = self.buttons.pop(item.key, None)
