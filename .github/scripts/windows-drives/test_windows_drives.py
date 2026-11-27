@@ -105,6 +105,32 @@ class WindowsDrivesTests(unittest.TestCase):
         finally:
             os.unlink(f.name)
 
+    def test_letters_are_remembered_after_windows_is_erased(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "letters.json")
+            self.assertEqual(wd.remembered_letters(path), {})
+            wd.save_letters({"C": C, "E": E}, path)
+            saved = wd.remembered_letters(path)
+            self.assertEqual(saved, {"C": C, "E": E})
+            # C: wiped: no registry file found, the saved letters still name E:
+            self.assertEqual(wd.merge_letters({}, saved), {"C": C, "E": E})
+            taken = set()
+            by_guid = {g: l for l, g in wd.merge_letters({}, saved).items()}
+            self.assertEqual(wd.name_for({"partuuid": E, "label": "Games", "name": "x"}, by_guid, taken), ("E", "e"))
+
+    def test_windows_letters_win_over_saved_ones(self):
+        saved = {"E": E, "F": "old-f"}
+        self.assertEqual(wd.merge_letters({"G": E, "C": C}, saved), {"G": E, "C": C, "F": "old-f"})
+        self.assertEqual(wd.merge_letters({"E": "new-e"}, saved), {"E": "new-e", "F": "old-f"})
+
+    def test_damaged_letters_file_is_ignored(self):
+        with tempfile.TemporaryDirectory() as d:
+            path = os.path.join(d, "letters.json")
+            for text in ("{nope", "[1, 2]", '{"cc": "x", "E": 5, "F": "ok"}'):
+                with open(path, "w") as f:
+                    f.write(text)
+                self.assertEqual(wd.remembered_letters(path), {"F": "ok"} if "ok" in text else {})
+
 
 if __name__ == "__main__":
     unittest.main()

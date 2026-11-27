@@ -4,7 +4,7 @@
   "name": "Spark Welcome",
   "description": "Moving from Windows: the Spark app for each Windows program, your files, fonts and Steam games, apps to add, and a check of this PC.",
   "description_fr": "Quitter Windows : l'application Spark pour chaque programme, vos fichiers, polices et jeux Steam, des applications à ajouter, et une vérification de ce PC.",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "size_kb": 200,
   "needs": {
     "python": ">=3.9",

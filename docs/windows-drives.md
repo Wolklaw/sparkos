@@ -8,7 +8,7 @@ SparkOS opens your Windows drives by itself at every start, before you sign in, 
 | `E:\Personal Projects` | `/var/mnt/e/Personal Projects` |
 | `D:\` | `/var/mnt/d`, **read-only** |
 
-The letters come from Windows itself (its registry file on C:), so they match what you see in Windows. A drive with no letter appears under its label. The files belong to you, so Git, Claude Code and your apps can use them like any other folder.
+The letters come from Windows itself (its registry file on C:), so they match what you see in Windows. A drive with no letter appears under its label. SparkOS saves the letters in `/var/lib/sparkos/windows-drive-letters.json`, so after you erase the Windows drive the others keep their letter and their folder (E: stays at `/var/mnt/e`). The files belong to you, so Git, Claude Code and your apps can use them like any other folder.
 
 ## Read-write, read-only or off
 

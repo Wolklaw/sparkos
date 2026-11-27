@@ -198,10 +198,7 @@ EN: Dict[str, str] = {
 
     # moving from Windows (1.1)
     'open': "Open",
-    'nav.windows': "MOVE FROM WINDOWS",
-    'welcome.rest': "It comes with its own apps for the everyday jobs, listed below. The next "
-                    "page helps you move from Windows: your files, which app to use here for "
-                    "each program you had, and what to do before you erase Windows.",
+    'nav.windows': "YOUR FILES",
     'welcome.swaps': "What you used on Windows, and what does it here",
     'welcome.swaps.intro': "These are already on this PC. Open shows the app.",
     'welcome.instead': "Instead of {win}",
@@ -279,11 +276,11 @@ EN: Dict[str, str] = {
     'apps.others': "Apps from other companies",
     'apps.others.intro': "For chat, music, streaming and creative work. Each one says whose "
                          "app it is.",
-    'win.title': "Move from Windows",
-    'win.intro': "If Windows is on this PC too, Spark Welcome can copy your Desktop, "
-                 "Documents, Pictures, Videos, Music, Downloads and fonts into the same "
-                 "folders here. It also lists the programs you had, with what to use for each "
-                 "one here, and the Steam games you can copy instead of downloading.",
+    'win.title': "Your files",
+    'win.intro': "Your drives are open, but your Desktop, Documents, Pictures and other "
+                 "folders are still on the Windows drive (C:). Copy them here before you "
+                 "erase it. This step also lists the programs you had, with what to use for "
+                 "each one here, and the Steam games you can copy instead of downloading.",
     'win.programs': "Your Windows programs",
     'win.programs.intro': "Found on the Windows drive, with what to use here.",
     'win.others': "{n} other programs have no answer here. Look for them in the Store; many "
@@ -355,6 +352,179 @@ EN: Dict[str, str] = {
                  "Meta+Shift+S: Spark Snip. Ctrl+C, Ctrl+V and Alt+Tab work as usual.",
     'done.settings': "Display, sound, network, Bluetooth, printers and the rest are in Spark "
                      "Settings.",
+
+    # the guide (1.2)
+    'nav.step': "Step {n} of {total}",
+    'nav.next_to': "Next: {step}",
+    'step.todo': "What to do here",
+    'nav.different': "WHAT'S DIFFERENT",
+    'nav.familiar': "WHAT'S THE SAME",
+    'nav.drives': "YOUR DRIVES",
+    'nav.erase': "ERASING WINDOWS",
+    'welcome.guide': "This guide takes you through it one step at a time: what changes from "
+                     "Windows, what doesn't, getting your drives and files here, and what to "
+                     "check before you erase Windows.",
+    'welcome.steps': "The steps",
+    'welcome.start': "Start",
+    'welcome.step.different': "Apps, updates and drives work differently here.",
+    'welcome.step.familiar': "The taskbar, windows, folders and keyboard shortcuts you know.",
+    'welcome.step.drives': "Make sure each drive with your files opens at every start.",
+    'welcome.step.windows': "Copy your folders from the Windows drive.",
+    'welcome.step.games': "Install Steam and the other game launchers.",
+    'welcome.step.apps': "Install the apps you use.",
+    'welcome.step.checks': "Graphics, sound, printers, network and updates.",
+    'welcome.step.erase': "What to check before you erase Windows, and how.",
+    'welcome.step.done': "Where to find things later.",
+
+    'diff.title': "What's different",
+    'diff.intro': "SparkOS is not Windows. These are the changes you will notice first.",
+    'diff.todo': "Read the cards. Nothing to set up here.",
+    'diff.store.title': "Apps come from the Store",
+    'diff.store': "Instead of downloading installers from websites, install apps from the "
+                  "Store. One click installs them, and they update by themselves. Spark Run "
+                  "can open a downloaded .exe, but not every Windows program works.",
+    'diff.store.button': "Open the Store",
+    'diff.games.title': "Windows games run through Proton",
+    'diff.games': "Steam and the other launchers run Windows games through Proton. Most "
+                  "games work. Games with kernel-level anti-cheat don't; the Games step "
+                  "says more.",
+    'diff.update.title': "Updates replace the whole system",
+    'diff.update': "SparkOS downloads the next version in the background and switches to it "
+                   "when you restart. If something is wrong after an update, the previous "
+                   "version is still in the startup menu: pick it there.",
+    'diff.letters.title': "No drive letters",
+    'diff.letters': "Everything is in one tree of folders. Your files are in your home "
+                    "folder. Windows drives open as folders: C: is /var/mnt/c, D: is "
+                    "/var/mnt/d. Spark Files lists your drives on the left.",
+    'diff.password.title': "Your password instead of Yes / No",
+    'diff.password': "Where Windows asks \"Do you want to allow this app to make changes?\", "
+                     "SparkOS asks for your password, for example when you add a drive or "
+                     "change a system setting.",
+    'diff.sandbox.title': "The system can't be changed by accident",
+    'diff.sandbox': "System files are read-only, and Store apps only see what they need. "
+                    "Programs made for Windows, viruses included, don't run here on their own.",
+    'diff.case.title': "Capital letters count in names",
+    'diff.case': "Photo.jpg and photo.jpg can be two different files here.",
+
+    'same.title': "What's the same",
+    'same.intro': "Most of what you do every day works the way it did on Windows.",
+    'same.todo': "Read the cards and try a few shortcuts. Nothing to set up here.",
+    'same.taskbar.title': "The taskbar",
+    'same.taskbar': "Along the bottom: the SPARK button opens the app menu (the Windows key "
+                    "does too), then your pinned and open apps, then the clock, tray icons and "
+                    "notifications on the right.",
+    'same.windows.title': "Windows",
+    'same.windows': "Minimize, maximize and close are at the top right of each window. "
+                    "Windows key + arrows snap and maximize, as on Windows.",
+    'same.files.title': "Your folders",
+    'same.files': "Your home folder has Desktop, Documents, Downloads, Music, Pictures and "
+                  "Videos. Spark Files works like File Explorer: right-click, drag and drop, "
+                  "and a trash you can empty.",
+    'same.mouse.title': "Keyboard and mouse",
+    'same.mouse': "Ctrl+C, Ctrl+V, Ctrl+Z and the other Ctrl shortcuts work as usual. "
+                  "Right-click opens a menu almost everywhere.",
+    'same.keys': "Keyboard shortcuts",
+    'key.menu': "Windows key",
+    'key.menu.what': "Open the app menu",
+    'key.switch': "Alt+Tab",
+    'key.switch.what': "Switch windows",
+    'key.close': "Alt+F4",
+    'key.close.what': "Close the window",
+    'key.snap': "Win+Left / Right",
+    'key.snap.what': "Snap to half the screen. Win+Up maximizes, Win+Down restores.",
+    'key.desktop': "Win+D",
+    'key.desktop.what': "Show the desktop",
+    'key.lock': "Win+L",
+    'key.lock.what': "Lock the screen",
+    'key.files': "Win+E",
+    'key.files.what': "Open Spark Files",
+    'key.settings': "Win+I",
+    'key.settings.what': "Open Spark Settings",
+    'key.monitor': "Ctrl+Shift+Esc",
+    'key.monitor.what': "Open Spark Monitor (the Task Manager)",
+    'key.snip': "Print Screen, Win+Shift+S",
+    'key.snip.what': "Take a screenshot with Spark Snip",
+    'key.clipboard': "Win+V",
+    'key.clipboard.what': "Clipboard history",
+    'key.emoji': "Win+.",
+    'key.emoji.what': "Emoji",
+    'key.terminal': "Ctrl+Alt+T",
+    'key.terminal.what': "Open a terminal",
+    'key.copy': "Ctrl+C / Ctrl+V / Ctrl+Z",
+    'key.copy.what': "Copy, paste, undo",
+
+    'drives.title': "Your drives",
+    'drives.intro': "Each drive with your files on it should open by itself at every start, "
+                    "so your games and files are there without Windows.",
+    'drives.todo': "Check that each Windows drive below opens: click Open and look for your "
+                   "files. If drives are listed under Other drives, tick them and click Add "
+                   "ticked so they open at every start too.",
+    'drives.win': "Windows drives",
+    'drives.win.no_report': "SparkOS hasn't reported its Windows drives yet. Restart the PC, "
+                            "then open this step again.",
+    'drives.win.none': "No Windows drive found on this PC.",
+    'drives.rw': "READ-WRITE",
+    'drives.ro': "READ-ONLY",
+    'drives.off': "NOT OPEN",
+    'drives.win.locked': "Locked with BitLocker, so SparkOS can't read it. Turn BitLocker off "
+                         "for this drive in Windows, then restart into SparkOS.",
+    'drives.win.hibernated': "Windows didn't shut down fully, so this drive is read-only. "
+                             "Start Windows, turn off Fast Startup in the power options, "
+                             "shut down, then start SparkOS.",
+    'drives.win.ro_choice': "Read-only on purpose. To write to it, change the line "
+                            "\"{letter} ro\" to \"{letter} rw\" in {conf} and restart.",
+    'drives.win.problem': "SparkOS says: {problem}",
+    'drives.win.keep': "These drives keep their letter and their folder after you erase "
+                       "Windows.",
+    'drives.other': "Other drives",
+    'drives.other.intro': "Drives with files that SparkOS doesn't open by itself yet. Adding "
+                          "one opens it now and at every start, in the folder shown. Nothing "
+                          "on it is changed or erased. SparkOS asks for your password.",
+    'drives.other.none': "No other drives. USB drives and SD cards open by themselves when "
+                         "you plug them in.",
+    'drives.looking': "Looking for drives…",
+    'drives.lsblk_failed': "Couldn't list the drives: {error}",
+    'drives.added': "ADDED",
+    'drives.add': "Add ticked ({n})",
+    'drives.add_none': "Add ticked",
+    'drives.again': "Look again",
+    'drives.adding': "Adding. If a password window appears, it's SparkOS asking to change "
+                     "its list of drives.",
+    'drives.added_at': "{name} opens at {where}, now and at every start.",
+    'drives.err.password': "Adding a drive needs your password, and it wasn't given.",
+    'drives.err.damaged': "The drive's file system looks damaged, so it can't be opened.",
+    'drives.err.generic': "The drive couldn't be added.",
+    'drives.not_writable': "It opened, but you can't write to it: its files belong to "
+                           "another user.",
+    'drives.added_next_start': "It's added, but couldn't be opened now. It opens at the next "
+                               "start.",
+
+    'win.todo': "Pick the Windows drive, tick the folders you want, then click Copy ticked. "
+                "Your other drives (D:, E: and so on) don't need copying: they stay after "
+                "Windows is erased.",
+
+    'erase.title': "Before you erase Windows",
+    'erase.intro': "Once everything you need is here, the Windows partition can be erased "
+                   "to free its space. Spark Welcome never erases anything itself.",
+    'erase.todo': "Go through the list while Windows still starts. When nothing is missing, "
+                  "erase the Windows partition in Spark Disks.",
+    'erase.drives': "What stays and what goes",
+    'erase.drives.unknown': "SparkOS hasn't reported its Windows drives, so this can't say "
+                            "which ones stay.",
+    'erase.c.title': "C: goes",
+    'erase.c': "Erasing Windows means erasing C:. Anything on it that you haven't copied in "
+               "step 5 is lost.",
+    'erase.stay.title': "These drives stay",
+    'erase.stay': "They are separate from Windows and keep their letter and folder:\n{drives}",
+    'erase.how': "Erasing the Windows partition",
+    'erase.how.title': "In Spark Disks",
+    'erase.how.text': "Pick the Windows partition (C:, NTFS), choose Delete, and type the "
+                      "device name it shows to confirm. Spark Disks closes the partition "
+                      "first. The freed space can then hold a new partition for files.",
+    'erase.disks': "Open Spark Disks",
+    'erase.efi.title': "Leave the small partitions alone",
+    'erase.efi': "Delete only the Windows partition. The small EFI partition is what the PC "
+                 "starts from, and SparkOS may use it too.",
 }
 
 FR: Dict[str, str] = {
@@ -565,11 +735,7 @@ FR: Dict[str, str] = {
 
     # moving from Windows (1.1)
     'open': "Ouvrir",
-    'nav.windows': "QUITTER WINDOWS",
-    'welcome.rest': "Il vient avec ses propres applications pour les tâches de tous les jours, "
-                    "listées plus bas. La page suivante vous aide à quitter Windows : vos "
-                    "fichiers, l'application à utiliser ici pour chaque programme que vous "
-                    "aviez, et quoi faire avant d'effacer Windows.",
+    'nav.windows': "VOS FICHIERS",
     'welcome.swaps': "Ce que vous utilisiez sous Windows, et ce qui le fait ici",
     'welcome.swaps.intro': "Elles sont déjà sur ce PC. Ouvrir affiche l'application.",
     'welcome.instead': "Au lieu de {win}",
@@ -653,12 +819,12 @@ FR: Dict[str, str] = {
     'apps.others': "Applications d'autres entreprises",
     'apps.others.intro': "Pour clavarder, la musique, la diffusion et la création. Chacune "
                          "indique à qui elle appartient.",
-    'win.title': "Quitter Windows",
-    'win.intro': "Si Windows est aussi sur ce PC, Spark Welcome peut copier votre Bureau, vos "
-                 "Documents, Images, Vidéos, Musique, Téléchargements et polices dans les "
-                 "mêmes dossiers ici. Il liste aussi les programmes que vous aviez, avec quoi "
-                 "utiliser ici pour chacun, et les jeux Steam à copier au lieu de les "
-                 "télécharger.",
+    'win.title': "Vos fichiers",
+    'win.intro': "Vos disques sont ouverts, mais votre Bureau, vos Documents, vos Images et "
+                 "vos autres dossiers sont encore sur le disque Windows (C:). Copiez-les ici "
+                 "avant de l'effacer. Cette étape liste aussi vos programmes, avec quoi "
+                 "utiliser ici pour chacun, et les jeux Steam que vous pouvez copier au lieu "
+                 "de les télécharger.",
     'win.programs': "Vos programmes Windows",
     'win.programs.intro': "Trouvés sur le disque Windows, avec quoi utiliser ici.",
     'win.others': "{n} autres programmes n'ont pas de réponse ici. Cherchez-les dans le "
@@ -740,6 +906,193 @@ FR: Dict[str, str] = {
                  "d'habitude.",
     'done.settings': "L'affichage, le son, le réseau, le Bluetooth, les imprimantes et le "
                      "reste sont dans Spark Settings.",
+
+    # le guide (1.2)
+    'nav.step': "Étape {n} sur {total}",
+    'nav.next_to': "Suivant : {step}",
+    'step.todo': "À faire ici",
+    'nav.different': "CE QUI CHANGE",
+    'nav.familiar': "CE QUI RESTE",
+    'nav.drives': "VOS DISQUES",
+    'nav.erase': "EFFACER WINDOWS",
+    'welcome.guide': "Ce guide vous accompagne une étape à la fois : ce qui change par "
+                     "rapport à Windows, ce qui reste, vos disques et vos fichiers, et quoi "
+                     "vérifier avant d'effacer Windows.",
+    'welcome.steps': "Les étapes",
+    'welcome.start': "Commencer",
+    'welcome.step.different': "Les applications, les mises à jour et les disques marchent "
+                              "autrement ici.",
+    'welcome.step.familiar': "La barre des tâches, les fenêtres, les dossiers et les "
+                             "raccourcis que vous connaissez.",
+    'welcome.step.drives': "Vérifier que chaque disque avec vos fichiers s'ouvre à chaque "
+                           "démarrage.",
+    'welcome.step.windows': "Copier vos dossiers depuis le disque Windows.",
+    'welcome.step.games': "Installer Steam et les autres lanceurs de jeux.",
+    'welcome.step.apps': "Installer les applications que vous utilisez.",
+    'welcome.step.checks': "Graphiques, son, imprimantes, réseau et mises à jour.",
+    'welcome.step.erase': "Quoi vérifier avant d'effacer Windows, et comment.",
+    'welcome.step.done': "Où trouver les choses plus tard.",
+
+    'diff.title': "Ce qui change",
+    'diff.intro': "SparkOS n'est pas Windows. Voici les changements que vous verrez en "
+                  "premier.",
+    'diff.todo': "Lisez les cartes. Rien à régler ici.",
+    'diff.store.title': "Les applications viennent du magasin",
+    'diff.store': "Au lieu de télécharger des installateurs sur des sites, installez les "
+                  "applications depuis le magasin. Un clic les installe, et elles se mettent "
+                  "à jour toutes seules. Spark Run peut ouvrir un .exe téléchargé, mais pas "
+                  "tous les programmes Windows.",
+    'diff.store.button': "Ouvrir le magasin",
+    'diff.games.title': "Les jeux Windows passent par Proton",
+    'diff.games': "Steam et les autres lanceurs font tourner les jeux Windows avec Proton. "
+                  "La plupart marchent. Ceux avec un anti-triche au niveau du noyau, non; "
+                  "l'étape Jeux en dit plus.",
+    'diff.update.title': "Les mises à jour remplacent tout le système",
+    'diff.update': "SparkOS télécharge la version suivante en arrière-plan et passe dessus "
+                   "au redémarrage. Si quelque chose cloche après une mise à jour, la version "
+                   "précédente est encore dans le menu de démarrage : choisissez-la là.",
+    'diff.letters.title': "Pas de lettres de lecteur",
+    'diff.letters': "Tout est dans un seul arbre de dossiers. Vos fichiers sont dans votre "
+                    "dossier personnel. Les disques Windows s'ouvrent comme des dossiers : C: "
+                    "est /var/mnt/c, D: est /var/mnt/d. Spark Files liste vos disques à "
+                    "gauche.",
+    'diff.password.title': "Votre mot de passe au lieu de Oui / Non",
+    'diff.password': "Là où Windows demande « Voulez-vous autoriser cette application à "
+                     "apporter des modifications? », SparkOS demande votre mot de passe, par "
+                     "exemple pour ajouter un disque ou changer un réglage du système.",
+    'diff.sandbox.title': "Le système ne peut pas être modifié par accident",
+    'diff.sandbox': "Les fichiers du système sont en lecture seule, et les applications du "
+                    "magasin ne voient que ce dont elles ont besoin. Les programmes faits pour "
+                    "Windows, virus compris, ne s'exécutent pas ici d'eux-mêmes.",
+    'diff.case.title': "Les majuscules comptent dans les noms",
+    'diff.case': "Photo.jpg et photo.jpg peuvent être deux fichiers différents ici.",
+
+    'same.title': "Ce qui reste",
+    'same.intro': "La plupart de ce que vous faites chaque jour marche comme sur Windows.",
+    'same.todo': "Lisez les cartes et essayez quelques raccourcis. Rien à régler ici.",
+    'same.taskbar.title': "La barre des tâches",
+    'same.taskbar': "En bas : le bouton SPARK ouvre le menu des applications (la touche "
+                    "Windows aussi), puis vos applications épinglées et ouvertes, puis "
+                    "l'horloge, les icônes et les notifications à droite.",
+    'same.windows.title': "Les fenêtres",
+    'same.windows': "Réduire, agrandir et fermer sont en haut à droite de chaque fenêtre. "
+                    "Touche Windows + flèches pour ancrer et agrandir, comme sur Windows.",
+    'same.files.title': "Vos dossiers",
+    'same.files': "Votre dossier personnel a Bureau, Documents, Téléchargements, Musique, "
+                  "Images et Vidéos. Spark Files marche comme l'Explorateur : clic droit, "
+                  "glisser-déposer, et une corbeille à vider.",
+    'same.mouse.title': "Clavier et souris",
+    'same.mouse': "Ctrl+C, Ctrl+V, Ctrl+Z et les autres raccourcis Ctrl marchent comme "
+                  "d'habitude. Le clic droit ouvre un menu presque partout.",
+    'same.keys': "Raccourcis clavier",
+    'key.menu': "Touche Windows",
+    'key.menu.what': "Ouvrir le menu des applications",
+    'key.switch': "Alt+Tab",
+    'key.switch.what': "Passer d'une fenêtre à l'autre",
+    'key.close': "Alt+F4",
+    'key.close.what': "Fermer la fenêtre",
+    'key.snap': "Win+Gauche / Droite",
+    'key.snap.what': "Ancrer sur la moitié de l'écran. Win+Haut agrandit, Win+Bas restaure.",
+    'key.desktop': "Win+D",
+    'key.desktop.what': "Afficher le bureau",
+    'key.lock': "Win+L",
+    'key.lock.what': "Verrouiller l'écran",
+    'key.files': "Win+E",
+    'key.files.what': "Ouvrir Spark Files",
+    'key.settings': "Win+I",
+    'key.settings.what': "Ouvrir Spark Settings",
+    'key.monitor': "Ctrl+Maj+Échap",
+    'key.monitor.what': "Ouvrir Spark Monitor (le Gestionnaire des tâches)",
+    'key.snip': "Impr. écran, Win+Maj+S",
+    'key.snip.what': "Faire une capture avec Spark Snip",
+    'key.clipboard': "Win+V",
+    'key.clipboard.what': "Historique du presse-papiers",
+    'key.emoji': "Win+.",
+    'key.emoji.what': "Émojis",
+    'key.terminal': "Ctrl+Alt+T",
+    'key.terminal.what': "Ouvrir un terminal",
+    'key.copy': "Ctrl+C / Ctrl+V / Ctrl+Z",
+    'key.copy.what': "Copier, coller, annuler",
+
+    'drives.title': "Vos disques",
+    'drives.intro': "Chaque disque avec vos fichiers doit s'ouvrir tout seul à chaque "
+                    "démarrage, pour que vos jeux et fichiers soient là sans Windows.",
+    'drives.todo': "Vérifiez que chaque disque Windows ci-dessous s'ouvre : cliquez sur "
+                   "Ouvrir et cherchez vos fichiers. Si des disques sont listés sous Autres "
+                   "disques, cochez-les et cliquez sur Ajouter pour qu'ils s'ouvrent aussi à "
+                   "chaque démarrage.",
+    'drives.win': "Disques Windows",
+    'drives.win.no_report': "SparkOS n'a pas encore signalé ses disques Windows. Redémarrez "
+                            "le PC, puis rouvrez cette étape.",
+    'drives.win.none': "Aucun disque Windows sur ce PC.",
+    'drives.rw': "LECTURE-ÉCRITURE",
+    'drives.ro': "LECTURE SEULE",
+    'drives.off': "PAS OUVERT",
+    'drives.win.locked': "Verrouillé par BitLocker : SparkOS ne peut pas le lire. Désactivez "
+                         "BitLocker pour ce disque dans Windows, puis redémarrez sur SparkOS.",
+    'drives.win.hibernated': "Windows ne s'est pas arrêté complètement, donc ce disque est en "
+                             "lecture seule. Démarrez Windows, désactivez le démarrage rapide "
+                             "dans les options d'alimentation, éteignez, puis démarrez SparkOS.",
+    'drives.win.ro_choice': "En lecture seule exprès. Pour y écrire, changez la ligne "
+                            "« {letter} ro » en « {letter} rw » dans {conf} et redémarrez.",
+    'drives.win.problem': "SparkOS dit : {problem}",
+    'drives.win.keep': "Ces disques gardent leur lettre et leur dossier après l'effacement de "
+                       "Windows.",
+    'drives.other': "Autres disques",
+    'drives.other.intro': "Des disques avec des fichiers que SparkOS n'ouvre pas encore tout "
+                          "seul. En ajouter un l'ouvre maintenant et à chaque démarrage, dans "
+                          "le dossier indiqué. Rien dessus n'est changé ni effacé. SparkOS "
+                          "demande votre mot de passe.",
+    'drives.other.none': "Aucun autre disque. Les clés USB et cartes SD s'ouvrent toutes "
+                         "seules quand vous les branchez.",
+    'drives.looking': "Recherche des disques…",
+    'drives.lsblk_failed': "Impossible de lister les disques : {error}",
+    'drives.added': "AJOUTÉ",
+    'drives.add': "Ajouter les cochés ({n})",
+    'drives.add_none': "Ajouter les cochés",
+    'drives.again': "Chercher de nouveau",
+    'drives.adding': "Ajout en cours. Si une fenêtre de mot de passe apparaît, c'est SparkOS "
+                     "qui demande à changer sa liste de disques.",
+    'drives.added_at': "{name} s'ouvre dans {where}, maintenant et à chaque démarrage.",
+    'drives.err.password': "Ajouter un disque demande votre mot de passe, et il n'a pas été "
+                           "donné.",
+    'drives.err.damaged': "Le système de fichiers du disque semble endommagé, il ne peut pas "
+                          "être ouvert.",
+    'drives.err.generic': "Le disque n'a pas pu être ajouté.",
+    'drives.not_writable': "Il s'est ouvert, mais vous ne pouvez pas y écrire : ses fichiers "
+                           "appartiennent à un autre utilisateur.",
+    'drives.added_next_start': "Il est ajouté, mais n'a pas pu être ouvert maintenant. Il "
+                               "s'ouvrira au prochain démarrage.",
+
+    'win.todo': "Choisissez le disque Windows, cochez les dossiers voulus, puis cliquez sur "
+                "Copier les cochés. Vos autres disques (D:, E: et ainsi de suite) n'ont pas "
+                "besoin d'être copiés : ils restent après l'effacement de Windows.",
+
+    'erase.title': "Avant d'effacer Windows",
+    'erase.intro': "Quand tout ce dont vous avez besoin est ici, la partition Windows peut "
+                   "être effacée pour libérer sa place. Spark Welcome n'efface jamais rien "
+                   "lui-même.",
+    'erase.todo': "Parcourez la liste pendant que Windows démarre encore. Quand rien ne "
+                  "manque, effacez la partition Windows dans Spark Disks.",
+    'erase.drives': "Ce qui reste et ce qui part",
+    'erase.drives.unknown': "SparkOS n'a pas signalé ses disques Windows, donc cette étape ne "
+                            "peut pas dire lesquels restent.",
+    'erase.c.title': "C: part",
+    'erase.c': "Effacer Windows, c'est effacer C:. Tout ce qui s'y trouve et que vous n'avez "
+               "pas copié à l'étape 5 est perdu.",
+    'erase.stay.title': "Ces disques restent",
+    'erase.stay': "Ils sont séparés de Windows et gardent leur lettre et leur dossier :\n"
+                  "{drives}",
+    'erase.how': "Effacer la partition Windows",
+    'erase.how.title': "Dans Spark Disks",
+    'erase.how.text': "Choisissez la partition Windows (C:, NTFS), puis Supprimer, et tapez "
+                      "le nom de périphérique affiché pour confirmer. Spark Disks ferme la "
+                      "partition d'abord. L'espace libéré peut ensuite accueillir une "
+                      "nouvelle partition pour vos fichiers.",
+    'erase.disks': "Ouvrir Spark Disks",
+    'erase.efi.title': "Ne touchez pas aux petites partitions",
+    'erase.efi': "Supprimez seulement la partition Windows. La petite partition EFI est celle "
+                 "d'où le PC démarre, et SparkOS peut s'en servir aussi.",
 }
 
 LANG = ui_language()

@@ -257,7 +257,8 @@ class App:
                          bg=T["panel2"] if on else T["panel"])
         index = PAGES.index(name)
         self.back_btn.set_enabled(index > 0)
-        self.next_btn.set_text(t('nav.close') if name == 'done' else t('nav.next'))
+        self.next_btn.set_text(t('nav.close') if name == 'done' else
+                               t('nav.next_to', step=t(f'nav.{PAGES[index + 1]}')))
         page.shown()
         if page.heading is not None:
             self.glitch.now(page.heading)
