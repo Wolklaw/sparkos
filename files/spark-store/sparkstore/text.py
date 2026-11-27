@@ -33,6 +33,7 @@ EN = {
     'failed.update_all': "Couldn't update {name}",
     'failed.spark_install': "Couldn't install {name}",
     'failed.spark_remove': "Couldn't remove {name}",
+    'failed.spark_update': "Couldn't update {name}",
     'failed.catalog': "Couldn't get {name}",
 
     # home
@@ -224,9 +225,12 @@ EN = {
     'updates.error_title': "Couldn't check every app",
     'updates.error': "flatpak said: {error}",
     'updates.runtimes': "{n} shared runtime(s) also have an update. “Update all” includes them.",
-    'updates.note': "Checking asks Flathub, so it needs the internet. Spark apps in SparkOS "
-                    "update with the system.",
+    'updates.note': "Checking asks Flathub, so it needs the internet. Spark apps update "
+                    "with the system: the ones installed for you are updated at login from "
+                    "the copy SparkOS brought.",
     'updates.everything_user': "your apps",
+    'updates.spark_newer': "newer copy in SparkOS",
+    'spark.newer': "SparkOS has a newer copy. Updating needs no download.",
     'updates.everything_system': "apps for everyone",
     'queue.title': "Queue",
     'queue.note': "One at a time, in order.",
@@ -254,6 +258,7 @@ EN = {
     'verb.update_all': "Update",
     'verb.spark_install': "Install",
     'verb.spark_remove': "Remove",
+    'verb.spark_update': "Update",
     'verb.catalog': "Get",
     'verb.addon_install': "Install",
     'verb.addon_remove': "Remove",
@@ -320,6 +325,7 @@ EN = {
     'doing.update_all': "Updating",
     'doing.spark_install': "Installing",
     'doing.spark_remove': "Removing",
+    'doing.spark_update': "Updating",
     'doing.catalog': "Getting",
     'doing_name.install': "Installing {name}",
     'doing_name.install_ref': "Installing {name}",
@@ -328,6 +334,7 @@ EN = {
     'doing_name.update_all': "Updating {name}",
     'doing_name.spark_install': "Installing {name}",
     'doing_name.spark_remove': "Removing {name}",
+    'doing_name.spark_update': "Updating {name}",
     'doing_name.catalog': "Getting {name}",
     'done.install': "{name} is installed",
     'done.install_ref': "{name} is installed",
@@ -336,6 +343,7 @@ EN = {
     'done.update_all': "Updated {name}",
     'done.spark_install': "{name} is installed",
     'done.spark_remove': "{name} is removed",
+    'done.spark_update': "{name} is up to date",
     'done.catalog': "Got {name}",
 }
 
@@ -367,6 +375,7 @@ FR = {
     'failed.update_all': "Impossible de mettre à jour {name}",
     'failed.spark_install': "Impossible d'installer {name}",
     'failed.spark_remove': "Impossible de désinstaller {name}",
+    'failed.spark_update': "Impossible de mettre à jour {name}",
     'failed.catalog': "Impossible d'obtenir le {name}",
     'home.spark': "Applications Spark",
     'home.spark_note': "Faites pour SparkOS par Wolklaw.",
@@ -549,8 +558,11 @@ FR = {
     'updates.runtimes': "{n} runtime(s) partagé(s) ont aussi une mise à jour. « Tout mettre à "
                         "jour » les inclut.",
     'updates.note': "La vérification interroge Flathub : il faut Internet. Les applications "
-                    "Spark de SparkOS se mettent à jour avec le système.",
+                    "Spark se mettent à jour avec le système : celles installées pour vous "
+                    "sont mises à jour à l'ouverture de session depuis la copie de SparkOS.",
     'updates.everything_user': "vos applications",
+    'updates.spark_newer': "copie plus récente dans SparkOS",
+    'spark.newer': "SparkOS a une copie plus récente. La mise à jour ne télécharge rien.",
     'updates.everything_system': "les applications pour tous",
     'queue.title': "File",
     'queue.note': "Une à la fois, dans l'ordre.",
@@ -579,6 +591,7 @@ FR = {
     'verb.update_all': "Mettre à jour",
     'verb.spark_install': "Installer",
     'verb.spark_remove': "Désinstaller",
+    'verb.spark_update': "Mettre à jour",
     'verb.catalog': "Obtenir le",
     'verb.addon_install': "Installer",
     'verb.addon_remove': "Désinstaller",
@@ -647,6 +660,7 @@ FR = {
     'doing.update_all': "Mise à jour",
     'doing.spark_install': "Installation",
     'doing.spark_remove': "Désinstallation",
+    'doing.spark_update': "Mise à jour",
     'doing.catalog': "Téléchargement",
     'doing_name.install': "Installation de {name}",
     'doing_name.install_ref': "Installation de {name}",
@@ -655,6 +669,7 @@ FR = {
     'doing_name.update_all': "Mise à jour de {name}",
     'doing_name.spark_install': "Installation de {name}",
     'doing_name.spark_remove': "Désinstallation de {name}",
+    'doing_name.spark_update': "Mise à jour de {name}",
     'doing_name.catalog': "Téléchargement du {name}",
     'done.install': "{name} est installée",
     'done.install_ref': "{name} est installée",
@@ -663,6 +678,7 @@ FR = {
     'done.update_all': "Mis à jour : {name}",
     'done.spark_install': "{name} est installée",
     'done.spark_remove': "{name} est désinstallée",
+    'done.spark_update': "{name} est à jour",
     'done.catalog': "Le {name} est à jour",
     # the same in both languages
     'crumb.flathub': "FLATHUB",

@@ -1,4 +1,4 @@
-"""The command line. --version and --self-test never load Tk. Opening the Store when it is
+"""The command line. --version, --self-test and --update-spark-apps never load Tk. Opening the Store when it is
 already open (or opening a .flatpakref or an appstream:// link) hands over to the open
 window before Tk is even imported."""
 
@@ -109,6 +109,8 @@ def self_test() -> int:
         where = {'system': 'in SparkOS', 'user': 'installed for you'}.get(app.installed or '',
                                                                           'not installed')
         extra = ", can install from " + app.source if app.source and not app.installed else ""
+        if app.outdated:
+            extra = ", outdated: " + app.source + " is newer"
         version = f" {app.version}" if app.version else ""
         print(f"spark:     {app.name}{version} ({where}{extra})")
     try:
@@ -131,6 +133,22 @@ def self_test() -> int:
     return 0
 
 
+def update_spark_apps() -> int:
+    """Reinstall the Spark apps installed for you whose source in the image has changed (a
+    system update brought a newer one). Quiet when there is nothing to do."""
+    from . import sparkapps
+    apps = [a for a in sparkapps.discover() if a.outdated]
+    failed = 0
+    for app, err in sparkapps.update_outdated(apps):
+        version = f" {app.version}" if app.version else ""
+        if err:
+            failed += 1
+            print(f"{app.name}: couldn't update from {app.source}: {err}", file=sys.stderr)
+        else:
+            print(f"{app.name}{version}: updated from {app.source}")
+    return 1 if failed else 0
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(prog=APP_SLUG, description=f"{APP_NAME}: the SparkOS "
                                      "app store (Spark apps and Flathub).")
@@ -140,6 +158,9 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="open on this page")
     parser.add_argument('--self-test', action='store_true',
                         help="check what it needs and read the catalog; no display needed")
+    parser.add_argument('--update-spark-apps', action='store_true',
+                        help="reinstall the Spark apps installed for you whose copy in "
+                             "SparkOS is newer; no display needed")
     parser.add_argument('--bench', type=float, metavar='SECONDS',
                         help="open, measure time to first paint and idle CPU, then close")
     parser.add_argument('--offline', action='store_true',
@@ -148,6 +169,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test()
+    if args.update_spark_apps:
+        return update_spark_apps()
     target = args.target or ''
     if target and not target.startswith(('appstream:', 'https:', 'file:')) and \
             os.path.exists(target):

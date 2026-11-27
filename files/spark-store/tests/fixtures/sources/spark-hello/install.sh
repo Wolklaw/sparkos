@@ -11,7 +11,11 @@ if [ "${2:-}" = "--uninstall" ]; then
   exit 0
 fi
 [ -n "${SPARK_HELLO_FAIL:-}" ] && { echo "error: spark-hello failed on purpose" >&2; exit 1; }
-mkdir -p "$LIB" "$HOME/.local/bin" "$(dirname "$DESK")"
+here=$(cd "$(dirname "$0")" && pwd)
+rm -rf "$LIB"
+mkdir -p "$LIB/sparkhello" "$HOME/.local/bin" "$(dirname "$DESK")"
+cp "$here/spark-app.json" "$LIB/"            # the code, as the real apps copy theirs
+cp "$here"/sparkhello/*.py "$LIB/sparkhello/"
 printf '#!/bin/sh\necho hello\n' > "$HOME/.local/bin/spark-hello"
 chmod +x "$HOME/.local/bin/spark-hello"
 printf '[Desktop Entry]\nType=Application\nName=Spark Hello\nExec=spark-hello\n' > "$DESK"

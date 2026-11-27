@@ -17,6 +17,10 @@
 # (install.sh --user) when they click Install. Optional means no image build step installs it:
 # there is no files/scripts/<slug>.sh (today Spark Bench, Spark Connect and Spark Space). They
 # are only copied, not installed: nothing of theirs goes in /usr/bin, /usr/lib or the menu.
+#
+# spark-store-update-apps.service (a user unit, from files/system) runs at each login:
+# spark-store --update-spark-apps reinstalls an app installed for you when its source here
+# changed with a system update. It compares files and downloads nothing.
 set -oue pipefail
 
 SRC="${CONFIG_DIRECTORY:-/tmp/files}/spark-store"
@@ -38,6 +42,13 @@ for slug in $optional; do
   test ! -e "/usr/lib/$slug"
   test ! -e "/usr/bin/$slug"
 done
+
+unit=/usr/lib/systemd/user/spark-store-update-apps.service   # also run outside the image build
+install -Dm 0644 "${CONFIG_DIRECTORY:-/tmp/files}/system$unit" "$unit"
+systemctl --global enable spark-store-update-apps.service
+[ "$(systemctl --global is-enabled spark-store-update-apps.service)" = enabled ] \
+  || { echo "spark-store-update-apps.service not enabled"; exit 1; }
+HOME=$(mktemp -d) /usr/bin/spark-store --update-spark-apps   # nothing installed: no output
 
 report=$(/usr/bin/spark-store --self-test)
 echo "$report"

@@ -26,6 +26,7 @@ on:
       - "files/scripts/spark-*.sh"            # a new build step changes which apps are optional
       - "files/spark-*/install.sh"
       - "files/spark-*/spark-app.json"
+      - "files/system/usr/lib/systemd/user/spark-store-update-apps.service"
       - ".github/workflows/spark-store.yml"
   pull_request:
     paths:
@@ -33,6 +34,7 @@ on:
       - "files/scripts/spark-*.sh"            # a new build step changes which apps are optional
       - "files/spark-*/install.sh"
       - "files/spark-*/spark-app.json"
+      - "files/system/usr/lib/systemd/user/spark-store-update-apps.service"
       - ".github/workflows/spark-store.yml"
   workflow_dispatch:
 

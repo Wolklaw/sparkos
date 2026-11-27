@@ -10,9 +10,15 @@ An app that isn't installed can be installed for you only when its source folder
 and spark-app.json) is on this PC: ~/.local/share/spark-store/sources/<slug>, or
 /usr/share/spark-store/sources/<slug>, where the SparkOS image puts every optional Spark app
 (install.sh --sources). The Store runs its install.sh --user, which copies it into your home;
-the source folder is only read. Downloading newer versions between system updates isn't built,
-so nothing is downloaded here."""
+the source folder is only read.
 
+An app installed for you is outdated when the copy it came from is newer: a system update put
+a changed source folder there. outdated() compares files, not version numbers, so a fix that
+didn't bump the version still counts. spark-store --update-spark-apps (run at login by
+spark-store-update-apps.service) reinstalls those, and the Store's Updates page lists them.
+Downloading newer versions between system updates isn't built, so nothing is downloaded here."""
+
+import filecmp
 import glob
 import json
 import os
@@ -49,6 +55,7 @@ class SparkApp:
     installed: Optional[str] = None  # 'system', 'user' or None
     desktop_path: str = ''
     source: str = ''                 # a folder with install.sh to install from, if any
+    outdated: bool = False           # installed for you, and the source has changed since
 
     def as_app(self) -> App:
         app = App(id=self.id, name=self.name, summary=self.summary, developer='Wolklaw',
@@ -91,10 +98,16 @@ def source_dirs() -> List[str]:
         return [d for d in forced.split(os.pathsep) if d]
     dirs = [os.path.join(data_home(), 'spark-store', 'sources'),
             '/usr/share/spark-store/sources']
-    parent = os.path.dirname(HERE)
-    if os.path.isfile(os.path.join(parent, 'spark-store', 'spark_store.py')):
-        dirs.append(parent)
+    if _repo_files():
+        dirs.append(_repo_files())
     return dirs
+
+
+def _repo_files() -> str:
+    """files/ in the repo when the Store runs from source, else ''."""
+    parent = os.path.dirname(HERE)
+    return parent if os.path.isfile(os.path.join(parent, 'spark-store', 'spark_store.py')) \
+        else ''
 
 
 def _pick_lang(data: dict, key: str) -> str:
@@ -192,10 +205,73 @@ def refresh_state(app: SparkApp) -> None:
                 os.path.isfile(os.path.join(folder, 'spark-app.json')):
             app.source = folder
             break
+    # a working copy of the repo is something to install from, not a newer release
+    from_repo = bool(app.source) and os.path.dirname(app.source) == _repo_files()
+    app.outdated = app.installed == 'user' and bool(app.source) and not from_repo and \
+        outdated(app)
 
 
 def user_manifest(app: SparkApp) -> str:
     return os.path.join(home(), '.local', 'lib', app.slug, 'installed-files')
+
+
+SKIP_NAMES = {'installed-files', '__pycache__'}
+
+
+def outdated(app: SparkApp) -> bool:
+    """True when the copy in ~/.local/lib/<slug> no longer matches the source it was installed
+    from: a file there differs from the source's, or is gone from it, or a folder both have
+    gained a .py file in the source (new code the old copy doesn't have). install.sh copies
+    only part of the source into lib (no README, no install.sh), so a source file that lib
+    never had counts only when it is new code."""
+    lib = os.path.dirname(user_manifest(app))
+    if not app.source or not os.path.isdir(lib):
+        return False
+    for folder, dirs, files in os.walk(lib):
+        dirs[:] = [d for d in dirs if d not in SKIP_NAMES]
+        rel = os.path.relpath(folder, lib)
+        src = os.path.normpath(os.path.join(app.source, rel))
+        for name in files:
+            if name in SKIP_NAMES or name.endswith('.pyc'):
+                continue
+            theirs = os.path.join(src, name)
+            try:
+                if not os.path.isfile(theirs) or \
+                        not filecmp.cmp(os.path.join(folder, name), theirs, shallow=False):
+                    return True
+            except OSError:
+                return True
+        if rel != '.':
+            try:
+                new = [n for n in os.listdir(src) if n.endswith('.py')]
+            except OSError:
+                continue
+            if any(n not in files for n in new):
+                return True
+    return False
+
+
+def update_outdated(apps: List[SparkApp], run=subprocess.run) -> List[tuple]:
+    """Reinstall every outdated app from its source. Returns (app, error or '') per app."""
+    done = []
+    for app in apps:
+        cmd = install_command(app) if app.outdated else None
+        if not cmd:
+            continue
+        try:
+            proc = run(cmd, stdin=subprocess.DEVNULL, capture_output=True, text=True,
+                       timeout=300)
+            err = '' if proc.returncode == 0 else \
+                ((proc.stderr or proc.stdout or '').strip().splitlines() or
+                 [f'exit {proc.returncode}'])[-1]
+        except (OSError, subprocess.SubprocessError) as exc:
+            err = str(exc)
+        if not err:
+            refresh_state(app)
+            if app.outdated:
+                err = 'still differs from its source after reinstalling'
+        done.append((app, err))
+    return done
 
 
 def icon_path(app: SparkApp) -> Optional[str]:

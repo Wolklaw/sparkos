@@ -783,6 +783,127 @@ class QueueTests(unittest.TestCase):
             os.environ.update(env_before)
 
 
+class SparkUpdateTests(unittest.TestCase):
+    """An app installed for you is outdated when the image's source for it has changed."""
+
+    def setUp(self):
+        self.env_before = dict(os.environ)
+        self.home = tempfile.mkdtemp(prefix='home-', dir=TMP)
+        self.source_dir = tempfile.mkdtemp(prefix='sources-', dir=TMP)
+        shutil.copytree(os.path.join(FIXTURES, 'sources', 'spark-hello'),
+                        os.path.join(self.source_dir, 'spark-hello'))
+        self.src = os.path.join(self.source_dir, 'spark-hello')
+        self.lib = os.path.join(self.home, '.local', 'lib', 'spark-hello')
+        os.environ['HOME'] = self.home
+        os.environ['XDG_DATA_HOME'] = os.path.join(self.home, '.local', 'share')
+        os.environ['SPARK_STORE_SPARK_DIRS'] = self.source_dir
+        os.environ['SPARK_STORE_SOURCES'] = self.source_dir
+
+    def tearDown(self):
+        os.environ.clear()
+        os.environ.update(self.env_before)
+
+    def hello(self):
+        return next(a for a in sparkapps.discover() if a.slug == 'spark-hello')
+
+    def install(self):
+        out = subprocess.run(sparkapps.install_command(self.hello()), capture_output=True,
+                             text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+
+    def write(self, rel, text):
+        with open(os.path.join(self.src, rel), 'w', encoding='utf-8') as f:
+            f.write(text)
+
+    def test_not_installed_or_from_the_image_is_never_outdated(self):
+        self.assertFalse(self.hello().outdated)
+        self.write('sparkhello/__init__.py', 'VERSION = "2.0"\n')
+        self.assertFalse(self.hello().outdated)
+
+    @unittest.skipUnless(LINUX and shutil.which('bash'), "needs bash")
+    def test_a_fresh_install_is_up_to_date(self):
+        self.install()
+        app = self.hello()
+        self.assertEqual(app.installed, 'user')
+        self.assertFalse(app.outdated)
+        os.makedirs(os.path.join(self.lib, 'sparkhello', '__pycache__'))   # Python's own
+        open(os.path.join(self.lib, 'sparkhello', '__pycache__', 'x.pyc'), 'w').close()
+        self.write('README.md', 'not copied by install.sh\n')
+        self.assertFalse(self.hello().outdated)
+
+    @unittest.skipUnless(LINUX and shutil.which('bash'), "needs bash")
+    def test_a_changed_file_same_version(self):
+        self.install()
+        self.write('sparkhello/__init__.py', '"""Spark Hello, fixed."""\nVERSION = "1.0"\n')
+        self.assertTrue(self.hello().outdated)
+
+    @unittest.skipUnless(LINUX and shutil.which('bash'), "needs bash")
+    def test_a_new_module_or_a_file_gone_from_the_source(self):
+        self.install()
+        self.write('sparkhello/pickdialog.py', 'X = 1\n')
+        self.assertTrue(self.hello().outdated)
+        os.unlink(os.path.join(self.src, 'sparkhello', 'pickdialog.py'))
+        self.assertFalse(self.hello().outdated)
+        open(os.path.join(self.lib, 'sparkhello', 'old.py'), 'w').close()
+        self.assertTrue(self.hello().outdated)
+
+    @unittest.skipUnless(LINUX and shutil.which('bash'), "needs bash")
+    def test_update_outdated_reinstalls_from_the_source(self):
+        self.install()
+        self.write('sparkhello/__init__.py', 'VERSION = "2.0"\n')
+        apps = sparkapps.discover()
+        done = sparkapps.update_outdated(apps)
+        self.assertEqual([(a.slug, err) for a, err in done], [('spark-hello', '')])
+        with open(os.path.join(self.lib, 'sparkhello', '__init__.py'), encoding='utf-8') as f:
+            self.assertIn('2.0', f.read())
+        self.assertFalse(self.hello().outdated)
+        self.assertEqual(sparkapps.update_outdated(sparkapps.discover()), [])
+
+    @unittest.skipUnless(LINUX and shutil.which('bash'), "needs bash")
+    def test_update_outdated_reports_a_failed_install(self):
+        self.install()
+        self.write('sparkhello/__init__.py', 'VERSION = "2.0"\n')
+        os.environ['SPARK_HELLO_FAIL'] = '1'
+        done = sparkapps.update_outdated(sparkapps.discover())
+        self.assertEqual(len(done), 1)
+        self.assertIn('failed on purpose', done[0][1])
+
+    def test_the_repo_checkout_is_not_a_newer_copy(self):
+        """Run from source, the repo is something to install from, but an app installed for
+        you that differs from the working copy isn't outdated: that may be work in progress."""
+        os.makedirs(self.lib)
+        open(os.path.join(self.lib, 'installed-files'), 'w').close()
+        with open(os.path.join(self.lib, 'spark-app.json'), 'w', encoding='utf-8') as f:
+            f.write('{}')
+        bench = os.path.join(self.home, '.local', 'lib', 'spark-bench')
+        shutil.copytree(self.lib, bench)
+        os.environ['SPARK_STORE_SPARK_DIRS'] = os.environ['SPARK_STORE_SOURCES'] = REPO_FILES
+        app = next(a for a in sparkapps.discover() if a.slug == 'spark-bench')
+        self.assertEqual((app.installed, app.source), ('user', os.path.join(REPO_FILES,
+                                                                            'spark-bench')))
+        self.assertFalse(app.outdated)
+        self.assertTrue(sparkapps.outdated(app))     # what it would say for the image's copy
+
+    @unittest.skipUnless(LINUX and shutil.which('bash'), "needs bash")
+    def test_command_line(self):
+        cli = [sys.executable, os.path.join(APP_DIR, 'spark_store.py'), '--update-spark-apps']
+        out = subprocess.run(cli, capture_output=True, text=True, timeout=60)
+        self.assertEqual((out.returncode, out.stdout, out.stderr), (0, '', ''))
+        self.install()
+        self.write('sparkhello/__init__.py', 'VERSION = "2.0"\n')
+        out = subprocess.run(cli, capture_output=True, text=True, timeout=60)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertIn('Spark Hello', out.stdout)
+        self.assertIn('updated from ' + self.src, out.stdout)
+        out = subprocess.run(cli, capture_output=True, text=True, timeout=60)
+        self.assertEqual((out.returncode, out.stdout), (0, ''))
+        self.write('sparkhello/__init__.py', 'VERSION = "3.0"\n')
+        out = subprocess.run(cli, capture_output=True, text=True, timeout=60,
+                             env=dict(os.environ, SPARK_HELLO_FAIL='1'))
+        self.assertEqual(out.returncode, 1)
+        self.assertIn("couldn't update", out.stderr)
+
+
 # ─── The command line ─────────────────────────────────────────
 
 class CliTests(unittest.TestCase):
