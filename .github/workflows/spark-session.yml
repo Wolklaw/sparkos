@@ -3,6 +3,7 @@ name: spark-session
 # screen check. Nothing here turns greetd on: the tests run in containers and `spark greeter
 # enable` is only ever run with --dry-run.
 #
+# foreground-booster: spark-foreground-booster against fake /proc, cgroups and compositor socket.
 # polkit:  the agent against a fake authority (dbusmock) and against a real polkitd, English and French.
 # greeter: the sign-in screen against a fake greetd and a real greetd, `spark greeter` helper tests,
 #          English and French.
@@ -15,6 +16,11 @@ on:
       - "files/scripts/spark-session.sh"
       - "files/system/usr/bin/spark"
       - "build_files/packages.sh"
+      - "files/system/usr/libexec/spark-foreground-booster"
+      - "files/system/usr/lib/systemd/user/spark-foreground-booster.service"
+      - "files/system/usr/lib/systemd/user/spark-wl-workspace.target.d/**"
+      - "files/spark-shell/session/spark-wl-workspace.target"
+      - ".github/scripts/foreground-booster/**"
       - ".github/workflows/spark-session.yml"
   pull_request:
     paths:
@@ -22,10 +28,24 @@ on:
       - "files/scripts/spark-session.sh"
       - "files/system/usr/bin/spark"
       - "build_files/packages.sh"
+      - "files/system/usr/libexec/spark-foreground-booster"
+      - "files/system/usr/lib/systemd/user/spark-foreground-booster.service"
+      - "files/system/usr/lib/systemd/user/spark-wl-workspace.target.d/**"
+      - "files/spark-shell/session/spark-wl-workspace.target"
+      - ".github/scripts/foreground-booster/**"
       - ".github/workflows/spark-session.yml"
   workflow_dispatch:
 
 jobs:
+  foreground-booster:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Foreground booster against a fake /proc, cgroup tree and compositor socket
+        run: python3 -m unittest discover -s .github/scripts/foreground-booster -v
+
   polkit:
     runs-on: ubuntu-24.04
     container: registry.fedoraproject.org/fedora:latest

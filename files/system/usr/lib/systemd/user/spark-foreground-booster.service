@@ -1,0 +1,12 @@
+[Unit]
+Description=Spark foreground booster: the focused app keeps its video memory
+PartOf=graphical-session.target
+After=spark-wl-workspace.target dmemcg-booster-user.service
+# no dmem in the kernel or the GPU driver: nothing to boost
+ConditionPathExists=/sys/fs/cgroup/dmem.capacity
+
+[Service]
+ExecStart=/usr/libexec/spark-foreground-booster
+Restart=on-failure
+RestartSec=3
+Slice=background.slice

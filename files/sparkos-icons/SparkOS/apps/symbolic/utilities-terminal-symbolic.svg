@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" width="16" height="16">
+  <!-- Terminal, symbolic. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 2 H15 V14 H1 Z M2 4 V13 H14 V4 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M4 6 H5.5 L8.5 8.5 L5.5 11 H4 L6.5 8.5 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M9 10 H12 V11 H9 Z"/>
+</svg>

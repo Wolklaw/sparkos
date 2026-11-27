@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" data-hotspot="12 3">
+<!-- pointing hand, blocky: one finger up -->
+<g fill="#141233" stroke="#ece9ff" stroke-width="1.5" stroke-linejoin="miter">
+<polygon points="10.5,3.5 15.5,3.5 15.5,12 18,12 18,13.5 21,13.5 21,15 24,15 24,26 20.5,28.5 12.5,28.5 12.5,24.5 8,19.5 8,17 10.5,17.5"/>
+</g>
+<path d="M15.5 17v7M19 17v7M22.5 17v7" stroke="#b3b0d2" stroke-width="1" fill="none"/>
+</svg>

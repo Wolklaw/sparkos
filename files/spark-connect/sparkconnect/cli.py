@@ -68,12 +68,17 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument('--status', action='store_true',
                         help="check every machine and website once and print the result as "
                         "JSON (what a status widget would show); no window")
+    parser.add_argument('--json', action='store_true',
+                        help="with --status: the short form Spark Shell's tray reads "
+                        "(summary ok|warn|down|empty; exit 2 when there is nothing to check)")
     parser.add_argument('--version', action='version', version=f"{APP_NAME} {VERSION}")
     args = parser.parse_args(argv)
     if args.self_test:
         return self_test(args.config)
     if args.status:
         from . import status
+        if args.json:
+            return status.json_main(args.config)
         return status.main(args.config)   # no log: the widget runs it every minute
     try:
         import tkinter as tk

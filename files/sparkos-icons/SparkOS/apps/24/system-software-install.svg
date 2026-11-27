@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Software install, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <rect x="0.5" y="0.5" width="21" height="21" rx="2" fill="#141233" stroke="#ece9ff" stroke-opacity="0.22"/>
+  <polyline points="4.5,12 4.5,17.5 17.5,17.5 17.5,12" fill="none" stroke="#9be8b8" stroke-width="1"/>
+  <path d="M9.5 3.5 H12.5 V8 H16 L11 13 L6 8 H9.5 Z" fill="#ff2e88" transform="translate(-1 0)"/>
+  <path d="M9.5 3.5 H12.5 V8 H16 L11 13 L6 8 H9.5 Z" fill="#22d8ff" transform="translate(1 0)"/>
+  <path d="M9.5 3.5 H12.5 V8 H16 L11 13 L6 8 H9.5 Z" fill="#f4c95d"/>
+</svg>

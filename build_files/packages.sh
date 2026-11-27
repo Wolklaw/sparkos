@@ -29,13 +29,14 @@ dnf -y upgrade --exclude='kernel*'
 # - NetworkManager-openvpn and NetworkManager-openconnect: Spark Settings' VPN connections
 # - glx-utils: glxinfo for `spark info` and Spark Monitor; openssl: Spark Link's pairing keys
 # - fonts: Noto Sans, Serif and Mono (the fallbacks every app expects), Hack (the mono font in
-#   Spark's apps); Breeze's icons and cursor, which SparkOS's icon theme falls back to
+#   Spark's apps); Breeze's icons, which SparkOS's icon theme falls back to for third-party apps (the
+#   cursors are SparkOS's own, drawn at build time by sparkos-icons.sh)
 dnf_install \
   tuned tuned-ppd iio-sensor-proxy switcheroo-control bolt fprintd fprintd-pam \
   udev-hid-bpf bluez-obexd xdg-user-dirs smartmontools parted \
   NetworkManager-openvpn NetworkManager-openconnect glx-utils openssl \
   google-noto-sans-fonts google-noto-serif-fonts google-noto-sans-mono-fonts \
-  source-foundry-hack-fonts breeze-icon-theme breeze-cursor-theme
+  source-foundry-hack-fonts breeze-icon-theme
 
 # What Bazzite brought that SparkOS's scripts and the boot test use, from Fedora's own
 # repositories: ImageMagick (sparkos-theme.sh draws the wallpaper and boot splash), printing, scanning, libratbag (gaming mice), the gaming layer (gamescope, MangoHud,

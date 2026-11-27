@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" data-hotspot="16 16">
+<!-- octagon with a magenta bar -->
+<g fill="#141233" stroke="#ece9ff" stroke-width="1.5" stroke-linejoin="miter">
+<polygon points="10.5,3.5 21.5,3.5 28.5,10.5 28.5,21.5 21.5,28.5 10.5,28.5 3.5,21.5 3.5,10.5"/>
+</g>
+<polygon points="8.2,10.4 10.4,8.2 23.8,21.6 21.6,23.8" fill="#ff2e88" stroke="none"/>
+</svg>

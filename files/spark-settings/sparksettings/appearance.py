@@ -49,7 +49,7 @@ def cursor_themes() -> List[str]:
 def get() -> Dict[str, object]:
     saved = core.spark_load('appearance')
     return {'wallpaper': core.spark_load('shell').get('wallpaper') or saved.get('wallpaper', ''),
-            'cursor': saved.get('cursor') or os.environ.get('XCURSOR_THEME', ''),
+            'cursor': saved.get('cursor') or os.environ.get('XCURSOR_THEME') or 'SparkOS-cursors',
             'cursor_size': int(saved.get('cursor_size') or os.environ.get('XCURSOR_SIZE') or 24),
             'animations': saved.get('animations', True)}
 

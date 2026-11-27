@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" data-hotspot="5 3">
+<!-- arrow with a cross badge -->
+<g fill="#141233" stroke="#ece9ff" stroke-width="1.5" stroke-linejoin="miter">
+<polygon points="5.5,3 5.5,24.5 10.5,19.8 14,27.5 17.5,26 14.2,18.4 21,18.4"/>
+<rect x="18.5" y="17.5" width="12" height="12"/>
+</g>
+<path d="M21.5 20.5l1.5-1.5 5 5-1.5 1.5zM21.5 26.5l5-5 1.5 1.5-5 5z" fill="#ff2e88"/>
+</svg>

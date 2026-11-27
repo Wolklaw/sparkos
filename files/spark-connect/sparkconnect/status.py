@@ -8,6 +8,7 @@ own."""
 
 import json
 import os
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, Dict, List, Optional
@@ -133,3 +134,83 @@ def report(config_path: Optional[str] = None, transport=None) -> Dict[str, Any]:
 def main(config_path: Optional[str] = None) -> int:
     print(json.dumps(report(config_path), ensure_ascii=False))
     return 0
+
+
+# ─── --status --json: the small contract Spark Shell's tray reads ─────────
+
+TOTAL_TIMEOUT_S = 40.0       # the whole run, however many machines hang
+
+
+def _run_all(jobs: List, deadline: float) -> List[Any]:
+    """Runs every callable on its own daemon thread; one that is not back by the deadline
+    gives None (the process can still exit)."""
+    out: List[Any] = [None] * len(jobs)
+
+    def go(i, fn):
+        try:
+            out[i] = fn()
+        except Exception:                       # one broken job must not hide the others
+            out[i] = None
+    threads = [threading.Thread(target=go, args=(i, fn), daemon=True)
+               for i, fn in enumerate(jobs)]
+    for th in threads:
+        th.start()
+    for th in threads:
+        th.join(max(0.0, deadline - time.monotonic()))
+    return out
+
+
+def json_report(cfg: config.Config, transport, check_site=sites.check,
+                total_timeout: float = TOTAL_TIMEOUT_S, down_path: Optional[str] = None
+                ) -> Dict[str, Any]:
+    """Every machine probed once and every site checked once, in parallel, in the contract:
+    {checked, summary: ok|warn|down|empty, machines: [{name, state: ok|warn|down|rebooting,
+    verdict, problems}], sites: [{name, url, state: ok|down, status, ms}]}.
+    "rebooting" is never set here: it lives only in the open window's memory."""
+    now = time.time()
+    if not (cfg.machines or cfg.sites):
+        return {'checked': int(now), 'summary': 'empty', 'machines': [], 'sites': []}
+    deadline = time.monotonic() + total_timeout
+    got = _run_all([(lambda m=m: transport.fetch(m)) for m in cfg.machines]
+                   + [(lambda s=s: check_site(s)) for s in cfg.sites], deadline)
+    results = {}
+    for m, r in zip(cfg.machines, got):
+        results[m.name] = r if r is not None else Result(
+            m.name, False, problem='timeout', message=f"no answer in {total_timeout:.0f} s")
+    since = remember_down(results, down_path)
+    machines = []
+    for m in cfg.machines:
+        found = problems(m, results[m.name], down_since=since.get(m.name))
+        lvl = level(found)
+        state = 'ok' if lvl == OK else 'down' if lvl == DOWN else 'warn'
+        machines.append({'name': m.name, 'state': state,
+                         'verdict': verdict_text(found[0]) if found else t('verdict.ok'),
+                         'problems': [verdict_text(p) for p in found]})
+    site_list = []
+    for s, r in zip(cfg.sites, got[len(cfg.machines):]):
+        if r is None:
+            r = sites.SiteResult(s.name, s.url, error='timed out')
+        site_list.append({'name': r.name, 'url': r.url, 'state': 'ok' if r.ok else 'down',
+                          'status': r.status,
+                          'ms': None if r.ms is None else int(round(r.ms))})
+    states = [m['state'] for m in machines] + [s['state'] for s in site_list]
+    summary = 'down' if 'down' in states else 'warn' if 'warn' in states else 'ok'
+    return {'checked': int(now), 'summary': summary, 'machines': machines, 'sites': site_list}
+
+
+def json_main(config_path: Optional[str] = None, transport=None) -> int:
+    """Prints the one JSON document. Exit 0 normally, 2 when there is nothing to check (no
+    machine list, an empty one, or one that doesn't parse: then also an "error" field)."""
+    extra: Dict[str, Any] = {}
+    try:
+        cfg = config.load(config_path or core.config_path())
+    except config.ConfigError as exc:
+        cfg = config.Config()
+        extra['error'] = str(exc)
+    if transport is None and (cfg.machines or cfg.sites):
+        from .transport import SshTransport
+        transport = SshTransport()
+    out = json_report(cfg, transport)
+    out.update(extra)
+    print(json.dumps(out, ensure_ascii=False))
+    return 2 if out['summary'] == 'empty' else 0

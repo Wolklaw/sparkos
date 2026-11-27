@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 24 24" width="24" height="24">
+  <!-- Printer, drawn for 22 px, shown at 24 with a 1 px margin. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <g transform="translate(3 3)">
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M4 1 H12 V5 H4 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M1 6 H15 V12 H12 V10 H4 V12 H1 Z M11 7 H13 V8.5 H11 Z"/>
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M5 11 H11 V15 H5 Z M6 12.5 H10 V13.5 H6 Z"/>
+  </g>
+</svg>

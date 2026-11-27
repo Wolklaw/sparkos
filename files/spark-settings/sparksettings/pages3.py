@@ -8,7 +8,7 @@ from typing import List
 
 import tkinter as tk
 
-from . import accounts, appearance, core, inputdev, notifications, shortcuts, storage
+from . import accounts, appearance, core, inputdev, notifications, shortcuts, storage, taskbar
 from .app import Page
 from .i18n import _
 from .lang import local_units
@@ -55,7 +55,9 @@ class AppearancePage(Holder):
     index = [("Wallpaper", "background picture desktop"),
              ("Cursor", "mouse pointer size theme"),
              ("Window animations", "effects windows motion reduced"),
-             ("Fonts", "text font size install")]
+             ("Fonts", "text font size install"),
+             ("Spark Connect status in the tray", "taskbar panel widget servers monitor"),
+             ("Workspaces", "taskbar virtual desktops count number")]
 
     def refresh(self):
         self.app.bg(lambda: (appearance.wallpapers(),
@@ -91,9 +93,51 @@ class AppearancePage(Holder):
                self.animations, f9).pack(anchor='w', pady=2)
         label(box, _("Spark apps skip their animations when this is off."), self.app.font(8, False),
               fg=T["dim"]).pack(anchor='w', pady=(6, 0))
+        self.taskbar_box(h, f10, f9)
         box = self.section(h, _("Fonts"))
         self.link_row(box, _("Manage fonts (see, install, remove)"), _("Open Spark Fonts"),
                       lambda: self.open_app('spark-fonts', "Spark Fonts"), 'spark-fonts')
+
+    def taskbar_box(self, h, f10, f9):
+        box = self.section(h, _("Taskbar"))
+        have = taskbar.connect_installed()
+        cw = taskbar.connect_get()
+        t = Toggle(box, _("Spark Connect status in the tray"), bool(cw['enabled']) and have,
+                   lambda on: self.connect_toggle(on), f9)
+        t.pack(anchor='w', pady=2)
+        if not have:
+            t.unbind("<ButtonRelease-1>")
+            t.unbind("<Return>")
+            t.unbind("<space>")
+            t.config(fg=T["dim"], cursor="arrow")
+            label(box, _("Spark Connect is not installed."), self.app.font(8, False),
+                  fg=T["dim"]).pack(anchor='w', pady=(4, 0))
+        else:
+            r = self.row(box, _("Show it on"))
+            names = [(_("Main screen"), '')] + [(lbl, c) for c, lbl in taskbar.screens()]
+            if cw['monitor'] and cw['monitor'] not in [c for _l, c in names]:
+                names.append((cw['monitor'], cw['monitor']))
+            Choice(r, names, cw['monitor'], self.connect_screen, f10, 18).pack(anchor='w')
+        r = self.row(box, _("Workspaces"))
+        n = taskbar.workspaces_get()
+        Choice(r, [(str(i), str(i)) for i in range(taskbar.MIN_WORKSPACES,
+                                                   taskbar.MAX_WORKSPACES + 1)],
+               str(n), self.workspaces, f10, 4).pack(anchor='w')
+        label(box, _("The switcher shows in the taskbar when there is more than one. "
+                     "Super+Ctrl+Left and Right change workspace."),
+              self.app.font(8, False), fg=T["dim"]).pack(anchor='w', pady=(6, 0))
+
+    def connect_toggle(self, on):
+        self.app.bg(lambda: taskbar.connect_set(enabled=on),
+                    lambda ok: self.done(ok, _("Saved.")))
+
+    def connect_screen(self, monitor):
+        self.app.bg(lambda: taskbar.connect_set(monitor=monitor),
+                    lambda ok: self.done(ok, _("Saved.")))
+
+    def workspaces(self, count):
+        self.app.bg(lambda: taskbar.workspaces_set(count),
+                    lambda ok: self.done(ok, _("Saved.")))
 
     def done(self, ok, text):
         self.say(text if ok else _("Could not change it."), not ok)

@@ -380,6 +380,74 @@ class Backends(unittest.TestCase):
         self.assertFalse(accounts.valid_name('Anna'))
 
 
+class TaskbarOptions(unittest.TestCase):
+    """The Spark Connect widget key and the workspace count, in the throwaway HOME."""
+
+    def setUp(self):
+        from sparksettings import taskbar
+        self.taskbar = taskbar
+        # a compositor pid file must never be found, so no test can signal a real one
+        self._rt = os.environ.get('XDG_RUNTIME_DIR')
+        os.environ['XDG_RUNTIME_DIR'] = tempfile.mkdtemp(prefix='spark-rt-')
+        self._conf = os.path.join(os.environ['XDG_CONFIG_HOME'], 'spark', 'compositor',
+                                  'compositor.conf')
+        for path in (self._conf, core.spark_file('shell'), core.spark_file('appearance')):
+            if os.path.exists(path):
+                os.remove(path)
+
+    def tearDown(self):
+        if self._rt is None:
+            os.environ.pop('XDG_RUNTIME_DIR', None)
+        else:
+            os.environ['XDG_RUNTIME_DIR'] = self._rt
+
+    def test_connect_defaults_and_merge(self):
+        self.assertEqual(self.taskbar.connect_get(), {'enabled': False, 'monitor': ''})
+        core.spark_save('shell', wallpaper='a.png', pinned=['x.desktop'])
+        self.assertTrue(self.taskbar.connect_set(enabled=True))
+        self.assertTrue(self.taskbar.connect_set(monitor=' DP-1 '))
+        self.assertEqual(self.taskbar.connect_get(), {'enabled': True, 'monitor': 'DP-1'})
+        saved = core.spark_load('shell')
+        self.assertEqual(saved['wallpaper'], 'a.png')
+        self.assertEqual(saved['pinned'], ['x.desktop'])
+        self.taskbar.connect_set(enabled=False)
+        self.assertEqual(self.taskbar.connect_get(), {'enabled': False, 'monitor': 'DP-1'})
+        self.taskbar.connect_set(monitor='')
+        self.assertEqual(self.taskbar.connect_get()['monitor'], '')
+
+    def test_connect_ignores_junk(self):
+        core.spark_save('shell', connect_widget='yes')
+        self.assertEqual(self.taskbar.connect_get(), {'enabled': False, 'monitor': ''})
+        core.spark_save('shell', connect_widget={'enabled': 1, 'monitor': 5})
+        self.assertEqual(self.taskbar.connect_get(), {'enabled': False, 'monitor': ''})
+
+    def test_screens_come_from_the_fake_wlr_randr(self):
+        self.assertIn('DP-1', [c for c, _l in self.taskbar.screens()])
+
+    def test_clamp(self):
+        for raw, want in ((0, 1), (1, 1), (4, 4), (9, 9), (12, 9), ('6', 6), ('x', 4), (None, 4)):
+            self.assertEqual(self.taskbar.clamp_workspaces(raw), want, raw)
+
+    def test_workspaces_line_keeps_the_rest(self):
+        os.makedirs(os.path.dirname(self._conf), exist_ok=True)
+        with open(self._conf, 'w') as f:
+            f.write('output DP-1 scale=1\nworkspaces count=2\n')
+        self.assertEqual(self.taskbar.workspaces_get(), 4)
+        self.assertTrue(self.taskbar.workspaces_set(6))
+        text = open(self._conf).read()
+        self.assertIn('output DP-1 scale=1', text)
+        self.assertEqual(text.count('workspaces count='), 1)
+        self.assertIn('workspaces count=6', text)
+        self.assertEqual(self.taskbar.workspaces_get(), 6)
+        self.assertTrue(self.taskbar.workspaces_set(99))
+        self.assertIn('workspaces count=9', open(self._conf).read())
+
+    def test_no_workspaces_line_until_set(self):
+        from sparksettings import inputdev
+        self.assertTrue(inputdev._compositor_write())
+        self.assertNotIn('workspaces', open(self._conf).read())
+
+
 class French(unittest.TestCase):
     def test_every_string_has_french(self):
         from sparksettings.fr import FR

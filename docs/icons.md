@@ -2,7 +2,8 @@
 
 SparkOS has its own icon theme, `SparkOS`, in [files/sparkos-icons/SparkOS](../files/sparkos-icons/SparkOS).
 It **inherits Breeze Dark**: any icon it doesn't draw yet comes from Breeze, so nothing goes missing
-while it grows. It is drawn in four batches ([brief](../briefs/sparkos-icons.md)); this page is the
+while it grows. Breeze Dark stays the parent theme for third-party apps: SparkOS draws the names
+Spark software asks for, and a Flatpak or a Qt app that asks for anything else still gets Breeze's icon. It is drawn in four batches ([brief](../briefs/sparkos-icons.md)); this page is the
 style sheet every batch follows.
 
 ![Batch 1 contact sheet: each icon at 16, 22, 24, 32, 48 and 128 px, on the dark background and on a light one](icons-batch-1.png)
@@ -15,6 +16,8 @@ style sheet every batch follows.
 | 2. Folders and places | Home, Desktop, Documents, Downloads, Music, Pictures, Videos, Games, Windows drives, network, removable drives, the sidebar | Done (see "Batch 2" below) |
 | 3. File types | text, code, archives, images, audio, video, PDF, office, .exe/.msi, APK, ISO, fonts, generic file (`unknown`) | Done: 20 icons and about 420 names, see Batch 3 below |
 | 4. Tray and status | network, Bluetooth, volume, microphone, battery, updates, notifications, Caps Lock (symbolic, `status/`) | Done: see [Batch 4](#batch-4-tray-and-status) |
+
+| 5. Names Spark software asks for | `system-shutdown`, `printer`, `printer-printing`, the five `dialog-*` icons, `utilities-terminal`, `system-software-install`, three tray aliases | Done: see [Batch 5](#batch-5-names-spark-software-asks-for) |
 
 The Spark apps, Soot, FreeSuite and Nova keep the icons they ship; the theme never draws over them.
 
@@ -235,3 +238,42 @@ separate desktop theme that could override them.
   an updates notifier asks for.
 - Caps Lock: `sparkos-capslock` only flips the keyboard LED; it has no icon. An on-screen indicator
   would ask for `input-caps-on` / `input-caps-off`.
+
+## Batch 5: names Spark software asks for
+
+![Batch 5 contact sheet: each icon at 16, 22, 24, 32, 48 and 128 px, on dark and on light](icons-batch-5.png)
+
+Batch 5 is the icon names that Spark Tray, Spark Shell, the notification and polkit dialogs and the
+`.desktop` files ask for by name and SparkOS had not drawn. It was found by reading the code that returns
+an icon name, not by searching for strings (GStreamer and PipeWire property names look like icon names
+and are not).
+
+| Names | Where | Drawn as |
+|---|---|---|
+| `system-shutdown`, `printer`, `printer-printing` | `status/` | symbolic (16, 22, 24); the plain names link to them, as in batch 4 |
+| `dialog-information`, `dialog-question`, `dialog-warning`, `dialog-error`, `dialog-password` | `status/` | in colour at scalable, 22, 24 and 16, with the slip; symbolic too. A square, triangle, octagon or padlock with the glyph cut out |
+| `utilities-terminal`, `system-software-install` | `apps/` | tile at scalable, 22, 24 and 16, slip on the prompt or the arrow; symbolic |
+| `network-wireless-disabled`, `network-wireless-offline` | `status/` | links to `network-wireless-off` |
+| `battery-full-charging` | `status/` | link to `battery-100-charging` |
+
+`status/scalable` is new (48 px, 32 to 512), so the dialogs have a large size. The generator is
+[make_batch5.py](../files/sparkos-icons/make_batch5.py); edit the SVGs by hand afterwards.
+
+Not drawn on purpose: each app's own icon (the apps ship them), and names that only appear as
+test fixtures or as drawings inside an app (play, pause, eye, list in Spark Files and Media).
+
+## Cursors
+
+![Cursor contact sheet: the 27 shapes at 48 px with their hotspots, on dark and on light](cursors.png)
+
+The `SparkOS-cursors` theme replaces Breeze's cursors. Its sources are 27 SVGs in
+[files/sparkos-icons/cursors/src](../files/sparkos-icons/cursors/src), drawn on a 32 px grid in the
+house style: dark body, light edge, mint and magenta marks, and magenta/cyan ticks on the busy cursors.
+Each SVG carries its hotspot in `data-hotspot`.
+
+[make_cursors.py](../files/sparkos-icons/cursors/make_cursors.py) writes the Xcursor files itself at
+24, 32, 48, 64 and 96 px (no xcursorgen), makes `wait` and `progress` 8-frame animations, and links 101
+names to the 27 shapes: the CSS names, the legacy X11 names, and the hash names old toolkits use.
+`sparkos-icons.sh` runs it into `/usr/share/icons/SparkOS-cursors`, links `SparkOS/cursors` to it, and
+makes it the `default` cursor theme. `check.py` builds it and fails if a name is missing or a file
+does not parse. Breeze's cursor package is no longer installed.

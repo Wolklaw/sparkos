@@ -1,3 +1,5 @@
+# Screen sharing in the Spark session. The chooser is Spark's own: it lists the screens and the open
+# windows and prints "Monitor: NAME" or "Window: IDENTIFIER" (see /usr/libexec/spark-screen-pick).
 [screencast]
 chooser_type=simple
 chooser_cmd=/usr/libexec/spark-screen-pick

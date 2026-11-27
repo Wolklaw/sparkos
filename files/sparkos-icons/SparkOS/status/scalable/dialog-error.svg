@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Error, in colour, drawn on the 16 grid for 48 px. The slip is the only decoration. -->
+  <path fill="#ff2e88" fill-rule="evenodd" transform="translate(-2 0) scale(3)" d="M5 1 H11 L15 5 V11 L11 15 H5 L1 11 V5 Z M6 4.6 L8 6.6 L10 4.6 L11.4 6 L9.4 8 L11.4 10 L10 11.4 L8 9.4 L6 11.4 L4.6 10 L6.6 8 L4.6 6 Z"/>
+  <path fill="#22d8ff" fill-rule="evenodd" transform="translate(2 0) scale(3)" d="M5 1 H11 L15 5 V11 L11 15 H5 L1 11 V5 Z M6 4.6 L8 6.6 L10 4.6 L11.4 6 L9.4 8 L11.4 10 L10 11.4 L8 9.4 L6 11.4 L4.6 10 L6.6 8 L4.6 6 Z"/>
+  <path fill="#ff2e88" fill-rule="evenodd" transform="translate(0 0) scale(3)" d="M5 1 H11 L15 5 V11 L11 15 H5 L1 11 V5 Z M6 4.6 L8 6.6 L10 4.6 L11.4 6 L9.4 8 L11.4 10 L10 11.4 L8 9.4 L6 11.4 L4.6 10 L6.6 8 L4.6 6 Z"/>
+</svg>

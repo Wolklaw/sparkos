@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="48" height="48">
+  <!-- Terminal. SparkOS icon theme, 48 grid. -->
+  <rect x="4.5" y="4.5" width="39" height="39" rx="3" fill="#141233" stroke="#ece9ff" stroke-opacity="0.22"/>
+  <polyline points="10,15 20,24 10,33" fill="none" stroke="#ff2e88" stroke-width="3"/>
+  <polyline points="14,15 24,24 14,33" fill="none" stroke="#22d8ff" stroke-width="3"/>
+  <polyline points="12,15 22,24 12,33" fill="none" stroke="#9be8b8" stroke-width="3"/>
+  <rect x="25" y="31" width="12" height="3" fill="#b3b0d2"/>
+</svg>

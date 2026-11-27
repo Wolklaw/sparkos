@@ -7,8 +7,8 @@
 #   desktop        the Spark session (spark-compositor + Spark Shell)
 #   passwords      GNOME Keyring, unlocked by the sign-in password. Not a Spark app yet: it is
 #                  the one store apps already know how to use
-#   icons          Breeze's icon and cursor artwork (files only, no KDE software): the SparkOS
-#                  icon theme falls back to it for the icons it has not drawn yet
+#   icons          Breeze's icon artwork (files only, no KDE software): the SparkOS
+#                  icon theme falls back to it for third-party apps' icons. The cursors are SparkOS's own
 #   Qt             allowed: OpenRGB is a Qt program, not KDE
 #
 # Fails the build if any KDE package is installed or the sign-in screen is not set up.
@@ -58,7 +58,7 @@ for f in /usr/bin/kwin_wayland /usr/bin/plasmashell /usr/bin/plasmalogin /usr/bi
   [ ! -e "$f" ] || { echo "$f is still there"; exit 1; }
 done
 for p in greetd spark-compositor xdg-desktop-portal-wlr xdg-desktop-portal-gtk \
-         breeze-icon-theme breeze-cursor-theme gnome-keyring pinentry-gnome3; do
+         breeze-icon-theme gnome-keyring pinentry-gnome3; do
   rpm -q --whatprovides "$p" >/dev/null 2>&1 || command -v "$p" >/dev/null 2>&1 \
     || { echo "$p went missing"; exit 1; }
 done

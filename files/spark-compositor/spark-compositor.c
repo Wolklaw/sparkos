@@ -77,6 +77,13 @@
 #include <wlr/types/wlr_primary_selection_v1.h>
 #include <wlr/types/wlr_relative_pointer_v1.h>
 #include <wlr/types/wlr_scene.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <ctype.h>
+#include <wlr/types/wlr_ext_image_capture_source_v1.h>
 #include <wlr/types/wlr_screencopy_v1.h>
 #include <wlr/types/wlr_seat.h>
 #include <wlr/types/wlr_session_lock_v1.h>
@@ -103,7 +110,9 @@
 enum scene_layer { L_BG, L_BOTTOM, L_WINDOWS, L_TOP, L_FULLSCREEN, L_OVERLAY, L_LOCK, L_COUNT };
 enum cursor_mode { CURSOR_PASSTHROUGH, CURSOR_MOVE, CURSOR_RESIZE };
 enum action { A_EXEC, A_CLOSE, A_QUIT, A_FOCUS_NEXT, A_FULLSCREEN, A_MAXIMIZE, A_OUTPUT_NEXT, A_RELOAD,
-	A_SNAP_LEFT, A_SNAP_RIGHT, A_RESTORE_DOWN, A_SHOW_DESKTOP, A_NONE };
+	A_SNAP_LEFT, A_SNAP_RIGHT, A_RESTORE_DOWN, A_SHOW_DESKTOP,
+	A_WS_NEXT, A_WS_PREV, A_WS_GO, A_MOVE_WS_NEXT, A_MOVE_WS_PREV, A_MOVE_WS_GO, A_TILE_TOGGLE, A_TILE_MASTER,
+	A_NONE };
 
 struct bind { struct wl_list link; uint32_t mods; xkb_keysym_t sym; enum action action; char *arg; };
 /* mouse / touchpad / keyboard lines of compositor.conf; -1 (or NAN for accel) = leave as is */
@@ -204,6 +213,17 @@ struct server {
 	bool lock_sent;   /* locked was sent to the current lock client (wlroots aborts on a second one) */
 	struct wlr_surface *lock_focus;
 
+	/* workspaces: global across every output; each view belongs to one */
+	int ws_count, ws_cur;
+	bool ws_tiling[9];
+	int tseq_hi, tseq_lo;                 /* tiling order: lowest is the master */
+	/* control socket and the state lines last sent to watchers */
+	int ctl_fd; struct wl_event_source *ctl_src; char ctl_path[256];
+	struct wl_list ctl_clients;
+	char ctl_last_ws[160], ctl_last_tile[160], ctl_last_focus[160];
+	struct wl_listener cap_toplevel_request;
+	struct wl_listener request_start_drag, start_drag, drag_icon_destroy;
+	struct wlr_scene_tree *drag_icon;
 	struct wl_listener renderer_lost;
 	bool want_vulkan;                     /* HDR asked for the Vulkan renderer at start */
 	struct wl_listener new_output, new_xdg_toplevel, new_xdg_popup, new_layer_surface, new_input,
@@ -260,6 +280,12 @@ struct view {
 	struct wlr_scene_tree *content;
 	int x, y;
 	struct wlr_box saved;     /* geometry before fullscreen / maximize */
+	int ws;                   /* workspace, 0-based */
+	bool floating;            /* dragged or snapped out of the tiling layout */
+	bool rule_float;          /* never tiled (hard-coded app_id, see view_map) */
+	bool tmanaged;            /* laid out by the tiling; tsaved is the geometry before */
+	struct wlr_box tsaved, tlast;
+	int tseq;
 	struct wlr_foreign_toplevel_handle_v1 *ftl;
 	struct wlr_ext_foreign_toplevel_handle_v1 *ext_ftl;
 	struct wlr_tearing_control_v1 *tearing_obj;
@@ -318,6 +344,10 @@ static const char *view_app_id(struct view *v) {
 	return a ? a : "";
 }
 static void focus_layer_or_view(struct server *s);
+static void workspace_set(int n, bool refocus);
+static void tile_relayout(void);
+static void ctl_state_changed(void);
+static void ctl_focus_changed(void);
 static void switcher_close(struct server *s, bool commit);
 static void switcher_draw(struct server *s);
 
@@ -377,6 +407,9 @@ static bool parse_action(const char *name, enum action *a) {
 		{"fullscreen", A_FULLSCREEN}, {"maximize", A_MAXIMIZE}, {"output-next", A_OUTPUT_NEXT},
 		{"reload", A_RELOAD}, {"snap-left", A_SNAP_LEFT}, {"snap-right", A_SNAP_RIGHT},
 		{"restore-down", A_RESTORE_DOWN}, {"show-desktop", A_SHOW_DESKTOP}, {"none", A_NONE},
+		{"workspace-next", A_WS_NEXT}, {"workspace-prev", A_WS_PREV}, {"workspace", A_WS_GO},
+		{"move-to-workspace-next", A_MOVE_WS_NEXT}, {"move-to-workspace-prev", A_MOVE_WS_PREV},
+		{"move-to-workspace", A_MOVE_WS_GO}, {"tile-toggle", A_TILE_TOGGLE}, {"tile-master", A_TILE_MASTER},
 	};
 	for (size_t i = 0; i < sizeof t / sizeof *t; i++) if (!strcmp(name, t[i].n)) { *a = t[i].a; return true; }
 	return false;
@@ -417,6 +450,17 @@ static void set_default_binds(struct server *s) {
 	add_bind(s, "Super+Down", A_RESTORE_DOWN, NULL, false);
 	add_bind(s, "Super+d", A_SHOW_DESKTOP, NULL, false);
 	add_bind(s, "Super+o", A_OUTPUT_NEXT, NULL, false);
+	/* workspaces and tiling */
+	add_bind(s, "Super+Ctrl+Left", A_WS_PREV, NULL, false);
+	add_bind(s, "Super+Ctrl+Right", A_WS_NEXT, NULL, false);
+	add_bind(s, "Super+Ctrl+Shift+Left", A_MOVE_WS_PREV, NULL, false);
+	add_bind(s, "Super+Ctrl+Shift+Right", A_MOVE_WS_NEXT, NULL, false);
+	for (int i = 1; i <= 9; i++) {
+		char k[32], n[4]; snprintf(k, sizeof k, "Super+Ctrl+%d", i); snprintf(n, sizeof n, "%d", i);
+		add_bind(s, k, A_WS_GO, n, false);
+	}
+	add_bind(s, "Super+Ctrl+t", A_TILE_TOGGLE, NULL, false);
+	add_bind(s, "Super+Ctrl+Return", A_TILE_MASTER, NULL, false);
 	add_bind(s, "Super+Ctrl+Shift+r", A_RELOAD, NULL, false);
 	add_bind(s, "Super+Shift+e", A_QUIT, NULL, false);
 	add_bind(s, "Super+l", A_EXEC, "loginctl lock-session", false);
@@ -481,7 +525,7 @@ static int cfg_bool(const char *v) {
 	return !strcmp(v, "on") || !strcmp(v, "true") || !strcmp(v, "1") || !strcmp(v, "yes");
 }
 
-/* cursor theme=Breeze_Light size=24 */
+/* cursor theme=SparkOS-cursors size=24 */
 static void parse_cursor_line(struct server *s, char *rest) {
 	char *save = NULL;
 	for (char *kv = strtok_r(rest, " \t", &save); kv; kv = strtok_r(NULL, " \t", &save)) {
@@ -494,7 +538,13 @@ static void parse_cursor_line(struct server *s, char *rest) {
 }
 
 static void reset_input_cfg(struct server *s) {
-	s->cursor_theme[0] = 0; s->cursor_size = 24;
+	{	/* default theme: SparkOS-cursors; XCURSOR_THEME in the environment still wins */
+		static char env_theme[64]; static bool env_read;
+		if (!env_read) { const char *e = getenv("XCURSOR_THEME"); if (e) snprintf(env_theme, sizeof env_theme, "%s", e); env_read = true; }
+		const char *et = env_theme;
+		snprintf(s->cursor_theme, sizeof s->cursor_theme, "%s", et && *et ? et : "SparkOS-cursors");
+	}
+	s->cursor_size = 24;
 	struct ptr_cfg none = { NAN, -1, -1, -1, -1, -1 };
 	s->mouse_cfg = none; s->touchpad_cfg = none;
 	memset(&s->kb_cfg, 0, sizeof s->kb_cfg);
@@ -562,6 +612,11 @@ static void load_config_file(struct server *s, const char *path) {
 		else if (!strncmp(l, "keyboard ", 9)) parse_keyboard_line(&s->kb_cfg, l + 9);
 		else if (!strncmp(l, "cursor ", 7)) parse_cursor_line(s, l + 7);
 		else if (!strncmp(l, "idle ", 5)) parse_idle_line(s, l + 5);
+		else if (!strncmp(l, "workspaces ", 11)) {
+			char *save = NULL;
+			for (char *kv = strtok_r(l + 11, " \t", &save); kv; kv = strtok_r(NULL, " \t", &save))
+				if (!strncmp(kv, "count=", 6)) { int n = atoi(kv + 6); s->ws_count = n < 1 ? 1 : n > 9 ? 9 : n; }
+		}
 		else if (!strncmp(l, "bind ", 5)) {
 			/* bind COMBO ACTION [ARGUMENT...] */
 			char *save = NULL, *combo = strtok_r(l + 5, " \t", &save), *act = strtok_r(NULL, " \t", &save);
@@ -575,8 +630,10 @@ static void load_config_file(struct server *s, const char *path) {
 	wlr_log(WLR_INFO, "read %s", path);
 }
 
+static void workspaces_apply(struct server *s);
 static void load_config(struct server *s) {
 	reset_input_cfg(s);
+	s->ws_count = 4;
 	const char *dir = getenv("SPARK_COMPOSITOR_CONFIG_DIR");
 	char base[512], path[600];
 	if (dir) snprintf(base, sizeof base, "%s", dir);
@@ -587,6 +644,7 @@ static void load_config(struct server *s) {
 	}
 	snprintf(path, sizeof path, "%s/outputs.conf", base); load_config_file(s, path);
 	snprintf(path, sizeof path, "%s/compositor.conf", base); load_config_file(s, path);
+	workspaces_apply(s);
 }
 
 static void free_config(struct server *s) {
@@ -895,6 +953,7 @@ static void layout_changed(struct wl_listener *l, void *data) {
 	struct output *o;
 	wl_list_for_each(o, &s->outputs, link) arrange_layers(o);
 	refit_views(s);
+	tile_relayout();
 	publish_output_config(s);
 }
 
@@ -1171,6 +1230,8 @@ static void focus_view(struct view *v, struct wlr_surface *prefer) {
 			send_keyboard_focus(s, surf);
 		return;
 	}
+	/* a window on another workspace (an app activating itself, the task list): go there */
+	if (v->ws != s->ws_cur) workspace_set(v->ws, false);
 	if (v->minimized) { view_set_minimized(v, false); return; }
 	if (s->focused_view == v && !s->focused_layer) {
 		/* already the active window: still make sure the keyboard is on it (a popup may have had it) */
@@ -1192,6 +1253,7 @@ static void focus_view(struct view *v, struct wlr_surface *prefer) {
 	struct wlr_output *wo = wlr_output_layout_output_at(s->output_layout, b.x + 1, b.y + 1);
 	if (wo) s->focused_output = wo;
 	focus_layer_or_view(s);
+	ctl_focus_changed();
 	(void)prefer;
 }
 
@@ -1199,10 +1261,10 @@ static struct view *next_view(struct server *s) {
 	/* the window behind the focused one, mapped and managed */
 	struct view *v;
 	int n = 0;
-	wl_list_for_each(v, &s->views, link) if (v->mapped && !v->unmanaged) n++;
+	wl_list_for_each(v, &s->views, link) if (v->mapped && !v->unmanaged && v->ws == s->ws_cur) n++;
 	if (n < 2) return NULL;
 	struct view *last = NULL;
-	wl_list_for_each(v, &s->views, link) if (v->mapped && !v->unmanaged) last = v;
+	wl_list_for_each(v, &s->views, link) if (v->mapped && !v->unmanaged && v->ws == s->ws_cur) last = v;
 	return last;
 }
 
@@ -1298,6 +1360,7 @@ static void view_set_fullscreen(struct view *v, bool on) {
 		view_resize(v, v->saved.width, v->saved.height);
 	}
 	deco_sync(v);
+	tile_relayout();
 }
 
 static void view_set_maximized(struct view *v, bool on) {
@@ -1330,6 +1393,7 @@ static void view_set_maximized(struct view *v, bool on) {
 	else wlr_xdg_toplevel_set_maximized(v->xdg, on);
 	if (v->ftl) wlr_foreign_toplevel_handle_v1_set_maximized(v->ftl, on);
 	deco_sync(v);
+	tile_relayout();
 }
 
 static void view_close(struct view *v) {
@@ -1349,6 +1413,7 @@ static void view_titles(struct view *v) {
 		wlr_ext_foreign_toplevel_handle_v1_update_state(v->ext_ftl, &st);
 	}
 	deco_sync(v);
+	if (v == S.focused_view) ctl_focus_changed();
 }
 /* ---------- title bars ---------- */
 
@@ -1539,7 +1604,7 @@ static void view_set_minimized(struct view *v, bool on) {
 	struct server *s = v->server;
 	if (v->minimized == on || v->unmanaged) return;
 	v->minimized = on;
-	wlr_scene_node_set_enabled(&v->tree->node, !on);
+	wlr_scene_node_set_enabled(&v->tree->node, !on && v->ws == s->ws_cur);
 	if (v->ftl) wlr_foreign_toplevel_handle_v1_set_minimized(v->ftl, on);
 	if (v->is_x11 && v->xw) wlr_xwayland_surface_set_minimized(v->xw, on);
 	if (on) {
@@ -1549,10 +1614,12 @@ static void view_set_minimized(struct view *v, bool on) {
 			s->focused_view = NULL;
 			struct view *n;
 			wl_list_for_each(n, &s->views, link)
-				if (n != v && n->mapped && !n->minimized && !n->unmanaged) { focus_view(n, NULL); break; }
+				if (n != v && n->mapped && !n->minimized && !n->unmanaged && n->ws == s->ws_cur) { focus_view(n, NULL); break; }
 			if (!s->focused_view) focus_layer_or_view(s);
 		}
 	} else focus_view(v, NULL);
+	tile_relayout();
+	ctl_focus_changed();
 }
 
 static void view_request_minimize(struct wl_listener *l, void *d) {
@@ -1590,6 +1657,432 @@ static void ftl_maximize(struct wl_listener *l, void *d) {
 	view_set_maximized(v, e->maximized);
 }
 
+/* ---------- workspaces, tiling, control socket ---------- */
+
+static bool view_shown(struct view *v) { return !v->minimized && v->ws == S.ws_cur; }
+
+static void view_ftl_destroy(struct view *v) {
+	if (!v->ftl) return;
+	UNLISTEN(&v->ftl_activate); UNLISTEN(&v->ftl_close); UNLISTEN(&v->ftl_fullscreen); UNLISTEN(&v->ftl_maximize);
+	UNLISTEN(&v->ftl_minimize);
+	wlr_foreign_toplevel_handle_v1_destroy(v->ftl); v->ftl = NULL;
+	v->ftl_out = NULL;
+}
+
+/* the wlr-foreign-toplevel handle (the Spark shell's task list): made when a window maps or comes
+ * back to the current workspace, with its title, app_id, state and output */
+static void view_ftl_create(struct view *v) {
+	struct server *s = v->server;
+	if (v->ftl) return;
+	v->ftl = wlr_foreign_toplevel_handle_v1_create(s->ftl_mgr);
+	LISTEN(v->ftl->events.request_activate, &v->ftl_activate, ftl_activate);
+	LISTEN(v->ftl->events.request_close, &v->ftl_close, ftl_close);
+	LISTEN(v->ftl->events.request_fullscreen, &v->ftl_fullscreen, ftl_fullscreen);
+	LISTEN(v->ftl->events.request_maximize, &v->ftl_maximize, ftl_maximize);
+	LISTEN(v->ftl->events.request_minimize, &v->ftl_minimize, ftl_minimize);
+	v->ftl_out = NULL;
+	const char *title = v->is_x11 ? (v->xw ? v->xw->title : NULL) : v->xdg->title;
+	const char *app = view_app_id(v);
+	wlr_foreign_toplevel_handle_v1_set_title(v->ftl, title ? title : "");
+	wlr_foreign_toplevel_handle_v1_set_app_id(v->ftl, app);
+	if (v->activated) wlr_foreign_toplevel_handle_v1_set_activated(v->ftl, true);
+	if (v->minimized) wlr_foreign_toplevel_handle_v1_set_minimized(v->ftl, true);
+	if (v->maximized) wlr_foreign_toplevel_handle_v1_set_maximized(v->ftl, true);
+	if (v->fullscreen) wlr_foreign_toplevel_handle_v1_set_fullscreen(v->ftl, true);
+	view_place(v, v->x, v->y);   /* output enter */
+}
+
+/* show the windows of the current workspace, hide the others, and give the task list its handles */
+static void workspace_resync(void) {
+	struct server *s = &S;
+	struct view *v;
+	wl_list_for_each(v, &s->views, link) {
+		if (!v->mapped || v->unmanaged) continue;
+		wlr_scene_node_set_enabled(&v->tree->node, view_shown(v));
+		if (v->ws != s->ws_cur) view_ftl_destroy(v);
+		else if (!v->ftl) view_ftl_create(v);
+	}
+}
+
+static void workspace_set(int n, bool refocus) {
+	struct server *s = &S;
+	if (n < 0 || n >= s->ws_count || n == s->ws_cur) return;
+	switcher_close(s, false);
+	if (s->cursor_mode != CURSOR_PASSTHROUGH) { s->cursor_mode = CURSOR_PASSTHROUGH; s->grab_view = NULL; }
+	struct view *old = s->focused_view;
+	if (old && old->mapped) view_activate(old, false);
+	s->focused_view = NULL;
+	s->ws_cur = n;
+	workspace_resync();
+	if (refocus) {
+		struct view *v, *pick = NULL;
+		wl_list_for_each(v, &s->views, link)
+			if (v->mapped && !v->unmanaged && !v->minimized && v->ws == n) { pick = v; break; }
+		if (pick) focus_view(pick, NULL); else focus_layer_or_view(s);
+	}
+	wlr_log(WLR_INFO, "workspace %d of %d", n + 1, s->ws_count);
+	refocus_soon(s);
+	ctl_state_changed();
+	ctl_focus_changed();
+}
+
+static void workspaces_apply(struct server *s) {
+	struct view *v;
+	wl_list_for_each(v, &s->views, link) if (v->ws >= s->ws_count) v->ws = s->ws_count - 1;
+	if (s->ws_cur >= s->ws_count) workspace_set(s->ws_count - 1, true);
+	workspace_resync();
+	tile_relayout();
+	ctl_state_changed();
+}
+
+/* ---- tiling ---- */
+
+static bool view_has_parent(struct view *v) {
+	return v->is_x11 ? (v->xw && v->xw->parent) : (v->xdg && v->xdg->parent);
+}
+
+static bool view_tileable(struct view *v) {
+	if (!v->mapped || v->unmanaged || v->minimized || v->fullscreen || v->maximized || v->floating || v->rule_float)
+		return false;
+	if (view_has_parent(v)) return false;
+	if (v->is_x11) {
+		xcb_size_hints_t *h = v->xw ? v->xw->size_hints : NULL;
+		if (h && (h->flags & 48) == 48 && h->min_width == h->max_width && h->min_height == h->max_height) return false;
+	} else {
+		struct wlr_xdg_toplevel_state *c = &v->xdg->current;
+		if (c->min_width > 0 && c->min_width == c->max_width && c->min_height > 0 && c->min_height == c->max_height)
+			return false;
+	}
+	return true;
+}
+
+static void tile_apply(struct view *v, struct wlr_box r) {
+	if (!v->tmanaged) {
+		struct wlr_box b; view_box(v, &b);
+		v->tsaved = (struct wlr_box){ v->x, v->y, b.width, b.height };
+		v->tmanaged = true;
+		v->tlast = (struct wlr_box){ 0 };
+	}
+	int dh = view_has_frame(v) ? TB_H : 0;
+	struct wlr_box want = { r.x, r.y + dh, r.width, r.height - dh };
+	if (want.x == v->tlast.x && want.y == v->tlast.y && want.width == v->tlast.width &&
+	    want.height == v->tlast.height && v->x == want.x && v->y == want.y) return;
+	view_place(v, want.x, want.y);
+	view_resize(v, want.width, want.height);
+	v->tlast = want;
+	wlr_log(WLR_INFO, "tile workspace %d app_id=%s at %d,%d size %dx%d", v->ws + 1, view_app_id(v),
+		want.x, want.y, want.width, want.height);
+}
+
+/* Master and stack on every output: one window fills the usable area; with more, the master
+ * takes the left half and the rest share the right half, top to bottom. */
+static void tile_layout(int ws) {
+	struct server *s = &S;
+	const int g = 6;
+	struct output *o;
+	wl_list_for_each(o, &s->outputs, link) {
+		if (o->usable.width <= 2 * g || o->usable.height <= 2 * g) continue;
+		struct view *list[64], *v;
+		int n = 0;
+		wl_list_for_each(v, &s->views, link)
+			if (v->ws == ws && n < 64 && view_tileable(v) && output_of(s, view_output(v)) == o) list[n++] = v;
+		for (int i = 1; i < n; i++)
+			for (int j = i; j > 0 && list[j]->tseq < list[j - 1]->tseq; j--) { v = list[j]; list[j] = list[j - 1]; list[j - 1] = v; }
+		struct wlr_box a = o->usable;
+		if (n == 1) tile_apply(list[0], (struct wlr_box){ a.x + g, a.y + g, a.width - 2 * g, a.height - 2 * g });
+		else if (n > 1) {
+			int mw = (a.width - 3 * g) / 2;
+			tile_apply(list[0], (struct wlr_box){ a.x + g, a.y + g, mw, a.height - 2 * g });
+			int k = n - 1, sx = a.x + 2 * g + mw, sw = a.width - 3 * g - mw;
+			int sh = (a.height - (k + 1) * g) / k;
+			for (int i = 0; i < k; i++)
+				tile_apply(list[i + 1], (struct wlr_box){ sx, a.y + g + i * (sh + g), sw, sh });
+		}
+	}
+}
+
+static void tile_relayout(void) {
+	for (int i = 0; i < S.ws_count && i < 9; i++) if (S.ws_tiling[i]) tile_layout(i);
+}
+
+/* a window leaves the layout: back to its size from before, if known */
+static void tile_release(struct view *v) {
+	if (!v->tmanaged) return;
+	v->tmanaged = false;
+	if (v->fullscreen || v->maximized) { v->saved = v->tsaved; return; }
+	view_place(v, v->tsaved.x, v->tsaved.y);
+	view_resize(v, v->tsaved.width, v->tsaved.height);
+}
+
+/* a drag or a snap key on a tiled window takes it out of the layout (it floats until tiling is
+ * turned off and on again) */
+static void view_float(struct view *v) {
+	if (!v->tmanaged) return;
+	v->floating = true;
+	v->tmanaged = false;
+	tile_relayout();
+}
+
+static bool tile_toggle(void) {
+	struct server *s = &S;
+	int ws = s->ws_cur;
+	s->ws_tiling[ws] = !s->ws_tiling[ws];
+	struct view *v;
+	if (!s->ws_tiling[ws]) {
+		wl_list_for_each(v, &s->views, link) if (v->ws == ws) { tile_release(v); v->floating = false; }
+	} else {
+		wl_list_for_each(v, &s->views, link) if (v->ws == ws) v->floating = false;
+		tile_layout(ws);
+	}
+	wlr_log(WLR_INFO, "workspace %d tiling %s", ws + 1, s->ws_tiling[ws] ? "on" : "off");
+	ctl_state_changed();
+	return true;
+}
+
+static bool tile_master(void) {
+	struct server *s = &S;
+	struct view *v = s->focused_view;
+	if (!v || !s->ws_tiling[s->ws_cur] || v->unmanaged || v->ws != s->ws_cur) return false;
+	v->floating = false;
+	v->tseq = --s->tseq_lo;
+	tile_relayout();
+	return true;
+}
+
+/* a window goes to another workspace and the view follows it */
+static bool view_move_ws(struct view *v, int n) {
+	struct server *s = &S;
+	if (!v || v->unmanaged || n < 0 || n >= s->ws_count) return false;
+	if (v->ws == n) return true;
+	tile_release(v);
+	v->floating = false;
+	int old = v->ws;
+	v->ws = n;
+	wlr_log(WLR_INFO, "window app_id=%s moved to workspace %d (from %d)", view_app_id(v), n + 1, old + 1);
+	if (old == s->ws_cur) workspace_set(n, false);
+	v->tseq = ++s->tseq_hi;
+	focus_view(v, NULL);
+	tile_relayout();
+	ctl_state_changed();
+	return true;
+}
+
+/* ---- control socket: $XDG_RUNTIME_DIR/spark-wl/ctl ---- */
+
+struct ctl_client {
+	struct wl_list link;
+	int fd;
+	struct wl_event_source *src;
+	char buf[256]; size_t len;
+	bool watch, dead;
+};
+static int ctl_depth;
+
+static void ctl_drop(struct ctl_client *c) {
+	if (c->dead) return;
+	c->dead = true;
+	if (c->src) wl_event_source_remove(c->src);
+	c->src = NULL;
+	close(c->fd); c->fd = -1;
+}
+
+static void ctl_sweep(void) {
+	if (ctl_depth) return;
+	struct ctl_client *c, *t;
+	wl_list_for_each_safe(c, t, &S.ctl_clients, link) if (c->dead) { wl_list_remove(&c->link); free(c); }
+}
+
+/* one line, never blocks: a client that cannot take it is dropped */
+static void ctl_send(struct ctl_client *c, const char *line) {
+	if (c->dead) return;
+	char out[256];
+	int n = snprintf(out, sizeof out, "%s\n", line);
+	if (n < 0 || n >= (int)sizeof out) { ctl_drop(c); return; }
+	if (send(c->fd, out, n, MSG_NOSIGNAL | MSG_DONTWAIT) != n) ctl_drop(c);
+}
+
+static void ctl_broadcast(const char *line) {
+	struct ctl_client *c;
+	wl_list_for_each(c, &S.ctl_clients, link) if (c->watch) ctl_send(c, line);
+	ctl_sweep();
+}
+
+static void ctl_ws_line(char *out, size_t n) {
+	struct server *s = &S;
+	bool occ[9] = { false };
+	struct view *v;
+	wl_list_for_each(v, &s->views, link) if (v->mapped && !v->unmanaged && v->ws >= 0 && v->ws < 9) occ[v->ws] = true;
+	char list[32] = ""; size_t u = 0;
+	for (int i = 0; i < s->ws_count && i < 9; i++)
+		if (occ[i]) u += snprintf(list + u, sizeof list - u, "%s%d", u ? "," : "", i + 1);
+	snprintf(out, n, "workspace %d %d %s", s->ws_cur + 1, s->ws_count, u ? list : "-");
+}
+
+static void ctl_tile_line(char *out, size_t n) { snprintf(out, n, "tiling %s", S.ws_tiling[S.ws_cur] ? "on" : "off"); }
+
+static void ctl_focus_line(char *out, size_t n) {
+	struct view *v = S.focused_view;
+	pid_t pid = 0;
+	const char *app = "";
+	if (v && v->mapped && !v->unmanaged) {
+		app = view_app_id(v);
+		if (v->is_x11) pid = v->xw ? v->xw->pid : 0;
+		else if (v->xdg) wl_client_get_credentials(wl_resource_get_client(v->xdg->resource), &pid, NULL, NULL);
+	}
+	snprintf(out, n, "focus %d %s", (int)pid, app);
+	for (char *p = out; *p; p++) if (*p == '\n' || *p == '\r') *p = ' ';
+}
+
+static void ctl_state_changed(void) {
+	struct server *s = &S;
+	char l[160];
+	ctl_ws_line(l, sizeof l);
+	if (strcmp(l, s->ctl_last_ws)) { snprintf(s->ctl_last_ws, sizeof s->ctl_last_ws, "%s", l); ctl_broadcast(l); }
+	ctl_tile_line(l, sizeof l);
+	if (strcmp(l, s->ctl_last_tile)) { snprintf(s->ctl_last_tile, sizeof s->ctl_last_tile, "%s", l); ctl_broadcast(l); }
+}
+
+static void ctl_focus_changed(void) {
+	struct server *s = &S;
+	char l[160];
+	ctl_focus_line(l, sizeof l);
+	if (strcmp(l, s->ctl_last_focus)) { snprintf(s->ctl_last_focus, sizeof s->ctl_last_focus, "%s", l); ctl_broadcast(l); }
+}
+
+/* "next", "prev" or a 1-based number -> 0-based workspace, or -1 */
+static int ctl_ws_arg(const char *arg) {
+	struct server *s = &S;
+	if (!strcmp(arg, "next")) return (s->ws_cur + 1) % s->ws_count;
+	if (!strcmp(arg, "prev")) return (s->ws_cur + s->ws_count - 1) % s->ws_count;
+	char *end;
+	long n = strtol(arg, &end, 10);
+	if (*end || end == arg || n < 1 || n > s->ws_count) return -1;
+	return (int)n - 1;
+}
+
+static void ctl_command(struct ctl_client *c, char *line) {
+	struct server *s = &S;
+	char *save = NULL, *cmd = strtok_r(line, " \t\r", &save), *arg = strtok_r(NULL, " \t\r", &save);
+	if (!cmd) { ctl_send(c, "error unknown command"); return; }
+	bool mv = !strcmp(cmd, "move-to-workspace");
+	if (!strcmp(cmd, "workspace") || mv) {
+		if (!arg) { ctl_send(c, "error missing argument"); return; }
+		int n = ctl_ws_arg(arg);
+		if (n < 0) { ctl_send(c, "error no such workspace"); return; }
+		if (mv) {
+			if (!s->focused_view) { ctl_send(c, "error no focused window"); return; }
+			view_move_ws(s->focused_view, n);
+		} else workspace_set(n, true);
+		ctl_send(c, "ok");
+	} else if (!strcmp(cmd, "tile-toggle")) {
+		tile_toggle();
+		ctl_send(c, "ok");
+	} else if (!strcmp(cmd, "watch")) {
+		ctl_send(c, "ok");
+		char l[160];
+		ctl_ws_line(l, sizeof l); snprintf(s->ctl_last_ws, sizeof s->ctl_last_ws, "%s", l); ctl_send(c, l);
+		ctl_tile_line(l, sizeof l); snprintf(s->ctl_last_tile, sizeof s->ctl_last_tile, "%s", l); ctl_send(c, l);
+		ctl_focus_line(l, sizeof l); snprintf(s->ctl_last_focus, sizeof s->ctl_last_focus, "%s", l); ctl_send(c, l);
+		c->watch = true;
+	} else ctl_send(c, "error unknown command");
+}
+
+static int ctl_client_cb(int fd, uint32_t mask, void *data) {
+	struct ctl_client *c = data;
+	ctl_depth++;
+	if (mask & (WL_EVENT_HANGUP | WL_EVENT_ERROR)) ctl_drop(c);
+	else if (mask & WL_EVENT_READABLE) {
+		ssize_t r = read(fd, c->buf + c->len, sizeof c->buf - c->len);
+		if (r == 0 || (r < 0 && errno != EAGAIN && errno != EINTR)) ctl_drop(c);
+		else if (r > 0) {
+			c->len += r;
+			char *nl;
+			while (!c->dead && (nl = memchr(c->buf, '\n', c->len))) {
+				*nl = 0;
+				char line[256]; snprintf(line, sizeof line, "%s", c->buf);
+				size_t rest = c->len - (nl + 1 - c->buf);
+				memmove(c->buf, nl + 1, rest); c->len = rest;
+				ctl_command(c, line);
+			}
+			if (!c->dead && c->len == sizeof c->buf) ctl_drop(c);   /* a line that long is not a command */
+		}
+	}
+	ctl_depth--;
+	ctl_sweep();
+	return 0;
+}
+
+static int ctl_accept_cb(int fd, uint32_t mask, void *data) {
+	struct server *s = &S;
+	int cfd = accept4(fd, NULL, NULL, SOCK_CLOEXEC | SOCK_NONBLOCK);
+	if (cfd < 0) return 0;
+	int n = 0;
+	struct ctl_client *c;
+	wl_list_for_each(c, &s->ctl_clients, link) if (!c->dead) n++;
+	if (n >= 16) { close(cfd); return 0; }
+	c = calloc(1, sizeof *c);
+	if (!c) { close(cfd); return 0; }
+	c->fd = cfd;
+	c->src = wl_event_loop_add_fd(wl_display_get_event_loop(s->display), cfd, WL_EVENT_READABLE, ctl_client_cb, c);
+	if (!c->src) { close(cfd); free(c); return 0; }
+	wl_list_insert(&s->ctl_clients, &c->link);
+	ctl_sweep();
+	return 0;
+}
+
+static void ctl_init(struct server *s) {
+	s->ctl_fd = -1;
+	const char *rt = getenv("XDG_RUNTIME_DIR");
+	if (!rt || !*rt) return;
+	char dir[200];
+	struct sockaddr_un a = { .sun_family = AF_UNIX };
+	if (snprintf(dir, sizeof dir, "%s/spark-wl", rt) >= (int)sizeof dir ||
+	    snprintf(s->ctl_path, sizeof s->ctl_path, "%s/ctl", dir) >= (int)sizeof a.sun_path) { s->ctl_path[0] = 0; return; }
+	if (mkdir(dir, 0700) < 0 && errno != EEXIST) { wlr_log(WLR_ERROR, "control socket: mkdir %s failed", dir); s->ctl_path[0] = 0; return; }
+	snprintf(a.sun_path, sizeof a.sun_path, "%s", s->ctl_path);
+	unlink(s->ctl_path);
+	int fd = socket(AF_UNIX, SOCK_STREAM | SOCK_CLOEXEC | SOCK_NONBLOCK, 0);
+	mode_t old = umask(0177);
+	int ok = fd >= 0 && bind(fd, (struct sockaddr *)&a, sizeof a) == 0 && listen(fd, 8) == 0;
+	umask(old);
+	if (!ok) {
+		wlr_log(WLR_ERROR, "control socket %s: %s", s->ctl_path, strerror(errno));
+		if (fd >= 0) close(fd);
+		s->ctl_path[0] = 0;
+		return;
+	}
+	chmod(s->ctl_path, 0600);
+	s->ctl_fd = fd;
+	s->ctl_src = wl_event_loop_add_fd(wl_display_get_event_loop(s->display), fd, WL_EVENT_READABLE, ctl_accept_cb, s);
+	wlr_log(WLR_INFO, "control socket %s", s->ctl_path);
+}
+
+static void ctl_finish(struct server *s) {
+	struct ctl_client *c, *t;
+	wl_list_for_each_safe(c, t, &s->ctl_clients, link) { ctl_drop(c); wl_list_remove(&c->link); free(c); }
+	if (s->ctl_src) wl_event_source_remove(s->ctl_src);
+	s->ctl_src = NULL;
+	if (s->ctl_fd >= 0) close(s->ctl_fd);
+	s->ctl_fd = -1;
+	if (s->ctl_path[0]) unlink(s->ctl_path);
+}
+
+/* ---- window screen sharing: ext-image-capture-source for one toplevel ---- */
+
+static void toplevel_capture_request(struct wl_listener *l, void *data) {
+	struct server *s = &S;
+	struct wlr_ext_foreign_toplevel_image_capture_source_manager_v1_request *r = data;
+	struct view *v;
+	wl_list_for_each(v, &s->views, link) {
+		if (v->ext_ftl != r->toplevel_handle) continue;
+		struct wlr_ext_image_capture_source_v1 *src = wlr_ext_image_capture_source_v1_create_with_scene_node(
+			&v->tree->node, s->loop, s->allocator, s->renderer);
+		if (src && !wlr_ext_foreign_toplevel_image_capture_source_manager_v1_request_accept(r, src))
+			wlr_log(WLR_ERROR, "window capture request not accepted");
+		return;
+	}
+}
+
 static void view_map(struct wl_listener *l, void *data) {
 	struct view *v = wl_container_of(l, v, map);
 	struct server *s = v->server;
@@ -1608,6 +2101,20 @@ static void view_map(struct wl_listener *l, void *data) {
 		return;
 	}
 	wl_list_insert(&s->views, &v->link);
+	/* a new window opens on the current workspace; a child or transient on its parent's */
+	v->ws = s->ws_cur;
+	v->tseq = ++s->tseq_hi;
+	{
+		struct view *p;
+		wl_list_for_each(p, &s->views, link) {
+			if (p == v) continue;
+			if ((!v->is_x11 && v->xdg->parent && p->xdg == v->xdg->parent) ||
+			    (v->is_x11 && v->xw->parent && p->xw == v->xw->parent)) { v->ws = p->ws; break; }
+		}
+	}
+	/* the screen-share picker is always a floating dialog */
+	v->rule_float = !strcmp(view_app_id(v), "spark-screen-pick");
+	wlr_scene_node_set_enabled(&v->tree->node, view_shown(v));
 	/* place new windows near the middle of the focused output's usable area, cascaded */
 	struct wlr_output *wo = s->focused_output ? s->focused_output : output_at_cursor(s);
 	struct output *o = wo ? output_of(s, wo) : NULL;
@@ -1628,17 +2135,16 @@ static void view_map(struct wl_listener *l, void *data) {
 		if (cy < o->usable.y + dh) cy = o->usable.y + dh;
 		v->x = cx; v->y = cy;
 	}
+	if (v->rule_float && o && !x11_pos) {
+		int dh = view_has_frame(v) ? TB_H : 0;
+		v->x = o->usable.x + (o->usable.width - b.width) / 2;
+		v->y = o->usable.y + (o->usable.height - b.height + dh) / 2;
+	}
 	wlr_scene_node_set_position(&v->tree->node, v->x, v->y);
 	if (v->is_x11) wlr_xwayland_surface_configure(v->xw, v->x, v->y, v->xw->width, v->xw->height);
 
-	v->ftl = wlr_foreign_toplevel_handle_v1_create(s->ftl_mgr);
-	LISTEN(v->ftl->events.request_activate, &v->ftl_activate, ftl_activate);
-	LISTEN(v->ftl->events.request_close, &v->ftl_close, ftl_close);
-	LISTEN(v->ftl->events.request_fullscreen, &v->ftl_fullscreen, ftl_fullscreen);
-	LISTEN(v->ftl->events.request_maximize, &v->ftl_maximize, ftl_maximize);
-	LISTEN(v->ftl->events.request_minimize, &v->ftl_minimize, ftl_minimize);
-	v->ftl_out = NULL;
-	view_place(v, v->x, v->y);   /* tells the task list which output the window is on */
+	if (v->ws == s->ws_cur) view_ftl_create(v);   /* tells the task list which output the window is on */
+	else view_place(v, v->x, v->y);
 	struct wlr_ext_foreign_toplevel_handle_v1_state st = { .title = "", .app_id = "" };
 	v->ext_ftl = wlr_ext_foreign_toplevel_handle_v1_create(s->ext_ftl, &st);
 	view_titles(v);
@@ -1651,6 +2157,9 @@ static void view_map(struct wl_listener *l, void *data) {
 	if (!v->fullscreen && (v->is_x11 ? v->xw->maximized_horz || v->xw->maximized_vert
 	                                 : v->xdg->requested.maximized)) view_set_maximized(v, true);
 	refocus_soon(s);
+	tile_relayout();
+	ctl_state_changed();
+	ctl_focus_changed();
 }
 
 static void view_unmap(struct wl_listener *l, void *data) {
@@ -1674,13 +2183,10 @@ static void view_unmap(struct wl_listener *l, void *data) {
 		return;
 	}
 	if (s->cursor_mode != CURSOR_PASSTHROUGH && s->grab_view == v) { s->cursor_mode = CURSOR_PASSTHROUGH; s->grab_view = NULL; }
-	if (v->ftl) {
-		UNLISTEN(&v->ftl_activate); UNLISTEN(&v->ftl_close); UNLISTEN(&v->ftl_fullscreen); UNLISTEN(&v->ftl_maximize);
-		UNLISTEN(&v->ftl_minimize);
-		wlr_foreign_toplevel_handle_v1_destroy(v->ftl); v->ftl = NULL;
-	}
-	v->ftl_out = NULL;
-	if (v->minimized) { v->minimized = false; wlr_scene_node_set_enabled(&v->tree->node, true); }
+	view_ftl_destroy(v);
+	v->tmanaged = false;
+	if (v->minimized) { v->minimized = false; }
+	wlr_scene_node_set_enabled(&v->tree->node, true);
 	if (s->hover_view == v) s->hover_view = NULL;
 	if (s->last_bar_view == v) s->last_bar_view = NULL;
 	if (s->press_view == v) s->press_view = NULL;
@@ -1691,9 +2197,12 @@ static void view_unmap(struct wl_listener *l, void *data) {
 	if (s->focused_view == v) {
 		s->focused_view = NULL;
 		struct view *n;
-		wl_list_for_each(n, &s->views, link) if (n->mapped && !n->minimized) { focus_view(n, NULL); break; }
+		wl_list_for_each(n, &s->views, link) if (n->mapped && !n->minimized && !n->unmanaged && n->ws == s->ws_cur) { focus_view(n, NULL); break; }
 		if (!s->focused_view) focus_layer_or_view(s);
 	}
+	tile_relayout();
+	ctl_state_changed();
+	ctl_focus_changed();
 }
 
 static void view_commit(struct wl_listener *l, void *data) {
@@ -1817,6 +2326,7 @@ static void snap_preview_set(struct server *s, int zone, struct output *o) {
 
 static void begin_grab(struct server *s, struct view *v, enum cursor_mode mode, uint32_t edges) {
 	if (!v || v->fullscreen) return;
+	view_float(v);   /* a drag takes a tiled window out of the layout */
 	bool was_max = v->maximized || (v->tiled && mode == CURSOR_MOVE);
 	if (v->tiled && mode == CURSOR_MOVE) {
 		struct wlr_box tb; view_box(v, &tb);
@@ -2286,7 +2796,10 @@ static struct view *pick(struct server *s, double lx, double ly, struct wlr_surf
 	*surf = NULL;
 	struct wlr_scene_node *root = s->locked && s->lock_tree ? &s->lock_tree->node : &s->scene->tree.node;
 	double nx, ny;
+	/* the icon of a drag follows the cursor: it must not be what the pointer is over */
+	if (s->drag_icon) wlr_scene_node_set_enabled(&s->drag_icon->node, false);
 	struct wlr_scene_node *n = wlr_scene_node_at(root, lx, ly, &nx, &ny);
+	if (s->drag_icon) wlr_scene_node_set_enabled(&s->drag_icon->node, true);
 	if (!n || n->type != WLR_SCENE_NODE_BUFFER) return NULL;
 	struct wlr_scene_buffer *sb = wlr_scene_buffer_from_node(n);
 	struct wlr_scene_surface *ss = wlr_scene_surface_try_from_buffer(sb);
@@ -2325,7 +2838,14 @@ static void check_constraint(struct server *s, struct wlr_surface *focus) {
 	}
 }
 
+static void drag_icon_move(struct server *s) {
+	if (!s->drag_icon || !s->seat->drag || !s->seat->drag->icon) return;
+	struct wlr_surface *is = s->seat->drag->icon->surface;
+	wlr_scene_node_set_position(&s->drag_icon->node, s->cursor->x + is->current.dx, s->cursor->y + is->current.dy);
+}
+
 static void update_cursor_focus(struct server *s, uint32_t time) {
+	drag_icon_move(s);
 	if (s->press_view && s->cursor_mode == CURSOR_PASSTHROUGH &&
 	    fabs(s->cursor->x - s->press_x) + fabs(s->cursor->y - s->press_y) > 8) {
 		struct view *pv = s->press_view;
@@ -2352,7 +2872,7 @@ static void update_cursor_focus(struct server *s, uint32_t time) {
 		return;
 	}
 	struct wlr_seat_pointer_state *ps = &s->seat->pointer_state;
-	if (ps->button_count > 0 && ps->focused_surface && ps->focused_surface == s->hold_surface) {
+	if (!s->seat->drag && ps->button_count > 0 && ps->focused_surface && ps->focused_surface == s->hold_surface) {
 		/* a drag that started in a window keeps going to it, even over a popup or panel above */
 		wlr_seat_pointer_notify_motion(s->seat, time, s->cursor->x - s->hold_dx, s->cursor->y - s->hold_dy);
 		return;
@@ -2528,6 +3048,31 @@ static void request_set_selection(struct wl_listener *l, void *data) {
 	struct wlr_seat_request_set_selection_event *e = data;
 	wlr_seat_set_selection(s->seat, e->source, e->serial);
 }
+/* drag and drop: the seat asks to start a drag; wlroots runs the grab, and the icon is drawn here */
+static void drag_icon_destroyed(struct wl_listener *l, void *data) {
+	struct server *s = wl_container_of(l, s, drag_icon_destroy);
+	wl_list_remove(&s->drag_icon_destroy.link);
+	wl_list_init(&s->drag_icon_destroy.link);
+	s->drag_icon = NULL;   /* the scene tree goes with the icon */
+}
+static void request_start_drag(struct wl_listener *l, void *data) {
+	struct server *s = wl_container_of(l, s, request_start_drag);
+	struct wlr_seat_request_start_drag_event *e = data;
+	if (wlr_seat_validate_pointer_grab_serial(s->seat, e->origin, e->serial))
+		wlr_seat_start_pointer_drag(s->seat, e->drag, e->serial);
+	else if (e->drag->source) wlr_data_source_destroy(e->drag->source);
+}
+static void start_drag(struct wl_listener *l, void *data) {
+	struct server *s = wl_container_of(l, s, start_drag);
+	struct wlr_drag *d = data;
+	if (!d->icon) return;
+	s->drag_icon = wlr_scene_drag_icon_create(s->layers[L_OVERLAY], d->icon);
+	if (!s->drag_icon) return;
+	s->drag_icon_destroy.notify = drag_icon_destroyed;
+	wl_signal_add(&d->icon->events.destroy, &s->drag_icon_destroy);
+	drag_icon_move(s);
+}
+
 static void request_set_primary(struct wl_listener *l, void *data) {
 	struct server *s = wl_container_of(l, s, request_set_primary);
 	struct wlr_seat_request_set_primary_selection_event *e = data;
@@ -2565,7 +3110,7 @@ static int switcher_list(struct server *s, struct view **out) {
 	int n = 0;
 	struct view *v;
 	wl_list_for_each(v, &s->views, link)
-		if (v->mapped && !v->unmanaged && n < ALTTAB_MAX) out[n++] = v;
+		if (v->mapped && !v->unmanaged && v->ws == s->ws_cur && n < ALTTAB_MAX) out[n++] = v;
 	return n;
 }
 
@@ -3060,6 +3605,7 @@ static bool snap_key(struct server *s, int zone) {
 	if (!v || v->fullscreen || v->unmanaged) return false;
 	struct output *o = output_of(s, view_output(v));
 	if (!o) return false;
+	view_float(v);
 	if (v->maximized) {
 		view_set_maximized(v, false);
 		view_tile(v, o, zone);
@@ -3120,21 +3666,29 @@ static bool run_action(struct server *s, struct bind *b) {
 		struct view *v;
 		while (again) {
 			again = false;
-			wl_list_for_each(v, &s->views, link) if (v->desktop_hidden) {
+			wl_list_for_each(v, &s->views, link) if (v->desktop_hidden && v->ws == s->ws_cur) {
 				v->desktop_hidden = false;
 				if (v->mapped && v->minimized) { view_set_minimized(v, false); any = again = true; break; }
 			}
 		}
 		if (any) return true;
 		wl_list_for_each(v, &s->views, link)
-			if (v->mapped && !v->minimized && !v->unmanaged) v->desktop_hidden = true;
+			if (v->mapped && !v->minimized && !v->unmanaged && v->ws == s->ws_cur) v->desktop_hidden = true;
 		for (again = true; again; ) {
 			again = false;
 			wl_list_for_each(v, &s->views, link)
-				if (v->desktop_hidden && !v->minimized) { view_set_minimized(v, true); again = true; break; }
+				if (v->desktop_hidden && !v->minimized && v->ws == s->ws_cur) { view_set_minimized(v, true); again = true; break; }
 		}
 		return true;
 	}
+	case A_WS_NEXT: workspace_set((s->ws_cur + 1) % s->ws_count, true); return true;
+	case A_WS_PREV: workspace_set((s->ws_cur + s->ws_count - 1) % s->ws_count, true); return true;
+	case A_WS_GO: { int n = b->arg ? atoi(b->arg) - 1 : -1; if (n < 0 || n >= s->ws_count) return false; workspace_set(n, true); return true; }
+	case A_MOVE_WS_NEXT: return view_move_ws(s->focused_view, (s->ws_cur + 1) % s->ws_count);
+	case A_MOVE_WS_PREV: return view_move_ws(s->focused_view, (s->ws_cur + s->ws_count - 1) % s->ws_count);
+	case A_MOVE_WS_GO: return view_move_ws(s->focused_view, b->arg ? atoi(b->arg) - 1 : -1);
+	case A_TILE_TOGGLE: return tile_toggle();
+	case A_TILE_MASTER: return tile_master();
 	case A_NONE: return false;
 	}
 	return false;
@@ -3516,6 +4070,8 @@ int main(int argc, char **argv) {
 	wl_list_init(&s->outputs); wl_list_init(&s->views); wl_list_init(&s->layer_surfaces);
 	wl_list_init(&s->out_cfgs); wl_list_init(&s->binds); wl_list_init(&s->keyboards);
 	wl_list_init(&s->pointers);
+	wl_list_init(&s->ctl_clients); s->ctl_fd = -1;
+	wl_list_init(&s->cap_toplevel_request.link);
 	set_default_binds(s);
 	load_config(s);
 
@@ -3604,6 +4160,11 @@ int main(int argc, char **argv) {
 	wlr_export_dmabuf_manager_v1_create(s->display);
 	wl_global_create(s->display, &ext_output_image_capture_source_manager_v1_interface, 1, s, cap_mgr_bind);
 	wlr_ext_image_copy_capture_manager_v1_create(s->display, 1);
+	{	/* window sharing: a source for one toplevel, drawn from its scene node */
+		struct wlr_ext_foreign_toplevel_image_capture_source_manager_v1 *tcm =
+			wlr_ext_foreign_toplevel_image_capture_source_manager_v1_create(s->display, 1);
+		if (tcm) LISTEN(tcm->events.new_request, &s->cap_toplevel_request, toplevel_capture_request);
+	}
 	struct wlr_gamma_control_manager_v1 *gamma = wlr_gamma_control_manager_v1_create(s->display);
 	wlr_scene_set_gamma_control_manager_v1(s->scene, gamma);
 	if (s->renderer->features.input_color_transform) {
@@ -3654,6 +4215,9 @@ int main(int argc, char **argv) {
 	LISTEN(s->cursor->events.frame, &s->cursor_frame, cursor_frame);
 	LISTEN(s->seat->events.request_set_cursor, &s->request_set_cursor, request_set_cursor);
 	LISTEN(s->seat->events.request_set_selection, &s->request_set_selection, request_set_selection);
+	LISTEN(s->seat->events.request_start_drag, &s->request_start_drag, request_start_drag);
+	LISTEN(s->seat->events.start_drag, &s->start_drag, start_drag);
+	wl_list_init(&s->drag_icon_destroy.link);
 	LISTEN(s->seat->events.request_set_primary_selection, &s->request_set_primary, request_set_primary);
 	struct wlr_cursor_shape_manager_v1 *shape = wlr_cursor_shape_manager_v1_create(s->display, 1);
 	LISTEN(shape->events.request_set_shape, &s->cursor_shape, cursor_shape_request);
@@ -3685,8 +4249,11 @@ int main(int argc, char **argv) {
 	wlr_log(WLR_INFO, "spark-compositor running on %s", sock);
 	if (startup) spawn(startup);
 
+	ctl_init(s);
+	workspaces_apply(s);
 	wl_display_run(s->display);
 
+	ctl_finish(s);
 	if (s->idle_timer) { wl_event_source_remove(s->idle_timer); s->idle_timer = NULL; }
 	wl_display_destroy_clients(s->display);
 	/* wlroots asserts that nothing still listens to an object's signals when it is destroyed:
@@ -3698,6 +4265,7 @@ int main(int argc, char **argv) {
 		&s->cursor_button, &s->cursor_axis, &s->cursor_frame, &s->request_set_cursor,
 		&s->request_set_selection, &s->request_set_primary, &s->new_input, &s->new_output,
 		&s->new_deco, &s->new_vkb, &s->new_vptr, &s->cursor_shape,
+		&s->request_start_drag, &s->start_drag, &s->drag_icon_destroy, &s->cap_toplevel_request,
 	};
 	for (size_t i = 0; i < sizeof server_listeners / sizeof *server_listeners; i++)
 		UNLISTEN(server_listeners[i]);

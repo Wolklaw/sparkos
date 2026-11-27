@@ -16,7 +16,7 @@ Done in Spark Settings (each reads the real state when opened and talks to the t
 | Power | `busctl` (power-profiles-daemon, logind) | power profile, screen off and sleep after N minutes, power button, lock screen (saved in `~/.config/spark/power.json` and `lock.json`, which the compositor and shell read) |
 | Default apps | `xdg-mime` | browser, mail, folders, text, media, archives, terminal |
 | Date, time and language | `busctl` (timedated, localed) | time zone, automatic time, set the time by hand, language (yours, or the whole computer's), 24-hour clock |
-| Appearance | `~/.config/spark/*.json`, compositor config | colour scheme, accent colour, wallpaper (the shell redraws every screen), cursor (a line in the compositor config, then a reload), window animations and blur; opens Spark Fonts for fonts |
+| Appearance | `~/.config/spark/*.json`, compositor config | colour scheme, accent colour, wallpaper (the shell redraws every screen), cursor (a line in the compositor config, then a reload), window animations and blur; opens Spark Fonts for fonts. Taskbar: Spark Connect status in the tray (on or off, and which screen; disabled when `spark-connect` is not installed) in `shell.json`, and the number of workspaces (1 to 9, default 4) as a `workspaces count=N` line in the compositor config |
 | Mouse and keyboard | the compositor config (`~/.config/spark/compositor/compositor.conf`) | pointer speed, acceleration, natural scrolling, left-handed, tap to click, key repeat, layouts |
 | Shortcuts | the compositor config | list, change, reset, conflict check; the compositor rereads the file on a reload signal |
 | Notifications | `~/.config/spark/notifications.json` | how long, where, mute sounds |

@@ -6,6 +6,10 @@
  *     "attention":false,"active":true,"output":"DP-1"}, ...]
  * and acts on lines from stdin: "activate ID", "minimize ID", "unminimize ID", "close ID",
  * "maximize ID", "unmaximize ID". Exits when the compositor or stdin goes away.
+ *
+ * "--ext-list": binds ext_foreign_toplevel_list_v1 instead, prints ONE JSON array
+ *   [{"identifier":"..","title":"..","app_id":".."}, ...]
+ * and exits. The compositor keeps these handles for every mapped window, on any workspace.
  */
 #define _GNU_SOURCE
 #include <errno.h>
@@ -18,6 +22,7 @@
 #include <unistd.h>
 #include <wayland-client.h>
 #include "ftl-protocol.h"
+#include "ext-foreign-toplevel-list-v1-protocol.h"
 
 struct out { struct wl_list link; struct wl_output *wl; uint32_t name_id; char *name; };
 struct win {
@@ -128,7 +133,62 @@ static void o_desc(void *d, struct wl_output *o, const char *n) {}
 static const struct wl_output_listener o_listener = {
 	.geometry = o_geometry, .mode = o_mode, .done = o_done, .scale = o_scale, .name = o_name, .description = o_desc };
 
+/* --ext-list */
+struct ewin { struct wl_list link; struct ext_foreign_toplevel_handle_v1 *h; char *id, *title, *app; };
+static struct wl_list ewins;
+static bool ext_mode;
+static struct ext_foreign_toplevel_list_v1 *ext_list;
+
+static void e_closed(void *d, struct ext_foreign_toplevel_handle_v1 *h) {
+	struct ewin *w = d;
+	wl_list_remove(&w->link);
+	ext_foreign_toplevel_handle_v1_destroy(h);
+	free(w->id); free(w->title); free(w->app); free(w);
+}
+static void e_done(void *d, struct ext_foreign_toplevel_handle_v1 *h) {}
+static void e_title(void *d, struct ext_foreign_toplevel_handle_v1 *h, const char *t) { set_str(&((struct ewin *)d)->title, t); }
+static void e_app(void *d, struct ext_foreign_toplevel_handle_v1 *h, const char *a) { set_str(&((struct ewin *)d)->app, a); }
+static void e_id(void *d, struct ext_foreign_toplevel_handle_v1 *h, const char *i) { set_str(&((struct ewin *)d)->id, i); }
+static const struct ext_foreign_toplevel_handle_v1_listener e_listener = {
+	.closed = e_closed, .done = e_done, .title = e_title, .app_id = e_app, .identifier = e_id,
+};
+static void el_toplevel(void *d, struct ext_foreign_toplevel_list_v1 *l, struct ext_foreign_toplevel_handle_v1 *h) {
+	struct ewin *w = calloc(1, sizeof *w);
+	w->h = h; w->id = strdup(""); w->title = strdup(""); w->app = strdup("");
+	wl_list_insert(&ewins, &w->link);
+	ext_foreign_toplevel_handle_v1_add_listener(h, &e_listener, w);
+}
+static void el_finished(void *d, struct ext_foreign_toplevel_list_v1 *l) {}
+static const struct ext_foreign_toplevel_list_v1_listener el_listener = { .toplevel = el_toplevel, .finished = el_finished };
+
+static int ext_list_main(struct wl_registry *reg) {
+	if (!ext_list) { fprintf(stderr, "spark-wl-windows: the compositor has no ext-foreign-toplevel-list\n"); return 1; }
+	wl_display_roundtrip(dpy);
+	wl_display_roundtrip(dpy);
+	fputc('[', stdout);
+	bool first = true;
+	struct ewin *w;
+	wl_list_for_each_reverse(w, &ewins, link) {
+		if (!first) fputc(',', stdout);
+		first = false;
+		fputs("{\"identifier\":", stdout); json_str(stdout, w->id);
+		fputs(",\"title\":", stdout); json_str(stdout, w->title);
+		fputs(",\"app_id\":", stdout); json_str(stdout, w->app);
+		fputc('}', stdout);
+	}
+	fputs("]\n", stdout);
+	fflush(stdout);
+	return 0;
+}
+
 static void reg_global(void *d, struct wl_registry *r, uint32_t name, const char *iface, uint32_t ver) {
+	if (ext_mode) {
+		if (!strcmp(iface, ext_foreign_toplevel_list_v1_interface.name)) {
+			ext_list = wl_registry_bind(r, name, &ext_foreign_toplevel_list_v1_interface, 1);
+			ext_foreign_toplevel_list_v1_add_listener(ext_list, &el_listener, NULL);
+		}
+		return;
+	}
 	if (!strcmp(iface, zwlr_foreign_toplevel_manager_v1_interface.name)) {
 		mgr = wl_registry_bind(r, name, &zwlr_foreign_toplevel_manager_v1_interface, ver < 3 ? ver : 3);
 		zwlr_foreign_toplevel_manager_v1_add_listener(mgr, &m_listener, NULL);
@@ -169,13 +229,15 @@ static void command(char *line) {
 	wl_display_flush(dpy);
 }
 
-int main(void) {
-	wl_list_init(&outs); wl_list_init(&wins);
+int main(int argc, char **argv) {
+	wl_list_init(&outs); wl_list_init(&wins); wl_list_init(&ewins);
+	ext_mode = argc > 1 && !strcmp(argv[1], "--ext-list");
 	dpy = wl_display_connect(NULL);
 	if (!dpy) { fprintf(stderr, "spark-wl-windows: no Wayland display\n"); return 1; }
 	struct wl_registry *reg = wl_display_get_registry(dpy);
 	wl_registry_add_listener(reg, &reg_listener, NULL);
 	wl_display_roundtrip(dpy);
+	if (ext_mode) return ext_list_main(reg);
 	if (!mgr) { fprintf(stderr, "spark-wl-windows: the compositor has no wlr-foreign-toplevel\n"); return 1; }
 	wl_display_roundtrip(dpy);
 	wl_display_roundtrip(dpy);

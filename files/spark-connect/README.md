@@ -79,10 +79,21 @@ spark-connect
 spark-connect --config FILE               # another machine list
 spark-connect --self-test                 # ssh on the path, the list parses, the probe is there; connects to nothing
 spark-connect --status                    # every machine and website once, as JSON
+spark-connect --status --json             # the short form Spark Shell's tray reads (below)
 py spark_connect.py                       # Windows, from this folder (no installer yet)
 python3 -m unittest discover -s tests -v
 python3 make_icons.py                     # redraw icons/ after changing the mark
 ```
+
+`--status --json` probes every machine once and checks every site once, in parallel, with the same ssh options, verdict text and PC language as the Overview cards, and prints one document, no window, no notifications, no Tk or GTK; the whole run takes at most 40 seconds:
+
+```
+{"checked": 1795808808, "summary": "ok|warn|down|empty",
+ "machines": [{"name": "...", "state": "ok|warn|down|rebooting", "verdict": "...", "problems": ["..."]}],
+ "sites": [{"name": "...", "url": "...", "state": "ok|down", "status": 200, "ms": 120}]}
+```
+
+`summary` is `down` if a machine is down or unreachable or a site is down, else `warn` if a machine has a failed unit, a nearly full disk, a reboot waiting and the like, else `ok`. With no machine list, an empty one or one that doesn't parse (then with an `error` field too) it prints `"empty"` and exits 2; otherwise it exits 0. `rebooting` is part of the contract but this mode never sets it: the ten minutes after a reboot you sent live only in the open window's memory. Spark Shell can show this in the tray (Spark Settings, taskbar).
 
 F5 reads the machine list again and refreshes everything, Escape goes back to the overview, Ctrl+W closes. Needs Python 3.11 or newer (for `tomllib`) with tkinter, and the OpenSSH client. The log is in `~/.local/state/spark-connect/`.
 

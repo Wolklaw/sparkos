@@ -1,7 +1,8 @@
 name: sparkos-icons
 # The SparkOS icon theme (files/sparkos-icons, brief: briefs/sparkos-icons.md).
 #
-# check:  index.theme parses, every directory it lists exists, every SVG is valid and renders at
+# check:  index.theme parses, the cursor theme builds (cursors/make_cursors.py) with every name Breeze and
+#         Adwaita ship and every file parses as an Xcursor, every directory it lists exists, every SVG is valid and renders at
 #         16, 22, 32, 48 and 256 px with rsvg-convert (files/sparkos-icons/check.py), then the
 #         image build step runs in a plain Fedora container with Breeze's icons installed
 #         (the image keeps them as files, no KDE software). The contact
@@ -29,7 +30,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Tools
-        run: dnf -y install --setopt=install_weak_deps=False librsvg2-tools python3-pillow breeze-icon-theme gtk-update-icon-cache
+        run: dnf -y install --setopt=install_weak_deps=False librsvg2-tools python3-pillow python3-gobject python3-cairo gobject-introspection librsvg2 breeze-icon-theme gtk-update-icon-cache
 
       - name: Check the theme and draw the contact sheet
         run: python3 files/sparkos-icons/check.py --sheet sparkos-icons-contact-sheet.png --zoom 2
@@ -49,3 +50,10 @@ jobs:
           test -L /usr/share/icons/SparkOS/places/scalable/inode-directory.svg
           test -L /usr/share/icons/SparkOS/mimetypes/scalable/application-zip.svg
           test -s /usr/share/icons/SparkOS/mimetypes/16/package-x-generic.svg
+          test -s /usr/share/icons/SparkOS/status/scalable/dialog-error.svg
+          test -s /usr/share/icons/SparkOS/apps/scalable/utilities-terminal.svg
+          test -L /usr/share/icons/SparkOS/cursors
+          head -c 4 /usr/share/icons/SparkOS-cursors/cursors/default | grep -q Xcur
+          head -c 4 /usr/share/icons/SparkOS-cursors/cursors/left_ptr | grep -q Xcur
+          head -c 4 /usr/share/icons/SparkOS-cursors/cursors/wait | grep -q Xcur
+          grep -q 'Inherits=SparkOS-cursors' /usr/share/icons/default/index.theme

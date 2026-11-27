@@ -8,7 +8,8 @@ import gi
 gi.require_version('Gtk', '4.0')
 from gi.repository import GLib, Gtk  # noqa: E402
 
-from . import apps, clockbridge, layer  # noqa: E402
+from . import apps, clockbridge, connectstatus, dnd, layer  # noqa: E402
+from .ordering import merge_order  # noqa: E402
 from .strings import tr  # noqa: E402
 from .windows import match_app  # noqa: E402
 
@@ -100,6 +101,10 @@ class TaskList(Gtk.Box):
         self.monitor_name = monitor_name
         self.home = home      # also shows windows whose screen is unknown
         self._shown = None
+        self._dragging = False
+        self._late = False        # the list changed during a drag: redraw when it ends
+        dnd.attach_target(self, 'task', lambda name, after: self._drop(name, None, after),
+                          mark=False)
         self.refresh()
 
     def _mine(self, w):
@@ -131,18 +136,23 @@ class TaskList(Gtk.Box):
             info = self.shell.catalog.for_window(w)
             key = (info.get_id() if info else None) or w['app'] or w['cls'] or w['id']
             loose.setdefault(key, [info, []])[1].append(w)
-        for key, (info, mine) in loose.items():
+        # unpinned apps keep the order they were dragged to for this session, new ones go last
+        for key in merge_order(getattr(self.shell, 'loose_order', []), list(loose)):
+            info, mine = loose[key]
             rows.append((info, key, mine))
         return rows
 
-    def refresh(self):
+    def refresh(self, force=False):
+        if self._dragging:
+            self._late = True
+            return
         rows = self.groups()
         # The helper sends the whole list on every change (titles change all the time);
         # rebuild only when something this taskbar shows is different.
         shown = [(key, id(info), tuple((w['id'], w['title'][:24] if len(wins) == 1 else '',
                   w['active'], w['attention'], w['minimized']) for w in wins))
                  for info, key, wins in rows]
-        if shown == self._shown:
+        if shown == self._shown and not force:
             return
         self._shown = shown
         child = self.get_first_child()
@@ -185,7 +195,25 @@ class TaskList(Gtk.Box):
         middle = Gtk.GestureClick(button=2)
         middle.connect('released', lambda *_: info and apps.launch(info, self.get_display()))
         button.add_controller(middle)
+        dnd.attach_source(button, 'task', key, self._drag_begin, self._drag_end)
+        dnd.attach_target(button, 'task', lambda name, after: self._drop(name, key, after))
         return button
+
+    def _drag_begin(self):
+        self._dragging = True
+
+    def _drag_end(self):
+        self._dragging = False
+        if self._late:
+            self._late = False
+            self.refresh()
+
+    def _drop(self, src, dst, after):
+        """`src` was dropped before or after `dst` (None: at the end of this list)."""
+        pinnable = src.endswith('.desktop') and self.shell.catalog.find(src) is not None
+        self._dragging = False
+        self.shell.move_task([k for _i, k, _w in self.groups()], src, dst, after, pinnable)
+        return True
 
     def _primary(self, info, wins):
         tracker = self.shell.tracker
@@ -226,6 +254,183 @@ class TaskList(Gtk.Box):
         pop.popup()
 
 
+class WorkspaceSwitcher(Gtk.Box):
+    """Numbered cells for the compositor's workspaces (the current one lit, the ones with windows
+    marked), plus a tile toggle. Hidden until the compositor's control socket reports more than
+    one workspace. Click goes there; the wheel steps through them."""
+
+    def __init__(self, link):
+        super().__init__(spacing=2)
+        self.link = link
+        self._count = 0
+        self.cells = []
+        self.set_visible(False)
+        scroll = Gtk.EventControllerScroll(flags=Gtk.EventControllerScrollFlags.VERTICAL)
+        scroll.connect('scroll', self._scroll)
+        self.add_controller(scroll)
+        self.tile = Gtk.Button(label='\u25a6')
+        self.tile.add_css_class('spark-ws')
+        self.tile.add_css_class('spark-ws-tile')
+        self.tile.connect('clicked', lambda *_: link.toggle_tiling())
+
+    def _scroll(self, _c, _dx, dy):
+        if dy:
+            self.link.scroll(1 if dy > 0 else -1)
+        return True
+
+    def update(self):
+        link = self.link
+        show = link.visible()
+        self.set_visible(show)
+        if not show:
+            return
+        if link.count != self._count:
+            self._count = link.count
+            child = self.get_first_child()
+            while child is not None:
+                nxt = child.get_next_sibling()
+                self.remove(child)
+                child = nxt
+            self.cells = []
+            for n in range(1, link.count + 1):
+                button = Gtk.Button(label=str(n))
+                button.add_css_class('spark-ws')
+                button.set_tooltip_text(tr('ws_cell') % n)
+                button.connect('clicked', lambda _b, n=n: self.link.go_to(n))
+                self.append(button)
+                self.cells.append(button)
+            self.append(self.tile)
+        for n, button in enumerate(self.cells, 1):
+            for name, on in (('current', n == link.current), ('occupied', n in link.occupied)):
+                if on:
+                    button.add_css_class(name)
+                else:
+                    button.remove_css_class(name)
+        self.tile.set_visible(link.tiling is not None)
+        if link.tiling:
+            self.tile.add_css_class('on')
+        else:
+            self.tile.remove_css_class('on')
+        self.tile.set_tooltip_text(tr('ws_tile_on') if link.tiling else tr('ws_tile_off'))
+        self.set_tooltip_text(tr('ws_tip') % (link.current, link.count))
+
+
+class ConnectButton(Gtk.Button):
+    """Spark Connect's status in the panel: a dot (ok, warning, down, unknown) and the number of
+    problems. Click lists every machine and site; right-click moves or removes it; it can be
+    dragged to another screen's panel. Only the panel the setting names shows it."""
+
+    def __init__(self, shell, panel):
+        super().__init__()
+        self.shell, self.panel = shell, panel
+        self.add_css_class('spark-flat')
+        row = Gtk.Box(spacing=4)
+        self.dot = Gtk.Label(label='\u25cf')
+        self.dot.add_css_class('spark-dot')
+        self.count = Gtk.Label()
+        self.count.add_css_class('spark-count')
+        row.append(self.dot)
+        row.append(self.count)
+        self.set_child(row)
+        self.set_visible(False)
+        self.connect('clicked', lambda *_: self._open())
+        right = Gtk.GestureClick(button=3)
+        right.connect('released', lambda *_: self._menu())
+        self.add_controller(right)
+        dnd.attach_source(self, 'connect', 'widget')
+
+    def update(self):
+        shell = self.shell
+        connect = shell.connect_status
+        show = connect.available() and shell.connect_host() == self.panel.connector
+        self.set_visible(show)
+        if not show:
+            return
+        status = connect.status
+        state = connectstatus.widget_state(status)
+        for name in ('ok', 'warn', 'down', 'unknown'):
+            if name == state:
+                self.dot.add_css_class(name)
+            else:
+                self.dot.remove_css_class(name)
+        n = connectstatus.problem_count(status)
+        self.count.set_text(str(n) if n else '')
+        self.count.set_visible(bool(n))
+        self.set_tooltip_text(connectstatus.summary_text(status))
+
+    def _open(self):
+        connect = self.shell.connect_status
+        status = connect.status
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        pop = _popover(self, box)
+        box.append(Gtk.Label(label=connectstatus.summary_text(status), xalign=0))
+        if status and status['machines']:
+            head = Gtk.Label(label=tr('connect_machines'), xalign=0)
+            head.add_css_class('spark-label')
+            box.append(head)
+            for m in status['machines']:
+                box.append(self._line(m['state'], m['name'], m['verdict']))
+                for problem in m['problems']:
+                    note = Gtk.Label(label=problem, xalign=0, wrap=True, max_width_chars=48)
+                    note.add_css_class('spark-dim')
+                    note.set_margin_start(24)
+                    box.append(note)
+        if status and status['sites']:
+            head = Gtk.Label(label=tr('connect_sites'), xalign=0)
+            head.add_css_class('spark-label')
+            box.append(head)
+            for site in status['sites']:
+                box.append(self._line(site['state'], site['name'],
+                                      connectstatus.site_text(site)))
+        when = connectstatus.checked_text(status)
+        if when:
+            line = Gtk.Label(label=when, xalign=0)
+            line.add_css_class('spark-dim')
+            box.append(line)
+        box.append(Gtk.Separator())
+        box.append(_item(tr('connect_check_now'), connect.check, pop))
+        box.append(_item(tr('connect_open'), self._launch, pop))
+        pop.popup()
+
+    @staticmethod
+    def _line(state, name, detail):
+        row = Gtk.Box(spacing=8)
+        dot = Gtk.Label(label='\u25cf')
+        dot.add_css_class('spark-dot')
+        dot.add_css_class(state if state in ('ok', 'warn', 'down', 'rebooting') else 'unknown')
+        row.append(dot)
+        label = Gtk.Label(label=name, xalign=0)
+        label.add_css_class('spark-text')
+        row.append(label)
+        if detail:
+            more = Gtk.Label(label=detail, xalign=0)
+            more.add_css_class('spark-dim')
+            row.append(more)
+        return row
+
+    def _launch(self):
+        info = self.shell.catalog.find(connectstatus.DESKTOP_ID)
+        if info is None or not apps.launch(info, self.get_display()):
+            apps.run(['spark-connect'])
+
+    def _menu(self):
+        shell = self.shell
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        pop = _popover(self, box)
+        connectors = [p.connector for p in shell.panels]
+        if len(connectors) > 1:
+            head = Gtk.Label(label=tr('connect_move'), xalign=0)
+            head.add_css_class('spark-label')
+            box.append(head)
+            here = shell.connect_host()
+            for name in connectors:
+                mark = '\u2713 ' if name == here else '   '
+                box.append(_item(mark + name, lambda n=name: shell.set_connect_monitor(n), pop))
+            box.append(Gtk.Separator())
+        box.append(_item(tr('connect_remove'), lambda: shell.set_connect_enabled(False), pop))
+        pop.popup()
+
+
 class Panel(Gtk.Window):
     def __init__(self, shell, monitor, with_tray):
         super().__init__()
@@ -258,14 +463,22 @@ class Panel(Gtk.Window):
         bar.set_start_widget(left)
 
         right = Gtk.Box(spacing=6)
+        self.workspaces = WorkspaceSwitcher(shell.compositor)
+        right.append(self.workspaces)
+        self.connect_button = ConnectButton(shell, self)
+        right.append(self.connect_button)
         self.tray = None
         if with_tray:
             from .trayui import TrayView
-            self.tray = TrayView(shell.tray)
+            self.tray = TrayView(shell.tray, shell.config['tray_order'], shell.set_tray_order)
             right.append(self.tray)
         right.append(shell.notifications_ui.bell())
         right.append(ClockButton())
         bar.set_end_widget(right)
+        # the Spark Connect widget can be dragged onto any panel
+        dnd.attach_target(bar, 'connect', lambda *_: (
+            shell.set_connect_monitor(self.connector), True)[1], mark=False)
+        self.workspaces.update()
         self._glitch_timer = GLib.timeout_add_seconds(random_delay(), self._glitch)
         self.connect('destroy', lambda *_: self._glitch_timer and GLib.source_remove(self._glitch_timer))
 

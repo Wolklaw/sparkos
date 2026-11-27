@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 22 22" width="22" height="22">
+  <!-- Error. Symbolic, drawn for 22 px. -->
+  <style id="current-color-scheme">.ColorScheme-Text { color: #f1efff; }</style>
+  <g transform="translate(3 3)">
+  <path class="ColorScheme-Text" fill="currentColor" fill-rule="evenodd" d="M5 1 H11 L15 5 V11 L11 15 H5 L1 11 V5 Z M6 4.6 L8 6.6 L10 4.6 L11.4 6 L9.4 8 L11.4 10 L10 11.4 L8 9.4 L6 11.4 L4.6 10 L6.6 8 L4.6 6 Z"/>
+  </g>
+</svg>

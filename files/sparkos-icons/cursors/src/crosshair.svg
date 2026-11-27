@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" data-hotspot="16 16">
+<!-- thin plus with square ends -->
+<g fill="#141233" stroke="#ece9ff" stroke-width="1.5" stroke-linejoin="miter">
+<polygon points="14.5,3.5 17.5,3.5 17.5,14.5 28.5,14.5 28.5,17.5 17.5,17.5 17.5,28.5 14.5,28.5 14.5,17.5 3.5,17.5 3.5,14.5 14.5,14.5"/>
+</g>
+</svg>
