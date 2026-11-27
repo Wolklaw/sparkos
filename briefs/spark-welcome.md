@@ -48,6 +48,18 @@ can be skipped, nothing installs without a click, and closing the window at any 
    `.AppImage` or `.rpm`), taking screenshots (Spark Snip, Print Screen), and where settings are.
    A "Show Spark Welcome at login" checkbox, off by default after this first run.
 
+### 1.2: a step-by-step guide
+
+The owner asked for an easy guide that welcomes people to SparkOS, says what's different from
+Windows and what's still familiar, and helps them add their drives so their files work here and
+Windows can be erased. Ten steps: Welcome, What's different, What's the same, Your drives, Your
+files, Games, Apps, Check this PC, Erasing Windows, Done. Each page shows "Step N of 10" and a
+"What to do here" box, and the Next button names the next step. The Drives step shows the Windows
+drives SparkOS opens at boot (their letters are remembered, so they keep their folder after Windows
+is gone) and adds other data drives to `/etc/fstab` through udisks, never formatting. The Erasing
+Windows step lists what goes and what stays and points to Spark Disks; Spark Welcome never erases
+anything. Tick boxes must look clickable (drawn box, border, hover).
+
 Installs run in the background, one at a time, with `flatpak install --user --noninteractive
 flathub <id>`, showing progress per app (parse flatpak's output, or show an indeterminate bar with the
 current step). The user can keep moving through pages while they install. A failed install shows the

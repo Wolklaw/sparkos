@@ -2,7 +2,8 @@
 recurring fault, the magenta and cyan channels slipping out of register.
 
 Copied from Spark Media (files/spark-media/sparkmedia/widgets.py), which shares it with Spark
-Snip. Mark is Spark Welcome's own; Spark Media's Seek bar is left out. Keep the copies' common
+Snip. Mark and Toggle (a tick box rather than a chip) are Spark Welcome's own; Spark Media's
+Seek bar is left out. Keep the copies' common
 parts in step."""
 
 import random
@@ -355,33 +356,95 @@ class GlitchPanel(tk.Frame):
         step()
 
 
-class Toggle(tk.Label):
-    """An on/off chip: [■ MIC] lit in the accent when on."""
+class Toggle(tk.Frame):
+    """A tick box that looks clickable: a drawn box (empty when off, filled with a check mark
+    when on) and its text, inside a bordered chip. On hover and focus the chip lights up and its
+    edges split into the two channels, like WolkButton. Click, Return or Space flips it."""
 
     def __init__(self, parent: tk.Misc, text: str, value: bool,
                  command: Callable[[bool], None], font):
-        super().__init__(parent, font=font, padx=8, pady=3, cursor="hand2",
-                         highlightthickness=1, takefocus=1)
+        self.pbg = parent.cget("bg")
+        super().__init__(parent, bg=self.pbg)
         self.text, self.value, self.command = text, value, command
-        self.bind("<ButtonRelease-1>", lambda _e: self.set(not self.value, fire=True))
-        self.bind("<Return>", lambda _e: self.set(not self.value, fire=True))
-        self.bind("<space>", lambda _e: self.set(not self.value, fire=True))
-        self.bind("<Enter>", lambda _e: self._paint(hover=True))
-        self.bind("<Leave>", lambda _e: self._paint())
+        self.enabled, self.hover = True, False
+        f = font if isinstance(font, tkfont.Font) else tkfont.Font(root=parent, font=font)
+        self.size = max(12, int(f.metrics("linespace") * 0.85))
+        self.lbar = tk.Frame(self, bg=self.pbg, width=3)
+        self.rbar = tk.Frame(self, bg=self.pbg, width=3)
+        self.lbar.pack(side="left", fill="y")
+        self.rbar.pack(side="right", fill="y")
+        self.edge = tk.Frame(self, padx=1, pady=1)
+        self.edge.pack(side="left", fill="both", expand=True)
+        self.body = tk.Frame(self.edge, padx=8, pady=4, cursor="hand2")
+        self.body.pack(fill="both", expand=True)
+        self.box = tk.Canvas(self.body, width=self.size, height=self.size, highlightthickness=0,
+                             bd=0, cursor="hand2")
+        self.box.pack(side="left")
+        self.label = tk.Label(self.body, text=text, font=font, padx=0, pady=0, cursor="hand2",
+                              takefocus=1, highlightthickness=0, anchor="w", justify="left")
+        self.label.pack(side="left", padx=(8, 0), fill="x", expand=True)
+        self.parts = (self, self.lbar, self.rbar, self.edge, self.body, self.box, self.label)
+        for widget in self.parts:
+            widget.bind("<Enter>", self._enter)
+            widget.bind("<Leave>", self._leave)
+            widget.bind("<ButtonRelease-1>", self._click)
+        self.label.bind("<FocusIn>", self._enter)
+        self.label.bind("<FocusOut>", self._leave)
+        self.label.bind("<Return>", self._click)
+        self.label.bind("<space>", self._click)
         self._paint()
 
+    def _enter(self, _e=None):
+        self._paint(hover=True)
+
+    def _leave(self, _e=None):
+        self._paint(hover=False)
+
+    def _click(self, event=None):
+        if event is not None and str(event.type) == "ButtonRelease":
+            under = self.winfo_containing(event.x_root, event.y_root)
+            if under not in self.parts:
+                return
+        if self.enabled:
+            self.set(not self.value, fire=True)
+
     def _paint(self, hover: bool = False):
-        on = self.value
-        self.config(text=("■ " if on else "□ ") + self.text.upper(),
-                    bg=T["hover"] if hover else T["panel"],
-                    fg=T["accent"] if on else T["muted"],
-                    highlightbackground=T["line2"] if on else T["line"])
+        self.hover = hover and self.enabled
+        on, live = self.value, self.enabled
+        body = T["hover"] if self.hover else T["panel2"]
+        if not live:
+            body, edge, mark, text = T["panel"], T["line"], T["dim"], T["dim"]
+        else:
+            edge = T["accent"] if (on or self.hover) else T["line2"]
+            mark = T["accent"] if (on or self.hover) else T["muted"]
+            text = T["accent"] if on else T["text"]
+        self.lbar.config(bg=T["ch_a"] if self.hover else self.pbg)
+        self.rbar.config(bg=T["ch_b"] if self.hover else self.pbg)
+        self.edge.config(bg=edge)
+        self.body.config(bg=body, cursor="hand2" if live else "arrow")
+        self.label.config(bg=body, fg=text, cursor="hand2" if live else "arrow",
+                          takefocus=1 if live else 0)
+        self.box.config(bg=body, cursor="hand2" if live else "arrow")
+        c, s = self.box, self.size
+        c.delete("all")
+        if on and live:
+            c.create_rectangle(0, 0, s - 1, s - 1, fill=T["accent"], outline=T["accent"])
+            w = max(2, s // 6)
+            c.create_line(s * 0.22, s * 0.52, s * 0.42, s * 0.72, s * 0.78, s * 0.28,
+                          fill=T["on_accent"], width=w, capstyle="projecting",
+                          joinstyle="miter")
+        else:
+            c.create_rectangle(1, 1, s - 2, s - 2, outline=mark, width=2)
 
     def set(self, value: bool, fire: bool = False):
         self.value = value
-        self._paint()
+        self._paint(self.hover)
         if fire:
             self.command(value)
+
+    def set_enabled(self, on: bool):
+        self.enabled = on
+        self._paint()
 
 
 class IconButton(tk.Canvas):

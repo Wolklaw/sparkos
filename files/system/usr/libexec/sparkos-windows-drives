@@ -4,6 +4,8 @@
 
 - The drive letters are Windows' own: read from the SYSTEM registry file on the Windows drive (MountedDevices, GPT disks). A drive
   with no letter is named after its label, else the start of its partition ID.
+- The letters found are remembered in /var/lib/sparkos/windows-drive-letters.json, so the other drives keep their letter (and
+  their folder) after the Windows drive itself is erased.
 - /etc/sparkos/windows-drives.conf says, per letter, rw (read-write), ro (read-only) or off. A read-write mount that fails (Windows
   hibernated, or Fast Startup left the drive "dirty") falls back to read-only, and the reason is recorded. Never forced.
 - The files belong to the PC's user (the first account, or user= in the conf), so Git and apps can use them normally.
@@ -12,7 +14,7 @@
   Nova and other programs read it to find C:\\Users\\<you> and E:\\Personal Projects.
 
 Safe to run again: what is already mounted stays as it is. Environment overrides for tests: SPARKOS_WINDOWS_DRIVES_CONF, _STATE,
-_BASE. The registry reader is the one in Spark Welcome (files/spark-welcome/sparkwelcome/windows.py), cut down to what this needs."""
+_BASE, _LETTERS. The registry reader is the one in Spark Welcome (files/spark-welcome/sparkwelcome/windows.py), cut down to what this needs."""
 import json
 import os
 import re
@@ -25,6 +27,7 @@ import uuid
 CONF = os.environ.get("SPARKOS_WINDOWS_DRIVES_CONF", "/etc/sparkos/windows-drives.conf")
 STATE = os.environ.get("SPARKOS_WINDOWS_DRIVES_STATE", "/run/sparkos/windows-drives.json")
 BASE = os.environ.get("SPARKOS_WINDOWS_DRIVES_BASE", "/var/mnt")
+LETTERS = os.environ.get("SPARKOS_WINDOWS_DRIVES_LETTERS", "/var/lib/sparkos/windows-drive-letters.json")
 RECOVERY = "de94bba4-06d1-4d40-a16a-bfd50179d6ac"
 LSBLK = ["lsblk", "-J", "-b", "-o", "NAME,PATH,FSTYPE,LABEL,MOUNTPOINT,SIZE,PARTUUID,PARTTYPE"]
 
@@ -277,6 +280,44 @@ def find_letters(parts):
     return {}
 
 
+def remembered_letters(path=None):
+    """{letter: partuuid} saved by an earlier boot; {} when there is none or it is damaged."""
+    try:
+        with open(path or LETTERS, encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {l: g for l, g in data.items()
+            if isinstance(l, str) and re.fullmatch(r"[A-Z]", l) and isinstance(g, str) and g}
+
+
+def merge_letters(found, saved):
+    """The letters to use: Windows' own when its registry was read, plus saved ones for partitions it no longer lists.
+    A letter or partition that Windows now gives elsewhere wins over the saved one."""
+    merged = dict(found)
+    used = set(found.values())
+    for letter, guid in saved.items():
+        if letter not in merged and guid not in used:
+            merged[letter] = guid
+            used.add(guid)
+    return merged
+
+
+def save_letters(letters, path=None):
+    path = path or LETTERS
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(dict(sorted(letters.items())), f, indent=2)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
+    except OSError as e:
+        log(f"Could not save the drive letters to {path}: {e}")
+
+
 def main():
     try:
         conf_text = open(CONF, encoding="utf-8").read()
@@ -286,7 +327,10 @@ def main():
     uid, gid = owner(user)
     code, out = run(LSBLK)
     parts = partitions(out) if code == 0 else []
-    letters = find_letters(parts)
+    saved = remembered_letters()
+    letters = merge_letters(find_letters(parts), saved)
+    if letters and letters != saved:
+        save_letters(letters)
     by_guid = {g: l for l, g in letters.items()}
     taken, report = set(), []
     for p in parts:

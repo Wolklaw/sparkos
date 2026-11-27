@@ -1,5 +1,5 @@
-"""The six pages. Each one only draws and reacts; the work happens in catalog, flatpak,
-windows and checks, in background threads started through App.bg."""
+"""The ten steps. Each one only draws and reacts; the work happens in catalog, flatpak,
+windows, drives and checks, in background threads started through App.bg."""
 
 import os
 import threading
@@ -8,7 +8,7 @@ from typing import Any, Dict, List, Optional
 
 import tkinter as tk
 
-from . import APP_NAME, catalog as catalog_mod, checks, core, flatpak, switch, windows
+from . import APP_NAME, PAGES, catalog as catalog_mod, checks, core, drives, flatpak, switch, windows
 from .strings import LANG, t
 from .widgets import T, GlitchPanel, GlitchText, Segmented, Strip, Toggle, WolkButton
 
@@ -66,7 +66,8 @@ class Scroller(tk.Frame):
 
 
 class Page(tk.Frame):
-    """A page: a scrolling column with a heading. Subclasses fill build()."""
+    """A page: a scrolling column with "STEP N OF M" and a heading. Subclasses fill build()."""
+    key = ''
 
     def __init__(self, parent: tk.Misc, app):
         super().__init__(parent, bg=T["bg"])
@@ -78,6 +79,9 @@ class Page(tk.Frame):
         self.col = tk.Frame(self.scroller.inner, bg=T["bg"])
         self.col.pack(fill="both", expand=True, padx=self.px(28), pady=(self.px(22), self.px(28)))
         self.wrap = self.px(660)
+        if self.key in PAGES:
+            self.micro(t('nav.step', n=PAGES.index(self.key) + 1, total=len(PAGES)),
+                       colour=T["accent"], pady=(0, 4))
         self.build()
 
     def build(self):
@@ -136,6 +140,33 @@ class Page(tk.Frame):
         box.pack(fill="x", pady=(self.px(pady[0]), self.px(pady[1])))
         return box
 
+    def todo(self, text: str, parent: Optional[tk.Misc] = None) -> GlitchPanel:
+        """The "what to do here" box under a step's introduction."""
+        box = self.panel(parent, pady=(4, 12))
+        inner = tk.Frame(box.inner, bg=T["panel"])
+        inner.pack(fill="x", padx=self.px(12), pady=self.px(9))
+        self.micro(t('step.todo'), inner, colour=T["gold"], pady=(0, 3))
+        self.para(text, inner, size=9, pady=(0, 0), wrap=self.px(620))
+        return box
+
+    def card(self, title: str, text: str, parent: Optional[tk.Misc] = None,
+             button: Optional[tuple] = None, title_colour: str = T["accent"]) -> tk.Frame:
+        """A panel with a title line, a paragraph and, if given, one (label, command) button."""
+        box = self.panel(parent, pady=(0, 6))
+        inner = tk.Frame(box.inner, bg=T["panel"])
+        inner.pack(fill="x", padx=self.px(12), pady=self.px(8))
+        head = tk.Frame(inner, bg=T["panel"])
+        head.pack(fill="x")
+        tk.Label(head, text=title, bg=T["panel"], fg=title_colour, font=self.app.font(9),
+                 anchor="w", justify="left", wraplength=self.px(470)).pack(side="left")
+        if button:
+            WolkButton(head, button[0], button[1], self.app.font(8), padx=8,
+                       pady=2).pack(side="right")
+        tk.Label(inner, text=text, bg=T["panel"], fg=T["text"], font=self.app.font(8, False),
+                 anchor="w", justify="left", wraplength=self.px(600)).pack(
+                     fill="x", pady=(self.px(2), 0))
+        return inner
+
     @staticmethod
     def clear(frame: tk.Misc):
         for child in frame.winfo_children():
@@ -145,6 +176,8 @@ class Page(tk.Frame):
 # ─── 1. Welcome ───────────────────────────────────────────────
 
 class WelcomePage(Page):
+    key = 'welcome'
+
     def build(self):
         px = self.px
         top = tk.Frame(self.col, bg=T["bg"])
@@ -165,7 +198,72 @@ class WelcomePage(Page):
         self.title(t('welcome.title'), text)
         wrap = self.px(460)
         self.para(t('welcome.intro'), text, wrap=wrap)
-        self.para(t('welcome.rest'), text, wrap=wrap)
+        self.para(t('welcome.guide'), text, wrap=wrap)
+        self.micro(t('welcome.steps'))
+        for i, name in enumerate(PAGES[1:], 2):
+            line = tk.Frame(self.col, bg=T["bg"])
+            line.pack(fill="x", pady=(0, px(4)))
+            tk.Label(line, text=f"{i:02d}", bg=T["bg"], fg=T["accent"], font=self.app.font(9),
+                     anchor="nw", width=3).pack(side="left", anchor="n")
+            body = tk.Frame(line, bg=T["bg"])
+            body.pack(side="left", fill="x", expand=True)
+            tk.Label(body, text=t(f'nav.{name}'), bg=T["bg"], fg=T["text"],
+                     font=self.app.font(9), anchor="w").pack(fill="x")
+            tk.Label(body, text=t(f'welcome.step.{name}'), bg=T["bg"], fg=T["muted"],
+                     font=self.app.font(8, False), anchor="w", justify="left",
+                     wraplength=px(600)).pack(fill="x")
+        bar = self.row(pady=(14, 0))
+        self.start_btn = self.button(bar, t('welcome.start'), self.app.next, "primary")
+        self.micro(t('welcome.how'))
+        self.para(t('welcome.skip'), muted=True)
+
+
+# ─── 2. What's different ──────────────────────────────────────
+
+DIFFERENT = (('store', 'store'), ('games', ''), ('update', ''), ('letters', ''),
+             ('password', ''), ('sandbox', ''), ('case', ''))
+
+
+class DifferentPage(Page):
+    key = 'different'
+
+    def build(self):
+        self.title(t('diff.title'))
+        self.para(t('diff.intro'))
+        self.todo(t('diff.todo'))
+        for key, action in DIFFERENT:
+            button = (t('diff.store.button'), lambda a=action: self.app.action(a)) if action else None
+            self.card(t(f'diff.{key}.title'), t(f'diff.{key}'), button=button)
+
+
+# ─── 3. What stays the same ───────────────────────────────────
+
+SHORTCUTS = ('menu', 'switch', 'close', 'snap', 'desktop', 'lock', 'files', 'settings',
+             'monitor', 'snip', 'clipboard', 'emoji', 'terminal', 'copy')
+
+
+class FamiliarPage(Page):
+    key = 'familiar'
+
+    def build(self):
+        px = self.px
+        self.title(t('same.title'))
+        self.para(t('same.intro'))
+        self.todo(t('same.todo'))
+        for key in ('taskbar', 'windows', 'files', 'mouse'):
+            self.card(t(f'same.{key}.title'), t(f'same.{key}'))
+        self.micro(t('same.keys'))
+        box = self.panel(pady=(0, 6))
+        grid = tk.Frame(box.inner, bg=T["panel"])
+        grid.pack(fill="x", padx=px(12), pady=px(8))
+        grid.columnconfigure(1, weight=1)
+        for row, key in enumerate(SHORTCUTS):
+            tk.Label(grid, text=t(f'key.{key}'), bg=T["panel"], fg=T["accent"],
+                     font=self.app.font(8), anchor="w", justify="left").grid(
+                         row=row, column=0, sticky="nw", padx=(0, px(14)), pady=px(2))
+            tk.Label(grid, text=t(f'key.{key}.what'), bg=T["panel"], fg=T["text"],
+                     font=self.app.font(8, False), anchor="w", justify="left",
+                     wraplength=px(380)).grid(row=row, column=1, sticky="nw", pady=px(2))
         self.micro(t('welcome.swaps'))
         self.para(t('welcome.swaps.intro'), muted=True, size=9)
         for item in switch.SWAPS:
@@ -185,11 +283,196 @@ class WelcomePage(Page):
             tk.Label(inner, text=t(f'swap.{item.key}.what'), bg=T["panel"], fg=T["text"],
                      font=self.app.font(9, False), anchor="w", justify="left",
                      wraplength=px(600)).pack(fill="x", pady=(px(2), 0))
-        self.micro(t('welcome.how'))
-        self.para(t('welcome.skip'), muted=True)
 
 
-# ─── 3 and 4. Games and Apps ──────────────────────────────────
+# ─── 4. Your drives ───────────────────────────────────────────
+
+class DrivesPage(Page):
+    key = 'drives'
+
+    def build(self):
+        self.title(t('drives.title'))
+        self.para(t('drives.intro'))
+        self.todo(t('drives.todo'))
+        self.micro(t('drives.win'))
+        self.win_area = tk.Frame(self.col, bg=T["bg"])
+        self.win_area.pack(fill="x")
+        self.micro(t('drives.other'), pady=(20, 6))
+        self.para(t('drives.other.intro'), muted=True, size=9, pady=(0, 6))
+        self.other_area = tk.Frame(self.col, bg=T["bg"])
+        self.other_area.pack(fill="x")
+        bar = self.row(pady=(8, 0))
+        self.add_btn = self.button(bar, t('drives.add_none'), self.add, "primary")
+        self.again_btn = self.button(bar, t('drives.again'), self.scan)
+        self.result = tk.Frame(self.col, bg=T["bg"])
+        self.result.pack(fill="x")
+        self.ticks: Dict[str, Toggle] = {}
+        self.others: List[drives.OtherDrive] = []
+        self.win: Optional[List[drives.WindowsDrive]] = None
+        self.adding = False
+        self.scanned = False
+        self.add_btn.set_enabled(False)
+
+    def shown(self):
+        if not self.scanned:
+            self.scan()
+
+    def scan(self):
+        if self.adding:
+            return
+        self.scanned = True
+        self.clear(self.win_area)
+        self.clear(self.other_area)
+        self.clear(self.result)
+        self.para(t('drives.looking'), self.other_area, muted=True)
+        self.show_windows(drives.windows_drives())
+        self.app.bg(drives.list_other_drives, self._listed)
+
+    # Windows drives: SparkOS opens them at boot; this only says how each one is
+    def show_windows(self, found: Optional[List[drives.WindowsDrive]]):
+        self.win = found
+        area = self.win_area
+        if found is None:
+            self.para(t('drives.win.no_report'), area, muted=True)
+            return
+        if not found:
+            self.para(t('drives.win.none'), area, muted=True)
+            return
+        for d in found:
+            box = self.panel(area, pady=(0, 6))
+            inner = tk.Frame(box.inner, bg=T["panel"])
+            inner.pack(fill="x", padx=self.px(12), pady=self.px(8))
+            head = tk.Frame(inner, bg=T["panel"])
+            head.pack(fill="x")
+            name = d.name + (f"  ·  {d.label}" if d.letter and d.label else '')
+            tk.Label(head, text=name, bg=T["panel"], fg=T["text"], font=self.app.font(9),
+                     anchor="w").pack(side="left")
+            if d.mountpoint:
+                WolkButton(head, t('open'), lambda p=d.mountpoint: self.open_folder(p),
+                           self.app.font(8), padx=8, pady=2).pack(side="right")
+            badge, colour = {'rw': (t('drives.rw'), T["accent"]),
+                             'ro': (t('drives.ro'), T["gold"])}.get(
+                                 d.mode, (t('drives.off'), T["pink"]))
+            tk.Label(head, text=badge, bg=T["panel"], fg=colour, font=self.app.font(8),
+                     padx=self.px(6), highlightthickness=1,
+                     highlightbackground=colour).pack(side="right", padx=(0, self.px(8)))
+            if d.mountpoint:
+                tk.Label(inner, text=f"→ {d.mountpoint}", bg=T["panel"], fg=T["muted"],
+                         font=self.app.font(8, False), anchor="w").pack(fill="x",
+                                                                       pady=(self.px(2), 0))
+            note, colour = '', T["gold"]
+            if d.locked:
+                note = t('drives.win.locked')
+            elif d.hibernated:
+                note = t('drives.win.hibernated')
+            elif d.by_choice:
+                note, colour = t('drives.win.ro_choice', letter=d.letter or '?',
+                                 conf=drives.CONF), T["muted"]
+            elif d.problem:
+                note, colour = t('drives.win.problem', problem=d.problem), T["pink"]
+            if note:
+                tk.Label(inner, text=note, bg=T["panel"], fg=colour, font=self.app.font(8, False),
+                         anchor="w", justify="left", wraplength=self.px(600)).pack(
+                             fill="x", pady=(self.px(4), 0))
+                box.burst(colour == T["pink"])
+        if any(d.letter for d in found):
+            self.para(t('drives.win.keep'), area, muted=True, size=9, pady=(4, 0))
+
+    # other drives: added to /etc/fstab here
+    def _listed(self, result):
+        self.clear(self.other_area)
+        if isinstance(result, Exception):
+            result = ([], str(result))
+        found, problem = result
+        self.others, self.ticks = found, {}
+        if problem:
+            self.para(t('drives.lsblk_failed', error=problem), self.other_area, colour=T["pink"])
+            self.app.event(error=True)
+            return
+        if not found:
+            self.para(t('drives.other.none'), self.other_area, muted=True)
+            self.update_add()
+            return
+        taken = drives.taken_names()
+        for d in found:
+            box = self.panel(self.other_area, pady=(0, 6))
+            inner = tk.Frame(box.inner, bg=T["panel"])
+            inner.pack(fill="x", padx=self.px(12), pady=self.px(8))
+            head = tk.Frame(inner, bg=T["panel"])
+            head.pack(fill="x")
+            text = f"{d.title}  ·  {core.human_size(d.size)}  ·  {d.fstype}"
+            if d.added:
+                tk.Label(head, text=text, bg=T["panel"], fg=T["text"], font=self.app.font(9),
+                         anchor="w").pack(side="left")
+                tk.Label(head, text=t('drives.added'), bg=T["panel"], fg=T["accent"],
+                         font=self.app.font(8)).pack(side="right")
+                where = d.open_now
+            else:
+                tick = Toggle(head, text, True, lambda _v: self.update_add(), self.app.font(9))
+                tick.pack(side="left")
+                self.ticks[d.path] = tick
+                where = drives.folder_for(d, taken)
+                d.target = where
+            if where:
+                tk.Label(inner, text=f"→ {where}", bg=T["panel"], fg=T["muted"],
+                         font=self.app.font(8, False), anchor="w").pack(fill="x",
+                                                                       pady=(self.px(4), 0))
+        self.update_add()
+        self.app.event()
+
+    def update_add(self):
+        n = sum(1 for tick in self.ticks.values() if tick.value)
+        self.add_btn.set_text(t('drives.add', n=n) if n else t('drives.add_none'))
+        self.add_btn.set_enabled(bool(n) and not self.adding)
+
+    def add(self):
+        chosen = [d for d in self.others if d.path in self.ticks and self.ticks[d.path].value]
+        if self.adding or not chosen:
+            return
+        self.adding = True
+        self.add_btn.set_enabled(False)
+        self.again_btn.set_enabled(False)
+        self.clear(self.result)
+        self.para(t('drives.adding'), self.result, muted=True, pady=(10, 0))
+
+        def work():
+            return [(d, *drives.add_drive(d, d.target)) for d in chosen]
+
+        self.app.bg(work, self._added)
+
+    def _added(self, results):
+        self.adding = False
+        self.again_btn.set_enabled(True)
+        self.clear(self.result)
+        if isinstance(results, Exception):
+            self.para(t('drives.err.generic') + f" {results}", self.result, colour=T["pink"],
+                      pady=(10, 0))
+            self.update_add()
+            self.app.event(error=True)
+            return
+        failed = False
+        for d, where, problem in results:
+            if where:
+                line = t('drives.added_at', name=d.title, where=where)
+                colour = T["gold"] if problem else T["accent"]
+            else:
+                line, colour = f"{d.title}: {problem}", T["pink"]
+                failed = True
+            self.para(line, self.result, size=9, colour=colour, pady=(8, 0))
+            if where and problem:
+                self.para(problem, self.result, size=8, muted=True, pady=(2, 0))
+        self.app.event(error=failed)
+        self.clear(self.other_area)
+        self.app.bg(drives.list_other_drives, self._listed)
+
+    def open_folder(self, path: str):
+        if core.open_url(path):
+            self.app.set_status(t('status.opened'))
+        else:
+            self.app.set_status(t('status.cant_open'), T["pink"], 6000)
+
+
+# ─── 6 and 7. Games and Apps ──────────────────────────────────
 
 class Tick(Toggle):
     """A Toggle that can be locked (installed, queued)."""
@@ -205,18 +488,9 @@ class Tick(Toggle):
 
     def lock(self, on: bool):
         self.locked = on
-        self.configure(cursor="arrow" if on else "hand2", takefocus=0 if on else 1)
         if on:
             self.value = False
-            self.config(text="□ " + self.text.upper(), fg=T["dim"], bg=T["panel"],
-                        highlightbackground=T["line"])
-        else:
-            self._paint()
-
-    def _paint(self, hover: bool = False):
-        if self.locked:
-            return
-        super()._paint(hover)
+        self.set_enabled(not on)
 
 
 class AppRow(GlitchPanel):
@@ -334,6 +608,8 @@ class InstallPage(Page):
 
 
 class GamesPage(InstallPage):
+    key = 'games'
+
     def build(self):
         self.rows = []
         self.title(t('games.title'))
@@ -365,6 +641,8 @@ def swap_open(item: Optional[switch.Swap]) -> bool:
 
 
 class AppsPage(InstallPage):
+    key = 'apps'
+
     def build(self):
         self.rows = []
         self.title(t('apps.title'))
@@ -388,9 +666,12 @@ class AppsPage(InstallPage):
 # ─── 2. Moving from Windows ───────────────────────────────────
 
 class WindowsPage(Page):
+    key = 'windows'
+
     def build(self):
         self.title(t('win.title'))
         self.para(t('win.intro'))
+        self.todo(t('win.todo'))
         self.para(t('win.safe'), muted=True)
         bar = self.row(pady=(4, 0))
         self.scan_btn = self.button(bar, t('win.scan'), self.scan)
@@ -400,7 +681,6 @@ class WindowsPage(Page):
         self.area.pack(fill="x")
         self.extra = tk.Frame(self.col, bg=T["bg"])     # programs and Steam games found
         self.extra.pack(fill="x")
-        self.checklist()
         self.scanned = False
         self.parts: List[windows.Partition] = []
         self.cancel = threading.Event()
@@ -766,24 +1046,12 @@ class WindowsPage(Page):
         else:
             self.app.set_status(t('status.cant_open'), T["pink"], 6000)
 
-    def checklist(self):
-        self.micro(t('win.before'), colour=T["gold"], pady=(26, 6))
-        self.para(t('win.before.intro'), muted=True, size=9, pady=(0, 6))
-        for n in range(1, 10):
-            box = self.panel(pady=(0, 6))
-            inner = tk.Frame(box.inner, bg=T["panel"])
-            inner.pack(fill="x", padx=self.px(12), pady=self.px(8))
-            tk.Label(inner, text=t(f'win.before.{n}.title'), bg=T["panel"], fg=T["accent"],
-                     font=self.app.font(9), anchor="w", justify="left",
-                     wraplength=self.px(600)).pack(fill="x")
-            tk.Label(inner, text=t(f'win.before.{n}'), bg=T["panel"], fg=T["text"],
-                     font=self.app.font(8, False), anchor="w", justify="left",
-                     wraplength=self.px(600)).pack(fill="x", pady=(self.px(2), 0))
 
-
-# ─── 5. Check this PC ─────────────────────────────────────────
+# ─── 8. Check this PC ─────────────────────────────────────────
 
 class ChecksPage(Page):
+    key = 'checks'
+
     def build(self):
         self.title(t('checks.title'))
         self.para(t('checks.intro'))
@@ -862,9 +1130,46 @@ class ChecksPage(Page):
         self.app.event()
 
 
-# ─── 6. Done ──────────────────────────────────────────────────
+# ─── 9. Before you erase Windows ──────────────────────────────
+
+class ErasePage(Page):
+    key = 'erase'
+
+    def build(self):
+        self.title(t('erase.title'))
+        self.para(t('erase.intro'))
+        self.todo(t('erase.todo'))
+        self.micro(t('erase.drives'), pady=(6, 6))
+        self.drive_area = tk.Frame(self.col, bg=T["bg"])
+        self.drive_area.pack(fill="x")
+        self.micro(t('win.before'), colour=T["gold"], pady=(16, 6))
+        self.para(t('win.before.intro'), muted=True, size=9, pady=(0, 6))
+        for n in range(1, 10):
+            self.card(t(f'win.before.{n}.title'), t(f'win.before.{n}'))
+        self.micro(t('erase.how'), pady=(16, 6))
+        self.card(t('erase.how.title'), t('erase.how.text'),
+                  button=(t('erase.disks'), lambda: self.app.action('open:spark-disks')))
+        self.card(t('erase.efi.title'), t('erase.efi'), title_colour=T["gold"])
+
+    def shown(self):
+        self.clear(self.drive_area)
+        found = drives.windows_drives()
+        if not found:
+            self.para(t('erase.drives.unknown'), self.drive_area, muted=True, size=9)
+            return
+        stay = [d for d in found if d.letter != 'C' and d.mountpoint]
+        if any(d.letter == 'C' for d in found):
+            self.card(t('erase.c.title'), t('erase.c'), self.drive_area, title_colour=T["gold"])
+        if stay:
+            lines = '\n'.join(f"{d.name}  →  {d.mountpoint}" for d in stay)
+            self.card(t('erase.stay.title'), t('erase.stay', drives=lines), self.drive_area)
+
+
+# ─── 10. Done ──────────────────────────────────────────────────
 
 class DonePage(Page):
+    key = 'done'
+
     def build(self):
         self.title(t('done.title'))
         self.para(t('done.intro'))
@@ -893,6 +1198,7 @@ class DonePage(Page):
 
 
 PAGE_CLASSES: Dict[str, Any] = {
-    'welcome': WelcomePage, 'games': GamesPage, 'apps': AppsPage,
-    'windows': WindowsPage, 'checks': ChecksPage, 'done': DonePage,
+    'welcome': WelcomePage, 'different': DifferentPage, 'familiar': FamiliarPage,
+    'drives': DrivesPage, 'windows': WindowsPage, 'games': GamesPage, 'apps': AppsPage,
+    'checks': ChecksPage, 'erase': ErasePage, 'done': DonePage,
 }

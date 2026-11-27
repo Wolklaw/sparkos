@@ -31,7 +31,7 @@ os.environ['SPARK_WELCOME_TEST'] = '1'
 os.environ['SPARK_WELCOME_REDUCED_MOTION'] = '0'
 
 import sparkwelcome  # noqa: E402
-from sparkwelcome import catalog, checks, core, flatpak, strings, switch, windows  # noqa: E402
+from sparkwelcome import catalog, checks, core, drives, flatpak, strings, switch, windows  # noqa: E402
 
 FROM = strings.t('win.renamed')       # copies that would clash: 'x (from Windows).txt'
 
@@ -780,6 +780,118 @@ class FirstLoginTests(unittest.TestCase):
         self.assertEqual(probe.stdout.strip(), 'False', probe.stderr)
 
 
+class DrivesTests(unittest.TestCase):
+    LSBLK = json.dumps({'blockdevices': [
+        {'name': 'nvme0n1', 'path': '/dev/nvme0n1', 'type': 'disk', 'hotplug': False, 'children': [
+            {'name': 'nvme0n1p1', 'path': '/dev/nvme0n1p1', 'type': 'part', 'fstype': 'vfat',
+             'parttype': 'c12a7328-f81f-11d2-ba4b-00a0c93ec93b', 'mountpoints': ['/boot/efi'],
+             'size': 600 * 2 ** 20},
+            {'name': 'nvme0n1p2', 'path': '/dev/nvme0n1p2', 'type': 'part', 'fstype': 'btrfs',
+             'mountpoints': ['/sysroot', '/var', '/home'], 'size': 2 ** 40},
+            {'name': 'nvme0n1p3', 'path': '/dev/nvme0n1p3', 'type': 'part', 'fstype': 'ntfs',
+             'mountpoints': ['/var/mnt/c'], 'size': 2 ** 39}]},
+        {'name': 'sdb', 'path': '/dev/sdb', 'type': 'disk', 'hotplug': False, 'children': [
+            {'name': 'sdb1', 'path': '/dev/sdb1', 'type': 'part', 'fstype': 'exfat',
+             'label': 'Photos', 'uuid': 'ABCD-1234', 'mountpoints': [None], 'size': 2 ** 41},
+            {'name': 'sdb2', 'path': '/dev/sdb2', 'type': 'part', 'fstype': 'ext4',
+             'uuid': '0f0e0d0c-aaaa-bbbb-cccc-121212121212',
+             'mountpoints': ['/run/media/ann/x'], 'size': 2 ** 30},
+            {'name': 'sdb3', 'path': '/dev/sdb3', 'type': 'part', 'fstype': 'swap',
+             'mountpoints': ['[SWAP]'], 'size': 2 ** 30}]},
+        {'name': 'sdc', 'path': '/dev/sdc', 'type': 'disk', 'hotplug': True, 'children': [
+            {'name': 'sdc1', 'path': '/dev/sdc1', 'type': 'part', 'fstype': 'vfat',
+             'mountpoints': ['/run/media/ann/USB'], 'size': 2 ** 33}]},
+        {'name': 'zram0', 'path': '/dev/zram0', 'type': 'disk', 'mountpoints': ['[SWAP]']},
+    ]})
+
+    def test_only_data_drives_are_listed(self):
+        found = drives.parse_other_drives(self.LSBLK, 'UUID=0f0e0d0c-aaaa-bbbb-cccc-121212121212 '
+                                                      '/var/mnt/x ext4 defaults 0 0\n')
+        self.assertEqual([d.name for d in found], ['sdb1', 'sdb2'])
+        photos, other = found
+        self.assertFalse(photos.added)
+        self.assertTrue(other.added)
+        self.assertEqual(other.open_now, '/run/media/ann/x')
+        self.assertEqual(photos.title, 'Photos')
+        self.assertEqual(drives.parse_other_drives('not json'), [])
+
+    def test_fstab_matches_every_way_of_naming_a_drive(self):
+        d = drives.OtherDrive('sdb1', '/dev/sdb1', 'exfat', 'Photos', 'ABCD-1234', '1-2', 1, ())
+        for line in ('UUID=ABCD-1234 /x exfat d 0 0', '/dev/disk/by-uuid/ABCD-1234 /x e d 0 0',
+                     'PARTUUID=1-2 /x e d 0 0', 'LABEL=Photos /x e d 0 0', '/dev/sdb1 /x e d 0 0'):
+            self.assertTrue(drives.in_fstab(d, line), line)
+        self.assertFalse(drives.in_fstab(d, '# UUID=ABCD-1234 /x exfat d 0 0'))
+        self.assertFalse(drives.in_fstab(d, 'UUID=other / btrfs d 0 0'))
+
+    def test_folder_names_and_options(self):
+        d = drives.OtherDrive('sdb1', '/dev/sdb1', 'exfat', 'My Photos!', 'ABCD-1234', '', 1, ())
+        taken = {'c', 'd', 'my-photos'}
+        self.assertEqual(drives.folder_for(d, taken), '/var/mnt/my-photos-2')
+        d.label = ''
+        self.assertEqual(drives.folder_for(d, taken), '/var/mnt/abcd-123')
+        opts = drives.mount_options('exfat', 1000, 1000)
+        self.assertIn('nofail', opts)
+        self.assertIn('uid=1000', opts)
+        self.assertNotIn('uid=', drives.mount_options('ext4', 1000, 1000))
+
+    def test_add_command(self):
+        d = drives.OtherDrive('sdb1', '/dev/sdb1', 'exfat', '', 'ABCD-1234', '', 1, ())
+        cmd = drives.add_command(d, '/var/mnt/photos', 'nofail')
+        self.assertEqual(cmd[:4], ['gdbus', 'call', '--system', '--interactive'])
+        self.assertIn('/org/freedesktop/UDisks2/block_devices/sdb1', cmd)
+        self.assertIn('org.freedesktop.UDisks2.Block.AddConfigurationItem', cmd)
+        item = cmd[-2]
+        self.assertIn("'fsname': <b'UUID=ABCD-1234'>", item)
+        self.assertIn("'dir': <b'/var/mnt/photos'>", item)
+        self.assertIn("'type': <b'exfat'>", item)
+        self.assertEqual(cmd[-1], '{}')
+        d.uuid = ''
+        self.assertEqual(drives.source_for(d), '/dev/sdb1')
+
+    def test_add_drive_never_formats(self):
+        d = drives.OtherDrive('sdb1', '/dev/sdb1', 'exfat', 'Photos', 'ABCD-1234', '', 1, ())
+        calls = []
+
+        def fake_run(cmd, timeout=0):
+            calls.append(cmd)
+            return 0, 'Mounted /dev/sdb1 at /var/mnt/photos', ''
+        with mock.patch.object(drives, 'run', side_effect=fake_run), \
+                mock.patch.object(drives.os, 'access', return_value=True):
+            where, problem = drives.add_drive(d, '/var/mnt/photos')
+        self.assertEqual((where, problem), ('/var/mnt/photos', ''))
+        self.assertTrue(d.added)
+        self.assertEqual([c[0] for c in calls], ['gdbus', 'udisksctl'])
+        self.assertFalse(any('format' in ' '.join(c).lower() for c in calls))
+        # a refused password stops before mounting
+        d2 = drives.OtherDrive('sdb2', '/dev/sdb2', 'ext4', '', 'u', '', 1, ())
+        with mock.patch.object(drives, 'run', return_value=(1, '', 'GDBus.Error:org.freedesktop.'
+                                                                    'UDisks2.Error.NotAuthorized')):
+            where, problem = drives.add_drive(d2, '/var/mnt/u')
+        self.assertEqual(where, '')
+        self.assertEqual(problem, strings.t('drives.err.password'))
+        self.assertFalse(d2.added)
+
+    def test_windows_report(self):
+        text = json.dumps([
+            {'letter': 'E', 'label': 'Games', 'device': '/dev/nvme1n1p1', 'mountpoint': '/var/mnt/e',
+             'mode': 'rw', 'problem': ''},
+            {'letter': 'C', 'label': '', 'device': '/dev/nvme0n1p3', 'mountpoint': '/var/mnt/c',
+             'mode': 'ro', 'problem': 'mounted read-only: read-write failed (x)'},
+            {'letter': 'D', 'label': 'Scrap', 'device': '/dev/sda2', 'mountpoint': '/var/mnt/d',
+             'mode': 'ro', 'problem': ''},
+            {'letter': '', 'label': 'Old', 'device': '/dev/sdz1', 'mountpoint': '', 'mode': 'off',
+             'problem': 'locked with BitLocker'},
+        ])
+        found = drives.parse_windows_drives(text)
+        self.assertEqual([d.name for d in found], ['C:', 'D:', 'E:', 'Old'])
+        c, d, _e, old = found
+        self.assertTrue(c.hibernated and not c.by_choice)
+        self.assertTrue(d.by_choice)
+        self.assertTrue(old.locked)
+        self.assertEqual(drives.parse_windows_drives('{'), [])
+        self.assertIsNone(drives.windows_drives('/nonexistent/windows-drives.json'))
+
+
 class PackagingTests(unittest.TestCase):
     def test_every_string_exists(self):
         used = set()
@@ -1162,6 +1274,56 @@ class UITests(unittest.TestCase):
         self.pump(0.1)
         self.assertTrue(row.tick.locked)
         self.assertFalse(row.retry_btn.winfo_ismapped())
+
+    def test_drives_page(self):
+        found = [drives.WindowsDrive('C', '', '/dev/x1', '/var/mnt/c', 'rw', ''),
+                 drives.WindowsDrive('D', 'Scrap', '/dev/x2', '/var/mnt/d', 'ro', ''),
+                 drives.WindowsDrive('', 'Old', '/dev/x3', '', 'off', 'locked with BitLocker')]
+        other = [drives.OtherDrive('sdb1', '/dev/sdb1', 'exfat', 'Photos', 'AB-12', '', 2 ** 40, ()),
+                 drives.OtherDrive('sdb2', '/dev/sdb2', 'ext4', 'Done', 'u', '', 2 ** 30,
+                                   ('/var/mnt/done',), True)]
+        added = []
+
+        def fake_add(d, point):
+            added.append((d.name, point))
+            d.added, d.mountpoints = True, (point,)
+            return point, ''
+        with mock.patch.object(drives, 'windows_drives', return_value=found), \
+                mock.patch.object(drives, 'list_other_drives', return_value=(other, '')), \
+                mock.patch.object(drives, 'taken_names', return_value={'c', 'd'}), \
+                mock.patch.object(drives, 'add_drive', side_effect=fake_add):
+            self.app = self.App('drives')
+            page = self.app.pages['drives']
+            self.assertTrue(self.pump(10, until=lambda: page.ticks and not self.app._busy))
+            self.assertEqual(len(page.win_area.winfo_children()), 4)   # 3 drives + the note
+            self.assertEqual(list(page.ticks), ['/dev/sdb1'])            # the added one has none
+            self.assertTrue(page.ticks['/dev/sdb1'].value)
+            self.assertTrue(page.add_btn.enabled)
+            page.ticks['/dev/sdb1'].set(False, fire=True)
+            self.assertFalse(page.add_btn.enabled)
+            page.ticks['/dev/sdb1'].set(True, fire=True)
+            page.add()
+            self.assertTrue(self.pump(10, until=lambda: not page.adding and not self.app._busy))
+        self.assertEqual(added, [('sdb1', '/var/mnt/photos')])
+
+    def test_erase_page_lists_what_stays(self):
+        found = [drives.WindowsDrive('C', '', '/dev/x1', '/var/mnt/c', 'rw', ''),
+                 drives.WindowsDrive('E', 'Games', '/dev/x2', '/var/mnt/e', 'rw', '')]
+        with mock.patch.object(drives, 'windows_drives', return_value=found):
+            self.app = self.App('erase')
+            self.pump()
+        page = self.app.pages['erase']
+        self.assertEqual(len(page.drive_area.winfo_children()), 2)       # C: goes, E: stays
+
+    def test_toggle_reads_as_a_tick_box(self):
+        self.app = self.App('done')
+        self.pump()
+        box = self.app.pages['done'].show_again
+        self.assertFalse(box.value)
+        box.label.focus_force()
+        box.label.event_generate('<space>')
+        self.pump(0.1)
+        self.assertTrue(box.value)
 
     def test_windows_page_with_a_fake_drive(self):
         root = tempfile.mkdtemp()
