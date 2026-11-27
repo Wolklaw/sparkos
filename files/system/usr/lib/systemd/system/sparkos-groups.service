@@ -1,0 +1,14 @@
+[Unit]
+Description=Put the groups people join (input, dialout) into /etc/group
+# Before anyone signs in, so usermod works on the first try
+After=local-fs.target
+Before=systemd-user-sessions.service
+ConditionPathExists=/usr/libexec/sparkos-groups
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/libexec/sparkos-groups
+
+[Install]
+WantedBy=multi-user.target
