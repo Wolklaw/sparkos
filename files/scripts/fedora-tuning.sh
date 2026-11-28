@@ -87,6 +87,12 @@ done
 systemctl disable nfs-client.target
 grep -qx 'disable nfs-client.target' /usr/lib/systemd/system-preset/10-sparkos.preset
 
+# lm_sensors.service only loads the modules sensors-detect wrote to /etc/sysconfig/lm_sensors and
+# runs `sensors -s`; nobody runs sensors-detect here (the kernel finds the PC's sensors itself), so
+# it is a boot job with nothing to do. The `sensors` command doesn't need it.
+systemctl disable lm_sensors.service
+grep -qx 'disable lm_sensors.service' /usr/lib/systemd/system-preset/10-sparkos.preset
+
 # Locked memory up to 2 GiB per process (Bazzite's memlock.conf; Fedora's is 8 MiB). Emulators
 # such as RPCS3 and some anti-cheat and VR software need more.
 cat > /etc/security/limits.d/90-sparkos-memlock.conf <<'EOS'

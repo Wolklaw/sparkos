@@ -23,27 +23,27 @@ test -x /usr/bin/spark-files
 test -f /usr/share/applications/dev.wolklaw.SparkFiles.desktop
 grep -q '^MimeType=inode/directory;' /usr/share/applications/dev.wolklaw.SparkFiles.desktop
 test -f /usr/share/icons/hicolor/scalable/apps/dev.wolklaw.SparkFiles.svg
-grep -qx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service
+grep -qx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/org.freedesktop.FileManager1.service
 grep -qx 'Name=dev.wolklaw.SparkFiles' /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.service
 # the Spark session's Open and Save dialogs (the portal backend)
 grep -qx 'Name=org.freedesktop.impl.portal.desktop.spark' \
   /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.spark.service
 grep -q 'FileChooser' /usr/share/xdg-desktop-portal/portals/spark.portal
-grep -qx 'org.freedesktop.impl.portal.FileChooser=spark;gtk;' \
+grep -qx 'org.freedesktop.impl.portal.FileChooser=spark' \
   /usr/share/xdg-desktop-portal/spark-portals.conf
 
 # ── "Show in folder" goes to Spark Files ──
 # Two activation files for one name is undefined behaviour on the session bus: remove every
 # other file that claims org.freedesktop.FileManager1
 for f in /usr/share/dbus-1/services/*.service; do
-  [ "$f" = /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service ] && continue
+  [ "$f" = /usr/share/dbus-1/services/org.freedesktop.FileManager1.service ] && continue
   if grep -qx 'Name=org.freedesktop.FileManager1' "$f"; then
     rm -f "$f"
     echo "--- removed $(basename "$f"): Spark Files answers org.freedesktop.FileManager1"
   fi
 done
 left=$(grep -lx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/*.service)
-[ "$left" = /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service ] || {
+[ "$left" = /usr/share/dbus-1/services/org.freedesktop.FileManager1.service ] || {
   echo "more than one FileManager1 provider: $left"; exit 1; }
 
 echo "$(/usr/bin/spark-files --version) installed."

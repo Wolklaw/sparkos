@@ -1,0 +1,84 @@
+name: pin-check
+# Weekly check of the kernel modules pinned in build_files/kmods.sh (tools/pin-check.sh).
+# When a module's project has newer commits, this moves the pin (commit and SHA-256) on the
+# branch bot/kmod-pins, opens a pull request for it (or updates the open one) and starts a build
+# of that branch, so the PR shows whether the new code still compiles against Fedora's kernel.
+# Nothing merges by itself. A pull request opened with the workflow's token doesn't start the
+# pull_request build, hence the workflow_dispatch; if the repository doesn't let Actions open
+# pull requests, the report goes into an issue instead.
+on:
+  schedule:
+    - cron: "00 09 * * 3" # Wednesdays 09:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: pin-check
+  cancel-in-progress: false
+
+jobs:
+  pins:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write       # push bot/kmod-pins
+      pull-requests: write
+      issues: write
+      actions: write        # start build.yml on the branch
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+
+      - name: Check the pins
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PIN_CHANGES: ${{ runner.temp }}/changes.txt
+        run: |
+          set -euo pipefail
+          rc=0
+          tools/pin-check.sh --write | tee "$RUNNER_TEMP/report.txt" || rc=$?
+          {
+            echo "## Kernel module pins"
+            echo '```'
+            cat "$RUNNER_TEMP/report.txt"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ -s "$PIN_CHANGES" ]; then echo "changed=yes" >> "$GITHUB_OUTPUT"; else echo "changed=no" >> "$GITHUB_OUTPUT"; fi
+          exit $rc
+
+      - name: Open or update the pull request
+        if: steps.check.outputs.changed == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          branch=bot/kmod-pins
+          git config user.name "github-actions[bot]"
+          git config user.email "41898299+github-actions[bot]@users.noreply.github.com"
+          git switch -C "$branch"
+          git add build_files/kmods.sh
+          list=$(sed 's/^/- /' "$RUNNER_TEMP/changes.txt")
+          git commit -q -m "kmods: move pins to their projects' newest commits" -m "$list"
+          git push -f origin "$branch"
+
+          body="tools/pin-check.sh found newer commits for these kernel modules and moved their pins:
+
+          $list
+
+          Before merging: the build started for this branch has to pass (it compiles and signs every
+          module against Fedora's current kernel), and the module's changes are worth a read, since
+          they run in the kernel. Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          n=$(gh pr list --repo "${{ github.repository }}" --head "$branch" --state open --json number -q '.[0].number')
+          if [ -n "$n" ]; then
+            gh pr edit "$n" --repo "${{ github.repository }}" --body "$body"
+          elif ! gh pr create --repo "${{ github.repository }}" --base main --head "$branch" \
+                 --title "kmods: newer commits for pinned kernel modules" --body "$body"; then
+            title="Kernel module pins have newer commits"
+            i=$(gh issue list --repo "${{ github.repository }}" --state open --search "in:title \"$title\"" --json number -q '.[0].number')
+            body="$body
+
+          (The pull request could not be opened: Settings, Actions, \"Allow GitHub Actions to create and approve pull requests\" is off. The branch $branch has the change.)"
+            if [ -n "$i" ]; then gh issue comment "$i" --repo "${{ github.repository }}" --body "$body"
+            else gh issue create --repo "${{ github.repository }}" --title "$title" --body "$body"; fi
+          fi
+          gh workflow run build.yml --repo "${{ github.repository }}" --ref "$branch"

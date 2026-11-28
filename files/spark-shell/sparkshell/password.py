@@ -2,8 +2,8 @@
 screen: current, new and again, then passwd does the change.
 
 passwd runs on a pseudo-terminal and gets the answers to its prompts, so the whole PAM password
-stack runs as it would in a terminal: pam_pwquality's rules, and pam_gnome_keyring changing the
-login keyring's password too (so the keyring still unlocks at the next login).
+stack runs as it would in a terminal: pam_pwquality's rules. Spark Secrets does not change with it: at the
+next sign-in it asks once for the old password, then keeps the new one.
 
 change() needs no display and is tested in tests/test_units.py with a fake passwd."""
 

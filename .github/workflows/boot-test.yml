@@ -494,7 +494,7 @@ jobs:
           grep -q '^self-test passed' "$WORK/spark-files-self-test.txt"
           $SSH 'grep -lx "Name=org.freedesktop.FileManager1" /usr/share/dbus-1/services/*.service; xdg-mime query default inode/directory' | tee "$WORK/spark-files-takeover.txt"
           [ "$(grep -c 'FileManager1' "$WORK/spark-files-takeover.txt")" = 1 ] || { echo "::error::more than one FileManager1 provider"; exit 1; }
-          grep -qx '/usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service' "$WORK/spark-files-takeover.txt"
+          grep -qx '/usr/share/dbus-1/services/org.freedesktop.FileManager1.service' "$WORK/spark-files-takeover.txt"
           grep -qx 'dev.wolklaw.SparkFiles.desktop' "$WORK/spark-files-takeover.txt" || { echo "::error::folders don't open in Spark Files"; exit 1; }
 
       - name: Check Spark Settings
@@ -723,22 +723,26 @@ jobs:
           $SSH 'for p in gnome-disk-utility btrfs-assistant firewall-config; do if rpm -q $p >/dev/null 2>&1; then echo "$p is still installed"; exit 1; fi; done; echo "removed apps are gone"'
           # No KDE at all (sparkos-no-kde.sh): no Plasma, KWin, Plasma Login Manager, KDE Frameworks,
           # Dolphin, Konsole or KWallet; greetd with the Spark Greeter signs in; spark-wl is the
-          # only session; GNOME Keyring keeps passwords
+          # only session; Spark Secrets keeps passwords
           $SSH 'set -u
                 rpm -qa --qf "%{NAME}\n" | grep -E "^(plasma|kwin|kf6-|kde|kwallet|kscreen|dolphin|konsole|plasmalogin|kdialog|xdg-desktop-portal-kde|polkit-kde)" | sed "s/^/kde package: /"
                 for f in /usr/bin/plasmashell /usr/bin/kwin_wayland /usr/bin/plasmalogin /usr/bin/kwalletd6 /usr/bin/kreadconfig6 /usr/bin/kdialog /usr/share/plasma; do test -e $f && echo "kde file: $f"; done
                 echo "display manager: $(basename "$(readlink /etc/systemd/system/display-manager.service)")"
                 grep -qx "command = \"/usr/libexec/spark-greeter-session\"" /etc/greetd/config.toml && echo "greeter: spark"
                 echo "sessions: $(ls /usr/share/wayland-sessions/ /usr/share/xsessions/ 2>/dev/null | grep "\.desktop$" | paste -sd,)"
-                rpm -q gnome-keyring pinentry-gnome3 >/dev/null && echo "keyring: gnome-keyring"
-                grep -qx "org.freedesktop.impl.portal.Secret=gnome-keyring" /usr/share/xdg-desktop-portal/sparkwl-portals.conf && echo "secret portal: gnome-keyring"
+                rpm -q pinentry-gnome3 python3-cryptography >/dev/null && ! rpm -q gnome-keyring gnome-keyring-pam >/dev/null 2>&1 && test -x /usr/bin/spark-secrets && test -x /usr/libexec/spark-secrets-pam && grep -q "spark-secrets-pam" /etc/pam.d/greetd && echo "keyring: spark-secrets"
+                grep -qx "org.freedesktop.impl.portal.Secret=sparksecrets" /usr/share/xdg-desktop-portal/sparkwl-portals.conf && echo "secret portal: sparksecrets"
+                grep -qx "default=sparkos" /usr/share/xdg-desktop-portal/sparkwl-portals.conf && test -f /usr/share/xdg-desktop-portal/portals/sparkos.portal && echo "portal backend: sparkos"
+                rpm -q xdg-desktop-portal-gtk >/dev/null 2>&1 || echo "gtk portal: gone"
                 test -x /usr/libexec/spark-wl-windows && command -v grim spark-compositor spark-shell spark-greeter >/dev/null && echo "session tools present"' | tee "$WORK/no-kde.txt"
           if grep -q '^kde ' "$WORK/no-kde.txt"; then echo "::error::KDE is still in the image"; exit 1; fi
           grep -qx 'display manager: greetd.service' "$WORK/no-kde.txt" || { echo "::error::greetd is not the display manager"; exit 1; }
           grep -qx 'greeter: spark' "$WORK/no-kde.txt" || { echo "::error::greetd does not run the Spark Greeter"; exit 1; }
           grep -qx 'sessions: spark-wl.desktop' "$WORK/no-kde.txt" || { echo "::error::spark-wl is not the only session"; exit 1; }
-          grep -qx 'keyring: gnome-keyring' "$WORK/no-kde.txt" || { echo "::error::GNOME Keyring or pinentry-gnome3 is missing"; exit 1; }
-          grep -qx 'secret portal: gnome-keyring' "$WORK/no-kde.txt" || { echo "::error::the Secret portal is not GNOME Keyring"; exit 1; }
+          grep -qx 'keyring: spark-secrets' "$WORK/no-kde.txt" || { echo "::error::Spark Secrets is not in place, or GNOME Keyring is still installed"; exit 1; }
+          grep -qx 'secret portal: sparksecrets' "$WORK/no-kde.txt" || { echo "::error::the Secret portal is not Spark Secrets"; exit 1; }
+          grep -qx 'portal backend: sparkos' "$WORK/no-kde.txt" || { echo "::error::the Spark portal backend is not the default"; exit 1; }
+          grep -qx 'gtk portal: gone' "$WORK/no-kde.txt" || { echo "::error::xdg-desktop-portal-gtk is still installed"; exit 1; }
           grep -qx 'session tools present' "$WORK/no-kde.txt" || { echo "::error::a Spark session program is missing"; exit 1; }
           # What stays: SparkOS's own apps and the owner's
           $SSH 'test -x /usr/bin/soot && test -x /usr/bin/freesuite && test -x /usr/bin/spark-snip && test -x /usr/bin/spark-media && test -x /usr/bin/spark-welcome && test -x /usr/bin/spark-games && test -x /usr/bin/spark-monitor && test -x /usr/bin/spark-controller && test -x /usr/bin/spark-disks && test -x /usr/bin/spark-emoji && test -x /usr/bin/spark-notes && test -x /usr/bin/spark-boxes && test -x /usr/bin/spark-audio && test -x /usr/bin/spark-backup && for a in spark-edit spark-calc spark-fonts spark-archive spark-scan spark-run spark-link spark-store spark-files spark-terminal spark-update spark-settings; do test -x /usr/bin/$a || exit 1; done && echo "platform and SparkOS apps present"'
@@ -830,8 +834,8 @@ jobs:
       # Sign in as the test user the way a person does: greetd shows the Spark Greeter (on its own
       # spark-compositor, as the greetd user) with the only user picked and the password box
       # focused, so the password is typed through QEMU's keyboard and the real PAM stack runs
-      # (pam_gnome_keyring unlocks the keyring). greetd autologin ([initial_session]) only if that
-      # fails, because the keyring stays locked then.
+      # (spark-secrets-pam hands the password to Spark Secrets). greetd autologin ([initial_session])
+      # only if that fails, because Spark Secrets would ask for the password then.
       - name: Sign in to the Spark session
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' }}
         timeout-minutes: 8
@@ -853,7 +857,7 @@ jobs:
           SIGNIN=password
           for i in $(seq 1 24); do session_up && break; sleep 5; done
           if ! session_up; then
-            echo "::warning::signing in with the password at the Spark Greeter didn't start the Spark session; using greetd autologin (the keyring stays locked then)"
+            echo "::warning::signing in with the password at the Spark Greeter didn't start the Spark session; using greetd autologin (Spark Secrets asks for the password then)"
             shot 3b-sign-in-failed
             $SSH 'journalctl -b --no-pager -o cat -u greetd | tail -30' 2>&1 | tee "$WORK/greeter-journal.txt" || true
             SIGNIN=autologin
@@ -886,14 +890,14 @@ jobs:
           sleep 20
           shot 3-desktop
           # The session: compositor and Spark Shell for the test user, the desktop and the startup
-          # environment, GNOME Keyring for secrets
+          # environment, Spark Secrets for secrets
           $SSH '. /tmp/session-env.sh
                 echo "compositor: $(pgrep -u spark -a -f "^(/usr/bin/)?spark-compositor")"
                 echo "shell: $(pgrep -u spark -a -f "[s]park_shell.py")"
                 echo "desktop: ${XDG_CURRENT_DESKTOP:-}"
                 echo "display: ${WAYLAND_DISPLAY:-none}"
                 echo "secrets: $(busctl --user status org.freedesktop.secrets 2>&1 | grep -m1 -E "^(Comm|PID)=" || echo none)"
-                echo "keyrings: $(ls ~/.local/share/keyrings/ 2>&1 | tr "\n" " ")"
+                echo "secrets store: $(ls ~/.local/share/spark-secrets/ 2>&1 | tr "\n" " ")"
                 echo "== windows"; (sleep 2) | timeout 10 /usr/libexec/spark-wl-windows | head -1
                 echo "== screenshot"; grim /tmp/session.png && echo "grim ok"' 2>&1 | tee "$WORK/session.txt"
           grep -q '^desktop: sparkwl' "$WORK/session.txt" || { echo "::error::the session is not the Spark session (XDG_CURRENT_DESKTOP)"; exit 1; }
@@ -944,12 +948,12 @@ jobs:
         run: |
           scp -i "$WORK/id" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR -P 2222 \
             .github/scripts/desktop-smoke.py spark@127.0.0.1:/tmp/desktop-smoke.py
-          # Apps that keep passwords (FreeSuite) use GNOME Keyring; say what the session has
+          # Apps that keep passwords (FreeSuite) use the Secret Service; say what the session has
           $SSH '. /tmp/session-env.sh
                 echo "signed in by: '"$SIGNIN"'"
                 echo "secret service: $(busctl --user status org.freedesktop.secrets 2>&1 | grep -m1 "^Comm=" || echo none)"
-                echo "keyring files: $(ls ~/.local/share/keyrings/ 2>&1 | tr "\n" " ")"
-                journalctl -b --no-pager -o cat 2>/dev/null | grep -i -E "gnome-keyring|pam_gnome_keyring" | tail -8' 2>&1 | tee "$WORK/keyring.txt" || true
+                echo "secrets files: $(ls ~/.local/share/spark-secrets/ 2>&1 | tr "\n" " ")"
+                journalctl -b --no-pager -o cat 2>/dev/null | grep -i -E "spark-secrets" | tail -8' 2>&1 | tee "$WORK/keyring.txt" || true
           EXPECT=dev.wolklaw.SparkSnip,dev.wolklaw.SparkMedia,dev.wolklaw.SparkWelcome,dev.wolklaw.SparkGames,dev.wolklaw.SparkMonitor,dev.wolklaw.SparkEdit,dev.wolklaw.SparkCalc,dev.wolklaw.SparkArchive,dev.wolklaw.SparkScan,dev.wolklaw.SparkRun,dev.wolklaw.SparkLink,dev.wolklaw.SparkStore,dev.wolklaw.SparkFiles,dev.wolklaw.SparkUpdate,dev.wolklaw.SparkSettings,dev.wolklaw.SparkController,dev.wolklaw.SparkDisks,dev.wolklaw.SparkBackup,dev.wolklaw.Soot,freesuite
           set +e
           timeout 900 $SSH ". /tmp/session-env.sh; rm -rf /tmp/desktop-smoke; python3 /tmp/desktop-smoke.py --out /tmp/desktop-smoke --passes en,fr --expect $EXPECT" 2>&1 | tee "$WORK/desktop-smoke.txt"

@@ -12,3 +12,6 @@ disable libvirt-guests.service
 # NFS client: its rpc-statd-notify.service makes the sign-in screen wait for the network at boot.
 # mount.nfs still starts rpc-statd when an NFS share is mounted by hand.
 disable nfs-client.target
+
+# lm_sensors: nothing to load without sensors-detect's config; `sensors` works without it
+disable lm_sensors.service

@@ -14,6 +14,7 @@ on:
     paths:
       - "files/spark-session/**"
       - "files/scripts/spark-session.sh"
+      - "files/system/usr/share/xdg-desktop-portal/**"
       - "files/system/usr/bin/spark"
       - "build_files/packages.sh"
       - "files/system/usr/libexec/spark-foreground-booster"
@@ -26,6 +27,7 @@ on:
     paths:
       - "files/spark-session/**"
       - "files/scripts/spark-session.sh"
+      - "files/system/usr/share/xdg-desktop-portal/**"
       - "files/system/usr/bin/spark"
       - "build_files/packages.sh"
       - "files/system/usr/libexec/spark-foreground-booster"
@@ -57,7 +59,7 @@ jobs:
         run: |
           dnf -y install --setopt=install_weak_deps=False python3 python3-gobject python3-cairo gobject-introspection gtk4 \
             polkit polkit-libs python3-dbusmock dbus-daemon dbus-tools xorg-x11-server-Xvfb xorg-x11-xauth \
-            dejavu-sans-mono-fonts procps-ng
+            dejavu-sans-mono-fonts procps-ng python3-cryptography
 
       - name: Install and self-test
         run: bash files/spark-session/install.sh --root /tmp/stage
@@ -89,7 +91,7 @@ jobs:
         run: |
           dnf -y install --setopt=install_weak_deps=False python3 python3-gobject python3-cairo gobject-introspection gtk4 \
             greetd polkit python3-dbusmock dbus-daemon xorg-x11-server-Xvfb xorg-x11-xauth \
-            dejavu-sans-mono-fonts procps-ng shadow-utils util-linux
+            dejavu-sans-mono-fonts procps-ng shadow-utils util-linux python3-cryptography
 
       - name: Unit and window tests with a fake greetd (Xvfb)
         run: |
@@ -149,3 +151,58 @@ jobs:
             [ "$dm_before" = "$dm_after" ]
             echo "ok"
           '
+
+  portal:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          dnf -y install --setopt=install_weak_deps=False python3 python3-gobject gobject-introspection gtk4 \
+            glib2 gsettings-desktop-schemas dbus-daemon dbus-tools procps-ng python3-cryptography
+
+      - name: Install and self-test
+        run: bash files/spark-session/install.sh --root /tmp/stage
+
+      - name: The portal files name the Spark backend and no GTK portal
+        run: |
+          grep -q '^UseIn=sparkwl;Spark$' /tmp/stage/usr/share/xdg-desktop-portal/portals/sparkos.portal
+          grep -qx 'default=sparkos' files/system/usr/share/xdg-desktop-portal/sparkwl-portals.conf
+          grep -qx 'default=sparkos' files/spark-files/portal/spark-portals.conf
+          ! grep -v '^#' files/system/usr/share/xdg-desktop-portal/sparkwl-portals.conf files/spark-files/portal/spark-portals.conf | grep -qi gtk
+
+      - name: Portal tests on private buses (no display)
+        run: |
+          cd files/spark-session
+          env -u DISPLAY -u WAYLAND_DISPLAY python3 -m unittest -v tests.test_portal_logic tests.test_portal_bus
+
+  secrets:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          dnf -y install --setopt=install_weak_deps=False python3 python3-gobject gobject-introspection \
+            glib2 dbus-daemon dbus-tools libsecret gnome-keyring python3-cryptography \
+            python3-secretstorage python3-keyring procps-ng util-linux shadow-utils
+
+      - name: Install and self-test
+        run: bash files/spark-session/install.sh --root /tmp/stage
+
+      # As a normal user: gnome-keyring-daemon, which makes the import fixture, aborts as root
+      # ("error dropping process capabilities").
+      - name: Spark Secrets on private buses (no display)
+        run: |
+          useradd -m tester
+          cp -r files/spark-session /home/tester/spark-session
+          chown -R tester /home/tester/spark-session
+          cd /home/tester/spark-session
+          runuser -u tester -- env -u DISPLAY -u WAYLAND_DISPLAY HOME=/home/tester \
+            python3 -m unittest -v \
+            tests.test_secrets_store tests.test_secrets_import tests.test_secrets_service

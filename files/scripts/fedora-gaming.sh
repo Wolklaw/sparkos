@@ -42,6 +42,9 @@ kernel.split_lock_mitigate = 0
 vm.max_map_count = 2147483642
 fs.inotify.max_user_instances = 8192
 fs.inotify.max_user_watches = 524288
+# The NMI watchdog fires a CPU performance-counter interrupt on every core; off, that counter
+# is free for profilers (perf), and a hung core is still caught by the soft-lockup watchdog
+kernel.nmi_watchdog = 0
 EOS
 
 # Fail the build if the gaming layer is incomplete

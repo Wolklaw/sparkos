@@ -170,6 +170,7 @@ if [ "$UNINSTALL" = 1 ]; then
         "/usr/share/icons/hicolor/scalable/apps/$APP_ID.svg" \
         "/usr/share/dbus-1/services/$APP_ID.service" \
         "/usr/share/dbus-1/services/$APP_ID.FileManager1.service" \
+        /usr/share/dbus-1/services/org.freedesktop.FileManager1.service \
         "/usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.spark.service" \
         /usr/share/xdg-desktop-portal/portals/spark.portal \
         /usr/share/xdg-desktop-portal/spark-portals.conf
@@ -204,9 +205,11 @@ chmod 0755 /usr/bin/$SLUG
 
 install -Dm 0644 "$here/$APP_ID.desktop" "/usr/share/applications/$APP_ID.desktop"
 install -Dm 0644 "$here/$APP_ID.service" "/usr/share/dbus-1/services/$APP_ID.service"
-# the file name doesn't matter to D-Bus, only Name= inside; this one says whose it is
+# named after the D-Bus name it answers: dbus-broker warns at every login otherwise ("is not named
+# after the D-Bus name"); the old dev.wolklaw.SparkFiles.FileManager1.service name goes
+rm -f "/usr/share/dbus-1/services/$APP_ID.FileManager1.service"
 install -Dm 0644 "$here/org.freedesktop.FileManager1.service" \
-  "/usr/share/dbus-1/services/$APP_ID.FileManager1.service"
+  /usr/share/dbus-1/services/org.freedesktop.FileManager1.service
 # the portal backend (file chooser, "Open with"); only the Spark session's portals.conf uses it
 install -Dm 0644 "$here/portal/org.freedesktop.impl.portal.desktop.spark.service" \
   /usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.spark.service

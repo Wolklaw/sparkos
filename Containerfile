@@ -12,7 +12,7 @@
 # Run, Link, Store, Files, Terminal and Update). Every other company's or project's app is removed;
 # people install what they want from Spark Store. What stays is the platform: drivers, printing,
 # scanning, Flatpak. No KDE (files/scripts/sparkos-no-kde.sh fails the build if any comes in).
-# GNOME Keyring keeps passwords until there is a Spark one; Breeze's icon artwork (third-party apps) is
+# Spark Secrets keeps passwords; Breeze's icon artwork (third-party apps) is
 # there as files. Firefox and Fedora's third-party repository switch are removed
 # (files/scripts/sparkos-apps.sh).
 #
@@ -141,8 +141,8 @@ RUN --mount=type=bind,source=build_files,target=/tmp/build_files \
 #    - sparkos-defaults: default apps; downloaded installers open the SparkOS way
 #    - sparkos-icons: the SparkOS icon theme over Breeze Dark's artwork (files/sparkos-icons) and the SparkOS cursors, the default
 #    - sparkos-theme: boot splash, wallpaper, fonts (rebuilds the initramfs)
-#    - sparkos-no-kde, last: greetd with the Spark greeter signs you in, GNOME Keyring keeps
-#      passwords. Fails if any KDE package came in
+#    - sparkos-no-kde, last: greetd with the Spark greeter signs you in, Spark Secrets keeps
+#      passwords (GNOME Keyring is removed). Fails if any KDE package came in
 RUN --mount=type=bind,source=files,target=/tmp/files,rw \
     --mount=type=bind,source=build_files,target=/tmp/build_files \
     --mount=type=cache,dst=/var/cache/libdnf5,id=dnf-cache-sparkos,sharing=locked \

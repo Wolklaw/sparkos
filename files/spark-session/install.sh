@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Install the Spark session's security pieces, system-wide (root): the polkit agent
-# (spark-polkit), the sign-in screen (spark-greeter) and the files that let `spark greeter`
-# turn it on. Nothing is turned on: greetd stays disabled until a person
-# turns it on. The session script that starts spark-polkit belongs to the Spark shell
+# (spark-polkit), the saved-passwords service (spark-secrets), the sign-in screen
+# (spark-greeter) and the files that let `spark greeter` turn it on. Nothing is turned on:
+# greetd stays disabled until a person turns it on. The session script that starts spark-polkit belongs to the Spark shell
 # (files/spark-shell), not to this folder.
 #
 #   bash install.sh [--root DIR] [--deps] [--no-test]
@@ -31,7 +31,7 @@ while [ $# -gt 0 ]; do
 done
 
 if [ "$DEPS" = 1 ]; then
-  dnf -y install python3 python3-gobject python3-cairo gobject-introspection gtk4 polkit polkit-libs greetd
+  dnf -y install python3 python3-gobject python3-cairo gobject-introspection gtk4 polkit polkit-libs greetd python3-cryptography
 fi
 
 PREFIX=$ROOT/usr/lib/spark-session
@@ -53,5 +53,11 @@ if [ "$TEST" = 1 ]; then
   PYTHONPATH=$PREFIX python3 -s -m sparksession.polkit_agent --self-test
   PYTHONPATH=$PREFIX python3 -s -m sparksession.polkit_agent --version
   PYTHONPATH=$PREFIX python3 -s -m sparksession.greeter --version
+  PYTHONPATH=$PREFIX python3 -s -m sparksession.portal_backend --self-test
+  if python3 -s -c 'import cryptography' 2>/dev/null; then
+    PYTHONPATH=$PREFIX python3 -s -m sparksession.secrets_service --self-test
+  else
+    echo "python3-cryptography is missing: skipping the spark-secrets self-test" >&2
+  fi
 fi
 echo "Spark session pieces installed${ROOT:+ into $ROOT}."
