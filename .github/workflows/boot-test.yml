@@ -145,7 +145,7 @@ jobs:
           # SparkOS ships with sshd off. Start it on this
           # test disk only, through a kernel argument.
           [customizations.kernel]
-          append = "systemd.wants=sshd.service rhgb quiet"
+          append = "systemd.wants=sshd.service systemd.journald.forward_to_console=1 rhgb quiet"
           EOF
           mkdir -p "$WORK/output"
           sudo podman run --rm --privileged --pull=newer \
@@ -220,7 +220,10 @@ jobs:
             if $SSH true 2>/dev/null; then echo "SSH up after ~$((i*10))s"; exit 0; fi
             sleep 10
           done
-          echo "SSH never came up"; tail -50 "$WORK/serial.log"; exit 1
+          echo "SSH never came up"; tail -50 "$WORK/serial.log"
+          echo "== sshd, firewalld and failures in the whole serial log"
+          grep -aiE "sshd|firewall|failed|timed out|dependency" "$WORK/serial.log" | tail -150 || true
+          exit 1
 
       - name: Update to the image under test
         if: ${{ !cancelled() && steps.ssh.outcome == 'success' && env.UPDATE_FROM != '' }}

@@ -39,7 +39,7 @@ jobs:
                 '.jobs[] | select(.conclusion == "failure") | "- \(.name): \([.steps[] | select(.conclusion == "failure") | .name] | join(", "))"' || true)
               body="Build of main ($TRIGGER, ${SHA:0:7}) ended: $RESULT.
 
-          ${failed:-(couldn't list the failed jobs)}
+          ${failed:-(could not list the failed jobs)}
 
           Run: $RUN_URL
           latest only moves once an image is pushed and its signature checks out, so PCs keep the last good one."
