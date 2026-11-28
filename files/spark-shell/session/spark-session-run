@@ -39,14 +39,18 @@ here=$(dirname "$0")
 # tests/headless.sh sets SPARK_SHELL_FROM_SOURCE: in the SparkOS image the installed shell would
 # otherwise be tested instead of the checkout's
 # a developer build in ~/.local/share/spark-dev/bin wins over the image's (see spark-wl-session)
+# Checked at every start, not once: a dev build removed mid-session falls back to the image's
+# shell at the next restart instead of failing five times and ending the shell.
 dev_shell="$HOME/.local/share/spark-dev/bin/spark-shell"
-if [ -x "$dev_shell" ] && [ -z "$SPARK_SHELL_FROM_SOURCE" ]; then
-    run_shell() { "$dev_shell"; }
-elif [ -x /usr/bin/spark-shell ] && [ -z "$SPARK_SHELL_FROM_SOURCE" ]; then
-    run_shell() { /usr/bin/spark-shell; }
-else
-    run_shell() { python3 "$here/../spark_shell.py"; }      # a source checkout (tests)
-fi
+run_shell() {
+    if [ -x "$dev_shell" ] && [ -z "$SPARK_SHELL_FROM_SOURCE" ]; then
+        "$dev_shell"
+    elif [ -x /usr/bin/spark-shell ] && [ -z "$SPARK_SHELL_FROM_SOURCE" ]; then
+        /usr/bin/spark-shell
+    else
+        python3 "$here/../spark_shell.py"      # a source checkout (tests)
+    fi
+}
 
 # The compositor of this session: a process of our session scope running spark-compositor.
 # This script is not its child (its parent is PID 1), so it is found by its binary.
