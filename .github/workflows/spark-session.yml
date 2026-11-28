@@ -190,13 +190,19 @@ jobs:
         run: |
           dnf -y install --setopt=install_weak_deps=False python3 python3-gobject gobject-introspection \
             glib2 dbus-daemon dbus-tools libsecret gnome-keyring python3-cryptography \
-            python3-secretstorage python3-keyring procps-ng
+            python3-secretstorage python3-keyring procps-ng util-linux shadow-utils
 
       - name: Install and self-test
         run: bash files/spark-session/install.sh --root /tmp/stage
 
+      # As a normal user: gnome-keyring-daemon, which makes the import fixture, aborts as root
+      # ("error dropping process capabilities").
       - name: Spark Secrets on private buses (no display)
         run: |
-          cd files/spark-session
-          env -u DISPLAY -u WAYLAND_DISPLAY python3 -m unittest -v \
+          useradd -m tester
+          cp -r files/spark-session /home/tester/spark-session
+          chown -R tester /home/tester/spark-session
+          cd /home/tester/spark-session
+          runuser -u tester -- env -u DISPLAY -u WAYLAND_DISPLAY HOME=/home/tester \
+            python3 -m unittest -v \
             tests.test_secrets_store tests.test_secrets_import tests.test_secrets_service
