@@ -127,24 +127,131 @@ def _wait_gone(pids, seconds):
     return [p for p in pids if os.path.exists(f'/proc/{p}')]
 
 
+def _loginctl(*args):
+    import subprocess
+    try:
+        return subprocess.run(['loginctl', *args], capture_output=True, text=True,
+                              timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ''
+
+
+def _props(text):
+    return dict(line.split('=', 1) for line in text.splitlines() if '=' in line)
+
+
+def _session(sid):
+    return _props(_loginctl('show-session', sid, '-p', 'Leader', '-p', 'User', '-p', 'Class',
+                            '-p', 'State', '-p', 'Type')) if sid else {}
+
+
+def _scope_of(pid):
+    """The cgroup of a process, if it is a login session's scope."""
+    try:
+        with open(f'/proc/{pid}/cgroup') as f:
+            path = f.read().strip().split('::', 1)[1]
+    except (OSError, IndexError):
+        return ''
+    return path if path.endswith('.scope') and '/session-' in path else ''
+
+
+def _procs(path):
+    try:
+        with open(f'/sys/fs/cgroup{path}/cgroup.procs') as f:
+            return [int(x) for x in f.read().split()]
+    except (OSError, ValueError):
+        return []
+
+
+def candidates(env, uid, loginctl=_loginctl):
+    """Which login sessions might be this desktop, best guess first: the one this process says
+    it is in, the one logind calls the user's graphical session, then every other session of the
+    user. The shell's own XDG_SESSION_ID is only a guess: a shell started by hand (from a
+    terminal, systemd-run, env -i) has none, or one from somewhere else."""
+    out = [env.get('XDG_SESSION_ID', ''),
+           _props(loginctl('show-user', str(uid), '-p', 'Display')).get('Display', '')]
+    out += [line.split()[0] for line in loginctl('list-sessions', '--no-legend').splitlines()
+            if len(line.split()) > 2 and line.split()[1] == str(uid)]
+    seen, ordered = set(), []
+    for sid in out:
+        if sid and sid not in seen:
+            seen.add(sid)
+            ordered.append(sid)
+    return ordered
+
+
+def find_session(env=os.environ, uid=None, session=_session, scope_of=_scope_of, procs=_procs,
+                 find_compositors=None, loginctl=_loginctl):
+    """The desktop session to end: (id, leader, its processes), or None. It has to be this
+    user's own 'user' session (not the systemd --user manager, not someone else's), and the one
+    with the Spark compositor in it wins; without one anywhere, the first such session."""
+    uid = os.getuid() if uid is None else uid
+    find_compositors = find_compositors or compositors
+    first = None
+    for sid in candidates(env, uid, loginctl):
+        p = session(sid)
+        try:
+            leader = int(p.get('Leader') or 0)
+        except ValueError:
+            leader = 0
+        if p.get('User') != str(uid) or p.get('Class') != 'user' or p.get('State') == 'closing' \
+                or not leader:
+            continue
+        path = scope_of(leader)
+        pids = procs(path) if path else []
+        found = (sid, leader, pids)
+        if pids and find_compositors(pids):
+            return found
+        first = first or found
+    return first
+
+
+def _journal():
+    """Sign out runs detached with no stderr, so it writes to the journal (journalctl -t spark-sign-out)."""
+    import logging.handlers
+    try:
+        h = logging.handlers.SysLogHandler(address='/dev/log')
+        h.ident = 'spark-sign-out: '
+        h.setFormatter(logging.Formatter('%(message)s'))
+        log.addHandler(h)
+        log.setLevel(logging.INFO)
+    except OSError:
+        pass
+
+
+def _failed(reason):
+    import subprocess
+    from .strings import tr
+    log.error('sign out failed: %s', reason)
+    try:
+        subprocess.run(['notify-send', '-u', 'critical', '-a', 'Spark', tr('sign_out_failed'),
+                        tr('sign_out_failed_body') % reason], timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        pass
+    return 1
+
+
+def _wait_closed(sid, seconds):
+    import time
+    end = time.monotonic() + seconds
+    while time.monotonic() < end:
+        if _session(sid).get('State', 'closing') == 'closing':
+            return True
+        time.sleep(0.2)
+    return False
+
+
 def sign_out(wait_s=3.0) -> int:
     import signal
     import subprocess
-    sid = os.environ.get('XDG_SESSION_ID', '')
-    path = ''
-    try:
-        with open('/proc/self/cgroup') as f:
-            path = f.read().strip().split('::', 1)[1]
-        with open(f'/sys/fs/cgroup{path}/cgroup.procs') as f:
-            pids = [int(x) for x in f.read().split()]
-        leader = int(subprocess.run(['loginctl', 'show-session', sid, '-p', 'Leader', '--value'],
-                                    capture_output=True, text=True, timeout=5).stdout.strip() or 0)
-    except (OSError, IndexError, ValueError, subprocess.SubprocessError) as e:
-        log.warning('sign out: could not list the session (%s); ending it as is', e)
-        pids, leader = [], 0
-    in_scope = leader and path.endswith('.scope')
+    _journal()
+    found = find_session()
+    if not found:
+        return _failed('No login session of yours was found.')
+    sid, leader, pids = found
+    log.info('signing out of session %s (leader %d, %d processes)', sid, leader, len(pids))
     # 1. the apps
-    apps = leftovers(pids, os.getpid(), leader) if in_scope else []
+    apps = leftovers(pids, os.getpid(), leader)
     for sig, wait in ((signal.SIGTERM, wait_s), (signal.SIGKILL, 1.0)):
         for p in apps:
             try:
@@ -161,12 +268,18 @@ def sign_out(wait_s=3.0) -> int:
     except (OSError, subprocess.SubprocessError) as e:
         log.warning('sign out: could not stop the session services (%s)', e)
     # 3. the compositor quits; the session ends when it is gone
-    comps = compositors(pids) if in_scope else []
+    comps = compositors(pids)
     for p in comps:
         try:
             os.kill(p, signal.SIGTERM)
         except OSError:
             pass
-    if comps and not _wait_gone(comps, 5.0):
+    if comps and not _wait_gone(comps, 5.0) and _wait_closed(sid, 5.0):
         return 0
-    return subprocess.call(['loginctl', 'terminate-session', sid])
+    if comps:
+        log.warning('sign out: the compositor did not end session %s by itself', sid)
+    # 4. the fallback, checked: a session still there after this is reported, not left silently
+    r = subprocess.run(['loginctl', 'terminate-session', sid], capture_output=True, text=True)
+    if _wait_closed(sid, 10.0):
+        return 0
+    return _failed((r.stderr.strip() or f'Session {sid} is still open.').rstrip('.') + '.')
