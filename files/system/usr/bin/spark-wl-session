@@ -9,6 +9,14 @@ export XDG_SESSION_TYPE=wayland
 export MOZ_ENABLE_WAYLAND=1
 export QT_QPA_PLATFORM="wayland;xcb"
 export SDL_VIDEODRIVER=wayland,x11
+# Chromium and Electron apps (Discord, FreeSuite, VS Code, Chrome...) pick their password
+# store from the desktop's name. They don't know sparkwl, so they fall back to a key built into
+# Chromium, the same on every computer, and saved passwords and sign-ins are not protected.
+# GNOME's old session marker makes them use the Secret Service (Spark Secrets), which keeps them
+# encrypted with your sign-in password. GNOME itself sets this to "this-is-deprecated". It is
+# read only when XDG_CURRENT_DESKTOP names no desktop a program knows (xdg-open then runs
+# gio open, with the same default apps). Qt 6 ignores it.
+export GNOME_DESKTOP_SESSION_ID=this-is-deprecated
 # SSH keys: openssh's ssh-agent.socket (a user unit, on by default) listens here
 [ -n "$XDG_RUNTIME_DIR" ] && export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-$XDG_RUNTIME_DIR/ssh-agent.socket}"
 # The login screen starts this script directly, so no shell profile runs: put the user's own

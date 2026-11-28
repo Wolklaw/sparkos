@@ -38,6 +38,9 @@ and [sparkos-no-kde.sh](../scripts/sparkos-no-kde.sh), which turns greetd on):
   nothing.
 - SSH keys: not here. The image enables openssh's `ssh-agent.socket` for everyone and the session
   sets `SSH_AUTH_SOCK=$XDG_RUNTIME_DIR/ssh-agent.socket`.
+- Chromium and Electron apps: they don't know the `sparkwl` desktop and would fall back to a key
+  built into Chromium. The session sets `GNOME_DESKTOP_SESSION_ID=this-is-deprecated` (GNOME's old
+  marker, the value GNOME itself uses) so they keep their keys here instead.
 - Tests: `python3 -s -m unittest tests.test_secrets_store tests.test_secrets_import tests.test_secrets_service`
   (the last two start a private `dbus-daemon`; the import test needs `gnome-keyring` and `secret-tool`).
 

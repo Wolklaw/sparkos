@@ -29,7 +29,7 @@ if [ -x "$run" ] && command -v spark-shell >/dev/null 2>&1; then
   SPARK_SESSION_TARGET=spark-wl-workspace.target exec "$run"
 fi
 dbus-update-activation-environment --systemd WAYLAND_DISPLAY DISPLAY XDG_CURRENT_DESKTOP \
-  XDG_SESSION_TYPE XDG_SESSION_DESKTOP 2>/dev/null
+  XDG_SESSION_TYPE XDG_SESSION_DESKTOP GNOME_DESKTOP_SESSION_ID 2>/dev/null
 for t in spark-terminal foot xterm; do
   command -v "$t" >/dev/null 2>&1 && exec "$t"
 done
