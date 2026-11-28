@@ -25,6 +25,15 @@ PORTAL_TIMEOUT = 180            # the user may take a while in the share dialog
 FPS = 30
 EARLY_EXIT = 2.5                # an encoder that dies this fast is treated as unusable
 STOP_TIMEOUT = 15
+FINISH_TIMEOUT = 600            # rewriting a long recording into a normal MP4 (a copy, no encode)
+# While recording, MP4s are written in one-second fragments: if GStreamer is killed (a stop that
+# hangs, a crash), every fragment already written still plays. A plain MP4 keeps its index at
+# the end and is unreadable without it.
+MUX_OPTIONS = {'mp4mux': ('fragment-duration=1000',)}
+# AAC is what every player and chat app (Discord included) plays inline in an MP4; Opus in MP4
+# is not. WebM keeps Opus.
+AAC_ENCODERS = (('fdkaacenc', 'bitrate=192000'), ('avenc_aac', 'bitrate=192000'))
+OPUS = ('opusenc', 'bitrate=128000')
 
 
 class RecordError(Exception):
@@ -110,10 +119,20 @@ def available_encoders() -> List[Encoder]:
             and (enc.parser is None or element_exists(enc.parser)) and element_exists(enc.mux)]
 
 
+def audio_codec(encoder: Encoder) -> Tuple[str, ...]:
+    """The audio encoder for this container: AAC in MP4 when the system has one, else Opus."""
+    if encoder.mux == 'mp4mux':
+        for codec in AAC_ENCODERS:
+            if element_exists(codec[0]):
+                return codec
+    return OPUS
+
+
 def build_pipeline(video_source: List[str], crop: Crop, encoder: Encoder,
-                   audio_sources: List[List[str]], out_path: str) -> List[str]:
+                   audio_sources: List[List[str]], out_path: str,
+                   audio: Tuple[str, ...] = OPUS) -> List[str]:
     """gst-launch-1.0 arguments for: source -> scale to monitor size -> crop -> 30 fps ->
-    encode -> mux, with any audio sources mixed into one Opus track."""
+    encode -> mux, with any audio sources mixed into one track (audio: its encoder)."""
     tokens = [*video_source, '!', 'videoconvert', '!', 'videoscale', '!',
               f'video/x-raw,width={crop.frame_w},height={crop.frame_h}', '!',
               'videocrop', f'left={crop.left}', f'top={crop.top}',
@@ -127,12 +146,78 @@ def build_pipeline(video_source: List[str], crop: Crop, encoder: Encoder,
     tokens += ['!', 'queue', '!', 'mux.']
     if audio_sources:
         tokens += ['audiomixer', 'name=amix', '!', 'audioconvert', '!', 'audioresample', '!',
-                   'opusenc', 'bitrate=128000', '!', 'queue', '!', 'mux.']
+                   *audio, '!', 'queue', '!', 'mux.']
         for source in audio_sources:
             tokens += [*source, '!', 'audioconvert', '!', 'audioresample', '!',
                        'queue', '!', 'amix.']
-    tokens += [encoder.mux, 'name=mux', '!', 'filesink', f'location={out_path}']
+    tokens += [encoder.mux, 'name=mux', *MUX_OPTIONS.get(encoder.mux, ()),
+               '!', 'filesink', f'location={out_path}']
     return tokens
+
+
+def mp4_boxes(path: str) -> List[str]:
+    """The top-level box types of an MP4 file, in order; [] when it isn't one."""
+    import struct
+    boxes: List[str] = []
+    try:
+        size = os.path.getsize(path)
+        with open(path, 'rb') as fh:
+            pos = 0
+            while pos + 8 <= size and len(boxes) < 10000:
+                fh.seek(pos)
+                head = fh.read(16)
+                length, kind = struct.unpack('>I4s', head[:8])
+                if length == 1 and len(head) == 16:
+                    length = struct.unpack('>Q', head[8:16])[0]
+                elif length == 0:
+                    length = size - pos
+                if length < 8:
+                    break
+                boxes.append(kind.decode('latin-1'))
+                pos += length
+    except (OSError, ValueError):
+        return []
+    return boxes
+
+
+def has_video(path: str) -> bool:
+    """True when the file holds something a player can open: for an MP4, an index (moov)
+    and at least one fragment or media box; for anything else, any bytes at all."""
+    if not (os.path.isfile(path) and os.path.getsize(path) > 0):
+        return False
+    if not path.endswith('.mp4'):
+        return True
+    boxes = mp4_boxes(path)
+    return 'moov' in boxes and ('moof' in boxes or 'mdat' in boxes)
+
+
+def finish_mp4(path: str, audio: Tuple[str, ...], with_audio: bool) -> bool:
+    """Rewrite the fragmented recording as a plain MP4 with its index at the front (what
+    Discord and browsers play inline). Copies the streams, no re-encode. On failure the
+    fragmented file stays, which still plays."""
+    tool = gst_tool('gst-launch-1.0')
+    part = path + '.part'
+    args = [tool, '-q', 'filesrc', f'location={path}', '!', 'qtdemux', 'name=d',
+            'mp4mux', 'name=m', 'faststart=true', '!', 'filesink', f'location={part}',
+            'd.video_0', '!', 'queue', '!', 'h264parse', '!', 'm.']
+    if with_audio:
+        args += ['d.audio_0', '!', 'queue', '!',
+                 'opusparse' if audio[0] == 'opusenc' else 'aacparse', '!', 'm.']
+    try:
+        proc = subprocess.run(args, stdin=subprocess.DEVNULL, capture_output=True,
+                              timeout=FINISH_TIMEOUT)
+        if proc.returncode == 0 and has_video(part) and 'moof' not in mp4_boxes(part):
+            os.replace(part, path)
+            return True
+        log.warning("could not finish %s: %s", path,
+                    proc.stderr.decode('utf-8', 'replace').strip()[-400:])
+    except (OSError, subprocess.SubprocessError) as exc:
+        log.warning("could not finish %s: %s", path, exc)
+    try:
+        os.remove(part)
+    except OSError:
+        pass
+    return False
 
 
 def audio_sources(mic: bool, sound: bool) -> List[List[str]]:
@@ -342,6 +427,8 @@ class Recording:
         if preferred:
             self.encoders.sort(key=lambda e: e.element != preferred)
         self.encoder: Optional[Encoder] = None
+        self.audio: Tuple[str, ...] = OPUS
+        self.with_audio = False
         self.path = ''
         self.state = 'idle'       # idle, asking, starting, recording, stopping, done, failed
         self.error = ''
@@ -390,15 +477,21 @@ class Recording:
     def _launch(self):
         self.encoder = self.encoders.pop(0)
         self.path = f"{self.stem}.{self.encoder.extension}"
+        self.audio = audio_codec(self.encoder)
+        sources = audio_sources(self.mic, self.sound)
+        self.with_audio = bool(sources)
         source = ['pipewiresrc', f'fd={self.stream.fd}', f'path={self.stream.node}',
                   'do-timestamp=true', 'keepalive-time=1000', 'always-copy=true']
         args = [gst_tool('gst-launch-1.0'), '-e', '-q',
                 *build_pipeline(source, self.crop, self.encoder,
-                                audio_sources(self.mic, self.sound), self.path)]
+                                sources, self.path, self.audio)]
         log.info("recording with %s: %s", self.encoder.element, ' '.join(args))
         self._stderr = []
+        # warnings on stderr too, so a stop that hangs leaves a reason in the log
+        env = dict(os.environ, GST_DEBUG=os.environ.get('GST_DEBUG', '2'), GST_DEBUG_NO_COLOR='1')
         self.process = subprocess.Popen(args, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                                        stderr=subprocess.PIPE, pass_fds=(self.stream.fd,))
+                                        stderr=subprocess.PIPE, pass_fds=(self.stream.fd,),
+                                        env=env)
         threading.Thread(target=self._drain, args=(self.process,), daemon=True).start()
         self.launched_at = time.monotonic()
         if not self.started_at:
@@ -458,12 +551,16 @@ class Recording:
                 process.send_signal(signal.SIGINT)
                 process.wait(timeout=STOP_TIMEOUT)
             except subprocess.TimeoutExpired:
-                log.warning("gst-launch did not finish in %ss; killing it", STOP_TIMEOUT)
+                log.warning("gst-launch did not finish in %ss; killing it. Last output:\n%s",
+                            STOP_TIMEOUT, '\n'.join(self._stderr[-20:]) or '(none)')
                 process.kill()
                 process.wait()
             except OSError:
                 pass
-            ok = os.path.isfile(self.path) and os.path.getsize(self.path) > 0
+            # a killed recording keeps every fragment written; finishing makes it a plain MP4
+            ok = has_video(self.path)
+            if ok and self.path.endswith('.mp4'):
+                finish_mp4(self.path, self.audio, self.with_audio)
             with self._lock:
                 self.state = 'done' if ok else 'failed'
                 if not ok:
@@ -549,10 +646,13 @@ def self_test_encode(seconds: float = 1.5) -> Dict[str, Any]:
         path = os.path.join(folder, f'test.{encoder.extension}')
         args = [gst_tool('gst-launch-1.0'), '-e', '-q', *build_pipeline(
             ['videotestsrc', f'num-buffers={frames}', 'pattern=smpte'], crop, encoder,
-            [['audiotestsrc', f'num-buffers={buffers}', 'samplesperbuffer=1024']], path)]
+            [['audiotestsrc', f'num-buffers={buffers}', 'samplesperbuffer=1024']], path,
+            audio_codec(encoder))]
         try:
             proc = subprocess.run(args, capture_output=True, timeout=60)
             ok = proc.returncode == 0 and os.path.isfile(path) and os.path.getsize(path) > 1000
+            if ok and encoder.extension == 'mp4':
+                ok = finish_mp4(path, audio_codec(encoder), True)
             entry: Dict[str, Any] = {'passed': ok, 'bytes': os.path.getsize(path)
                                      if os.path.isfile(path) else 0}
             if not ok:

@@ -106,7 +106,37 @@ class LogicTests(unittest.TestCase):
         self.assertIn('x264enc', line)
         self.assertIn('h264parse ! queue ! mux.', line)
         self.assertEqual(line.count('! amix.'), 2)
-        self.assertTrue(line.endswith('mp4mux name=mux ! filesink location=/tmp/out.mp4'))
+        self.assertIn('opusenc bitrate=128000 ! queue ! mux.', line)
+        self.assertTrue(line.endswith(
+            'mp4mux name=mux fragment-duration=1000 ! filesink location=/tmp/out.mp4'))
+        aac = ' '.join(recorder.build_pipeline(['videotestsrc'], crop, enc, [['pulsesrc']],
+                                               '/tmp/out.mp4', ('fdkaacenc', 'bitrate=192000')))
+        self.assertIn('fdkaacenc bitrate=192000 ! queue ! mux.', aac)
+
+    def test_has_video_reads_mp4_boxes(self):
+        import struct
+        import tempfile
+
+        def box(kind, body=b''):
+            return struct.pack('>I4s', 8 + len(body), kind) + body
+        with tempfile.TemporaryDirectory() as folder:
+            def write(name, data):
+                path = os.path.join(folder, name)
+                with open(path, 'wb') as fh:
+                    fh.write(data)
+                return path
+            # killed before any index: what used to be left behind, unplayable
+            cut = write('cut.mp4', box(b'ftyp', b'isom') + box(b'free') + box(b'mdat', b'x' * 64))
+            self.assertEqual(recorder.mp4_boxes(cut), ['ftyp', 'free', 'mdat'])
+            self.assertFalse(recorder.has_video(cut))
+            frag = write('frag.mp4', box(b'ftyp', b'isom') + box(b'moov') + box(b'moof')
+                         + box(b'mdat', b'x' * 64))
+            self.assertTrue(recorder.has_video(frag))
+            plain = write('plain.mp4', box(b'ftyp', b'isom') + box(b'moov') + box(b'mdat', b'x'))
+            self.assertTrue(recorder.has_video(plain))
+            self.assertFalse(recorder.has_video(write('empty.mp4', b'')))
+            self.assertFalse(recorder.has_video(os.path.join(folder, 'missing.mp4')))
+            self.assertTrue(recorder.has_video(write('a.webm', b'\x1aE\xdf\xa3')))
 
     def test_pipeline_without_audio_or_parser(self):
         crop = recorder.Crop(640, 360, 0, 0, 640, 360)
