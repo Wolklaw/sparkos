@@ -1,18 +1,31 @@
-# Installing SparkOS next to Windows
+# Installing SparkOS
 
-SparkOS goes into empty space you make on one of your drives. Windows stays, with its files,
-and you pick which one to start at power-on. Nothing in these steps erases a drive, as long as
-you don't pick "Erase data and install" in step 4 of "Install".
+There are two ways to install it:
+
+- **A drive of its own.** SparkOS takes a whole drive and erases it. This is the way to go when
+  SparkOS is going to be your only system, or when Windows is on another drive.
+- **Next to Windows, while you move over.** SparkOS goes into empty space you make on one of your
+  drives, Windows stays with its files, and you pick which one to start at power-on. Nothing is
+  erased as long as you pick "Share disk with other operating systems" in step 4 of "Install".
+  When you're done with Windows, you can give its space to SparkOS later or reinstall on the whole
+  drive.
+
+CI installs every installer build next to a Windows disk in a VM. The whole-drive install uses the
+installer's standard "Erase data and install" option, which CI doesn't test yet.
 
 What you need: a PC with an AMD or Intel graphics card (`SparkOS-installer.iso`), or an Nvidia GTX 16,
 RTX 20 or newer card (`SparkOS-Nvidia-installer.iso`, not yet tried on a real Nvidia PC), a
-64-bit UEFI firmware, a USB stick of 16 GB or more (it gets erased), and at least 100 GB of free
-space on a drive. 200 GB or more leaves room for games.
+64-bit UEFI firmware, a USB stick of 16 GB or more (it gets erased), and at least 100 GB for SparkOS: a drive of its
+own, or free space on a drive. 200 GB or more leaves room for games.
 
 ## Before (in Windows, about an hour)
 
 1. **Back up what you can't lose** to somewhere that isn't this PC (an external drive or the
-   cloud). Shrinking a drive is usually safe, but this is the one step where a mistake costs data.
+   cloud). On a drive of its own, everything on that drive is erased. Next to Windows, shrinking a
+   drive is usually safe, but it is the one step where a mistake costs data.
+
+   **Installing on a drive of its own with no Windows on the PC?** Back up, then skip to "Make the
+   USB stick". If Windows stays on another drive for now, do steps 2 and 3 too.
 2. **BitLocker / device encryption:** if Windows shows a BitLocker key for the drive you'll
    shrink (Settings > Privacy & security > Device encryption), write the recovery key down from
    account.microsoft.com/devices/recoverykey. Changing the boot menu can make Windows ask for it.
@@ -21,7 +34,7 @@ space on a drive. 200 GB or more leaves room for games.
    startup" > Save. With it on, Windows half-hibernates at shutdown, and SparkOS can only read your
    Windows drives, not write to them. (The firmware's own "Fast Boot" is a different setting;
    turn it off only if the boot menu key in step 1 of "Install" doesn't work.)
-4. **Pick the drive** SparkOS goes on and **shrink it:** right-click Start > Disk Management >
+4. **Next to Windows only: pick the drive** SparkOS goes on and **shrink it:** right-click Start > Disk Management >
    right-click the drive's volume > Shrink Volume. Type how much to free, in MB (204800 is 200 GB),
    and click Shrink. The freed space shows as black "Unallocated". Leave it empty: the installer
    uses it.
@@ -50,16 +63,17 @@ space on a drive. 200 GB or more leaves room for games.
 2. SparkOS starts from the stick and shows a "SparkOS installer" window: click **Install SparkOS**.
 3. **Welcome:** your language. **Date and time:** your time zone.
 4. **Installation method: the most important screen.**
-   - Under **Destination**, click **Change destination** and tick **only** the drive you shrank.
-     Leave every other drive, and the USB stick, unticked. Click **Select**.
-   - Under **How would you like to install?** pick **Share disk with other operating systems**
-     ("Keep current disk layout and use available space, to dual-boot"). Leave **Reclaim
-     additional space** unticked.
-   - **Never** pick **Erase data and install**: it removes every partition on the selected drive.
-     If the installer says there isn't enough free space, stop and go back to Windows: the shrink
-     didn't happen.
-   - SparkOS makes its own small EFI partition and its system partitions in the free space. Your
-     files and Windows aren't touched (checked byte for byte in a VM by every installer build).
+   - Under **Destination**, click **Change destination** and tick **only** the drive SparkOS goes
+     on. Leave every other drive, and the USB stick, unticked. Click **Select**.
+   - **A drive of its own:** under **How would you like to install?** pick **Erase data and
+     install**. It removes every partition on the selected drive, so check the drive's name and
+     size first.
+   - **Next to Windows:** pick **Share disk with other operating systems** ("Keep current disk
+     layout and use available space, to dual-boot"). Leave **Reclaim additional space** unticked,
+     and don't pick Erase data and install. If the installer says there isn't enough free space,
+     stop and go back to Windows: the shrink didn't happen. SparkOS makes its own small EFI
+     partition and its system partitions in the free space. Your files and Windows aren't touched
+     (checked byte for byte in a VM by every installer build).
 5. **Storage configuration:** encryption is optional (you'd type its password at every start).
 6. **Create Account:** your name, user name and password.
 7. **Review and install:** check that the destination is the one drive you picked, then
@@ -81,7 +95,7 @@ space on a drive. 200 GB or more leaves room for games.
 - The first start takes a little longer than the next ones. Then the sign-in screen, and **Spark Welcome**: your apps and game launchers, files from Windows
   (it reads the Windows drive and never writes to it), and a check of graphics, sound, printers
   and network.
-- **Choosing Windows:** use your firmware's boot menu key and pick "Windows Boot Manager", or set
+- **Choosing Windows** (next to Windows only): use your firmware's boot menu key and pick "Windows Boot Manager", or set
   the order in the firmware's Boot settings.
 - Then [first-day.md](first-day.md), and [switching.md](switching.md) for what replaces which
   Windows app.

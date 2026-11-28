@@ -2,7 +2,7 @@
 
 A Linux desktop for gaming and everyday work. It starts from Fedora's atomic base image (base-atomic, which has no desktop) and adds its own desktop: the Spark compositor, Spark Shell and the Spark apps. It is built from one [Containerfile](Containerfile) ([how it's built](docs/building.md)).
 
-Status: early. It is the daily system on one real PC (AMD, dual boot next to Windows 11, since 21 Nov 2026). Since 25 Nov 2026 that PC runs the Spark desktop session every day. From the 26 Nov 2026 image, the base has no desktop of its own and KDE, Plasma and KWin are not installed at all. CI boots every build in a VM ([boot-test](.github/workflows/boot-test.yml)) and checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and keep Windows. The roadmap is in [PLAN.md](PLAN.md).
+Status: early. It is the daily system on one real PC (AMD, since 21 Nov 2026), and the plan is for it to be that PC's only system: Windows is still on another drive while the move finishes. Since 25 Nov 2026 that PC runs the Spark desktop session every day. From the 26 Nov 2026 image, the base has no desktop of its own and KDE, Plasma and KWin are not installed at all. CI boots every build in a VM ([boot-test](.github/workflows/boot-test.yml)) and checks the system name, the signed image, the preinstalled apps and the default apps. Expect rough edges, and check that your games and apps run on Linux before SparkOS becomes your only system. The roadmap is in [PLAN.md](PLAN.md).
 
 On that PC, Marvel's Spider-Man 2 runs **18% faster on SparkOS than on Windows 11**: 92.4 vs 78.6 FPS on average, with 1% lows of 62.6 vs 48.4. Both used the same settings, with HDR on. The method and the limits are in [docs/benchmarks.md](docs/benchmarks.md). This was measured on the Plasma session, before the Spark compositor.
 
@@ -50,15 +50,16 @@ Everything else, Steam included, installs from Spark Store, or by double-clickin
 
 | App | Version | What it does | |
 |---|---|---|---|
-| **Spark compositor** | - | The window manager and display server of the Spark session: title bars, snapping, the Alt+Tab switcher, keyboard shortcuts, monitors from a config file. | [source](files/spark-compositor) |
+| **Spark compositor** | - | The window manager and display server of the Spark session: title bars, snapping, the Alt+Tab switcher, workspaces, optional tiling, HDR, keyboard shortcuts, monitors from a config file. | [source](files/spark-compositor) |
 | **Spark Shell** | 0.1.0 | The panel, tray, notifications, Spark menu, wallpaper, volume display and lock screen. | [source](files/spark-shell) |
-| **Spark Session** | 0.1.0 | The login screen (Spark Greeter, on greetd), the session start-up, and the polkit agent for password prompts. | [source](files/spark-session) |
+| **Spark Launcher** | - | The search behind the Spark menu, on the Super key: search as you type, sums answered on the first line, pinned apps, recent files and power. Part of Spark Shell. | [source](files/spark-shell) |
+| **Spark Session** | 0.1.0 | The login screen (Spark Greeter, on greetd), the session start-up, the polkit agent for password prompts, Spark Secrets for saved passwords, and the portal that answers apps' requests for settings, notifications and printing. | [source](files/spark-session) |
 | **Spark Files** | 1.3.0 | The file manager. It has tabs and a split view, copies in the background, search, thumbnails, the Trash, your Windows drives and network places (SSH, cloud with rclone). It also provides the Open and Save dialogs for other apps. | [source](files/spark-files) |
 | **Spark Terminal** | 1.1.0 | Tabs, split panes, search in the scrollback and clickable links. Opens with Ctrl+Alt+T. | [source](files/spark-terminal) |
 | **Spark Settings** | 1.1.0 | Displays, sound, network, Bluetooth, power, default apps, date and language, printers, startup and shortcuts. | [source](files/spark-settings) |
 | **Spark Store** | 0.1.1 | The Spark apps first, then every app on Flathub. It tells you in plain words what each one can access. One click installs. | [source](files/spark-store) |
-| **Spark Update** | 1.2.2 | Gets the next version ready in the background and tells you when a restart will start it. It shows what changed and can roll back. | [source](files/spark-update) |
-| **Spark Welcome** | 1.1.0 | Opens once, at first login. It shows the Spark app for each Windows program, copies your files, fonts and Steam games from Windows, suggests apps to add and checks the PC. | [source](files/spark-welcome) |
+| **Spark Update** | 1.3.0 | Gets the next version ready in the background and tells you when a restart will start it. It shows the changes each update brings and can roll back. | [source](files/spark-update) |
+| **Spark Welcome** | 1.2.0 | Opens once, at first login, as a step-by-step guide. It shows the Spark app for each Windows program, copies your files, fonts and Steam games from Windows, suggests apps to add and checks the PC. | [source](files/spark-welcome) |
 | **Spark Tray** | 0.1.0 | Tray icons for network, Bluetooth, power, printers and volume, each with a small popup. | [source](files/spark-tray) |
 
 ### Everyday
@@ -70,7 +71,7 @@ Everything else, Steam included, installs from Spark Store, or by double-clickin
 | **Spark Edit** | 1.0.2 | Text and code, with tabs, find and replace and syntax colours. Files keep their own encoding, and unsaved tabs come back. | [source](files/spark-edit) |
 | **Spark Calc** | 1.0.1 | Exact sums (0.1 + 0.2 is 0.3), with scientific and programmer modes and a history. | [source](files/spark-calc) |
 | **Spark Fonts** | 0.1.0 | Shows, installs and removes fonts, with previews, characters and licence details. It finds the fonts on a Windows drive. | [source](files/spark-fonts) |
-| **Spark Archive** | 1.2.1 | Opens and makes zip, 7z, tar, rar and iso, including multi-part archives and passwords. Extract and Compress are on the right-click menu. | [source](files/spark-archive) |
+| **Spark Archive** | 1.2.2 | Opens and makes zip, 7z, tar, rar and iso, including multi-part archives and passwords. Extract and Compress are on the right-click menu. | [source](files/spark-archive) |
 | **Spark Scan** | 1.1.0 | Scans from the glass or the feeder and straightens pages. It saves one PDF (searchable if you want) or one image per page. | [source](files/spark-scan) |
 | **Spark Notes** | 0.1.1 | Quick notes saved as plain files. Also clipboard history on Super+V, with search, pins and a pause. No account. | [source](files/spark-notes) |
 | **Spark Emoji** | 0.1.0 | Emoji and symbols on Super+. (full stop). Search in English or French, with recents and skin tones, plus arrows, maths and accented letters. | [source](files/spark-emoji) |
@@ -101,7 +102,7 @@ Everything else, Steam included, installs from Spark Store, or by double-clickin
 |---|---|---|---|
 | **Spark Bench** | 0.1.0 | Game benchmarks. Sets up MangoHud recording in one click, plays a sound when a run starts and ends, and shows FPS and lows per run, compared with Windows. | [source](files/spark-bench) |
 | **Spark Space** | 1.0.0 | Shows what takes the space on your drives: a map of every folder, the largest files, and safe moves to the Trash. | [source](files/spark-space) |
-| **Spark Connect** | 0.2.0 | Home servers on one screen, fixed over SSH: services, health, tunnel, failover and websites. | [source](files/spark-connect) |
+| **Spark Connect** | 0.2.1 | Home servers on one screen, fixed over SSH: services, health, tunnel, failover and websites. | [source](files/spark-connect) |
 | **Spark Clock** | 0.2.0 | Alarms, timers, a stopwatch and world clocks. Alarms ring with the window closed and after a restart. | [source](files/spark-clock) |
 | **Spark Clips** | 0.1.0 | Instant replay for games. It keeps the last seconds on the GPU, Super+Alt+G saves them as a clip, and it has a library and lossless trimming. | [source](files/spark-clips) |
 | **Spark Camera** | 0.1.0 | Your webcam: a preview, photos with a countdown, video with sound, and a voice recorder. | [source](files/spark-camera) |
@@ -139,7 +140,7 @@ About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000
 - Caps Lock turns on when you press it, like Windows, not when you release it.
 - Double-click a downloaded `.exe`, `.msi`, `.AppImage` or `.rpm` to install it. A `.deb` gets a plain explanation and a way to the Store.
 - Spark Welcome copies your files, fonts and Steam games from a Windows drive, and your Windows drives show in Spark Files.
-- Windows stays. SparkOS installs next to it, and you pick one at power-on.
+- Install it on a drive of its own, or next to Windows while you move over, with a choice at power-on.
 
 **Games**
 
@@ -173,7 +174,7 @@ About 44,000 of the SparkOS lines are tests. Most of the code is Python (190,000
 Soot, FreeSuite and the Spark apps are new on Linux. The boot test checks them on every build. It opens each one from the app menu on a SparkOS desktop in a VM and takes a screenshot. On a real PC they have had only a few days of use, the Spark session one day, and Spark Backup none yet.
 
 More docs:
-- Installing next to Windows: [docs/install.md](docs/install.md).
+- Installing, on a drive of its own or next to Windows: [docs/install.md](docs/install.md).
 - What works, what's replaced and what doesn't run: [docs/switching.md](docs/switching.md).
 - Installing apps the Windows way, from a store or by double-clicking a download: [docs/installing-apps.md](docs/installing-apps.md).
 
@@ -189,20 +190,20 @@ Games with kernel-level anti-cheat don't run on Linux. These include Valorant, F
 | Nvidia graphics | GTX 16, RTX 20, 30, 40 and 50 series, with the `sparkos-nvidia` image | Not yet tried on a real Nvidia PC. GTX 10 and older only get the open nouveau driver: the desktop works, games mostly don't. |
 | Firmware | 64-bit UEFI | No legacy BIOS boot. |
 | Secure Boot | On or off | SparkOS starts with Secure Boot on: the kernel is Fedora's, signed by Fedora. SparkOS's extra kernel modules (Xbox wireless adapters, racing wheels, CPU power sensors, virtual webcam, virtual disc drive and, in the Nvidia image, the Nvidia driver) are signed with SparkOS's own key, and with Secure Boot on they load only after you enroll that key once with `spark secureboot enroll` ([how](docs/install.md)). On the Nvidia image, until the key is enrolled the desktop may not start (nouveau is turned off there), so enroll right after installing or turn Secure Boot off. The modules are signed, but no PC has enrolled the key yet. With Secure Boot off, none of this is needed. |
-| Disk | 100 GB free, 200 GB or more for games | Next to Windows, on any drive. |
+| Disk | 100 GB, 200 GB or more for games | A drive of its own, or free space next to Windows. |
 
 Tested on real hardware so far: one PC, with a Ryzen 7 7800X3D and a Radeon RX 6800 XT. Everything else in the table comes from what the drivers in the image support, not from tests. If SparkOS runs, or fails, on your hardware, an [issue](https://github.com/Wolklaw/sparkos/issues) helps.
 
-## Install next to Windows
+## Install
 
 1. Download every file of the [installer release](https://github.com/Wolklaw/sparkos/releases/tag/installer). The ISO comes in parts under 2 GB.
 2. Join them with `join-iso.cmd` (Windows) or `join-iso.sh` (Linux).
 3. Write the ISO to a USB stick.
 4. Follow [docs/install.md](docs/install.md).
 
-Windows stays, and you pick the system at power-on.
+SparkOS can take a whole drive (that drive is erased), or go into free space next to Windows while you move over, with a choice at power-on.
 
-CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). So far it has been installed on one real PC. There are two images: `sparkos` for AMD and Intel graphics, and `sparkos-nvidia` for Nvidia GTX 16, RTX 20 and newer. The Nvidia one hasn't been tried on a real Nvidia PC yet.
+CI builds the installer every Monday, boots it in a VM and installs it next to a Windows disk there ([installer-install-test](.github/workflows/installer-install-test.yml)). The whole-drive install uses the installer's standard Erase option, which CI doesn't test yet. So far it has been installed on one real PC. There are two images: `sparkos` for AMD and Intel graphics, and `sparkos-nvidia` for Nvidia GTX 16, RTX 20 and newer. The Nvidia one hasn't been tried on a real Nvidia PC yet.
 
 ## Switching from another Fedora atomic desktop
 
