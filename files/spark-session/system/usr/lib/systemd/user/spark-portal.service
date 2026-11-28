@@ -1,0 +1,11 @@
+[Unit]
+Description=Spark portal backend (settings, inhibit, notifications, print)
+PartOf=graphical-session.target
+
+[Service]
+Type=dbus
+BusName=org.freedesktop.impl.portal.desktop.sparkos
+ExecStart=/usr/libexec/spark-session-portal
+Restart=on-failure
+RestartSec=2
+Slice=background.slice

@@ -1,0 +1,84 @@
+name: fedora-next
+# Weekly trial build of SparkOS on the next Fedora: base-atomic:<current + 1> once Fedora has
+# branched it, rawhide before that. Nothing is pushed or signed, and the kernel modules stay
+# unsigned (no key). It is there to show, months before the switch, what breaks on the next
+# release (a repository's key, a package renamed or dropped, a kernel module that no longer
+# compiles). A failure opens an issue (or comments on the open one); a pass closes it.
+on:
+  schedule:
+    - cron: "00 10 * * 6" # Saturdays 10:00 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: fedora-next
+  cancel-in-progress: true
+
+jobs:
+  trial:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache \
+                      /usr/local/share/boost /usr/share/swift /usr/local/.ghcup
+          sudo docker system prune -af >/dev/null || true
+          df -h /
+
+      - name: Pick the next Fedora
+        id: base
+        run: |
+          set -euo pipefail
+          cur=$(sed -n 's/^ARG BASE_IMAGE=.*:\([0-9]\+\)$/\1/p' Containerfile | head -1)
+          test -n "$cur"
+          repo=quay.io/fedora-ostree-desktops/base-atomic
+          next=$repo:$((cur + 1))
+          skopeo inspect --format '{{.Digest}}' "docker://$next" >/dev/null 2>&1 || next=$repo:rawhide
+          echo "SparkOS is on $cur; trying $next"
+          echo "image=$next" >> "$GITHUB_OUTPUT"
+
+      - name: Build on it
+        id: build
+        env:
+          BASE: ${{ steps.base.outputs.image }}
+        run: |
+          set -o pipefail
+          for i in 1 2 3; do sudo podman pull -q "$BASE" && break; sleep $((i*30)); done
+          sudo podman build --file Containerfile \
+            --build-arg BASE_IMAGE="$BASE" --build-arg GPU=amd \
+            --build-arg REVISION="$GITHUB_SHA" --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --tag localhost/sparkos:next . 2>&1 | tee "$RUNNER_TEMP/build.log"
+
+      - name: Report
+        if: always() && steps.base.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BASE: ${{ steps.base.outputs.image }}
+          RESULT: ${{ steps.build.outcome }}
+        run: |
+          set -euo pipefail
+          repo="${{ github.repository }}"
+          run="${{ github.server_url }}/$repo/actions/runs/${{ github.run_id }}"
+          title="SparkOS doesn't build on the next Fedora yet"
+          n=$(gh issue list --repo "$repo" --state open --search "in:title \"$title\"" --json number -q '.[0].number')
+          if [ "$RESULT" = success ]; then
+            echo "Builds on $BASE." >> "$GITHUB_STEP_SUMMARY"
+            [ -z "$n" ] || gh issue close "$n" --repo "$repo" --comment "Builds on $BASE now: $run"
+            exit 0
+          fi
+          tail=$(tail -n 40 "$RUNNER_TEMP/build.log" 2>/dev/null || echo "(no log)")
+          body="The trial build on $BASE failed ($RESULT). The daily build on the current Fedora is not affected.
+
+          Last lines of the build:
+          \`\`\`
+          $tail
+          \`\`\`
+          Run: $run"
+          { echo "Fails on $BASE."; echo '```'; echo "$tail"; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$n" ]; then gh issue comment "$n" --repo "$repo" --body "$body"
+          else gh issue create --repo "$repo" --title "$title" --body "$body"; fi

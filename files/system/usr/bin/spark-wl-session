@@ -9,6 +9,8 @@ export XDG_SESSION_TYPE=wayland
 export MOZ_ENABLE_WAYLAND=1
 export QT_QPA_PLATFORM="wayland;xcb"
 export SDL_VIDEODRIVER=wayland,x11
+# SSH keys: openssh's ssh-agent.socket (a user unit, on by default) listens here
+[ -n "$XDG_RUNTIME_DIR" ] && export SSH_AUTH_SOCK="${SSH_AUTH_SOCK:-$XDG_RUNTIME_DIR/ssh-agent.socket}"
 # The login screen starts this script directly, so no shell profile runs: put the user's own
 # command folders on PATH the way Fedora's bashrc does. Spark Store installs apps into
 # ~/.local/bin, and Settings and the shell find them (spark-connect) by name.

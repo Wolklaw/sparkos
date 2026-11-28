@@ -107,6 +107,22 @@ the app. The screenshots are in the run's `desktop-screenshots` artifact, and th
 a table of window titles and opening times. Branch test runs queue per branch, so they never cancel
 a run of main's.
 
+## Keeping it running
+
+These workflows watch the distro between changes. Each one opens an issue when it finds a
+problem, comments on that issue while the problem lasts, and closes it once it's fixed.
+
+| Workflow | When | What it does |
+|---|---|---|
+| [build-watch.yml](../.github/workflows/build-watch.yml) | after each build of main | opens an issue when a build fails, naming the failed jobs and steps; the next passing build closes it |
+| [package-checkup.yml](../.github/workflows/package-checkup.yml) | Mondays | the published image is over 2 days old, or packages are half-upgraded: starts a build and opens an issue |
+| [pin-check.yml](../.github/workflows/pin-check.yml) | Wednesdays | moves the kernel-module pins in `build_files/kmods.sh` to their projects' newest commits ([tools/pin-check.sh](../tools/pin-check.sh)), opens a pull request on `bot/kmod-pins` and builds that branch. A pin from another branch is reported, not moved |
+| [fedora-next.yml](../.github/workflows/fedora-next.yml) | Saturdays | trial build on the next Fedora (base-atomic:46 once Fedora branches it, rawhide before), nothing pushed; a failure opens an issue |
+| [boot-test.yml](../.github/workflows/boot-test.yml) | after each build of main, full on Sundays | see Testing |
+
+`tools/pin-check.sh` also runs locally: it reports without changing anything, and `--write`
+rewrites the pins.
+
 ## Building it yourself
 
 From the repo root on any Linux machine with podman (SparkOS has it):

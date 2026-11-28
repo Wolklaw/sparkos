@@ -1,0 +1,4 @@
+[D-BUS Service]
+Name=org.freedesktop.impl.portal.desktop.sparkos
+Exec=/usr/libexec/spark-session-portal
+SystemdService=spark-portal.service

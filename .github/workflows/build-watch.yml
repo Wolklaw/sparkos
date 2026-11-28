@@ -1,0 +1,50 @@
+name: build-watch
+# Opens an issue as soon as a build of main fails (the daily schedule, a push or Run workflow),
+# so a broken image is noticed the same day instead of at Monday's package-checkup. Later
+# failures comment on the same issue; the next build that passes closes it.
+on:
+  workflow_run:
+    workflows: [build]
+    types: [completed]
+    branches: [main]
+
+jobs:
+  watch:
+    if: github.event.workflow_run.event != 'pull_request'
+    runs-on: ubuntu-24.04
+    permissions:
+      issues: write
+      actions: read
+    steps:
+      - name: Open, update or close the issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RESULT: ${{ github.event.workflow_run.conclusion }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          RUN_ID: ${{ github.event.workflow_run.id }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          TRIGGER: ${{ github.event.workflow_run.event }}
+        run: |
+          set -euo pipefail
+          repo="${{ github.repository }}"
+          title="The SparkOS build of main is failing"
+          n=$(gh issue list --repo "$repo" --state open --search "in:title \"$title\"" --json number -q '.[0].number')
+          case "$RESULT" in
+            success)
+              [ -z "$n" ] || gh issue close "$n" --repo "$repo" --comment "Passing again: $RUN_URL (${SHA:0:7})."
+              ;;
+            failure|timed_out)
+              # the failed jobs and steps, so the issue says where to look
+              failed=$(gh run view "$RUN_ID" --repo "$repo" --json jobs -q \
+                '.jobs[] | select(.conclusion == "failure") | "- \(.name): \([.steps[] | select(.conclusion == "failure") | .name] | join(", "))"' || true)
+              body="Build of main ($TRIGGER, ${SHA:0:7}) ended: $RESULT.
+
+          ${failed:-(couldn't list the failed jobs)}
+
+          Run: $RUN_URL
+          latest only moves once an image is pushed and its signature checks out, so PCs keep the last good one."
+              if [ -n "$n" ]; then gh issue comment "$n" --repo "$repo" --body "$body"
+              else gh issue create --repo "$repo" --title "$title" --body "$body"; fi
+              ;;
+            *) echo "conclusion $RESULT: nothing to do" ;;
+          esac

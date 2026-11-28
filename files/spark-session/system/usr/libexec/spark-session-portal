@@ -1,0 +1,5 @@
+#!/bin/sh
+# Spark's xdg-desktop-portal backend (org.freedesktop.impl.portal.desktop.sparkos). D-Bus
+# activation starts it as the user service spark-portal.service.
+export PYTHONPATH=/usr/lib/spark-session${PYTHONPATH:+:$PYTHONPATH}
+exec /usr/bin/python3 -s -m sparksession.portal_backend "$@"

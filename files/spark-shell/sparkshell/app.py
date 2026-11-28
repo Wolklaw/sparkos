@@ -24,7 +24,7 @@ from .osd import Controls, Osd  # noqa: E402
 from .panel import Panel  # noqa: E402
 from .screensaver import ScreenSaverService  # noqa: E402
 from .tray import TrayHost  # noqa: E402
-from .wallpaper import Wallpaper  # noqa: E402
+from .wallpaper import Wallpaper, screen_sizes  # noqa: E402
 from .windows import WindowTracker  # noqa: E402
 
 log = logging.getLogger('spark-shell')
@@ -124,9 +124,10 @@ class Shell(Gtk.Application):
             w.destroy()
         self.panels, self.wallpapers = [], []
         monitors = Gdk.Display.get_default().get_monitors()
+        screens = screen_sizes([monitors.get_item(i) for i in range(monitors.get_n_items())])
         for i in range(monitors.get_n_items()):
             monitor = monitors.get_item(i)
-            self.wallpapers.append(Wallpaper(monitor, self.config))
+            self.wallpapers.append(Wallpaper(monitor, self.config, screens))
             self.panels.append(Panel(self, monitor, with_tray=(i == 0)))
         for w in self.wallpapers + self.panels:
             w.present()

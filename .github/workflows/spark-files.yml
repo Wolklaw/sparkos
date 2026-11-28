@@ -40,7 +40,7 @@ jobs:
           CONFIG_DIRECTORY="$PWD/files" bash files/scripts/spark-files.sh
           test ! -e /usr/share/dbus-1/services/org.kde.dolphin.FileManager1.service
           test "$(grep -lx 'Name=org.freedesktop.FileManager1' /usr/share/dbus-1/services/*.service)" = \
-            /usr/share/dbus-1/services/dev.wolklaw.SparkFiles.FileManager1.service
+            /usr/share/dbus-1/services/org.freedesktop.FileManager1.service
 
       - name: Self-test
         run: spark-files --self-test

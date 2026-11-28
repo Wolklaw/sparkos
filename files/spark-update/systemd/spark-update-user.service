@@ -5,6 +5,8 @@
 [Unit]
 Description=Spark Update: your apps and the update notification
 Documentation=file:///usr/lib/spark-update/README.md
+# not for system accounts: the sign-in screen's greetd user has a user manager too
+ConditionUser=!@system
 
 [Service]
 Type=oneshot

@@ -26,6 +26,9 @@ on:
       - ".github/workflows/inventory.yml"
       - ".github/workflows/installer-iso.yml"
       - ".github/workflows/inspect.yml"
+      - ".github/workflows/build-watch.yml"
+      - ".github/workflows/pin-check.yml"
+      - ".github/workflows/fedora-next.yml"
       - ".github/workflows/spark-*.yml"
       - "installer/**"
   pull_request:

@@ -41,6 +41,26 @@ TEXT = {
     'greet.other': ('Other user...', 'Autre utilisateur...'),
     'greet.name': ('User name', "Nom d'utilisateur"),
     'greet.power_failed': ('{what} did not work.', "{what} n'a pas fonctionné."),
+    # portal backend (spark-portal)
+    'portal.allow': ('ALLOW', 'AUTORISER'),
+    'portal.deny': ('DENY', 'REFUSER'),
+    'portal.cancel': ('CANCEL', 'ANNULER'),
+    'portal.app': ('An app', 'Une application'),
+    'portal.account.title': ('SHARE YOUR NAME', 'PARTAGER VOTRE NOM'),
+    'portal.account.body': ('{app} wants your name and picture.',
+                            '{app} veut votre nom et votre image.'),
+    'portal.account.reason': ('Reason: {reason}', 'Raison : {reason}'),
+    'portal.launcher.title': ('ADD TO APPS', 'AJOUTER AUX APPLICATIONS'),
+    'portal.launcher.body': ('{app} wants to add a launcher to your apps.',
+                             '{app} veut ajouter un lanceur à vos applications.'),
+    'portal.launcher.name': ('NAME', 'NOM'),
+    'portal.launcher.site': ('Address: {target}', 'Adresse : {target}'),
+    'portal.launcher.add': ('ADD', 'AJOUTER'),
+    'portal.print.title': ('PRINT', 'IMPRIMER'),
+    'portal.print.printer': ('PRINTER', 'IMPRIMANTE'),
+    'portal.print.copies': ('COPIES', 'COPIES'),
+    'portal.print.none': ('No printer is set up.', "Aucune imprimante n'est configurée."),
+    'portal.print.go': ('PRINT', 'IMPRIMER'),
 }
 
 
