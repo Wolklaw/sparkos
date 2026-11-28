@@ -16,6 +16,21 @@ if [ ${#optdirs[@]} -gt 0 ]; then
   done
 fi
 
+# Home folders live in /var/home. rpm-ostree tells SELinux so in file_contexts.subs_dist (the
+# "/var/home /home" alias turned around), but a selinux-policy upgrade in this build puts the
+# stock file back. Then every home folder is labelled default_t: sshd can't read ~/.ssh and
+# a relabel breaks people's homes. Put the alias back and check that it works.
+subs=/etc/selinux/targeted/contexts/files/file_contexts.subs_dist
+sed -i 's|^/var/home[[:space:]]\+/home$|# &|' "$subs"
+grep -qx '/home /var/home' "$subs" || echo '/home /var/home' >> "$subs"
+for path in /var/home/someone/.ssh /home/someone/.ssh; do
+  label=$(matchpathcon -n "$path")
+  case "$label" in
+    *:ssh_home_t:*) ;;
+    *) echo "SELinux labels $path as $label, not ssh_home_t ($subs)"; exit 1 ;;
+  esac
+done
+
 # The running system makes its own /var and /tmp: leave them empty in the image, and put /opt
 # back as the link into /var that Fedora Atomic expects. (This step's own mount, build_files
 # under /tmp, is left alone; it isn't part of the image.)
