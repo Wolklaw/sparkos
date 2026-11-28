@@ -296,6 +296,51 @@ class SignOutTest(unittest.TestCase):
         self.assertEqual(ending.compositors(sorted(exes), exe=exes.get), [11])
 
 
+class FindSessionTest(unittest.TestCase):
+    """Sign out finds the desktop session itself instead of trusting the shell's environment."""
+    SESSIONS = {
+        '2': {'Leader': '100', 'User': '1000', 'Class': 'user', 'State': 'active', 'Type': 'wayland'},
+        '3': {'Leader': '200', 'User': '1000', 'Class': 'manager', 'State': 'active'},
+        '7': {'Leader': '300', 'User': '1001', 'Class': 'user', 'State': 'active'},
+        '9': {'Leader': '400', 'User': '1000', 'Class': 'user', 'State': 'active', 'Type': 'tty'},
+    }
+    SCOPES = {100: '/user.slice/user-1000.slice/session-2.scope',
+              400: '/user.slice/user-1000.slice/session-9.scope'}
+    PROCS = {SCOPES[100]: [100, 101, 102], SCOPES[400]: [400, 401]}
+
+    def loginctl(self, *args):
+        if args[0] == 'show-user':
+            return 'Display=2\n'
+        if args[0] == 'list-sessions':
+            return '2 1000 Wolklaw seat0 tty2\n3 1000 Wolklaw -\n7 1001 other seat1\n9 1000 Wolklaw - tty3\n'
+        return ''
+
+    def find(self, env):
+        return ending.find_session(env, 1000, session=lambda s: self.SESSIONS.get(s, {}),
+                                   scope_of=lambda p: self.SCOPES.get(p, ''),
+                                   procs=lambda path: self.PROCS.get(path, []),
+                                   find_compositors=lambda pids: [p for p in pids if p == 101],
+                                   loginctl=self.loginctl)
+
+    def test_own_session_is_used(self):
+        self.assertEqual(self.find({'XDG_SESSION_ID': '2'}), ('2', 100, [100, 101, 102]))
+
+    def test_shell_started_without_a_session_id_still_finds_the_desktop(self):
+        self.assertEqual(self.find({})[0], '2')
+
+    def test_a_wrong_session_id_does_not_win_over_the_compositor(self):
+        for wrong in ('3', '7', '9', '55'):
+            self.assertEqual(self.find({'XDG_SESSION_ID': wrong})[0], '2', wrong)
+
+    def test_no_compositor_anywhere_takes_the_first_session_of_the_user(self):
+        self.PROCS = {self.SCOPES[100]: [100], self.SCOPES[400]: [400]}
+        self.assertEqual(self.find({'XDG_SESSION_ID': '9'})[0], '9')
+
+    def test_nothing_of_this_user_gives_none(self):
+        self.SESSIONS = {'7': self.SESSIONS['7']}
+        self.assertIsNone(self.find({'XDG_SESSION_ID': '7'}))
+
+
 class PreloadTest(unittest.TestCase):
     """Apps started from the shell must not inherit gtk4-layer-shell (GTK 3 apps abort)."""
     def test_dropped_once_loaded(self):
